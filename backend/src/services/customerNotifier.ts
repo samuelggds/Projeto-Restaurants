@@ -32,12 +32,6 @@ type OrderStatusChangedPayload = {
   deliveryStartedAt?: Date | string | null;
 };
 
-type RestaurantPinRequestedPayload = {
-  restaurantWhatsapp?: string | null;
-  restaurantName?: string | null;
-  orderId?: number | string | null;
-  requestedByRole?: string | null;
-};
 
 type RestaurantOrderIssueReportedPayload = {
   restaurantWhatsapp?: string | null;
@@ -168,21 +162,6 @@ function buildCustomerPaymentMessage({
     `Pedido #${orderId} no ${restaurant}.`,
     `Total: ${formatCurrencyBrl(total)}.`,
     'Agora é só aguardar o preparo.',
-  ].join('\n');
-}
-
-function buildRestaurantPinRequestMessage({
-  restaurantName,
-  orderId,
-  requestedByRole,
-}: RestaurantPinRequestedPayload) {
-  const restaurant = String(restaurantName || 'restaurante').trim();
-  const requester =
-    String(requestedByRole || 'MOTOQUEIRO').toUpperCase() === 'ADMIN' ? 'Admin' : 'Motoqueiro';
-  return [
-    `Notificação - ${restaurant}`,
-    `${requester} solicitou PIN de confirmação de pagamento.`,
-    `Pedido #${orderId}.`,
   ].join('\n');
 }
 
@@ -354,29 +333,6 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
   } catch (error) {
     console.error('[CUSTOMER_STATUS_NOTIFICATION_ERROR]', getErrorMessage(error));
     return { sent: false, reason: 'send_failed', provider };
-  }
-}
-
-export async function notifyRestaurantPaymentPinRequested(payload: RestaurantPinRequestedPayload) {
-  const provider = resolveProvider();
-  if (provider === 'none') return { sent: false, reason: 'provider_not_configured' };
-  if (!providerSupported(provider)) {
-    return { sent: false, reason: 'provider_not_supported', provider };
-  }
-  try {
-    return await queueWhatsappMessage({
-      restaurantWhatsapp: payload.restaurantWhatsapp,
-      destination: payload.restaurantWhatsapp,
-      message: buildRestaurantPinRequestMessage(payload),
-      metadata: {
-        orderId: payload.orderId,
-        requestedByRole: payload.requestedByRole,
-        event: 'PAYMENT_PIN_REQUESTED',
-      },
-    });
-  } catch (error) {
-    console.error('[RESTAURANT_PIN_NOTIFICATION_ERROR]', getErrorMessage(error));
-    return { sent: false, reason: 'send_failed', provider, error: getErrorMessage(error) };
   }
 }
 
