@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildTenantEvolutionInstanceName,
+  EvolutionRequestError,
   extractEvolutionQrPayload,
+  isEvolutionInstanceNotFound,
+  isRecoverableEvolutionDisconnectError,
   isSafeDisposableOrphanEvolutionInstance,
   isTenantEvolutionInstanceName,
 } from './evolutionTenantWhatsapp.js';
@@ -125,6 +128,48 @@ test('não trata texto arbitrário como imagem base64 de QR Code', () => {
     qrContent: '',
     pairingCode: null,
   });
+});
+
+test('trata somente 404 de fetchInstances como instância ainda inexistente', () => {
+  assert.equal(
+    isEvolutionInstanceNotFound(
+      new EvolutionRequestError(404, 'instance/fetchInstances'),
+    ),
+    true,
+  );
+  assert.equal(
+    isEvolutionInstanceNotFound(
+      new EvolutionRequestError(401, 'instance/fetchInstances'),
+    ),
+    false,
+  );
+  assert.equal(
+    isEvolutionInstanceNotFound(
+      new EvolutionRequestError(404, 'instance/delete'),
+    ),
+    false,
+  );
+});
+
+test('desconexão aceita sessão já ausente ou credencial de instância expirada', () => {
+  assert.equal(
+    isRecoverableEvolutionDisconnectError(
+      new EvolutionRequestError(404, 'instance/logout'),
+    ),
+    true,
+  );
+  assert.equal(
+    isRecoverableEvolutionDisconnectError(
+      new EvolutionRequestError(401, 'instance/logout'),
+    ),
+    true,
+  );
+  assert.equal(
+    isRecoverableEvolutionDisconnectError(
+      new EvolutionRequestError(500, 'instance/logout'),
+    ),
+    false,
+  );
 });
 
 test('mantém compatibilidade com nomes legados de instância', () => {
