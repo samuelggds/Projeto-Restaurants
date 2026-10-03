@@ -79,15 +79,19 @@ export class ManagedServiceService {
   async getAdminOverview(actor: AdminActor) {
     const restaurantId = assertPositiveId(actor.restaurantId, 'Restaurante');
     return withTenantDbContext(restaurantId, async (db) => {
-      const [subscription, implementation, requests] = await Promise.all([
-        subscriptionForRestaurant(db, restaurantId),
-        db.restaurantImplementation.findUnique({ where: { restaurantId } }),
-        db.restaurantManagedUpdateRequest.findMany({
-          where: { restaurantId },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 100,
-        }),
-      ]);
+      const subscription = await subscriptionForRestaurant(db, restaurantId);
+      const implementation = hasImplementationAccess(subscription?.plan, subscription?.status)
+        ? await db.restaurantImplementation.upsert({
+            where: { restaurantId },
+            create: { restaurantId, status: 'AGUARDANDO_MATERIAL', productLimit: 150 },
+            update: {},
+          })
+        : await db.restaurantImplementation.findUnique({ where: { restaurantId } });
+      const requests = await db.restaurantManagedUpdateRequest.findMany({
+        where: { restaurantId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 100,
+      });
 
       return {
         plan: subscription?.plan ?? null,
@@ -153,6 +157,24 @@ export class ManagedServiceService {
   }
 
   async listSuperAdminQueue() {
+    const eligibleSubscriptions = await prisma.subscription.findMany({
+      where: {
+        plan: { in: ['PREMIUM', 'GESTAO_TOTAL'] },
+        status: { in: ['ATIVA', 'TESTE'] },
+      },
+      select: { restaurantId: true },
+    });
+    if (eligibleSubscriptions.length) {
+      await prisma.restaurantImplementation.createMany({
+        data: eligibleSubscriptions.map(({ restaurantId }) => ({
+          restaurantId,
+          status: 'AGUARDANDO_MATERIAL',
+          productLimit: 150,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
     const [implementations, requests] = await Promise.all([
       prisma.restaurantImplementation.findMany({
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
