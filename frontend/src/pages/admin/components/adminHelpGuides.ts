@@ -177,6 +177,20 @@ export const adminHelpGuides: GuideSection[] = [
       'Acompanhe a confirmação da fatura e o status da assinatura antes de concluir alterações de cobrança.',
     ],
   },
+  {
+    title: 'Gestão assistida',
+    icon: Users,
+    area: 'Gestão assistida',
+    path: 'Gestão assistida',
+    preview: 'admin-managed-service',
+    helper: 'Implantação e solicitações de atualização do restaurante.',
+    steps: [
+      'Abra Gestão assistida para acompanhar o andamento da implantação inicial do Premium ou Gestão Total.',
+      'No plano Gestão Total, use Nova solicitação para pedir alterações de produtos, preços, categorias, combos, banners, aparência ou configurações.',
+      'Descreva exatamente o que deve ser alterado. A equipe GastroNexa trabalha somente no seu restaurante e o histórico fica registrado no painel.',
+      'Acompanhe o status e o retorno da equipe antes de considerar a alteração concluída.',
+    ],
+  },
   ...settingItems.map(([key, label, icon]): GuideSection => ({
     title: sectionTitle[key],
     icon,
