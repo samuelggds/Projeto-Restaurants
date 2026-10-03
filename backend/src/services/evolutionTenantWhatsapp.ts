@@ -93,16 +93,25 @@ export function extractEvolutionQrPayload(payload: unknown) {
   const root = record(payload);
   const data = record(root?.data);
   const candidates = [
-    root,
     record(root?.qrcode),
-    data,
+    root,
     record(data?.qrcode),
+    data,
   ].filter((value): value is JsonRecord => Boolean(value));
 
   for (const candidate of candidates) {
     const qrCode = normalizeQrImage(candidate.base64);
-    const qrContent = normalizeQrContent(candidate.code || candidate.qrcode);
-    const pairingCode = String(candidate.pairingCode || '').trim() || null;
+    const rawContent =
+      typeof candidate.code === 'string'
+        ? candidate.code
+        : typeof candidate.qrcode === 'string'
+          ? candidate.qrcode
+          : '';
+    const qrContent = normalizeQrContent(rawContent);
+    const pairingCode =
+      typeof candidate.pairingCode === 'string' && candidate.pairingCode.trim()
+        ? candidate.pairingCode.trim()
+        : null;
     if (qrCode || qrContent || pairingCode) {
       return { qrCode, qrContent, pairingCode };
     }
