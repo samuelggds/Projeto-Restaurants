@@ -59,6 +59,7 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
     assert.equal(overviewA.data.plan, 'GESTAO_TOTAL');
     assert.equal(overviewA.data.continuousManagementEnabled, true);
     assert.equal(overviewA.data.implementation.restaurantId, fixture.restaurants.a.id);
+    assert.equal(overviewA.data.implementation.productLimit, null);
 
     const valid = await apiRequest(
       app.baseUrl,
