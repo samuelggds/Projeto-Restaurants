@@ -123,7 +123,9 @@ export class ManagedServiceService {
               status: 'AGUARDANDO_MATERIAL',
               productLimit: subscription?.plan === 'GESTAO_TOTAL' ? null : 150,
             },
-            update: {},
+            update: {
+              productLimit: subscription?.plan === 'GESTAO_TOTAL' ? null : 150,
+            },
           })
         : await db.restaurantImplementation.findUnique({ where: { restaurantId } });
       const requests = await db.restaurantManagedUpdateRequest.findMany({
@@ -215,6 +217,28 @@ export class ManagedServiceService {
         })),
         skipDuplicates: true,
       });
+
+      const gestaoTotalIds = eligibleSubscriptions
+        .filter(({ plan }) => plan === 'GESTAO_TOTAL')
+        .map(({ restaurantId }) => restaurantId);
+      const premiumIds = eligibleSubscriptions
+        .filter(({ plan }) => plan === 'PREMIUM')
+        .map(({ restaurantId }) => restaurantId);
+
+      await Promise.all([
+        gestaoTotalIds.length
+          ? prisma.restaurantImplementation.updateMany({
+              where: { restaurantId: { in: gestaoTotalIds } },
+              data: { productLimit: null },
+            })
+          : Promise.resolve(),
+        premiumIds.length
+          ? prisma.restaurantImplementation.updateMany({
+              where: { restaurantId: { in: premiumIds } },
+              data: { productLimit: 150 },
+            })
+          : Promise.resolve(),
+      ]);
     }
 
     const [implementations, requests] = await Promise.all([
