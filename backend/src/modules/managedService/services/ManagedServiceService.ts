@@ -320,6 +320,7 @@ export class ManagedServiceService {
         create: {
           restaurantId,
           status: parsed.status,
+          productLimit: managedImplementationProductLimit(restaurant.subscription?.plan),
           notes: parsed.notes ?? null,
           startedAt: parsed.status === 'EM_IMPLANTACAO' ? now : null,
           completedAt: parsed.status === 'CONCLUIDA' ? now : null,
