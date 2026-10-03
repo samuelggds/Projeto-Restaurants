@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useResolvedTenantSlug } from '../../shared/tenant/CustomDomainTenantContext';
+import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import styled from 'styled-components';
 import tableSessionService from '../../Services/tableSessionService';
 import tablesService from '../../Services/tablesService';
