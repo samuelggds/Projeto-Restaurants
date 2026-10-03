@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import prisma from '../../../config/prisma.js';
 import { createSmtpTransporter } from '../../../services/smtpTransport.js';
 import userRepository from '../repositories/UserRepository.js';
+import { resolveRestaurantMenuBaseUrl } from '../../customDomains/services/PublicCustomDomainService.js';
 
 const DEFAULT_TTL_MINUTES = 24 * 60;
 const SAFE_RESEND_MESSAGE =
@@ -28,9 +29,28 @@ function verificationTtlMs() {
   return minutes * 60 * 1000;
 }
 
-function frontendLoginUrl(slug: string | null, status: 'success' | 'invalid') {
-  const base = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/u, '');
-  const path = slug ? `/${encodeURIComponent(slug)}/login` : '/login';
+async function frontendLoginUrl(slug: string | null, status: 'success' | 'invalid') {
+  const canonicalBase = String(process.env.FRONTEND_URL || 'http://localhost:5173').replace(
+    /\/$/u,
+    '',
+  );
+  let base = canonicalBase;
+  let path = slug ? `/${encodeURIComponent(slug)}/login` : '/login';
+
+  if (slug) {
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    const customBase = restaurant
+      ? await resolveRestaurantMenuBaseUrl(restaurant.id)
+      : null;
+    if (customBase) {
+      base = customBase;
+      path = '/login';
+    }
+  }
+
   const url = new URL(`${base}${path}`);
   url.searchParams.set('emailVerified', status);
   return url.toString();
@@ -148,7 +168,7 @@ export class EmailVerificationService {
   async verify(rawToken: unknown) {
     const token = String(rawToken || '').trim();
     if (token.length < 20 || token.length > 512) {
-      return { ok: false as const, redirectUrl: frontendLoginUrl(null, 'invalid') };
+      return { ok: false as const, redirectUrl: await frontendLoginUrl(null, 'invalid') };
     }
 
     const record = await prisma.emailVerificationToken.findUnique({
@@ -165,7 +185,7 @@ export class EmailVerificationService {
     ) {
       return {
         ok: false as const,
-        redirectUrl: frontendLoginUrl(record?.restaurantSlug || null, 'invalid'),
+        redirectUrl: await frontendLoginUrl(record?.restaurantSlug || null, 'invalid'),
       };
     }
 
@@ -190,7 +210,7 @@ export class EmailVerificationService {
 
     return {
       ok: verified as boolean,
-      redirectUrl: frontendLoginUrl(record.restaurantSlug, verified ? 'success' : 'invalid'),
+      redirectUrl: await frontendLoginUrl(record.restaurantSlug, verified ? 'success' : 'invalid'),
     };
   }
 }
