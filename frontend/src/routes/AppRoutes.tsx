@@ -41,6 +41,9 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
+const RestaurantLandingPage = lazy(
+  () => import('../pages/restaurant-landing/RestaurantLandingPage'),
+);
 import api from '../Services/api';
 import tablesService from '../Services/tablesService';
 import restaurantSettingsService from '../Services/restaurantSettingsService';
@@ -122,9 +125,28 @@ function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
 function RootPublicEntry() {
   const custom = useCustomDomainTenant();
   if (custom.loading) return <RouteLoading />;
-  if (custom.isCustomDomain) return <Home />;
+  if (custom.isCustomDomain) {
+    return custom.tenant?.surface === 'LANDING' ? <RestaurantLandingPage /> : <Home />;
+  }
   if (custom.error) return <TenantRequiredPage />;
   return <GastroNexaLanding />;
+}
+
+function CustomDomainMenuRedirect() {
+  const custom = useCustomDomainTenant();
+  const location = useLocation();
+
+  useEffect(() => {
+    const menuHost = String(custom.tenant?.menuHost || '').trim().toLowerCase();
+    if (!menuHost) return;
+    const destination = new URL(`https://${menuHost}`);
+    destination.pathname = location.pathname;
+    destination.search = location.search;
+    destination.hash = location.hash;
+    window.location.replace(destination.toString());
+  }, [custom.tenant?.menuHost, location.hash, location.pathname, location.search]);
+
+  return <RouteLoading />;
 }
 
 function CustomDomainRoute({
@@ -136,7 +158,10 @@ function CustomDomainRoute({
 }) {
   const custom = useCustomDomainTenant();
   if (custom.loading) return <RouteLoading />;
-  if (custom.isCustomDomain) return <>{children}</>;
+  if (custom.isCustomDomain) {
+    if (custom.tenant?.surface === 'LANDING') return <CustomDomainMenuRedirect />;
+    return <>{children}</>;
+  }
   if (custom.error) return <TenantRequiredPage />;
   return <>{fallback}</>;
 }
