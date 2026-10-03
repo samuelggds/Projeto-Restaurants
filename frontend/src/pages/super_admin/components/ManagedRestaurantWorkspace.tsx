@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import {
   Boxes,
   Image,
-  Layers3,
   Loader2,
   PackagePlus,
   RefreshCw,
