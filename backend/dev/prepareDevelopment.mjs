@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 const LOCAL_DATABASE_HOSTS = new Set([
@@ -90,6 +90,29 @@ function currentPrismaSignature() {
     .digest('hex');
 }
 
+function existingGeneratedClientLooksFresh() {
+  const schemaPath = resolve(process.cwd(), 'prisma/schema.prisma');
+  const prismaPackage = resolve(process.cwd(), 'node_modules/prisma/package.json');
+  const clientPackage = resolve(process.cwd(), 'node_modules/@prisma/client/package.json');
+  const generatedSchema = resolve(process.cwd(), 'node_modules/.prisma/client/schema.prisma');
+  const generatedEntry = resolve(process.cwd(), 'node_modules/.prisma/client/index.js');
+
+  const required = [schemaPath, prismaPackage, clientPackage, generatedSchema, generatedEntry];
+  if (required.some((filePath) => !existsSync(filePath))) return false;
+
+  const newestInput = Math.max(
+    statSync(schemaPath).mtimeMs,
+    statSync(prismaPackage).mtimeMs,
+    statSync(clientPackage).mtimeMs,
+  );
+  const oldestGenerated = Math.min(
+    statSync(generatedSchema).mtimeMs,
+    statSync(generatedEntry).mtimeMs,
+  );
+
+  return oldestGenerated >= newestInput;
+}
+
 function readStoredPrismaSignature() {
   if (!existsSync(PRISMA_STATE_FILE)) return null;
   try {
@@ -164,6 +187,11 @@ const storedPrismaSignature = readStoredPrismaSignature();
 
 if (storedPrismaSignature === expectedPrismaSignature) {
   console.info('[dev:prepare] Prisma Client já está sincronizado; generate ignorado.');
+} else if (!storedPrismaSignature && existingGeneratedClientLooksFresh()) {
+  storePrismaSignature(expectedPrismaSignature);
+  console.info(
+    '[dev:prepare] Prisma Client já havia sido gerado; assinatura local reconstruída sem novo generate.',
+  );
 } else {
   console.info('[dev:prepare] Prisma Client precisa ser regenerado.');
   const generate = run('npx', ['prisma', 'generate'], { capture: true });
