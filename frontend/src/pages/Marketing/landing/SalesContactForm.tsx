@@ -4,7 +4,7 @@ import { ArrowRight, CircleCheck } from 'lucide-react';
 import api from '../../../Services/api';
 import * as S from './SalesContactForm.styles';
 
-type PlanInterest = 'BASICO' | 'PREMIUM' | 'UNDECIDED';
+type PlanInterest = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
 type SalesChannel = 'DELIVERY' | 'TABLE' | 'PICKUP';
 
 const states = [
@@ -303,6 +303,7 @@ export function SalesContactForm({
                     <option value="UNDECIDED">Quero uma orientação</option>
                     <option value="BASICO">Básico</option>
                     <option value="PREMIUM">Premium</option>
+                    <option value="GESTAO_TOTAL">Gestão Total</option>
                   </select>
                 </S.Field>
               </S.Grid>
