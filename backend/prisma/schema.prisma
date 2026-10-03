@@ -1265,6 +1265,8 @@ model RestaurantSettings {
   acceptsDelivery       Boolean         @default(true)
   acceptsPickup         Boolean         @default(true)
   averageDeliveryTime   String?
+  deliveryTimeMin       Int?
+  deliveryTimeMax       Int?
   autoAcceptOrders      Boolean         @default(false)
   trackingRequiresLogin Boolean         @default(true)
   soundNotifications    Boolean         @default(true)
