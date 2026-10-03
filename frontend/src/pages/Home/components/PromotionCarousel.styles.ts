@@ -19,37 +19,30 @@ const fillStoryIndicator = keyframes`
 export const Carousel = styled.section`
   position: relative;
   width: 100%;
-  height: clamp(300px, 34vw, 430px);
-  min-height: 300px;
+  height: 520px;
+  min-height: 520px;
   margin: 0;
   overflow: hidden;
   touch-action: pan-y pinch-zoom;
-  border: 1px solid rgba(47, 35, 25, 0.1);
-  border-radius: 18px;
+  border: 0;
+  border-radius: 0;
   background: #18130f;
-  box-shadow:
-    0 18px 42px rgba(28, 28, 28, 0.10),
-    0 2px 8px rgba(28, 28, 28, 0.05);
+  box-shadow: none;
 
   &::after {
     content: '';
     position: absolute;
     inset: 0;
     z-index: 3;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 0;
     border-radius: inherit;
     pointer-events: none;
   }
 
-  @media (max-width: 800px) {
-    height: min(38svh, 300px);
-    min-height: 240px;
-    border-radius: 16px;
-  }
-
-  @media (max-width: 480px) {
-    height: 224px;
-    min-height: 224px;
+  @media (max-width: 760px) {
+    height: 166px;
+    min-height: 166px;
+    border-radius: 12px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -112,9 +105,9 @@ export const Shade = styled.span`
 export const Copy = styled.div`
   position: absolute;
   top: 50%;
-  left: clamp(20px, 4vw, 34px);
+  left: max(24px, calc((100vw - 1120px) / 2));
   z-index: 2;
-  width: min(68%, 440px);
+  width: min(44vw, 560px);
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
@@ -126,7 +119,7 @@ export const Copy = styled.div`
     max-width: 100%;
     color: #fff;
     font-family: 'Gabarito', 'Inter', system-ui, sans-serif;
-    font-size: clamp(22px, 2.35vw, 34px);
+    font-size: clamp(36px, 3.3vw, 48px);
     font-weight: 900;
     line-height: 1.02;
     letter-spacing: -0.02em;
@@ -146,7 +139,7 @@ export const Copy = styled.div`
     margin-top: 5px;
     color: color-mix(in srgb, var(--home-primary) 86%, #ff9b65);
     font-style: normal;
-    font-size: 1.12em;
+    font-size: 1.22em;
     font-weight: 950;
     line-height: 0.98;
     text-shadow:
@@ -156,7 +149,7 @@ export const Copy = styled.div`
 
   p {
     display: -webkit-box;
-    max-width: 390px;
+    max-width: 460px;
     margin: 9px 0 0;
     overflow: hidden;
     color: rgba(255, 255, 255, 0.94);
@@ -169,8 +162,8 @@ export const Copy = styled.div`
   }
 
   > button {
-    min-height: 38px;
-    margin-top: 14px;
+    min-height: 44px;
+    margin-top: 18px;
     border: 0;
     border-radius: 10px;
     padding: 0 18px;
@@ -205,12 +198,12 @@ export const Copy = styled.div`
     outline-offset: 3px;
   }
 
-  @media (max-width: 800px) {
-    left: 20px;
-    width: min(78%, 360px);
+  @media (max-width: 760px) {
+    left: 14px;
+    width: min(78%, 250px);
 
     h1 {
-      font-size: clamp(20px, 7vw, 28px);
+      font-size: clamp(16px, 5.6vw, 22px);
     }
 
     h1 em {
@@ -218,41 +211,23 @@ export const Copy = styled.div`
     }
 
     p {
-      max-width: 290px;
-      margin-top: 7px;
-      font-size: 11px;
+      max-width: 220px;
+      margin-top: 5px;
+      font-size: 8px;
       line-height: 1.32;
     }
 
     > button {
-      min-height: 34px;
-      margin-top: 11px;
-      padding: 0 15px;
-      font-size: 11px;
+      min-height: 28px;
+      margin-top: 8px;
+      padding: 0 11px;
+      border-radius: 7px;
+      font-size: 8px;
     }
 
     > button svg {
       width: 14px;
       height: 14px;
-    }
-  }
-
-  @media (max-width: 480px) {
-    left: 18px;
-    width: 76%;
-
-    h1 {
-      font-size: clamp(19px, 7.2vw, 26px);
-    }
-
-    p {
-      max-width: 245px;
-    }
-
-    > button {
-      min-height: 32px;
-      margin-top: 9px;
-      padding-inline: 14px;
     }
   }
 
