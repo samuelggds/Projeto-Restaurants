@@ -375,8 +375,9 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
     'border-radius',
     '8px',
   );
-  await expect(page.locator('article[aria-label^="Plano Gestão Total"]')).toBeVisible();
-  await expect(page.getByText('R$ 349,90')).toBeVisible();
+  const managedPlan = page.locator('article[aria-label^="Plano Gestão Total"]');
+  await expect(managedPlan).toBeVisible();
+  await expect(managedPlan).toContainText('349,90');
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
