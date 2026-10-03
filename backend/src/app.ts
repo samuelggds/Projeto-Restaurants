@@ -62,13 +62,14 @@ app.get('/ready', async (_req, res) => {
   });
 });
 
-applyCorsAndGlobalRateLimit(app);
-
-// Endpoint sem dados sensíveis usado apenas como decisão de autorização do On-Demand TLS.
-// Precisa permanecer disponível mesmo durante manutenção para não quebrar renovação HTTPS.
+// Endpoint sem dados sensíveis usado somente pelo gateway na rede privada.
+// Fica antes do rate limit público porque o Caddy faz este pre-check para cada
+// requisição de hostname customizado e para decisões de On-Demand TLS.
 app.get('/infrastructure/custom-domains/caddy-allow', (req, res) =>
   customDomainController.caddyAllow(req, res),
 );
+
+applyCorsAndGlobalRateLimit(app);
 
 app.get('/platform/status', platformStatusHandler);
 app.get('/platform/plans', async (_req, res) => {
