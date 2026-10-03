@@ -59,6 +59,9 @@ function initialStage3View(view: ProfileView): Stage3View {
   if (view === 'addresses') return 'addresses';
   if (view === 'paymentMethods') return 'paymentMethods';
   if (view === 'coupons') return 'coupons';
+  if (view === 'loyalty') return 'loyalty';
+  if (view === 'help') return 'help';
+  if (view === 'settings') return 'settings';
   return 'account';
 }
 
