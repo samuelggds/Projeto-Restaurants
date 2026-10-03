@@ -27,6 +27,7 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { OrderPaymentAttemptStatus } from '@prisma/client';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
+import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
@@ -150,10 +151,16 @@ class CreateOrderCardCheckoutService {
       paid: false,
     });
 
-    const successUrlBase = String(
-      payload.successUrl || process.env.FRONTEND_URL || 'http://localhost:5173/cart',
-    ).trim();
-    const cancelUrlBase = String(payload.cancelUrl || successUrlBase).trim();
+    const successUrlBase = await resolveSafeOrderReturnUrl(
+      createdOrder.restaurantId,
+      payload.successUrl,
+      '/',
+    );
+    const cancelUrlBase = await resolveSafeOrderReturnUrl(
+      createdOrder.restaurantId,
+      payload.cancelUrl || successUrlBase,
+      '/',
+    );
 
     const orderForPayment = {
       id: createdOrder.id,
