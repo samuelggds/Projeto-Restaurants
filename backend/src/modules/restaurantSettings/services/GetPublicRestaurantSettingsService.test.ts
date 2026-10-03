@@ -97,6 +97,7 @@ test('expõe somente os campos públicos necessários para a Home respeitar a co
       fontFamily: 'Manrope',
       seoTitle: 'Restaurante do Bairro',
       seoDescription: 'Peça online com segurança.',
+      landingPageEnabled: true,
       restaurant: {
         active: true,
         whatsapp: '+55 (85) 99999-9999',
@@ -122,6 +123,7 @@ test('expõe somente os campos públicos necessários para a Home respeitar a co
   assert.equal(settings.freeShippingMinimum, 80);
   assert.equal(settings.fontFamily, 'Manrope');
   assert.equal(settings.seoTitle, 'Restaurante do Bairro');
+  assert.equal(settings.landingPageEnabled, true);
   assert.deepEqual(settings.restaurant.banners, [
     {
       id: 9,
@@ -193,6 +195,7 @@ test('usa uma cor segura quando o restaurante ainda não possui configurações'
   });
 
   assert.equal(settings.primaryColor, '#c95d3d');
+  assert.equal(settings.landingPageEnabled, false);
 });
 
 test('carrega a identidade do restaurante ativo ao abrir o login diretamente', async () => {
