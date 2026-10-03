@@ -85,6 +85,21 @@ describe('FigmaDeliveryExperience product flow', () => {
 
     await act(async () => addressesButton?.click());
 
+    const closingDialog = container.querySelector(
+      '[aria-labelledby="profile-quick-menu-title"]',
+    ) as HTMLElement | null;
+    expect(closingDialog?.classList.contains('closing')).toBe(true);
+    expect(onOpenProfileView).not.toHaveBeenCalled();
+
+    await act(async () => {
+      closingDialog?.dispatchEvent(
+        new AnimationEvent('animationend', {
+          animationName: 'profile-quick-sheet-out',
+          bubbles: true,
+        }),
+      );
+    });
+
     expect(onOpenProfileView).toHaveBeenCalledWith('addresses');
     expect(container.querySelector('[aria-labelledby="profile-quick-menu-title"]')).toBeNull();
 
