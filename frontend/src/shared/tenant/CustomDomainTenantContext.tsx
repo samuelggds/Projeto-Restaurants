@@ -18,7 +18,9 @@ type CustomDomainTenant = {
   restaurantName: string;
   restaurantSlug: string;
   mode: 'MENU_ONLY' | 'SITE_WITH_MENU_SUBDOMAIN';
+  surface: 'MENU' | 'LANDING';
   canonicalHost: string | null;
+  menuHost: string | null;
 };
 
 type CustomDomainContextValue = {
