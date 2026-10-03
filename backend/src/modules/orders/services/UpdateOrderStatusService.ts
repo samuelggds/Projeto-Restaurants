@@ -294,7 +294,7 @@ class UpdateOrderStatusService {
               },
             },
           });
-        } else if (canCourierCompleteCashBeforeAdminPayment) {
+        } else if (canCourierCompleteCashBeforeAdminPayment && deliveredOrder.paid !== true) {
           await tx.auditLog.create({
             data: {
               userId: normalizedActorUserId,
