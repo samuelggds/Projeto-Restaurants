@@ -1,15 +1,20 @@
 import { z } from 'zod';
 
-const managedCredentialPatterns = [
-  /\b(?:access[_ -]?token|secret[_ -]?key|api[_ -]?key|password|senha)\s*[:=]\s*\S{6,}/iu,
+const managedSensitivePatterns = [
+  /\b(?:access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|secret[_ -]?key|api[_ -]?key|private[_ -]?key|webhook[_ -]?secret|password|senha)\s*[:=]\s*\S{4,}/iu,
+  /\b(?:mfa|otp|totp|2fa)(?:[_ -]?(?:code|codigo|código))?\s*[:=]\s*\d{4,10}\b/iu,
+  /\b(?:ag[eê]ncia|conta(?:\s+banc[aá]ria)?|bank[_ -]?account|iban|swift)\s*[:=]\s*[A-Za-z0-9./-]{3,}/iu,
+  /\b(?:cpf|cnpj|chave[_ -]?pix|pix[_ -]?key)\s*[:=]\s*\S{5,}/iu,
+  /\b(?:cvv|cvc|n[uú]mero[_ -]?do[_ -]?cart[aã]o|card[_ -]?number)\s*[:=]\s*[\d -]{3,}/iu,
   /\bBearer\s+[A-Za-z0-9._-]{12,}/u,
   /\bAPP_USR-[A-Za-z0-9-]{10,}/u,
   /\bsk-[A-Za-z0-9_-]{12,}/u,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u,
 ];
 
-function rejectManagedCredentialText(value: string | null | undefined) {
+function rejectManagedSensitiveText(value: string | null | undefined) {
   if (!value) return true;
-  return !managedCredentialPatterns.some((pattern) => pattern.test(value));
+  return !managedSensitivePatterns.some((pattern) => pattern.test(value));
 }
 
 export const managedRequestCreateSchema = z
@@ -30,12 +35,12 @@ export const managedRequestCreateSchema = z
   .strict()
   .superRefine((value, ctx) => {
     const combined = `${value.title}\n${value.description}`;
-    if (!rejectManagedCredentialText(combined)) {
+    if (!rejectManagedSensitiveText(combined)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['description'],
         message:
-          'Não envie senhas, tokens, chaves de API ou credenciais de pagamento nesta solicitação.',
+          'Não envie senhas, tokens, chaves de API, códigos MFA ou dados bancários nesta solicitação.',
       });
     }
   });
@@ -52,7 +57,17 @@ export const implementationUpdateSchema = z
     ]),
     notes: z.string().trim().max(2000).nullable().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (!rejectManagedSensitiveText(value.notes)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['notes'],
+        message:
+          'Não inclua credenciais, códigos MFA ou dados bancários nas observações da implantação.',
+      });
+    }
+  });
 
 export const managedRequestUpdateSchema = z
   .object({
@@ -68,11 +83,11 @@ export const managedRequestUpdateSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (!rejectManagedCredentialText(value.response)) {
+    if (!rejectManagedSensitiveText(value.response)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['response'],
-        message: 'Não inclua senhas, tokens, chaves de API ou credenciais na resposta.',
+        message: 'Não inclua senhas, tokens, chaves de API, códigos MFA ou dados bancários na resposta.',
       });
     }
   });
