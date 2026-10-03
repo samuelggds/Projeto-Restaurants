@@ -113,6 +113,7 @@ export function ManagedRestaurantWorkspace({
     name: '',
     description: '',
     price: '',
+    image: '',
     productIds: [] as number[],
     active: true,
     featured: true,
@@ -278,6 +279,7 @@ export function ManagedRestaurantWorkspace({
       name: item.name || '',
       description: item.description || '',
       price: String(toNumber(item.price)),
+      image: item.image || '',
       productIds: [...new Set(selected)],
       active: item.active !== false,
       featured: item.featured !== false,
@@ -293,7 +295,7 @@ export function ManagedRestaurantWorkspace({
     const payload = {
       name: combo.name.trim(),
       description: combo.description.trim(),
-      image: '',
+      image: combo.image.trim(),
       price: Number(combo.price),
       active: combo.active,
       featured: combo.featured,
@@ -323,7 +325,7 @@ export function ManagedRestaurantWorkspace({
           : superAdminService.createManagedCombo(restaurantId, payload),
       combo.id ? 'Combo atualizado.' : 'Combo cadastrado.',
     );
-    setCombo({ id: 0, name: '', description: '', price: '', productIds: [], active: true, featured: true });
+    setCombo({ id: 0, name: '', description: '', price: '', image: '', productIds: [], active: true, featured: true });
   }
 
   async function saveBanner(event: FormEvent) {
@@ -461,8 +463,9 @@ export function ManagedRestaurantWorkspace({
                   <label>Nome<input required minLength={2} value={combo.name} onChange={(e) => setCombo((x) => ({ ...x, name: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={3} value={combo.description} onChange={(e) => setCombo((x) => ({ ...x, description: e.target.value }))} /></label>
                   <label>Preço<input required type="number" min="0.01" step="0.01" value={combo.price} onChange={(e) => setCombo((x) => ({ ...x, price: e.target.value }))} /></label>
+                  <label>Imagem<input value={combo.image} onChange={(e) => setCombo((x) => ({ ...x, image: e.target.value }))} /></label>
                   <fieldset><legend>Produtos incluídos</legend>{standardProducts.map((item) => <label key={item.id} className="choice"><input type="checkbox" checked={combo.productIds.includes(item.id)} onChange={(e) => setCombo((x) => ({ ...x, productIds: e.target.checked ? [...x.productIds, item.id] : x.productIds.filter((id) => id !== item.id) }))} />{item.name}</label>)}</fieldset>
-                  <S.FormActions>{combo.id ? <button type="button" onClick={() => setCombo({ id: 0, name: '', description: '', price: '', productIds: [], active: true, featured: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar combo</button></S.FormActions>
+                  <S.FormActions>{combo.id ? <button type="button" onClick={() => setCombo({ id: 0, name: '', description: '', price: '', image: '', productIds: [], active: true, featured: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar combo</button></S.FormActions>
                 </S.Form>
               </S.Split>
             ) : tab === 'banners' ? (
