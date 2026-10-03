@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { resolveTxt } from 'node:dns/promises';
+import { resolve4, resolveCname, resolveTxt } from 'node:dns/promises';
 import prisma from '../../../config/prisma.js';
 import { buildAuditMetadata } from '../../superAdmin/domain/auditMetadata.js';
 import { notFound, SuperAdminError } from '../../superAdmin/domain/superAdminErrors.js';
@@ -151,6 +151,58 @@ async function checkTxt(hostname: string, token: string) {
   }
 }
 
+async function checkRouting(record: {
+  hostname: string;
+  mode: string;
+  menuHostname: string | null;
+}) {
+  if (record.mode === 'SITE_WITH_MENU_SUBDOMAIN') {
+    const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET || process.env.APP_DOMAIN || '')
+      .trim()
+      .replace(/^https?:\/\//u, '')
+      .replace(/\/+$/u, '')
+      .toLowerCase();
+    if (!target || !record.menuHostname) {
+      return { ok: false, reason: 'Destino CNAME da GastroNexa não está configurado no ambiente.' };
+    }
+    try {
+      const values = (await resolveCname(record.menuHostname)).map((value) =>
+        value.replace(/\.$/u, '').toLowerCase(),
+      );
+      return values.includes(target)
+        ? { ok: true, reason: null }
+        : {
+            ok: false,
+            reason: `O CNAME de ${record.menuHostname} ainda não aponta para ${target}.`,
+          };
+    } catch {
+      return {
+        ok: false,
+        reason: `O CNAME de ${record.menuHostname} ainda não foi encontrado.`,
+      };
+    }
+  }
+
+  const expectedIpv4 = String(process.env.CUSTOM_DOMAIN_EDGE_IPV4 || '').trim();
+  if (!expectedIpv4) {
+    return { ok: false, reason: 'IP público do gateway não está configurado no ambiente.' };
+  }
+  try {
+    const values = await resolve4(record.hostname);
+    return values.includes(expectedIpv4)
+      ? { ok: true, reason: null }
+      : {
+          ok: false,
+          reason: `O registro A de ${record.hostname} ainda não aponta para o gateway GastroNexa.`,
+        };
+  } catch {
+    return {
+      ok: false,
+      reason: `O registro A de ${record.hostname} ainda não foi encontrado.`,
+    };
+  }
+}
+
 export class RestaurantCustomDomainService {
   async list() {
     const rows = await prisma.restaurantCustomDomain.findMany({
@@ -297,7 +349,12 @@ export class RestaurantCustomDomainService {
     const current = await prisma.restaurantCustomDomain.findUnique({ where: { restaurantId } });
     if (!current) throw notFound('Domínio personalizado não configurado.');
 
-    const verified = await checkTxt(current.hostname, current.verificationToken);
+    const ownershipVerified = await checkTxt(current.hostname, current.verificationToken);
+    const routing = await checkRouting(current);
+    const verified = ownershipVerified && routing.ok;
+    const failureReason = !ownershipVerified
+      ? 'Registro TXT de verificação ainda não encontrado.'
+      : routing.reason;
     const now = new Date();
     const after = await prisma.$transaction(async (tx) => {
       const actor = await requireSuperAdminActor(superAdminRepository, context, tx);
@@ -314,7 +371,7 @@ export class RestaurantCustomDomainService {
           : {
               status: current.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING_DNS',
               lastCheckedAt: now,
-              lastCheckError: 'Registro TXT de verificação ainda não encontrado.',
+              lastCheckError: failureReason || 'DNS ainda não está pronto.',
               updatedByUserId: actor.id,
             },
       });
@@ -344,7 +401,7 @@ export class RestaurantCustomDomainService {
 
     if (!verified) {
       throw new SuperAdminError(
-        'O TXT de verificação ainda não foi encontrado no DNS.',
+        failureReason || 'Os registros DNS ainda não estão prontos.',
         409,
         'CUSTOM_DOMAIN_DNS_NOT_VERIFIED',
       );
