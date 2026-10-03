@@ -35,7 +35,7 @@ import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import { applyHomeSeoMetadata, buildWhatsAppUrl, getAvailablePaymentMethods, resolveAvailableFulfillmentMethod, resolveDefaultCheckoutPaymentMethod } from './domain/publicSettings';
 import { useCardPaymentReturn } from './hooks/useCardPaymentReturn';
 import { buildLoginUrl } from '../../shared/navigation/authNavigation';
-import type { HomeProduct } from './types';
+import type { HomeProduct, HomeProfileView } from './types';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import { validateDeliveryAddressLocationForCheckout } from './domain/deliveryAddress';
@@ -736,6 +736,16 @@ export default function Home() {
     }
     navigate(`/${restaurantSlug}/pedidos`);
   }, [navigate, restaurantSlug, user]);
+  const openProfileView = useCallback(
+    (view: HomeProfileView) => {
+      if (user) {
+        navigate(`/profile?view=${encodeURIComponent(view)}`);
+        return;
+      }
+      navigateToLogin();
+    },
+    [navigate, navigateToLogin, user],
+  );
   const openAdmin = useCallback(() => navigate('/admin'), [navigate]);
   const handleLogout = useCallback(() => logout(), [logout]);
 
@@ -949,6 +959,7 @@ export default function Home() {
         onOpenCart={openHomeCart}
         onOpenMenu={openMenu}
         onOpenProfile={mesaMode ? undefined : openProfile}
+        onOpenProfileView={mesaMode ? undefined : openProfileView}
         onOpenOrders={mesaMode ? undefined : openOrders}
         onOpenAdmin={openAdmin}
         onAddProduct={tableClosingRequested ? () => undefined : addToCart}
