@@ -10,6 +10,7 @@ describe('tableQr', () => {
           number: 12,
           restaurantId: 4,
           restaurantSlug: 'restaurante-teste',
+          menuBaseUrl: null,
           token: 'token/&=',
           active: true,
           operational: { status: 'OCCUPIED' },
@@ -22,6 +23,7 @@ describe('tableQr', () => {
         number: 12,
         restaurantId: 4,
         restaurantSlug: 'restaurante-teste',
+        menuBaseUrl: null,
         token: 'token/&=',
         active: true,
         status: 'OCCUPIED',
@@ -47,3 +49,19 @@ describe('tableQr', () => {
     expect(tableDisplayName(1)).toBe('Mesa 01');
   });
 });
+
+
+  it('usa o domínio personalizado ativo sem expor o slug na URL da mesa', () => {
+    expect(
+      buildAdminTableQrUrl({
+        id: '7',
+        number: 12,
+        restaurantId: 4,
+        restaurantSlug: 'restaurante-teste',
+        menuBaseUrl: 'https://cardapio.northpizza.com.br',
+        token: 'token/&=',
+      }),
+    ).toBe(
+      'https://cardapio.northpizza.com.br/mesa/12?tk=token%2F%26%3D&rid=4',
+    );
+  });
