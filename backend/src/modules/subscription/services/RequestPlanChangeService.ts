@@ -18,7 +18,7 @@ function periodKey(dateValue: Date | string) {
 class RequestPlanChangeService {
   async execute({ restaurantId, plan }: RequestPlanChangePayload) {
     if (!Object.values(PlanType).includes(plan) || !isAvailablePlan(plan)) {
-      throw new Error('Escolha um plano disponível: Básico ou Premium.');
+      throw new Error('Escolha um plano disponível: Básico, Premium ou Gestão Total.');
     }
 
     const subscription = await subscriptionRepository.findByRestaurantId(restaurantId);
