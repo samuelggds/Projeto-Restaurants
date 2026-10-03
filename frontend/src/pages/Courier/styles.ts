@@ -936,16 +936,59 @@ export const ProfileAvatarRow = styled.div`
   flex-wrap: wrap;
 `;
 
+export const ProfileAvatarWrap = styled.div`
+  position: relative;
+  flex: 0 0 auto;
+`;
+
 export const ProfileAvatar = styled.div`
-  width: 64px;
-  height: 64px;
-  border-radius: 8px;
-  background: var(--courier-primary);
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--courier-primary) 24%, #fff);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--courier-primary) 92%, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(24, 32, 29, 0.12);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+
+export const ProfileAvatarButton = styled.button`
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--courier-primary);
+  box-shadow: 0 5px 14px rgba(24, 32, 29, 0.2);
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+`;
+
+export const ProfileAvatarHint = styled.small`
+  display: block;
+  margin-top: 7px;
+  max-width: 290px;
+  color: #7d8a83;
+  font-size: 11px;
+  line-height: 1.35;
 `;
 
 export const ProfileName = styled.h2`
