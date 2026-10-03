@@ -17,7 +17,7 @@ import {
 import { useRestaurantLoginBranding } from '../Login/hooks/useRestaurantLoginBranding';
 import { getRestaurantSlugFromAuthPath } from '../Login/domain/loginPortal';
 import { CustomerRegisterExperience } from './CustomerRegisterExperience';
-import { useCustomDomainTenant } from '../../shared/tenant/CustomDomainTenantContext';
+import { useCustomDomainTenant } from '../../shared/tenant/useCustomDomainTenant';
 
 export default function Register() {
   const navigate = useNavigate();
