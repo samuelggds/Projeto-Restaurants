@@ -4,6 +4,7 @@ import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import {
   hasContinuousManagementAccess,
   hasImplementationAccess,
+  managedImplementationProductLimit,
 } from '../domain/managedServicePolicy.js';
 import {
   implementationUpdateSchema,
@@ -121,10 +122,10 @@ export class ManagedServiceService {
             create: {
               restaurantId,
               status: 'AGUARDANDO_MATERIAL',
-              productLimit: subscription?.plan === 'GESTAO_TOTAL' ? null : 150,
+              productLimit: managedImplementationProductLimit(subscription?.plan),
             },
             update: {
-              productLimit: subscription?.plan === 'GESTAO_TOTAL' ? null : 150,
+              productLimit: managedImplementationProductLimit(subscription?.plan),
             },
           })
         : await db.restaurantImplementation.findUnique({ where: { restaurantId } });
@@ -213,7 +214,7 @@ export class ManagedServiceService {
         data: eligibleSubscriptions.map(({ restaurantId, plan }) => ({
           restaurantId,
           status: 'AGUARDANDO_MATERIAL',
-          productLimit: plan === 'GESTAO_TOTAL' ? null : 150,
+          productLimit: managedImplementationProductLimit(plan),
         })),
         skipDuplicates: true,
       });
