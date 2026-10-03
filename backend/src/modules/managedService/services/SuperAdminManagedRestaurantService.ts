@@ -104,8 +104,11 @@ async function assertManagedAccess(restaurantId: number) {
   }
 
   if (
-    !hasContinuousManagementAccess(subscription?.plan, subscription?.status) &&
-    ['CONCLUIDA', 'CANCELADA'].includes(String(restaurant.implementation?.status || ''))
+    !hasManagedWorkspaceAccess(
+      subscription?.plan,
+      subscription?.status,
+      restaurant.implementation?.status,
+    )
   ) {
     throw new Error(
       'A implantação Premium já foi encerrada. Alterações contínuas exigem o plano Gestão Total.',
