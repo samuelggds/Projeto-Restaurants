@@ -60,7 +60,7 @@ export const io = new Server(server, {
       return;
     }
     const host = String(req.headers.host || '').split(':')[0].trim().toLowerCase();
-    let originHost = '';
+    let originHost: string;
     try {
       originHost = new URL(origin).hostname.toLowerCase();
     } catch {
