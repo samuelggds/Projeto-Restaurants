@@ -6,6 +6,7 @@ export type AdminSection =
   | 'catalog'
   | 'customers'
   | 'subscriptions'
+  | 'managed-service'
   | 'help'
   | 'settings'
   | 'employees';
