@@ -242,30 +242,6 @@ router.patch('/:id/confirm-payment', authMiddleware, adminMiddleware, (req, res)
   ConfirmOrderPaymentController.handle(req, res);
 });
 
-router.post('/:id/payment-confirmation-pin', authMiddleware, adminMiddleware, (req, res) => {
-  GenerateOrderPaymentConfirmationPinController.handle(req, res);
-});
-
-router.post(
-  '/:id/request-payment-confirmation-pin',
-  authMiddleware,
-  staffMiddleware,
-  paymentPinRequestRateLimitMiddleware,
-  (req, res) => {
-    RequestOrderPaymentConfirmationPinController.handle(req, res);
-  },
-);
-
-router.patch(
-  '/:id/confirm-payment-with-pin',
-  authMiddleware,
-  staffMiddleware,
-  paymentPinAttemptRateLimitMiddleware,
-  (req, res) => {
-    ConfirmOrderPaymentWithPinController.handle(req, res);
-  },
-);
-
 router.get('/reports/overview', authMiddleware, adminMiddleware, (req, res) => {
   OrderReportsController.overview(req, res);
 });
