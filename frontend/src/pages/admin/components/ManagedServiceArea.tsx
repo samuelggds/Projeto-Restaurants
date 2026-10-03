@@ -29,7 +29,7 @@ type ManagedOverview = {
   continuousManagementEnabled: boolean;
   implementation: {
     status: string;
-    productLimit: number;
+    productLimit: number | null;
     notes?: string | null;
     startedAt?: string | null;
     completedAt?: string | null;
@@ -187,7 +187,11 @@ export default function ManagedServiceArea() {
           </p>
           {data.implementation ? (
             <div className="meta">
-              <span>Até {data.implementation.productLimit} produtos na implantação inicial</span>
+              <span>
+                {data.implementation.productLimit == null
+                  ? 'Produtos ilimitados na implantação inicial'
+                  : `Até ${data.implementation.productLimit} produtos na implantação inicial`}
+              </span>
               {data.implementation.startedAt ? <span>Iniciada em {dateTime(data.implementation.startedAt)}</span> : null}
               {data.implementation.completedAt ? <span>Concluída em {dateTime(data.implementation.completedAt)}</span> : null}
             </div>
