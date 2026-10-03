@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 
 const LOCAL_DATABASE_HOSTS = new Set([
   'localhost',
@@ -10,6 +11,11 @@ const LOCAL_DATABASE_HOSTS = new Set([
   '[::1]',
   'host.docker.internal',
 ]);
+
+const PRISMA_STATE_FILE = resolve(
+  process.cwd(),
+  'node_modules/.cache/gastronexa/prisma-client-state.json',
+);
 
 function parseDatabaseUrl(name, value) {
   const raw = String(value || '').trim();
@@ -57,28 +63,50 @@ function normalizeSchemaText(value) {
     .replace(/\r\n?/gu, '\n');
 }
 
-function prismaClientIsCurrent() {
-  const sourceSchema = resolve(process.cwd(), 'prisma/schema.prisma');
-  const generatedSchema = resolve(process.cwd(), 'node_modules/.prisma/client/schema.prisma');
+function currentPrismaSignature() {
+  const schemaPath = resolve(process.cwd(), 'prisma/schema.prisma');
+  const prismaPackage = resolve(process.cwd(), 'node_modules/prisma/package.json');
   const clientPackage = resolve(process.cwd(), 'node_modules/@prisma/client/package.json');
-  const generatedPackage = resolve(process.cwd(), 'node_modules/.prisma/client/package.json');
 
-  if (
-    !existsSync(sourceSchema) ||
-    !existsSync(generatedSchema) ||
-    !existsSync(clientPackage) ||
-    !existsSync(generatedPackage)
-  ) {
-    return false;
+  if (!existsSync(schemaPath)) {
+    throw new Error('prisma/schema.prisma não foi encontrado.');
   }
 
-  const source = normalizeSchemaText(readFileSync(sourceSchema, 'utf8'));
-  const generated = normalizeSchemaText(readFileSync(generatedSchema, 'utf8'));
-  if (source !== generated) return false;
+  const prismaVersion = readJsonVersion(prismaPackage);
+  const clientVersion = readJsonVersion(clientPackage);
+  if (!prismaVersion || !clientVersion) {
+    throw new Error(
+      'Prisma não está instalado corretamente. Execute npm install antes de iniciar o backend.',
+    );
+  }
 
-  const installedVersion = readJsonVersion(clientPackage);
-  const generatedVersion = readJsonVersion(generatedPackage);
-  return Boolean(installedVersion && generatedVersion && installedVersion === generatedVersion);
+  const schema = normalizeSchemaText(readFileSync(schemaPath, 'utf8'));
+  return createHash('sha256')
+    .update(schema)
+    .update('\0')
+    .update(prismaVersion)
+    .update('\0')
+    .update(clientVersion)
+    .digest('hex');
+}
+
+function readStoredPrismaSignature() {
+  if (!existsSync(PRISMA_STATE_FILE)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(PRISMA_STATE_FILE, 'utf8'));
+    return typeof parsed.signature === 'string' ? parsed.signature : null;
+  } catch {
+    return null;
+  }
+}
+
+function storePrismaSignature(signature) {
+  mkdirSync(dirname(PRISMA_STATE_FILE), { recursive: true });
+  writeFileSync(
+    PRISMA_STATE_FILE,
+    `${JSON.stringify({ signature }, null, 2)}\n`,
+    { encoding: 'utf8' },
+  );
 }
 
 function run(command, args, { capture = false } = {}) {
@@ -131,8 +159,11 @@ if (migrate.status !== 0) {
   throw new Error(`npx prisma migrate deploy falhou com código ${migrate.status}.`);
 }
 
-if (prismaClientIsCurrent()) {
-  console.info('[dev:prepare] Prisma Client já está compatível com o schema atual; generate ignorado.');
+const expectedPrismaSignature = currentPrismaSignature();
+const storedPrismaSignature = readStoredPrismaSignature();
+
+if (storedPrismaSignature === expectedPrismaSignature) {
+  console.info('[dev:prepare] Prisma Client já está sincronizado; generate ignorado.');
 } else {
   console.info('[dev:prepare] Prisma Client precisa ser regenerado.');
   const generate = run('npx', ['prisma', 'generate'], { capture: true });
@@ -157,11 +188,8 @@ if (prismaClientIsCurrent()) {
     throw new Error(`npx prisma generate falhou com código ${generate.status}.`);
   }
 
-  if (!prismaClientIsCurrent()) {
-    throw new Error(
-      'O Prisma Client foi gerado, mas não corresponde ao schema atual. A inicialização foi bloqueada.',
-    );
-  }
+  storePrismaSignature(expectedPrismaSignature);
+  console.info('[dev:prepare] Prisma Client regenerado e assinatura local atualizada.');
 }
 
 console.info('[dev:prepare] Prisma Client e migrations locais sincronizados.');
