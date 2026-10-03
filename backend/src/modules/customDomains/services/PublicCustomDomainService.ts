@@ -74,3 +74,32 @@ export async function isActiveCustomDomainOrigin(originValue: unknown) {
     return false;
   }
 }
+
+export async function resolveRestaurantMenuBaseUrl(restaurantIdValue: unknown) {
+  const restaurantId = Number(restaurantIdValue);
+  if (!Number.isInteger(restaurantId) || restaurantId <= 0) return null;
+
+  const row = await prisma.restaurantCustomDomain.findUnique({
+    where: { restaurantId },
+    include: {
+      restaurant: {
+        select: {
+          active: true,
+          subscription: { select: { plan: true, status: true } },
+        },
+      },
+    },
+  });
+  if (
+    !row ||
+    row.status !== 'ACTIVE' ||
+    !row.restaurant.active ||
+    !customDomainPlanEligible(row.restaurant.subscription?.plan, row.restaurant.subscription?.status)
+  ) {
+    return null;
+  }
+
+  const host =
+    row.mode === 'SITE_WITH_MENU_SUBDOMAIN' ? row.menuHostname : row.hostname;
+  return host ? `https://${host}` : null;
+}
