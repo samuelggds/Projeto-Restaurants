@@ -15,6 +15,7 @@ import {
   verificationRecordValue,
   type CustomDomainMode,
 } from '../domain/customDomainPolicy.js';
+import { hasHostedLandingAccess } from '../../billing/domain/planFeaturePolicy.js';
 
 type CustomDomainPayload = {
   hostname?: unknown;
@@ -57,7 +58,7 @@ function present(record: {
   lastCheckError: string | null;
   createdAt: Date;
   updatedAt: Date;
-}, subscription?: { plan: string; status: string } | null, landingRequested = false) {
+}, subscription?: { plan: string; status: string } | null, domainRequested = false, landingRequested = false) {
   const target = String(process.env.CUSTOM_DOMAIN_CNAME_TARGET ||
     process.env.APP_DOMAIN ||
     process.env.FRONTEND_URL ||
@@ -75,7 +76,12 @@ function present(record: {
     menuHostname: record.menuHostname,
     includeWww: record.includeWww,
     landingPublished: record.landingPublished,
+    domainRequested,
     landingRequested,
+    landingPlanEligible: hasHostedLandingAccess(
+      subscription?.plan as never,
+      subscription?.status as never,
+    ),
     status: record.status,
     planEligible: customDomainPlanEligible(
       subscription?.plan as never,
@@ -86,7 +92,11 @@ function present(record: {
       menuHostname: record.menuHostname,
       mode,
       includeWww: record.includeWww,
-      landingPublished: record.landingPublished && landingRequested,
+      landingPublished:
+        domainRequested &&
+        record.landingPublished &&
+        landingRequested &&
+        hasHostedLandingAccess(subscription?.plan as never, subscription?.status as never),
     }),
     verification: {
       type: 'TXT',
@@ -99,7 +109,10 @@ function present(record: {
             type: 'CNAME',
             name: record.menuHostname,
             value: target || null,
-            note: record.landingPublished && landingRequested
+            note:
+              record.landingPublished &&
+              landingRequested &&
+              hasHostedLandingAccess(subscription?.plan as never, subscription?.status as never)
               ? 'O cardápio usa CNAME e a landing usa o domínio principal no gateway GastroNexa.'
               : 'O domínio principal permanece livre. Apenas o subdomínio do cardápio aponta para a GastroNexa.',
           }
@@ -113,7 +126,10 @@ function present(record: {
               : 'Configure CUSTOM_DOMAIN_EDGE_IPV4 no ambiente de produção antes de publicar domínios no apex.',
           },
     landingRouting:
-      mode === 'SITE_WITH_MENU_SUBDOMAIN' && record.landingPublished && landingRequested
+      mode === 'SITE_WITH_MENU_SUBDOMAIN' &&
+      record.landingPublished &&
+      landingRequested &&
+      hasHostedLandingAccess(subscription?.plan as never, subscription?.status as never)
         ? {
             type: 'A',
             name: record.hostname,
@@ -141,7 +157,7 @@ async function restaurantWithSubscription(restaurantId: number) {
       id: true,
       name: true,
       active: true,
-      settings: { select: { landingPageEnabled: true } },
+      settings: { select: { customDomainRequested: true, landingPageEnabled: true } },
       subscription: { select: { plan: true, status: true } },
     },
   });
@@ -159,6 +175,13 @@ async function assertEligible(restaurantId: number) {
       'Domínio personalizado está disponível somente para restaurantes ativos nos planos Premium ou Gestão Total.',
       403,
       'CUSTOM_DOMAIN_PLAN_REQUIRED',
+    );
+  }
+  if (restaurant.settings?.customDomainRequested !== true) {
+    throw new SuperAdminError(
+      'O ADMIN optou por usar somente o endereço GastroNexa /slug e ainda não solicitou domínio próprio.',
+      409,
+      'CUSTOM_DOMAIN_NOT_REQUESTED',
     );
   }
   return restaurant;
@@ -249,7 +272,7 @@ export class RestaurantCustomDomainService {
             name: true,
             slug: true,
             active: true,
-            settings: { select: { landingPageEnabled: true } },
+            settings: { select: { customDomainRequested: true, landingPageEnabled: true } },
             subscription: { select: { plan: true, status: true } },
           },
         },
@@ -259,6 +282,7 @@ export class RestaurantCustomDomainService {
       ...present(
         row,
         row.restaurant.subscription,
+        row.restaurant.settings?.customDomainRequested === true,
         row.restaurant.settings?.landingPageEnabled === true,
       ),
       restaurant: {
@@ -279,7 +303,12 @@ export class RestaurantCustomDomainService {
       restaurantWithSubscription(restaurantId),
     ]);
     return row
-      ? present(row, restaurant.subscription, restaurant.settings?.landingPageEnabled === true)
+      ? present(
+          row,
+          restaurant.subscription,
+          restaurant.settings?.customDomainRequested === true,
+          restaurant.settings?.landingPageEnabled === true,
+        )
       : null;
   }
 
@@ -296,6 +325,16 @@ export class RestaurantCustomDomainService {
         'O ADMIN ainda não solicitou uma landing page para este restaurante.',
         409,
         'LANDING_PAGE_NOT_REQUESTED',
+      );
+    }
+    if (
+      landingPublished &&
+      !hasHostedLandingAccess(restaurant.subscription?.plan, restaurant.subscription?.status)
+    ) {
+      throw new SuperAdminError(
+        'Landing page da GastroNexa está disponível somente no plano Gestão Total ativo.',
+        403,
+        'LANDING_PAGE_PLAN_REQUIRED',
       );
     }
     const current = await prisma.restaurantCustomDomain.findUnique({ where: { restaurantId } });
@@ -427,6 +466,7 @@ export class RestaurantCustomDomainService {
         return present(
           after,
           restaurant.subscription,
+          restaurant.settings?.customDomainRequested === true,
           restaurant.settings?.landingPageEnabled === true,
         );
       });
@@ -515,6 +555,7 @@ export class RestaurantCustomDomainService {
     return present(
           after,
           restaurant.subscription,
+          restaurant.settings?.customDomainRequested === true,
           restaurant.settings?.landingPageEnabled === true,
         );
   }
@@ -634,6 +675,7 @@ export class RestaurantCustomDomainService {
     return present(
           after,
           restaurant.subscription,
+          restaurant.settings?.customDomainRequested === true,
           restaurant.settings?.landingPageEnabled === true,
         );
   }
@@ -675,6 +717,7 @@ export class RestaurantCustomDomainService {
     return present(
           after,
           restaurant.subscription,
+          restaurant.settings?.customDomainRequested === true,
           restaurant.settings?.landingPageEnabled === true,
         );
   }
