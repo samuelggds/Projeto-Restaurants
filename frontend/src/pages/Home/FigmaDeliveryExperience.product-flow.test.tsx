@@ -118,6 +118,121 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+
+  it('abre seletor inferior e troca para outro endereço cadastrado', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onSelectAddress = vi.fn();
+    const onManageAddresses = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            acceptsPickup: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="delivery"
+          savedAddresses={[
+            {
+              id: 1,
+              label: 'Casa',
+              address: 'Rua das Flores',
+              number: '123',
+              district: 'Centro',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60000-000',
+              complement: null,
+              isDefault: true,
+            },
+            {
+              id: 2,
+              label: 'Trabalho',
+              address: 'Avenida Santos Dumont',
+              number: '2000',
+              district: 'Aldeota',
+              city: 'Fortaleza',
+              state: 'CE',
+              zipCode: '60150-161',
+              complement: 'Sala 4',
+              isDefault: false,
+            },
+          ]}
+          selectedAddressId="1"
+          onSelectAddress={onSelectAddress}
+          onManageAddresses={onManageAddresses}
+        />,
+      );
+    });
+
+    const addressTrigger = container.querySelector(
+      'button[aria-label="Endereço de entrega: Rua das Flores, 123 - Centro"]',
+    ) as HTMLButtonElement | null;
+    expect(addressTrigger).toBeTruthy();
+
+    await act(async () => addressTrigger?.click());
+
+    const dialog = container.querySelector(
+      '[aria-labelledby="address-picker-title"]',
+    ) as HTMLElement | null;
+    expect(dialog).toBeTruthy();
+    expect(dialog?.textContent).toContain('Onde você quer receber?');
+    expect(dialog?.textContent).toContain('Casa');
+    expect(dialog?.textContent).toContain('Trabalho');
+
+    const workAddress = dialog?.querySelector(
+      'button[aria-label="Usar endereço Trabalho"]',
+    ) as HTMLButtonElement | null;
+    expect(workAddress).toBeTruthy();
+
+    await act(async () => workAddress?.click());
+
+    expect(onSelectAddress).toHaveBeenCalledWith('2');
+    expect(container.querySelector('[aria-labelledby="address-picker-title"]')).toBeNull();
+    expect(onManageAddresses).not.toHaveBeenCalled();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('mantém o cadastro de endereço como fallback quando não há endereço salvo', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onManageAddresses = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            acceptsDelivery: true,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo' },
+          }}
+          fulfillmentMethod="delivery"
+          savedAddresses={[]}
+          onManageAddresses={onManageAddresses}
+        />,
+      );
+    });
+
+    const addressTrigger = container.querySelector(
+      'button[aria-label="Endereço de entrega: Escolher endereço"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => addressTrigger?.click());
+
+    expect(onManageAddresses).toHaveBeenCalledOnce();
+    expect(container.querySelector('[aria-labelledby="address-picker-title"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('abre detalhes para produto COMPLETE e adiciona somente após confirmação', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
