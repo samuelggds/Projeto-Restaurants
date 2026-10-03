@@ -43,6 +43,21 @@ test('permite IA para Premium ativo', async () => {
   assert.equal(res.statusCode, 200);
 });
 
+test('permite IA para Gestão Total ativa', async () => {
+  prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });
+
+  const req = request();
+  const res = response();
+  let called = false;
+
+  await premiumAiPlanMiddleware(req, res, () => {
+    called = true;
+  });
+
+  assert.equal(called, true);
+  assert.equal(res.statusCode, 200);
+});
+
 test('permite IA durante teste do Premium', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'PREMIUM', status: 'TESTE' });
 
@@ -71,7 +86,7 @@ test('bloqueia IA e créditos para plano Básico', async () => {
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.code, 'PREMIUM_AI_PLAN_REQUIRED');
-  assert.match(res.body.error, /somente no plano Premium/i);
+  assert.match(res.body.error, /Premium e Gestão Total/i);
 });
 
 test('bloqueia Premium expirado ou cancelado', async () => {
