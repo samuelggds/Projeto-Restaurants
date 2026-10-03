@@ -92,12 +92,11 @@ describe('FigmaDeliveryExperience product flow', () => {
     expect(onOpenProfileView).not.toHaveBeenCalled();
 
     await act(async () => {
-      closingDialog?.dispatchEvent(
-        new AnimationEvent('animationend', {
-          animationName: 'profile-quick-sheet-out',
-          bubbles: true,
-        }),
-      );
+      const animationEnd = new Event('animationend', { bubbles: true });
+      Object.defineProperty(animationEnd, 'animationName', {
+        value: 'profile-quick-sheet-out',
+      });
+      closingDialog?.dispatchEvent(animationEnd);
     });
 
     expect(onOpenProfileView).toHaveBeenCalledWith('addresses');
