@@ -65,6 +65,7 @@ type PublicSettingsFallback = {
   fontFamily: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  customDomainRequested: boolean;
   landingPageEnabled: boolean;
   whatsapp: string | null;
   whatsappEnabled: boolean;
@@ -238,6 +239,7 @@ class GetPublicRestaurantSettingsService {
         fontFamily: 'Inter',
         seoTitle: null,
         seoDescription: null,
+        customDomainRequested: false,
         landingPageEnabled: false,
         whatsapp: commercialNumber,
         // Na resposta pública este flag significa que há um contato disponível
