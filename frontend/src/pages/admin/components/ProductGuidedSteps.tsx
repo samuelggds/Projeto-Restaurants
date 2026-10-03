@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { ImagePlus, PackageOpen, UploadCloud } from 'lucide-react';
+import { ImagePlus, PackageOpen, Star, UploadCloud } from 'lucide-react';
 
 import * as S from '../Admin.styles';
 import type { AdminCategory } from '../types';
@@ -215,20 +215,24 @@ export function ProductPriceStep({
 
 export function ProductAppearanceStep({
   description,
+  featured,
   headingRef,
   image,
   name,
   onDescriptionChange,
+  onFeaturedChange,
   onUploadImage,
   price,
   dynamicPrice = false,
   selectedProductCategory,
 }: {
   description: string;
+  featured: boolean;
   headingRef: StepHeadingRef;
   image: string;
   name: string;
   onDescriptionChange: (description: string) => void;
+  onFeaturedChange: (featured: boolean) => void;
   onUploadImage: (file?: File) => void;
   price: string;
   dynamicPrice?: boolean;
@@ -296,6 +300,25 @@ export function ProductAppearanceStep({
             />
             <small>{description.length}/500 caracteres</small>
           </S.Field>
+          <label className={featured ? 'featured-setting selected' : 'featured-setting'}>
+            <input
+              aria-label="Destacar produto na Home"
+              type="checkbox"
+              checked={featured}
+              onChange={(event) => onFeaturedChange(event.target.checked)}
+            />
+            <span className="featured-setting-icon">
+              <Star aria-hidden="true" fill={featured ? 'currentColor' : 'none'} />
+            </span>
+            <span className="featured-setting-copy">
+              <b>Destacar na Home</b>
+              <small>
+                O produto aparecerá em “Destaques da Casa” e continuará na categoria atual.
+              </small>
+            </span>
+            <em>{featured ? 'Ativo' : 'Desativado'}</em>
+          </label>
+
           <div className="appearance-card-preview" aria-label="Prévia do produto no cardápio">
             {image ? <img src={image} alt="" /> : <PackageOpen />}
             <span>
