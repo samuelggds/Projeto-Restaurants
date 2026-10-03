@@ -298,7 +298,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
   assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '5585999999999' });
 });
 
-test('aplica a matriz de plano para domínio próprio e landing page', async () => {
+test('aplica a matriz de plano para domínio próprio e página personalizada', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => null;
   restaurantSettingsRepository.create = async (data) => ({ id: 1, ...data });
 
@@ -348,7 +348,7 @@ test('aplica a matriz de plano para domínio próprio e landing page', async () 
   );
 });
 
-test('rejeita landing sem solicitação de domínio próprio', async () => {
+test('rejeita página personalizada sem solicitação de domínio próprio', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => null;
 
   await assert.rejects(
@@ -360,7 +360,7 @@ test('rejeita landing sem solicitação de domínio próprio', async () => {
         customDomainRequested: false,
         landingPageEnabled: true,
       }),
-    /exige que o restaurante também solicite um domínio próprio/i,
+    /página personalizada exige que o domínio próprio também esteja ativado/i,
   );
 });
 
