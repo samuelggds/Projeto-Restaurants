@@ -66,18 +66,6 @@ const orders: AdminOrder[] = [
     payOnDelivery: false,
     type: 'RETIRADA',
   },
-  {
-    id: '#304',
-    numericId: 304,
-    customerName: 'Cliente dinheiro entregue',
-    status: 'ENTREGUE',
-    total: 42,
-    paid: false,
-    paymentMethod: 'DINHEIRO',
-    payOnDelivery: true,
-    payOnDeliveryMethod: 'DINHEIRO',
-    type: 'DELIVERY',
-  },
 ];
 
 const money = (value: number) =>
@@ -154,7 +142,20 @@ describe('AdminOrders', () => {
   });
 
   it('mantém confirmação de dinheiro disponível depois da entrega', async () => {
-    const { onConfirmPayment } = await renderOrders(undefined, [orders[3]]);
+    const deliveredCashOrder: AdminOrder = {
+      ...orders[2],
+      id: '#304',
+      numericId: 304,
+      customerName: 'Cliente dinheiro entregue',
+      status: 'ENTREGUE',
+      total: 42,
+      paid: false,
+      paymentMethod: 'DINHEIRO',
+      payOnDelivery: true,
+      payOnDeliveryMethod: 'DINHEIRO',
+      type: 'DELIVERY',
+    };
+    const { onConfirmPayment } = await renderOrders(undefined, [deliveredCashOrder]);
     expect(container.textContent).toContain('Entrega concluída · aguardando confirmação do dinheiro');
     const button = buttonByLabel(container, 'Confirmar pagamento do pedido #304');
     expect(button).not.toBeNull();
