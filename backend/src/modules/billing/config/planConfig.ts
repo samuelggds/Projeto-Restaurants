@@ -25,7 +25,7 @@ export const PLAN_CONFIG = {
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
       'Implantação inicial assistida',
-      'Cadastro inicial de até 150 produtos',
+      'Cadastro inicial de até 100 produtos',
       'Endereço público GastroNexa com /slug',
       'Domínio próprio opcional configurado pela GastroNexa',
       'Suporte prioritário',
