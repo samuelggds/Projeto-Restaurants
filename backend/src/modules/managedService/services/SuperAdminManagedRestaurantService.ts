@@ -127,7 +127,7 @@ async function assertManagedAccess(restaurantId: number) {
     )
   ) {
     throw managedForbidden(
-      'A implantação Premium já foi encerrada. Alterações contínuas exigem o plano Gestão Total.',
+      'A implantação inicial já foi encerrada. Alterações assistidas contínuas exigem o plano Gestão Total.',
       'MANAGED_WORKSPACE_CLOSED',
     );
   }
@@ -167,7 +167,7 @@ async function assertManagedProductCapacity(
   const productCount = await db.product.count({ where: { restaurantId } });
   if (productCount >= productLimit) {
     throw managedConflict(
-      `A implantação Premium permite cadastro inicial de até ${productLimit} produtos.`,
+      `A implantação inicial permite cadastro de até ${productLimit} produtos.`,
       'MANAGED_PRODUCT_LIMIT_REACHED',
     );
   }
