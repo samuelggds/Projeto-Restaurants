@@ -249,6 +249,7 @@ export class RestaurantCustomDomainService {
             name: true,
             slug: true,
             active: true,
+            settings: { select: { landingPageEnabled: true } },
             subscription: { select: { plan: true, status: true } },
           },
         },
