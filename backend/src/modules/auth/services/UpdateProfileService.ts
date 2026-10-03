@@ -3,6 +3,7 @@ import { UserRole, type Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import userRepository from '../repositories/UserRepository.js';
 import emailVerificationService from './EmailVerificationService.js';
+import { normalizeProfileAvatar } from '../security/profileAvatar.js';
 
 type UpdateProfilePayload = {
   name?: string;
@@ -90,7 +91,7 @@ class UpdateProfileService {
     if (hasField('zipCode')) updates.zipCode = String(profileData.zipCode || '').trim() || null;
     if (hasField('complement'))
       updates.complement = String(profileData.complement || '').trim() || null;
-    if (hasField('avatar')) updates.avatar = String(profileData.avatar || '').trim() || null;
+    if (hasField('avatar')) updates.avatar = normalizeProfileAvatar(profileData.avatar);
 
     const updated = await prisma.$transaction(async (tx) => {
       const next = await userRepository.updateProfile(userId, updates, tx);
