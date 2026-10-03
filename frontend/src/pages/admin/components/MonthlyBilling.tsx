@@ -42,8 +42,19 @@ const benefits: Record<PlanCode, string[]> = {
   PREMIUM: [
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
+    'Implantação inicial assistida',
+    'Cadastro inicial de até 150 produtos',
     'Suporte prioritário',
     'GastroNexa IA com US$ 2,00 de créditos iniciais',
+  ],
+  GESTAO_TOTAL: [
+    'Tudo do Plano Premium',
+    'Implantação inicial assistida',
+    'Gestão assistida contínua sob solicitação',
+    'Atualizações de produtos, preços, categorias, combos, banners e configurações',
+    'Solicitações ilimitadas dentro da política de uso justo',
+    'Suporte prioritário',
+    'GastroNexa IA',
   ],
 };
 
@@ -62,14 +73,22 @@ const fallbackPlans: BillingPlan[] = [
     trialDays: 15,
     features: benefits.PREMIUM,
   },
+  {
+    plan: 'GESTAO_TOTAL',
+    name: 'Gestão Total',
+    monthlyFee: 349.9,
+    trialDays: 15,
+    features: benefits.GESTAO_TOTAL,
+  },
 ];
 
 const planDescriptions: Record<PlanCode, string> = {
   BASICO: 'O essencial para receber e gerenciar pedidos de delivery.',
-  PREMIUM: 'A operação completa, com delivery e atendimento nas mesas por QR Code.',
+  PREMIUM: 'Operação completa com implantação inicial assistida para começar pronto.',
+  GESTAO_TOTAL: 'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
 };
 
-const planIcons = { BASICO: Zap, PREMIUM: Sparkles };
+const planIcons = { BASICO: Zap, PREMIUM: Sparkles, GESTAO_TOTAL: ShieldCheck };
 const statusLabels: Record<string, string> = {
   TESTE: 'Período de teste',
   ATIVA: 'Assinatura ativa',
