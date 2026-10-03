@@ -14,6 +14,8 @@ type DomainRecord = {
   mode: DomainMode;
   menuHostname: string | null;
   includeWww: boolean;
+  landingRequested: boolean;
+  landingPublished: boolean;
   status: 'PENDING_DNS' | 'DNS_VERIFIED' | 'ACTIVE' | 'DISABLED';
   planEligible: boolean;
   publicHosts: string[];
@@ -25,6 +27,13 @@ type DomainRecord = {
     wwwCname?: string | null;
     note: string;
   };
+  landingRouting: {
+    type: string;
+    name: string | null;
+    value: string | null;
+    wwwCname?: string | null;
+    note: string;
+  } | null;
   dnsVerifiedAt: string | null;
   activatedAt: string | null;
   lastCheckedAt: string | null;
@@ -77,6 +86,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
   const [mode, setMode] = useState<DomainMode>('SITE_WITH_MENU_SUBDOMAIN');
   const [menuSubdomain, setMenuSubdomain] = useState('cardapio');
   const [includeWww, setIncludeWww] = useState(true);
+  const [landingPublished, setLandingPublished] = useState(false);
   const [selected, setSelected] = useState<DomainRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ error: boolean; text: string } | null>(null);
@@ -113,6 +123,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
       setHostname(existing.hostname);
       setMode(existing.mode);
       setIncludeWww(existing.includeWww);
+      setLandingPublished(existing.landingPublished);
       setMenuSubdomain(
         existing.menuHostname
           ? existing.menuHostname.slice(0, -(existing.hostname.length + 1))
@@ -123,6 +134,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
       setMode('SITE_WITH_MENU_SUBDOMAIN');
       setMenuSubdomain('cardapio');
       setIncludeWww(true);
+      setLandingPublished(false);
     }
   }, [domains, restaurantId]);
 
@@ -149,6 +161,7 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
             ? { menuSubdomain: menuSubdomain.trim() || 'cardapio' }
             : {}),
           includeWww,
+          ...(mode === 'SITE_WITH_MENU_SUBDOMAIN' ? { landingPublished } : {}),
         }),
       'Configuração salva. Agora publique os registros DNS e faça a verificação.',
     );
@@ -219,18 +232,37 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
             </label>
 
             {mode === 'SITE_WITH_MENU_SUBDOMAIN' ? (
-              <label className="wide">
-                Subdomínio do cardápio
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    value={menuSubdomain}
-                    onChange={(event) => setMenuSubdomain(event.target.value)}
-                    placeholder="cardapio"
-                    disabled={loading}
-                  />
-                  <span>.{hostname.trim() || 'dominio.com.br'}</span>
-                </div>
-              </label>
+              <>
+                <label className="wide">
+                  Subdomínio do cardápio
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      value={menuSubdomain}
+                      onChange={(event) => setMenuSubdomain(event.target.value)}
+                      placeholder="cardapio"
+                      disabled={loading}
+                    />
+                    <span>.{hostname.trim() || 'dominio.com.br'}</span>
+                  </div>
+                </label>
+                <label className="wide">
+                  <span>Landing page no domínio principal</span>
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={landingPublished}
+                      onChange={(event) => setLandingPublished(event.target.checked)}
+                      disabled={loading || (selected ? !selected.landingRequested : true)}
+                    />{' '}
+                    Publicar landing em {hostname.trim() || 'dominio.com.br'}
+                  </span>
+                  <small>
+                    {selected?.landingRequested
+                      ? 'O ADMIN solicitou a landing. Ao habilitar, o DNS do domínio principal também será validado.'
+                      : 'O ADMIN ainda não solicitou uma landing page. A publicação permanece bloqueada.'}
+                  </small>
+                </label>
+              </>
             ) : (
               <label className="wide">
                 <span>Alias www</span>
@@ -292,8 +324,12 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
               <dd>{selected.hostname}</dd>
             </div>
             <div>
-              <dt>Cardápio publicado em</dt>
+              <dt>Hosts publicados</dt>
               <dd>{selected.publicHosts.join(', ') || 'Aguardando configuração'}</dd>
+            </div>
+            <div>
+              <dt>Landing solicitada pelo ADMIN</dt>
+              <dd>{selected.landingRequested ? 'Sim' : 'Não'}</dd>
             </div>
             <div>
               <dt>Plano elegível</dt>
@@ -335,6 +371,24 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
                 <input readOnly value={`www.${selected.hostname} → ${selected.routing.wwwCname}`} />
               </label>
             ) : null}
+            {selected.landingRouting ? (
+              <>
+                <label className="wide">
+                  Landing {selected.landingRouting.type} — nome
+                  <input readOnly value={selected.landingRouting.name || ''} />
+                </label>
+                <label className="wide">
+                  Landing {selected.landingRouting.type} — destino
+                  <input
+                    readOnly
+                    value={
+                      selected.landingRouting.value ||
+                      'Configure CUSTOM_DOMAIN_EDGE_IPV4 no ambiente de produção'
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
           </S.Fields>
 
           {!selected.planEligible ? (
@@ -345,6 +399,9 @@ export function DomainsPage({ data }: { data: SuperAdminData }) {
             </S.InlineAlert>
           ) : null}
           <S.InlineAlert $tone="info">{selected.routing.note}</S.InlineAlert>
+          {selected.landingRouting ? (
+            <S.InlineAlert $tone="info">{selected.landingRouting.note}</S.InlineAlert>
+          ) : null}
           {selected.lastCheckError ? (
             <S.InlineAlert $tone="warning">{selected.lastCheckError}</S.InlineAlert>
           ) : null}
