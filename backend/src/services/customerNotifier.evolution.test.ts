@@ -51,7 +51,7 @@ test('Evolution é aceito como provider de notificações automáticas', async (
 });
 
 
-test('Evolution recebe telefone nacional e acrescenta 55 somente na chamada externa', async () => {
+test('Evolution aceita telefone nacional legado e E.164 sem duplicar o DDI', async () => {
   process.env.EVOLUTION_TENANT_API_URL = 'https://evolution.example.test';
   prisma.$queryRaw = async () => [
     {
@@ -88,11 +88,19 @@ test('Evolution recebe telefone nacional e acrescenta 55 somente na chamada exte
   assert.equal(body.number, '5585988887777');
   assert.equal(body.text, 'Pedido confirmado.');
 
+  const internationalResult = await sendTenantEvolutionTextMessage({
+    restaurantId: 9,
+    destination: '5585988887777',
+    message: 'Pedido confirmado.',
+  });
+  assert.deepEqual(internationalResult, { sent: true, provider: 'evolution' });
+  assert.equal(body.number, '5585988887777');
+
   await assert.rejects(
     () =>
       sendTenantEvolutionTextMessage({
         restaurantId: 9,
-        destination: '5585988887777',
+        destination: '123',
         message: 'Pedido confirmado.',
       }),
     /Número de destino inválido/i,
