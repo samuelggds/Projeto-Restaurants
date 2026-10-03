@@ -5,7 +5,6 @@ import { normalizeManagedServiceError } from '../domain/managedServiceErrors.js'
 function actor(req: Request) {
   return {
     userId: Number(req.user?.id || 0),
-    userName: req.user?.name ?? null,
     userRole: req.user?.role ?? null,
     ipAddress: String(req.ip || '').trim().slice(0, 128) || null,
     requestId: String(req.requestId || '').trim().slice(0, 191) || null,
