@@ -78,6 +78,8 @@ type RestaurantSettingsFallback = {
   businessHours: null;
   isOpenForOrders: boolean;
   averageDeliveryTime: string | null;
+  deliveryTimeMin: number | null;
+  deliveryTimeMax: number | null;
   autoAcceptOrders: boolean;
   trackingRequiresLogin: boolean;
   soundNotifications: boolean;
@@ -181,6 +183,8 @@ class GetRestaurantSettingsService {
         businessHours: null,
         isOpenForOrders: true,
         averageDeliveryTime: null,
+        deliveryTimeMin: null,
+        deliveryTimeMax: null,
         autoAcceptOrders: false,
         trackingRequiresLogin: true,
         soundNotifications: true,
