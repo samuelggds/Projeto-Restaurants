@@ -1,4 +1,5 @@
 import tableRepository from '../repositories/TableRepository.js';
+import { resolveRestaurantMenuBaseUrl } from '../../customDomains/services/PublicCustomDomainService.js';
 
 type ListTablePayload = {
   restaurantId: number;
@@ -12,7 +13,10 @@ class ListTableService {
       throw new Error('Restaurante não identificado para listar mesas.');
     }
 
-    const tables = await tableRepository.findAllByRestaurant(normalizedRestaurantId);
+    const [tables, menuBaseUrl] = await Promise.all([
+      tableRepository.findAllByRestaurant(normalizedRestaurantId),
+      resolveRestaurantMenuBaseUrl(normalizedRestaurantId),
+    ]);
 
     return tables.map((table) => {
       const { orders, token, restaurant, ...safeTableData } = table;
@@ -24,6 +28,7 @@ class ListTableService {
       return {
         ...safeTableData,
         restaurantSlug: restaurant.slug,
+        menuBaseUrl,
         ...(includeQrToken ? { token } : {}),
         status: operationalStatus,
         sessionId: openSession?.id ?? null,
