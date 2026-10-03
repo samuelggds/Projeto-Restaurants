@@ -3,6 +3,7 @@ export type AdminTableQrRecord = {
   number: number;
   restaurantId: number;
   restaurantSlug: string;
+  menuBaseUrl: string | null;
   token: string;
   active: boolean;
   status: 'FREE' | 'OCCUPIED';
@@ -26,6 +27,7 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
   const restaurantSlug = String(table.restaurantSlug || restaurant.slug || '')
     .trim()
     .toLowerCase();
+  const menuBaseUrl = String(table.menuBaseUrl || '').trim().replace(/\/+$/u, '') || null;
   const token = String(table.token || '').trim();
   const status =
     operational.status === 'OCCUPIED' || table.status === 'OCCUPIED' ? 'OCCUPIED' : 'FREE';
@@ -46,6 +48,7 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
     number,
     restaurantId,
     restaurantSlug,
+    menuBaseUrl,
     token,
     active: table.active !== false,
     status,
@@ -63,7 +66,7 @@ export function mapAdminTableQrs(values: unknown): AdminTableQrRecord[] {
 export function buildAdminTableQrUrl(
   table: Pick<
     AdminTableQrRecord,
-    'id' | 'number' | 'restaurantId' | 'restaurantSlug' | 'token'
+    'id' | 'number' | 'restaurantId' | 'restaurantSlug' | 'menuBaseUrl' | 'token'
   >,
   origin?: string,
 ) {
@@ -79,6 +82,9 @@ export function buildAdminTableQrUrl(
     tk: table.token,
     rid: String(table.restaurantId),
   });
+  if (table.menuBaseUrl) {
+    return `${table.menuBaseUrl}/mesa/${table.number}?${params.toString()}`;
+  }
   return `${baseUrl}/${encodeURIComponent(table.restaurantSlug)}/mesa/${table.number}?${params.toString()}`;
 }
 
