@@ -467,19 +467,50 @@ export async function getTenantEvolutionConnection(restaurantId: number) {
   return publicConnection(await readConnectionByRestaurant(restaurantId));
 }
 
+async function destroyTenantEvolutionConnection(row: ConnectionRow) {
+  try {
+    await evolutionRequest(`/instance/logout/${encodeURIComponent(row.externalInstanceId)}`, {
+      method: 'DELETE',
+      apiKey: instanceToken(row),
+    });
+  } catch (error) {
+    if (
+      !(error instanceof EvolutionRequestError) ||
+      ![401, 404].includes(error.status)
+    ) {
+      throw error;
+    }
+  }
+
+  try {
+    await evolutionRequest(`/instance/delete/${encodeURIComponent(row.externalInstanceId)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (!(error instanceof EvolutionRequestError) || error.status !== 404) {
+      throw error;
+    }
+  }
+
+  await prisma.$executeRaw`
+    DELETE FROM "RestaurantWhatsappConnection"
+    WHERE "restaurantId" = ${row.restaurantId}
+      AND "provider" = 'EVOLUTION'
+      AND "externalInstanceId" = ${row.externalInstanceId}
+  `;
+}
+
 export async function createTenantEvolutionConnection(restaurantId: number) {
   const existing = await readConnectionByRestaurant(restaurantId);
-  if (existing?.provider === 'EVOLUTION' && existing.status !== 'ERROR') {
-    const remote = await fetchEvolutionInstance(existing.externalInstanceId);
-    if (remote) {
-      return publicConnection(existing);
+  if (existing?.provider === 'EVOLUTION') {
+    if (existing.status === 'CONNECTED' || existing.status === 'PENDING') {
+      const remote = await fetchEvolutionInstance(existing.externalInstanceId);
+      if (remote) {
+        return publicConnection(existing);
+      }
     }
 
-    await prisma.$executeRaw`
-      UPDATE "RestaurantWhatsappConnection"
-      SET "status" = 'ERROR', "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
-    `;
+    await destroyTenantEvolutionConnection(existing);
   }
 
   const restaurant = await prisma.restaurant.findUnique({
@@ -496,7 +527,12 @@ export async function getTenantEvolutionQrCode(restaurantId: number) {
   let row = await readConnectionByRestaurant(restaurantId);
   let initialQr = { qrCode: '', qrContent: '', pairingCode: null as string | null };
 
-  if (!row || row.provider !== 'EVOLUTION' || row.status === 'ERROR') {
+  if (!row || row.provider !== 'EVOLUTION') {
+    const created = await createEvolutionInstance(restaurantId);
+    row = created.row;
+    initialQr = created.initialQr;
+  } else if (row.status === 'ERROR' || row.status === 'DISCONNECTED') {
+    await destroyTenantEvolutionConnection(row);
     const created = await createEvolutionInstance(restaurantId);
     row = created.row;
     initialQr = created.initialQr;
@@ -610,37 +646,8 @@ export async function disconnectTenantEvolutionConnection(restaurantId: number) 
   const row = await readConnectionByRestaurant(restaurantId);
   if (!row || row.provider !== 'EVOLUTION') return publicConnection(null);
 
-  try {
-    await evolutionRequest(`/instance/logout/${encodeURIComponent(row.externalInstanceId)}`, {
-      method: 'DELETE',
-      apiKey: instanceToken(row),
-    });
-  } catch (error) {
-    if (!isRecoverableEvolutionDisconnectError(error)) throw error;
-
-    if (error instanceof EvolutionRequestError && error.status === 401) {
-      try {
-        await evolutionRequest(`/instance/delete/${encodeURIComponent(row.externalInstanceId)}`, {
-          method: 'DELETE',
-        });
-      } catch (deleteError) {
-        if (
-          !(deleteError instanceof EvolutionRequestError) ||
-          deleteError.status !== 404
-        ) {
-          throw deleteError;
-        }
-      }
-    }
-  }
-
-  await prisma.$executeRaw`
-    UPDATE "RestaurantWhatsappConnection"
-    SET "status" = 'DISCONNECTED', "phone" = NULL,
-        "disconnectedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
-    WHERE "restaurantId" = ${restaurantId} AND "provider" = 'EVOLUTION'
-  `;
-  return publicConnection(await readConnectionByRestaurant(restaurantId));
+  await destroyTenantEvolutionConnection(row);
+  return publicConnection(null);
 }
 
 export async function sendTenantEvolutionTextMessage(input: {
