@@ -503,7 +503,6 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
     trackingRequiresLogin: false,
     soundNotifications: false,
     maxConcurrentOrders: 75,
-    landingPageEnabled: true,
   });
 
   assert.equal(capturedSettingsUpdate.companyDocument, '11222333000181');
@@ -516,7 +515,6 @@ test('atualiza marca, negócio, endereço e regras dos pedidos no restaurante co
   assert.equal(capturedSettingsUpdate.trackingRequiresLogin, false);
   assert.equal(capturedSettingsUpdate.soundNotifications, false);
   assert.equal(capturedSettingsUpdate.maxConcurrentOrders, 75);
-  assert.equal(capturedSettingsUpdate.landingPageEnabled, true);
   assert.deepEqual(capturedRestaurantUpdate, {
     name: 'Restaurante Atualizado',
     logo: 'https://cdn.example.com/logo.webp',
