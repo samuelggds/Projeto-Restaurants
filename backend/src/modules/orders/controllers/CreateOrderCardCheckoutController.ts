@@ -127,7 +127,9 @@ class CreateOrderCardCheckoutController {
         cardData,
         holderName,
         holderTaxId,
-        payerEmail: req.user?.email || payerEmail,
+        // O e-mail do pagamento pode ser diferente do e-mail usado para login.
+        // A camada de pagamento valida o valor informado e usa o e-mail da conta apenas como fallback.
+        payerEmail,
         expMonth,
         expYear,
         billingPostalCode,

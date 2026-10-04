@@ -57,6 +57,7 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   const result = await directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
     payload: {
+      userId: 33,
       cardToken: 'card-token-001',
       cardPaymentMethodId: 'master',
       customerName: 'Cliente Teste',
@@ -113,6 +114,101 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   });
   assert.equal(result.provider, CARD_PROVIDERS.MERCADO_PAGO);
   assert.equal(result.paymentApproved, true);
+});
+
+test('usuário autenticado preserva o e-mail informado no pagamento', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+  const originalUserFindUnique = prisma.user.findUnique;
+  prisma.user.findUnique = async () =>
+    ({ id: 33, email: 'login@conta.example' }) as never;
+
+  globalThis.fetch = async (_input, init: RequestInit = {}) => {
+    requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({ id: 'ORD_AUTH_EMAIL_001', status: 'processed' }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  try {
+    await directOrderCardPaymentService.execute({
+      provider: CARD_PROVIDERS.MERCADO_PAGO,
+      payload: {
+        userId: 33,
+        cardToken: 'card-token-auth-email',
+        cardPaymentMethodId: 'master',
+        payerEmail: 'pagador@cartao.example',
+      },
+      order: {
+        id: 908,
+        publicId: 'order-public-908',
+        restaurantId: 7,
+        total: 19.9,
+      },
+      successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+      idempotencyKey: '11111111-1111-4111-8111-111111111908',
+    });
+
+    assert.deepEqual(requestBody?.payer, { email: 'pagador@cartao.example' });
+  } finally {
+    prisma.user.findUnique = originalUserFindUnique;
+  }
+});
+
+test('HTTP 2xx com transação failed é recusa terminal e preserva status_detail', async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 'ORD_FAILED_2XX_001',
+        status: 'failed',
+        transactions: {
+          payments: [
+            {
+              status: 'failed',
+              status_detail: 'cc_rejected_bad_filled_security_code',
+            },
+          ],
+        },
+      }),
+      {
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': 'mp-request-2xx-failed-001',
+        },
+      },
+    );
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          userId: 33,
+          cardToken: 'card-token-2xx-failed',
+          cardPaymentMethodId: 'master',
+          payerEmail: 'pagador@example.com',
+        },
+        order: {
+          id: 909,
+          publicId: 'order-public-909',
+          restaurantId: 7,
+          total: 24.9,
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111909',
+      }),
+    (error) => {
+      assert.ok(error instanceof CardPaymentDeclinedError);
+      assert.equal(error.diagnostic?.status, 'failed');
+      assert.equal(
+        error.diagnostic?.statusDetail,
+        'cc_rejected_bad_filled_security_code',
+      );
+      assert.equal(error.diagnostic?.providerOrderId, 'ORD_FAILED_2XX_001');
+      return true;
+    },
+  );
 });
 
 test('débito Mercado Pago envia debit_card e nunca é convertido silenciosamente em crédito', async () => {
