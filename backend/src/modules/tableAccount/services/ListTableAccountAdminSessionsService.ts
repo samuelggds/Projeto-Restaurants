@@ -45,6 +45,16 @@ export class ListTableAccountAdminSessionsService {
           const payer = account.participants.find(
             (participant) => participant.publicId === payment.payerParticipant.publicId,
           );
+          const allocatedItemPublicIds = new Set(
+            payment.allocations.map((allocation) => allocation.tableBillItem.publicId),
+          );
+          const orderPublicIds = [
+            ...new Set(
+              account.items
+                .filter((item) => allocatedItemPublicIds.has(item.publicId))
+                .map((item) => item.orderPublicId),
+            ),
+          ];
           return {
             publicId: payment.publicId,
             method: payment.method,
@@ -57,6 +67,7 @@ export class ListTableAccountAdminSessionsService {
             payerParticipantPublicId: payment.payerParticipant.publicId,
             payerDisplayName: payer?.displayName || 'Cliente da mesa',
             staffReceiptRegistered,
+            orderPublicIds,
           };
         });
       return {
