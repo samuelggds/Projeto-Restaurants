@@ -271,6 +271,34 @@ async function payerEmail(payload: BasePayload, order: CardOrder) {
   return `guest.card.${order.restaurantId}.${order.id}@gastronexa.local`;
 }
 
+async function mercadoPagoSavedCustomerEmail(accessToken: string, customerId: string) {
+  const response = await fetch(
+    `https://api.mercadopago.com/v1/customers/${encodeURIComponent(customerId)}`,
+    {
+      method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    },
+  );
+  const body = await readResponse(response);
+  if (!response.ok) {
+    throw new CardPaymentDeclinedError(
+      'Não foi possível validar o titular deste cartão salvo. Remova o cartão e cadastre-o novamente.',
+    );
+  }
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!isValidPayerEmail(email)) {
+    throw new CardPaymentDeclinedError(
+      'Este cartão salvo não possui um e-mail de comprador válido. Remova o cartão e cadastre-o novamente.',
+    );
+  }
+  return email;
+}
+
 async function savedMethod(payload: BasePayload, order: CardOrder, provider: CardProvider) {
   const publicId = String(payload.paymentMethodId || '').trim();
   if (!publicId) return null;
@@ -341,7 +369,10 @@ async function mercadoPagoPayment(
   }
 
   const payer = stored
-    ? { customer_id: storedCustomerId }
+    ? {
+        customer_id: storedCustomerId,
+        email: await mercadoPagoSavedCustomerEmail(accessToken, storedCustomerId),
+      }
     : { email: await payerEmail(payload, order) };
 
   const body = {
