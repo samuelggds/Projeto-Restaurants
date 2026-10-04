@@ -17,16 +17,18 @@ type MercadoPagoCardToken = {
   expiration_month?: number;
   expiration_year?: number;
 };
+type MercadoPagoFieldEvent = {
+  bin?: string | null;
+  field?: string;
+  errorMessages?: Array<{ message?: string; cause?: string }>;
+};
+
 type MercadoPagoField = {
   mount(containerId: string): void;
   unmount?(): void;
   on?(
-    event: 'binChange',
-    callback: (event: { bin?: string | null }) => void,
-  ): MercadoPagoField;
-  on?(
-    event: 'validityChange',
-    callback: (event: { field?: string; errorMessages?: Array<{ message?: string; cause?: string }> }) => void,
+    event: 'binChange' | 'validityChange',
+    callback: (event: MercadoPagoFieldEvent) => void,
   ): MercadoPagoField;
 };
 type MercadoPagoInstance = {
