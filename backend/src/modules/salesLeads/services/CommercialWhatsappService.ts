@@ -177,6 +177,19 @@ function connectionStateFromPayload(payload: unknown) {
   return String(instance.state || root.state || '').trim().toLowerCase();
 }
 
+export function canRecoverPlatformEvolutionLogoutFailure(
+  providerStatus: number,
+  verifiedState: string,
+) {
+  const normalizedState = String(verifiedState || '').trim().toLowerCase();
+  return (
+    providerStatus === 500 &&
+    Boolean(normalizedState) &&
+    normalizedState !== 'open' &&
+    normalizedState !== 'connecting'
+  );
+}
+
 async function platformEvolutionConnectionState() {
   try {
     const payload = await evolutionRequest(
@@ -199,7 +212,7 @@ async function logoutPlatformEvolutionInstance() {
     if (error instanceof PlatformEvolutionRequestError && error.status === 404) return;
     if (error instanceof PlatformEvolutionRequestError && error.status === 500) {
       const state = await platformEvolutionConnectionState().catch(() => '');
-      if (state && state !== 'open' && state !== 'connecting') {
+      if (canRecoverPlatformEvolutionLogoutFailure(error.status, state)) {
         console.warn('[PLATFORM_WHATSAPP_LOGOUT_RECOVERED]', {
           instanceName: PLATFORM_INSTANCE_NAME,
           providerStatus: error.status,
