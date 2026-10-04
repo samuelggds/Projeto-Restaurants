@@ -65,6 +65,7 @@ function mapOrder(value: unknown): AdminOrder {
   return {
     id: String(raw.orderNumber ?? `#${numericId}`),
     numericId,
+    publicId: String(raw.publicId ?? '') || undefined,
     userId: String(raw.userId ?? user.id ?? '') || undefined,
     customerName: String(user.name ?? raw.customerName ?? 'Cliente'),
     customerEmail: String(user.email ?? raw.customerEmail ?? '') || undefined,
