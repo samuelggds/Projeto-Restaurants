@@ -111,6 +111,42 @@ function paymentCreatedTime(createdAt?: string | null) {
 
 const tableNumber = formatTableNumber;
 
+function tableOrderStatusLabel(status: string) {
+  switch (String(status || '').toUpperCase()) {
+    case 'PENDING':
+      return 'Pedido recebido';
+    case 'ACCEPTED':
+      return 'Pedido confirmado';
+    case 'PREPARING':
+      return 'Em preparo';
+    case 'READY':
+      return 'Pronto para servir';
+    case 'DELIVERED':
+      return 'Entregue';
+    default:
+      return 'Em andamento';
+  }
+}
+
+function tableOrderStatusSteps(status: string) {
+  const normalized = String(status || '').toUpperCase();
+  const statuses = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'DELIVERED'];
+  const currentIndex = Math.max(0, statuses.indexOf(normalized));
+  const labels = [
+    'Pedido recebido',
+    'Pedido confirmado',
+    'Em preparo',
+    'Pronto para servir',
+    'Entregue',
+  ];
+  return labels.map((label, index) => ({
+    label,
+    completed: index < currentIndex,
+    current: index === currentIndex,
+    pending: index > currentIndex,
+  }));
+}
+
 export default function TableMenuExperience({
   data,
   tableLabel,
@@ -142,6 +178,7 @@ export default function TableMenuExperience({
   userLoggedIn = false,
 }: Props) {
   const [view, setView] = useState<View>('menu');
+  const [selectedTrackingOrderId, setSelectedTrackingOrderId] = useState<string | null>(null);
   const effectiveView: View = reviewCartOpen ? 'cart' : view;
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [configuringProduct, setConfiguringProduct] = useState<HomeProduct | null>(null);
@@ -628,6 +665,35 @@ export default function TableMenuExperience({
   }
 
   if (effectiveView === 'tracking') {
+    const ownTableItems =
+      accountSnapshot?.items.filter(
+        (item) =>
+          item.orderedByParticipantPublicId === accountSnapshot.currentParticipantPublicId &&
+          item.orderStatus !== 'CANCELED',
+      ) || [];
+    const ownOrders = Array.from(
+      ownTableItems.reduce((orders, item) => {
+        const existing = orders.get(item.orderPublicId);
+        if (existing) {
+          existing.items.push(item);
+          if (item.orderStatus !== existing.status) existing.status = item.orderStatus;
+        } else {
+          orders.set(item.orderPublicId, {
+            orderPublicId: item.orderPublicId,
+            status: item.orderStatus,
+            items: [item],
+          });
+        }
+        return orders;
+      }, new Map<string, {
+        orderPublicId: string;
+        status: string;
+        items: typeof ownTableItems;
+      }>()),
+    ).map(([, order]) => order);
+    const selectedTrackingOrder =
+      ownOrders.find((order) => order.orderPublicId === selectedTrackingOrderId) || null;
+
     const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
     const confirmedAt = tableOrder?.createdAt
       ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
@@ -636,114 +702,169 @@ export default function TableMenuExperience({
       : '';
     const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
 
+    if (selectedTrackingOrder) {
+      const selectedSteps = tableOrderStatusSteps(selectedTrackingOrder.status);
+      const selectedTotalCents = selectedTrackingOrder.items.reduce(
+        (total, item) => total + item.unitPriceCents,
+        0,
+      );
+
+      return (
+        <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
+          <FlowHeader
+            data={data}
+            tableLabel={tableLabel}
+            title="Acompanhar pedido"
+            onBack={() => setSelectedTrackingOrderId(null)}
+            onHome={goToMenu}
+            onMenu={goToMenu}
+            onOrders={() => setSelectedTrackingOrderId(null)}
+          />
+          <S.FlowPage>
+            <S.TrackingLayout>
+              <div className="tracking-main">
+                <S.FlowTitle className="tracking-title">
+                  <h1>Acompanhar pedido</h1>
+                  <p>Veja o andamento deste pedido em tempo real.</p>
+                </S.FlowTitle>
+
+                <S.StatusCard>
+                  <span className="icon"><Clock3 size={28} /></span>
+                  <div>
+                    <h2>{tableOrderStatusLabel(selectedTrackingOrder.status)}</h2>
+                    <p>
+                      {Number.isFinite(preparationMinutes) &&
+                      preparationMinutes > 0 &&
+                      !['READY', 'DELIVERED'].includes(selectedTrackingOrder.status)
+                        ? `A cozinha estimou cerca de ${preparationMinutes} minutos para servir.`
+                        : 'O status é atualizado conforme a equipe avança no preparo.'}
+                    </p>
+                  </div>
+                </S.StatusCard>
+
+                <S.SectionHeading>
+                  <div className="title"><h2>Status do pedido</h2></div>
+                </S.SectionHeading>
+                <S.TimelineCard className="tracking-timeline">
+                  <S.Timeline>
+                    {selectedSteps.map((step, index) => (
+                      <S.TimelineStep
+                        key={step.label}
+                        className={
+                          step.current
+                            ? 'tracking-step current'
+                            : step.completed
+                              ? 'tracking-step completed'
+                              : 'tracking-step pending'
+                        }
+                        $active={step.completed || step.current}
+                        $current={step.current}
+                      >
+                        <span className="dot">
+                          {step.completed ? (
+                            <Check size={14} />
+                          ) : step.current ? (
+                            index === 2 ? <CookingPot size={13} /> : <span className="pulse" />
+                          ) : null}
+                        </span>
+                        <div className="copy">
+                          <b>{step.label}</b>
+                        </div>
+                      </S.TimelineStep>
+                    ))}
+                  </S.Timeline>
+                </S.TimelineCard>
+              </div>
+
+              <S.OrderItemsCard>
+                <h2>Itens deste pedido</h2>
+                {selectedTrackingOrder.items.map((item) => (
+                  <S.OrderItemLine key={item.publicId}>
+                    <div className="copy">
+                      <b>1x</b>
+                      <span>
+                        <b>{item.productName}</b>
+                        <small>{tableOrderStatusLabel(item.orderStatus)}</small>
+                      </span>
+                    </div>
+                    <strong>{centsToBrl(item.unitPriceCents)}</strong>
+                  </S.OrderItemLine>
+                ))}
+                <div className="account-total">
+                  <span>Total do pedido</span>
+                  <strong>{centsToBrl(selectedTotalCents)}</strong>
+                </div>
+                {waiterCallEnabled ? (
+                  <S.SecondaryAction type="button" onClick={onCallWaiter}>
+                    <Bell size={17} /> Chamar garçom para mesa
+                  </S.SecondaryAction>
+                ) : null}
+              </S.OrderItemsCard>
+            </S.TrackingLayout>
+          </S.FlowPage>
+        </S.FigmaShell>
+      );
+    }
+
     return (
       <S.FigmaShell $primary="#ff4b4b" $fontFamily={data.fontFamily}>
         <FlowHeader
           data={data}
           tableLabel={tableLabel}
-          title="Painel da Mesa"
+          title="Seus pedidos"
           onBack={goToMenu}
           onHome={goToMenu}
           onMenu={goToMenu}
-          onOrders={() => setView('tracking')}
+          onOrders={() => setSelectedTrackingOrderId(null)}
         />
-
         <S.FlowPage>
           <S.TrackingLayout>
             <div className="tracking-main">
               <S.FlowTitle className="tracking-title">
-                <h1>Painel da Mesa</h1>
-                <p>Veja o andamento de seus pratos e bebidas em tempo real</p>
+                <h1>Seus pedidos</h1>
+                <p>Escolha um pedido para acompanhar o status em tempo real.</p>
               </S.FlowTitle>
-              <S.StatusCard>
-                <span className="icon"><Clock3 size={28} /></span>
-                <div>
-                  <h2>{trackingHeadline(tableOrder)}</h2>
-                  <p>
-                    {Number.isFinite(preparationMinutes) && preparationMinutes > 0
-                      ? `A cozinha estimou cerca de ${preparationMinutes} minutos para servir.`
-                      : 'O status será atualizado em tempo real pela cozinha.'}
-                  </p>
-                </div>
-              </S.StatusCard>
 
-              <S.SectionHeading>
-                <div className="title"><h2>Status de Produção</h2></div>
-              </S.SectionHeading>
-              <S.TimelineCard className="tracking-timeline">
-                <S.Timeline>
-                  {trackingDescriptions.map((step, index) => {
-                    const stateClass = step.current
-                      ? 'tracking-step current'
-                      : step.active
-                        ? 'tracking-step completed'
-                        : 'tracking-step pending';
-
+              {ownOrders.length ? (
+                <S.OrderItemsCard>
+                  {ownOrders.map((order, index) => {
+                    const orderTotalCents = order.items.reduce(
+                      (total, item) => total + item.unitPriceCents,
+                      0,
+                    );
                     return (
-                      <S.TimelineStep
-                        key={step.label}
-                        className={stateClass}
-                        $active={step.active}
-                        $current={step.current}
+                      <button
+                        key={order.orderPublicId}
+                        type="button"
+                        className="customer-order-card"
+                        onClick={() => setSelectedTrackingOrderId(order.orderPublicId)}
                       >
-                        <span className="dot">
-                          {step.active ? (
-                            index === 1 && step.current ? (
-                              <CookingPot size={13} />
-                            ) : (
-                              <Check size={14} />
-                            )
-                          ) : null}
+                        <span className="customer-order-copy">
+                          <small>Pedido {index + 1}</small>
+                          <b>{tableOrderStatusLabel(order.status)}</b>
+                          <span>
+                            {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                          </span>
                         </span>
-                        <div className="copy">
-                          <b>{step.label}</b>
-                          {step.description ? <p>{step.description}</p> : null}
-                        </div>
-                      </S.TimelineStep>
+                        <strong>{centsToBrl(orderTotalCents)}</strong>
+                      </button>
                     );
                   })}
-                </S.Timeline>
-              </S.TimelineCard>
-            </div>
-
-            <S.OrderItemsCard>
-              <h2>
-                <span className="desktop-only">Itens do Pedido</span>
-                <span className="mobile-only">Itens em Produção</span>
-              </h2>
-              {tableOrder?.items.length ? (
-                tableOrder.items.map((item, index) => (
-                  <S.OrderItemLine key={`${item.name}-${index}`}>
-                    <div className="copy">
-                      <b>{item.quantity}x</b>
-                      <span>
-                        <b>{item.name}</b>
-                        {item.observation ? <small>{item.observation}</small> : null}
-                      </span>
-                    </div>
-                    {typeof item.unitPrice === 'number' ? (
-                      <strong>{brl(item.unitPrice * item.quantity)}</strong>
-                    ) : null}
-                  </S.OrderItemLine>
-                ))
+                </S.OrderItemsCard>
               ) : (
-                <S.EmptyCatalog>Os itens aparecerão aqui assim que houver um pedido ativo.</S.EmptyCatalog>
+                <S.OrderItemsCard>
+                  <S.EmptyCatalog>
+                    Seus pedidos aparecerão aqui assim que forem enviados para a cozinha.
+                  </S.EmptyCatalog>
+                </S.OrderItemsCard>
               )}
-
-              {accountSnapshot ? (
-                <div className="account-total">
-                  <span>Consumo total</span>
-                  <strong>{centsToBrl(accountSnapshot.summary.consumedCents)}</strong>
-                </div>
-              ) : null}
 
               {waiterCallEnabled ? (
                 <S.SecondaryAction type="button" onClick={onCallWaiter}>
                   <Bell size={17} /> Chamar garçom para mesa
                 </S.SecondaryAction>
               ) : null}
-
-            </S.OrderItemsCard>
+            </div>
           </S.TrackingLayout>
         </S.FlowPage>
       </S.FigmaShell>
