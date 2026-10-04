@@ -546,11 +546,11 @@ export function TableMenuHome({
         ) : null}
         <button
           type="button"
-          aria-label="Acompanhar em tempo real"
+          aria-label="Acompanhar pedido"
           onClick={onTrackOrder}
         >
           <span className="icon"><Eye aria-hidden="true" /></span>
-          <span>Acompanhar em tempo real</span>
+          <span>Acompanhar pedido</span>
         </button>
         <button type="button" onClick={onViewAccount}>
           <span className="icon"><ReceiptText aria-hidden="true" /></span>
