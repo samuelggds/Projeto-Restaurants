@@ -55,13 +55,13 @@ export const Header = styled.header`
     text-overflow:ellipsis;
     white-space:nowrap;
     font-family:'Gabarito','Inter',sans-serif;
-    font-size:16px;
-    line-height:20px;
+    font-size:17px;
+    line-height:21px;
   }
   .platform-label{
     color:#8a8883;
-    font-size:11px;
-    line-height:14px;
+    font-size:13px;
+    line-height:16px;
   }
   .brand-meta{display:none}
   .status{
@@ -70,7 +70,7 @@ export const Header = styled.header`
     align-items:center;
     gap:5px;
     color:var(--delivery-muted);
-    font-size:10px;
+    font-size:11px;
   }
   .status i{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#e5484d}
   .status i.open{background:#33b864}
@@ -104,7 +104,7 @@ export const Header = styled.header`
     display:flex;
     align-items:center;
     gap:6px;
-    font-size:12px;
+    font-size:13px;
     font-weight:700;
   }
   .desktop-fulfillment button.active{
@@ -140,7 +140,7 @@ export const Header = styled.header`
     color:#55524d;
     display:grid;
     place-items:center;
-    font-size:11px;
+    font-size:12px;
     font-weight:800;
   }
   .account-avatar img{
@@ -151,7 +151,7 @@ export const Header = styled.header`
     object-position:center;
   }
   .account-copy{min-width:0;display:grid;gap:0}
-  .account-copy small{color:#8b8882;font-size:9px;line-height:11px}
+  .account-copy small{color:#8b8882;font-size:10px;line-height:12px}
   .account-copy b{
     max-width:84px;
     overflow:hidden;
@@ -171,7 +171,7 @@ export const Header = styled.header`
     align-items:center;
     gap:8px;
     font-weight:750;
-    font-size:12px;
+    font-size:13px;
   }
   .cart i{
     min-width:20px;
@@ -181,7 +181,7 @@ export const Header = styled.header`
     background:#23221f;
     display:grid;
     place-items:center;
-    font-size:10px;
+    font-size:11px;
     font-style:normal;
   }
 
@@ -247,8 +247,8 @@ export const Header = styled.header`
     .mobile-location-row > .mobile-address-trigger > span{min-width:0;display:grid;gap:0}
     .mobile-location-row > .mobile-address-trigger small{
       color:#9b9892;
-      font-size:7.5px;
-      line-height:9px;
+      font-size:8.5px;
+      line-height:10px;
       font-weight:500;
     }
     .mobile-location-row > .mobile-address-trigger strong{
@@ -256,8 +256,8 @@ export const Header = styled.header`
       text-overflow:ellipsis;
       white-space:nowrap;
       color:#272622;
-      font-size:10px;
-      line-height:13px;
+      font-size:11px;
+      line-height:14px;
       font-weight:750;
     }
     .mobile-location-row > .mobile-address-trigger > svg:last-child{color:var(--delivery-primary)}
@@ -280,7 +280,7 @@ export const Header = styled.header`
       color:var(--delivery-primary);
       display:grid;
       place-items:center;
-      font-size:8.5px;
+      font-size:9.5px;
       line-height:1;
       font-weight:850;
       box-shadow:0 3px 10px rgba(255,75,75,.08);
@@ -321,8 +321,8 @@ export const Header = styled.header`
     }
     .brand-copy{min-width:0;gap:1px}
     .brand-copy > b{
-      font-size:14px;
-      line-height:17px;
+      font-size:15px;
+      line-height:18px;
       font-weight:800;
     }
     .platform-label{display:none}
@@ -334,13 +334,13 @@ export const Header = styled.header`
     .status{
       min-width:0;
       gap:4px;
-      font-size:8.5px;
-      line-height:11px;
+      font-size:9.5px;
+      line-height:12px;
     }
     .status i{width:6px;height:6px;flex-basis:6px}
     .status strong{font-weight:650}
-    .status em{font-size:8px}
-    .status small{font-size:8px}
+    .status em{font-size:9px}
+    .status small{font-size:9px}
 
     .mobile-fulfillment{
       min-height:36px;
@@ -363,7 +363,7 @@ export const Header = styled.header`
       align-items:center;
       justify-content:center;
       gap:5px;
-      font-size:9px;
+      font-size:10px;
       line-height:1;
       font-weight:750;
     }
@@ -395,7 +395,7 @@ export const Header = styled.header`
       display:flex;
       align-items:center;
       gap:3px;
-      font-size:7.5px;
+      font-size:8.5px;
       line-height:1;
       font-weight:650;
       white-space:nowrap;
@@ -432,7 +432,7 @@ export const InlineSearch = styled.div`
     outline:0;
     background:transparent;
     color:var(--delivery-text);
-    font-size:12px;
+    font-size:13px;
   }
   input::placeholder{color:#a4a19b}
   .clear{
@@ -480,8 +480,8 @@ export const InlineSearch = styled.div`
       color:#aaa7a2;
       display:block;
       pointer-events:none;
-      font-size:8.5px;
-      line-height:11px;
+      font-size:9.5px;
+      line-height:12px;
     }
 
     &:has(input:not(:placeholder-shown)) .mobile-search-placeholder{
@@ -490,7 +490,7 @@ export const InlineSearch = styled.div`
 
     input{
       height:35px;
-      font-size:9px;
+      font-size:10px;
       z-index:1;
     }
 
@@ -547,13 +547,13 @@ export const InlineSearchResults = styled.div`
   .thumb img{width:100%;height:100%;object-fit:cover}
   .thumb svg{width:18px;height:18px;color:#aaa49b}
   .copy{min-width:0;display:grid;gap:2px;align-content:center}
-  .copy b{font-size:13px}
+  .copy b{font-size:14px}
   .copy small{
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    color:var(--delivery-muted);font-size:11px;
+    color:var(--delivery-muted);font-size:12px;
   }
-  .copy strong{color:var(--delivery-primary);font-size:12px}
-  .empty{padding:12px;color:var(--delivery-muted);font-size:12px}
+  .copy strong{color:var(--delivery-primary);font-size:13px}
+  .empty{padding:12px;color:var(--delivery-muted);font-size:13px}
 
   @media(max-width:760px){
     top:calc(100% + 6px);

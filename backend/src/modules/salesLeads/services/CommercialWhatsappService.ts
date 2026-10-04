@@ -35,6 +35,16 @@ export class PlatformWhatsappRecoveryRequiredError extends Error {
   }
 }
 
+class PlatformEvolutionRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly operation: string,
+  ) {
+    super(`Evolution API recusou a operação (${status}).`);
+    this.name = 'PlatformEvolutionRequestError';
+  }
+}
+
 function env(name: string) {
   return String(process.env[name] || '').trim();
 }
@@ -111,7 +121,15 @@ async function evolutionRequest(
     ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
   });
   const text = await response.text();
-  if (!response.ok) throw new Error(`Evolution API recusou a operação (${response.status}).`);
+  if (!response.ok) {
+    const operation = path
+      .split('?')[0]
+      .split('/')
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('/');
+    throw new PlatformEvolutionRequestError(response.status, operation);
+  }
   try {
     return text ? (JSON.parse(text) as unknown) : null;
   } catch {
@@ -149,20 +167,95 @@ async function assertPlatformInstanceNameAvailable() {
   if (remote) throw new PlatformWhatsappRecoveryRequiredError();
 }
 
+function connectionStateFromPayload(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return '';
+  const root = payload as JsonRecord;
+  const instance =
+    root.instance && typeof root.instance === 'object' && !Array.isArray(root.instance)
+      ? (root.instance as JsonRecord)
+      : {};
+  return String(instance.state || root.state || '').trim().toLowerCase();
+}
+
+export function canRecoverPlatformEvolutionLogoutFailure(
+  providerStatus: number,
+  verifiedState: string,
+) {
+  const normalizedState = String(verifiedState || '').trim().toLowerCase();
+  return (
+    providerStatus === 500 &&
+    Boolean(normalizedState) &&
+    normalizedState !== 'open' &&
+    normalizedState !== 'connecting'
+  );
+}
+
+async function platformEvolutionConnectionState() {
+  try {
+    const payload = await evolutionRequest(
+      `/instance/connectionState/${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`,
+    );
+    return connectionStateFromPayload(payload);
+  } catch (error) {
+    if (error instanceof PlatformEvolutionRequestError && error.status === 404) return 'missing';
+    throw error;
+  }
+}
+
+async function logoutPlatformEvolutionInstance() {
+  try {
+    await evolutionRequest(`/instance/logout/${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`, {
+      method: 'DELETE',
+    });
+    return;
+  } catch (error) {
+    if (error instanceof PlatformEvolutionRequestError && error.status === 404) return;
+    if (error instanceof PlatformEvolutionRequestError && error.status === 500) {
+      const state = await platformEvolutionConnectionState().catch(() => '');
+      if (canRecoverPlatformEvolutionLogoutFailure(error.status, state)) {
+        console.warn('[PLATFORM_WHATSAPP_LOGOUT_RECOVERED]', {
+          instanceName: PLATFORM_INSTANCE_NAME,
+          providerStatus: error.status,
+          verifiedState: state,
+        });
+        return;
+      }
+    }
+    throw error;
+  }
+}
+
 async function deletePlatformEvolutionInstance() {
   const remote = await fetchPlatformEvolutionInstance();
   if (!remote) return;
 
-  await evolutionRequest(`/instance/delete/${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`, {
-    method: 'DELETE',
-  });
+  await logoutPlatformEvolutionInstance();
+
+  let deleteError: unknown = null;
+  try {
+    await evolutionRequest(`/instance/delete/${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (error instanceof PlatformEvolutionRequestError && error.status === 404) return;
+    deleteError = error;
+  }
 
   const remaining = await fetchPlatformEvolutionInstance();
-  if (remaining) {
-    throw new Error(
-      'A sessão anterior do WhatsApp comercial não pôde ser removida com segurança. Nenhuma nova conexão foi criada.',
-    );
+  if (!remaining) {
+    if (deleteError instanceof PlatformEvolutionRequestError) {
+      console.warn('[PLATFORM_WHATSAPP_DELETE_RECOVERED]', {
+        instanceName: PLATFORM_INSTANCE_NAME,
+        providerStatus: deleteError.status,
+      });
+    }
+    return;
   }
+
+  if (deleteError) throw deleteError;
+  throw new Error(
+    'A sessão anterior do WhatsApp comercial não pôde ser removida com segurança. Nenhuma nova conexão foi criada.',
+  );
 }
 
 function publicConnection(row: Awaited<ReturnType<typeof connection>>) {
