@@ -131,7 +131,7 @@ describe('TableMenuHome categories', () => {
     container.remove();
   });
 
-  it('mantém acompanhar em tempo real na barra inferior da home da mesa', async () => {
+  it('mantém acompanhar pedido na barra inferior da home da mesa', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -157,7 +157,7 @@ describe('TableMenuHome categories', () => {
     const dock = container.querySelector('nav[aria-label="Ações da mesa"]') as HTMLElement;
     expect(dock).toBeTruthy();
     const tracking = [...dock.querySelectorAll<HTMLButtonElement>('button')].find(
-      (button) => button.getAttribute('aria-label') === 'Acompanhar em tempo real',
+      (button) => button.getAttribute('aria-label') === 'Acompanhar pedido',
     );
     expect(tracking).toBeTruthy();
 
