@@ -127,7 +127,7 @@ class CreateOrderCardCheckoutController {
         cardData,
         holderName,
         holderTaxId,
-        payerEmail: req.user?.email || payerEmail,
+        payerEmail,
         expMonth,
         expYear,
         billingPostalCode,
