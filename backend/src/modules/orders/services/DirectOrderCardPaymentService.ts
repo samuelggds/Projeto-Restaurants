@@ -183,13 +183,23 @@ export function mercadoPagoDeclineDetails(body: Record<string, unknown>) {
       ? (errorDetails[0] as Record<string, unknown>)
       : null;
 
-  const status = String(payment?.status || firstDetail?.status || '').trim().slice(0, 80);
+  const status = String(
+    payment?.status ||
+      firstDetail?.status ||
+      data.status ||
+      body.status ||
+      '',
+  ).trim().slice(0, 80);
   const statusDetail = String(
     payment?.status_detail ||
       payment?.statusDetail ||
       firstDetail?.status_detail ||
       firstDetail?.statusDetail ||
       firstDetail?.code ||
+      data.status_detail ||
+      data.statusDetail ||
+      body.status_detail ||
+      body.statusDetail ||
       '',
   )
     .trim()
@@ -426,10 +436,28 @@ async function mercadoPagoPayment(
   }
 
   const providerOrderId = String(result.body.id || '').trim();
-  const status = String(result.body.status || '')
+  const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
+  const status = String(diagnostic.status || result.body.status || '')
     .trim()
     .toLowerCase();
   if (!providerOrderId) throw new Error('Mercado Pago não retornou a identificação da cobrança.');
+
+  if (['failed', 'rejected'].includes(status)) {
+    console.warn('[MERCADO_PAGO_CARD_PAYMENT_FAILED]', {
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      providerStatus: diagnostic.httpStatus,
+      providerCode: diagnostic.providerCode || 'card_payment_failed',
+      transactionStatus: diagnostic.status,
+      transactionStatusDetail: diagnostic.statusDetail,
+      providerRequestId: diagnostic.providerRequestId,
+    });
+    throw new CardPaymentDeclinedError(
+      safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
+      diagnostic,
+    );
+  }
+
   const approved = status === 'processed';
 
   return {
