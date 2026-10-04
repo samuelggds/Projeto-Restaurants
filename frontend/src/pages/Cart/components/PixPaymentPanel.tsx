@@ -23,6 +23,7 @@ import {
 } from '../../../components/payment/paymentMotion';
 import type { PixPaymentData, PixPaymentStatus } from '../../Home/hooks/useCheckoutPayments';
 import { formatDeliveryTime } from '../../../utils/deliveryTime';
+import { pixPaymentFailurePresentation } from '../../Home/domain/pixPaymentFailure';
 
 type OrderItemSummary = {
   name: string;
@@ -122,10 +123,17 @@ export default function PixPaymentPanel({
     }
   };
 
+  const providerFailure = pixPaymentFailurePresentation({
+    provider: pixPaymentData.provider,
+    status: status === 'FAILED' ? 'rejected' : status,
+    statusDetail: pixPaymentData.statusDetail,
+  });
   const failureTitle =
-    status === 'REFUNDED' ? 'Pagamento PIX estornado' : 'Pagamento PIX não efetuado';
+    providerFailure?.title ||
+    (status === 'REFUNDED' ? 'Pagamento PIX estornado' : 'Pagamento PIX não efetuado');
   const failureMessage =
     paymentError ||
+    providerFailure?.message ||
     (status === 'EXPIRED'
       ? 'O prazo deste PIX terminou. Gere uma nova cobrança para concluir o pedido.'
       : status === 'CANCELED'
