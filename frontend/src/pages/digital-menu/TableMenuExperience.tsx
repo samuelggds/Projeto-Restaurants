@@ -695,13 +695,6 @@ export default function TableMenuExperience({
       ownOrders.find((order) => order.orderPublicId === selectedTrackingOrderId) || null;
 
     const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
-    const confirmedAt = tableOrder?.createdAt
-      ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
-          new Date(tableOrder.createdAt),
-        )
-      : '';
-    const trackingDescriptions = trackingSteps(tableOrder, confirmedAt);
-
     if (selectedTrackingOrder) {
       const selectedSteps = tableOrderStatusSteps(selectedTrackingOrder.status);
       const selectedTotalCents = selectedTrackingOrder.items.reduce(
