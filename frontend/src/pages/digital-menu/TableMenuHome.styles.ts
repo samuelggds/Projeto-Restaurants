@@ -239,9 +239,22 @@ export const HeroSlot = styled.div`
   --home-primary: var(--primary);
 
   > section {
-    height: 280px;
-    min-height: 280px;
+    height: clamp(300px, 32vw, 360px);
+    min-height: 300px;
     border-radius: 16px;
+  }
+
+  @media (min-width: 761px) {
+    /*
+     * PromotionCarousel also serves the full-width delivery home, where its
+     * copy is offset from the viewport. Inside the table menu it already sits
+     * in a centered 1120px container, so the copy must be positioned relative
+     * to this banner instead of applying the viewport offset a second time.
+     */
+    > section > article > div {
+      left: 40px;
+      width: min(46%, 480px);
+    }
   }
 
   @media (max-width: 760px) {
