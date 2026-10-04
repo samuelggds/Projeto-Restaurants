@@ -47,7 +47,7 @@ export const DesktopTopBar = styled.div`
     align-items:center;
     justify-content:space-between;
     gap:24px;
-    font-size:12px;
+    font-size:13px;
   }
 
   .location,
@@ -78,7 +78,7 @@ export const Breadcrumb = styled.nav`
   align-items:center;
   gap:6px;
   color:#8a8880;
-  font-size:14px;
+  font-size:15px;
 
   button{
     padding:0;border:0;background:transparent;
@@ -148,8 +148,8 @@ export const HeroMetrics = styled.aside`
 
   .metric-card b{
     color:#fff;
-    font-size:13px;
-    line-height:16px;
+    font-size:14px;
+    line-height:18px;
     font-weight:850;
     white-space:nowrap;
     text-shadow:0 1px 8px rgba(0,0,0,.18);
@@ -158,8 +158,8 @@ export const HeroMetrics = styled.aside`
   .metric-card small{
     max-width:58px;
     color:rgba(255,255,255,.72);
-    font-size:9px;
-    line-height:11px;
+    font-size:10px;
+    line-height:13px;
   }
 
   .hero-address{
@@ -176,7 +176,7 @@ export const HeroMetrics = styled.aside`
     display:flex;
     align-items:center;
     gap:8px;
-    font-size:10px;
+    font-size:11px;
   }
 
   .hero-address svg{
@@ -254,7 +254,7 @@ export const InfoChips = styled.div`
     justify-content:center;
     gap:6px;
     color:var(--delivery-muted);
-    font-size:11px;
+    font-size:12px;
     font-weight:650;
     white-space:nowrap;
   }
@@ -282,8 +282,8 @@ export const CatalogIntro = styled.div`
   h2{
     margin:0;
     font-family:'Gabarito','Inter',sans-serif;
-    font-size:26px;
-    line-height:34px;
+    font-size:28px;
+    line-height:36px;
     font-weight:850;
     letter-spacing:-.02em;
   }
@@ -293,13 +293,13 @@ export const CatalogIntro = styled.div`
     border:0;
     background:transparent;
     color:var(--delivery-primary);
-    font-size:12px;
+    font-size:13px;
     font-weight:750;
   }
 
   @media(max-width:760px){
     min-height:28px;
-    h2{font-size:14px;line-height:18px;letter-spacing:0}
+    h2{font-size:16px;line-height:20px;letter-spacing:0}
     button{display:none}
   }
 `;
@@ -348,15 +348,15 @@ export const CatalogCategories = styled.nav`
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
-    font-size:12px;
-    line-height:16px;
+    font-size:14px;
+    line-height:18px;
     font-weight:750;
   }
   small{
     margin-top:2px;
     color:#98958f;
-    font-size:9px;
-    line-height:12px;
+    font-size:10px;
+    line-height:13px;
   }
 
   button.active{color:var(--delivery-primary)}
@@ -396,8 +396,8 @@ export const CatalogCategories = styled.nav`
     b{
       width:58px;
       margin-top:0;
-      font-size:9px;
-      line-height:12px;
+      font-size:10px;
+      line-height:13px;
       font-weight:650;
     }
 
@@ -435,8 +435,8 @@ export const SectionHead = styled.div`
   h2{
     margin:0;
     font-family:'Gabarito','Inter',sans-serif;
-    font-size:26px;
-    line-height:34px;
+    font-size:28px;
+    line-height:36px;
     font-weight:850;
     letter-spacing:-.02em;
     color:var(--delivery-text);
@@ -445,8 +445,8 @@ export const SectionHead = styled.div`
   p{
     margin:4px 0 0;
     color:var(--delivery-muted);
-    font-size:12px;
-    line-height:18px;
+    font-size:13px;
+    line-height:19px;
   }
 
   @media(max-width:760px){
@@ -469,7 +469,7 @@ export const SectionHeadActions = styled.div`
     border-radius:9px;
     background:#fff7f7;
     color:var(--delivery-primary);
-    font-size:10px;
+    font-size:11px;
     font-weight:750;
     white-space:nowrap;
   }
@@ -482,7 +482,7 @@ export const SectionHeadActions = styled.div`
       border:0;
       border-radius:0;
       background:transparent;
-      font-size:9px;
+      font-size:10px;
     }
   }
 `;
@@ -493,9 +493,9 @@ export const Categories = styled.div`
   .image{width:82px;height:82px;border-radius:50%;overflow:hidden;background:#f1eee8;display:grid;place-items:center}
   .image img{width:100%;height:100%;object-fit:cover}
   .image svg{color:#aaa49b}
-  b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+  b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
   @media(max-width:900px){grid-template-columns:repeat(4,minmax(0,1fr))}
-  @media(max-width:760px){display:flex;overflow-x:auto;margin-right:-20px;padding-right:20px;scrollbar-width:none;gap:16px;button{flex:0 0 72px}.image{width:64px;height:64px}b{font-size:11px}}
+  @media(max-width:760px){display:flex;overflow-x:auto;margin-right:-20px;padding-right:20px;scrollbar-width:none;gap:16px;button{flex:0 0 72px}.image{width:64px;height:64px}b{font-size:12px}}
 `;
 
 export const CarouselControls = styled.div`
@@ -638,8 +638,8 @@ export const ProductCard = styled.article`
     text-overflow:ellipsis;
     white-space:nowrap;
     color:var(--delivery-primary);
-    font-size:8px;
-    line-height:11px;
+    font-size:9px;
+    line-height:12px;
     font-weight:800;
     text-transform:uppercase;
   }
@@ -660,8 +660,8 @@ export const ProductCard = styled.article`
     overflow:hidden;
     display:-webkit-box;
     color:var(--delivery-muted);
-    font-size:10px;
-    line-height:14px;
+    font-size:11px;
+    line-height:15px;
     -webkit-box-orient:vertical;
     -webkit-line-clamp:2;
   }
@@ -681,12 +681,12 @@ export const ProductCard = styled.article`
     flex-wrap:wrap;
   }
 
-  .price del{color:var(--delivery-muted);font-size:8px}
+  .price del{color:var(--delivery-muted);font-size:9px}
 
   strong{
     color:var(--delivery-text);
-    font-size:13px;
-    line-height:17px;
+    font-size:14px;
+    line-height:18px;
     font-weight:850;
     white-space:nowrap;
   }
@@ -699,7 +699,7 @@ export const ProductCard = styled.article`
     border-radius:7px;
     background:var(--delivery-primary);
     color:#fff;
-    font-size:9px;
+    font-size:10px;
     line-height:1;
     font-weight:800;
     white-space:nowrap;
@@ -742,16 +742,16 @@ export const ProductCard = styled.article`
     }
 
     .product-copy{gap:2px}
-    .product-label{font-size:7px;line-height:9px}
-    h3{font-size:9.5px;line-height:12px}
-    p{font-size:8px;line-height:10px;-webkit-line-clamp:1}
-    strong{font-size:10px;line-height:13px}
-    .price del{font-size:7px}
+    .product-label{font-size:8px;line-height:10px}
+    h3{font-size:11px;line-height:14px}
+    p{font-size:9px;line-height:12px;-webkit-line-clamp:1}
+    strong{font-size:11px;line-height:14px}
+    .price del{font-size:8px}
     .add{
       min-height:22px;
       padding:0 7px;
       border-radius:6px;
-      font-size:7.5px;
+      font-size:8.5px;
     }
   }
 
@@ -774,8 +774,8 @@ export const MobileBenefit = styled.aside`
     display:grid;
     gap:2px;
 
-    b{color:var(--delivery-primary);font-size:9px;line-height:12px}
-    span{font-size:8px;line-height:11px}
+    b{color:var(--delivery-primary);font-size:10px;line-height:13px}
+    span{font-size:9px;line-height:12px}
   }
 `;
 
@@ -824,16 +824,16 @@ export const WhyOrderHere = styled.section`
 
   h3{
     margin:6px 0 0;
-    font-size:15px;
-    line-height:20px;
+    font-size:16px;
+    line-height:21px;
     font-weight:800;
   }
 
   p{
     margin:0;
     color:var(--delivery-muted);
-    font-size:11px;
-    line-height:18px;
+    font-size:12px;
+    line-height:19px;
   }
 
   @media(max-width:900px){
@@ -857,8 +857,8 @@ export const RestaurantInfoTitle = styled.h2`
   @media(max-width:760px){
     margin:22px 0 10px;
     padding-top:20px;
-    font-size:14px;
-    line-height:18px;
+    font-size:16px;
+    line-height:20px;
     letter-spacing:0;
   }
 `;
@@ -891,8 +891,8 @@ export const RestaurantInfo = styled.section`
     align-items:center;
     gap:11px;
     color:var(--delivery-text);
-    font-size:11px;
-    line-height:17px;
+    font-size:12px;
+    line-height:18px;
   }
 
   .info-icon{
@@ -922,8 +922,8 @@ export const RestaurantInfo = styled.section`
 
   .social-label{
     color:var(--delivery-text);
-    font-size:12px;
-    line-height:16px;
+    font-size:13px;
+    line-height:17px;
     font-weight:800;
   }
 
@@ -967,7 +967,7 @@ export const RestaurantInfo = styled.section`
       border-top:1px solid color-mix(in srgb,var(--delivery-line) 82%,transparent);
     }
 
-    .info-item{font-size:9px;line-height:13px}
+    .info-item{font-size:10px;line-height:14px}
     .info-item > span:last-child{min-width:0;overflow-wrap:anywhere}
     .info-icon{
       width:28px;
@@ -988,7 +988,7 @@ export const RestaurantInfo = styled.section`
       justify-content:space-between;
     }
 
-    .social-label{font-size:9px;line-height:13px}
+    .social-label{font-size:10px;line-height:14px}
     .social{gap:6px}
     .social a{width:27px;height:27px;border-radius:8px}
     .social a svg{width:14px;height:14px}
@@ -998,10 +998,10 @@ export const RestaurantInfo = styled.section`
 export const Footer = styled.footer`
  background:#1f1e1a;color:#fff;padding:52px max(24px,calc((100vw - 1120px)/2));
  .inner{display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:40px}
- h3{margin:0 0 14px;font-size:14px}
- p,a{color:#8d8a85;font-size:13px;line-height:1.6;text-decoration:none}
- .brand{font-family:'Gabarito','Inter',sans-serif;font-size:20px;font-weight:800;margin-bottom:12px}
- .bottom{margin-top:40px;padding-top:20px;border-top:1px solid #343330;color:#77746f;font-size:12px;display:flex;justify-content:space-between}
+ h3{margin:0 0 14px;font-size:15px}
+ p,a{color:#8d8a85;font-size:14px;line-height:1.6;text-decoration:none}
+ .brand{font-family:'Gabarito','Inter',sans-serif;font-size:21px;font-weight:800;margin-bottom:12px}
+ .bottom{margin-top:40px;padding-top:20px;border-top:1px solid #343330;color:#77746f;font-size:13px;display:flex;justify-content:space-between}
  @media(max-width:760px){display:none}
 `;
 
