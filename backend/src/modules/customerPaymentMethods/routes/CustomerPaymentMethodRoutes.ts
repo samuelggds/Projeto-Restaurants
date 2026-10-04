@@ -26,6 +26,13 @@ const createSchema = z.object({
     .transform((value) => value.replace(/\D/g, ''))
     .refine((value) => [11, 14].includes(value.length))
     .optional(),
+  payerEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email()
+    .max(254)
+    .optional(),
   brand: z
     .string()
     .trim()
@@ -138,19 +145,36 @@ async function gatewayContext(restaurantId: number) {
 async function mercadoPagoCustomer(
   baseUrl: string,
   token: string,
-  user: { name: string; email: string },
+  customer: {
+    name: string;
+    payerEmail: string;
+    holderTaxId?: string | null;
+  },
 ) {
   const headers = { Authorization: `Bearer ${token}` };
   const found = await providerJson(
-    `${baseUrl}/v1/customers/search?email=${encodeURIComponent(user.email)}`,
+    `${baseUrl}/v1/customers/search?email=${encodeURIComponent(customer.payerEmail)}`,
     headers,
   );
   const results = Array.isArray(found.results) ? found.results : [];
   const existing = String((results[0] as { id?: unknown } | undefined)?.id || '').trim();
   if (existing) return existing;
+
+  const identification = String(customer.holderTaxId || '').replace(/\D/g, '');
   const created = await providerJson(`${baseUrl}/v1/customers`, headers, {
     method: 'POST',
-    body: JSON.stringify({ email: user.email, first_name: user.name }),
+    body: JSON.stringify({
+      email: customer.payerEmail,
+      first_name: customer.name,
+      ...([11, 14].includes(identification.length)
+        ? {
+            identification: {
+              type: identification.length === 11 ? 'CPF' : 'CNPJ',
+              number: identification,
+            },
+          }
+        : {}),
+    }),
   });
   const id = String(created.id || '').trim();
   if (!id) throw new Error('O Mercado Pago não retornou o cliente protegido.');
@@ -260,7 +284,14 @@ router.post('/', async (req, res): Promise<void> => {
     let providerExpYear = 0;
     if (context.provider === 'MERCADO_PAGO') {
       if (!parsed.data.cardToken) throw new Error('Token seguro do Mercado Pago não informado.');
-      providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, user);
+      if (!parsed.data.payerEmail) {
+        throw new Error('Informe o e-mail do comprador para salvar o cartão no Mercado Pago.');
+      }
+      providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, {
+        name: user.name,
+        payerEmail: parsed.data.payerEmail,
+        holderTaxId: parsed.data.holderTaxId,
+      });
       const saved = await providerJson(
         `${context.baseUrl}/v1/customers/${encodeURIComponent(providerCustomerId)}/cards`,
         { Authorization: `Bearer ${context.token}` },
