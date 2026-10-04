@@ -8,41 +8,12 @@ import { getCardBrandDetails, maskedCardNumber } from '../domain/cardBrand';
 import { CardBrandLogo } from './CardBrandLogo';
 import { PaymentCardVisual } from './PaymentCardVisual';
 import { CustomerDesktopFooter } from '../../Home/components/CustomerDesktopFooter';
+import type {
+  MercadoPagoField,
+  MercadoPagoInstance,
+} from '../../../shared/payments/mercadoPagoSdk';
 
 type ProviderConfig = Awaited<ReturnType<typeof customerPaymentMethodService.getConfig>>;
-type MercadoPagoCardToken = {
-  id?: string;
-  last_four_digits?: string;
-  payment_method_id?: string;
-  expiration_month?: number;
-  expiration_year?: number;
-};
-type MercadoPagoField = {
-  mount(containerId: string): void;
-  unmount?(): void;
-  on?(event: 'binChange', callback: (event: { bin?: string | null }) => void): MercadoPagoField;
-};
-type MercadoPagoInstance = {
-  fields: {
-    create(
-      name: 'cardNumber' | 'expirationDate' | 'securityCode',
-      options: { placeholder: string },
-    ): MercadoPagoField;
-    createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
-  };
-  getPaymentMethods(input: { bin: string }): Promise<{
-    results?: Array<{
-      id?: string;
-      name?: string;
-      payment_type_id?: string;
-    }>;
-  }>;
-};
-declare global {
-  interface Window {
-    MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
-  }
-}
 
 const sdkPromises = new Map<string, Promise<void>>();
 function loadSdk(key: string, source: string, ready: () => boolean) {
@@ -103,6 +74,7 @@ export function PaymentMethodModal({
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
+  const [secureExpiryValid, setSecureExpiryValid] = useState(false);
   const [config, setConfig] = useState<ProviderConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -158,9 +130,15 @@ export function PaymentMethodModal({
             })
             .catch(() => {});
         });
+        const expirationField = instance.fields.create('expirationDate', { placeholder: 'MM/AA' });
+        expirationField.on?.('validityChange', (event) => {
+          if (!active) return;
+          const hasErrors = Array.isArray(event.errorMessages) && event.errorMessages.length > 0;
+          setSecureExpiryValid(!hasErrors);
+        });
         const fields = [
           cardNumberField,
-          instance.fields.create('expirationDate', { placeholder: 'MM/AA' }),
+          expirationField,
           instance.fields.create('securityCode', { placeholder: '3 dígitos' }),
         ];
         fields[0].mount('mercado-pago-card-number');
@@ -185,6 +163,7 @@ export function PaymentMethodModal({
       setMercadoPagoReady(false);
       setMercadoPagoBin('');
       setMercadoPagoBrand('');
+      setSecureExpiryValid(false);
     };
   }, [config]);
 
@@ -320,7 +299,13 @@ export function PaymentMethodModal({
             brand={detectedBrand.id}
             numberLabel={number ? maskedCardNumber(number) : '•••• •••• •••• ••••'}
             holderName={holder.trim() || 'TITULAR DO CARTÃO'}
-            expiryLabel={expiry || 'MM/AA'}
+            expiryLabel={
+              config?.provider === 'MERCADO_PAGO'
+                ? secureExpiryValid
+                  ? '••/••'
+                  : 'MM/AA'
+                : expiry || 'MM/AA'
+            }
           />
 
           <div className="payment-fields">
