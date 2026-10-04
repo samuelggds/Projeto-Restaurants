@@ -20,7 +20,14 @@ type MercadoPagoCardToken = {
 type MercadoPagoField = {
   mount(containerId: string): void;
   unmount?(): void;
-  on?(event: 'binChange', callback: (event: { bin?: string | null }) => void): MercadoPagoField;
+  on?(
+    event: 'binChange',
+    callback: (event: { bin?: string | null }) => void,
+  ): MercadoPagoField;
+  on?(
+    event: 'validityChange',
+    callback: (event: { field?: string; errorMessages?: Array<{ message?: string; cause?: string }> }) => void,
+  ): MercadoPagoField;
 };
 type MercadoPagoInstance = {
   fields: {
@@ -103,6 +110,7 @@ export function PaymentMethodModal({
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
+  const [secureExpiryValid, setSecureExpiryValid] = useState(false);
   const [config, setConfig] = useState<ProviderConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -158,9 +166,15 @@ export function PaymentMethodModal({
             })
             .catch(() => {});
         });
+        const expirationField = instance.fields.create('expirationDate', { placeholder: 'MM/AA' });
+        expirationField.on?.('validityChange', (event) => {
+          if (!active) return;
+          const hasErrors = Array.isArray(event.errorMessages) && event.errorMessages.length > 0;
+          setSecureExpiryValid(!hasErrors);
+        });
         const fields = [
           cardNumberField,
-          instance.fields.create('expirationDate', { placeholder: 'MM/AA' }),
+          expirationField,
           instance.fields.create('securityCode', { placeholder: '3 dígitos' }),
         ];
         fields[0].mount('mercado-pago-card-number');
@@ -185,6 +199,7 @@ export function PaymentMethodModal({
       setMercadoPagoReady(false);
       setMercadoPagoBin('');
       setMercadoPagoBrand('');
+      setSecureExpiryValid(false);
     };
   }, [config]);
 
@@ -320,7 +335,13 @@ export function PaymentMethodModal({
             brand={detectedBrand.id}
             numberLabel={number ? maskedCardNumber(number) : '•••• •••• •••• ••••'}
             holderName={holder.trim() || 'TITULAR DO CARTÃO'}
-            expiryLabel={expiry || 'MM/AA'}
+            expiryLabel={
+              config?.provider === 'MERCADO_PAGO'
+                ? secureExpiryValid
+                  ? '••/••'
+                  : 'MM/AA'
+                : expiry || 'MM/AA'
+            }
           />
 
           <div className="payment-fields">
