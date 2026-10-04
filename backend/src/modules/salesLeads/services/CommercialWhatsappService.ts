@@ -35,7 +35,7 @@ export class PlatformWhatsappRecoveryRequiredError extends Error {
   }
 }
 
-class PlatformEvolutionRequestError extends Error {
+export class PlatformEvolutionRequestError extends Error {
   constructor(
     readonly status: number,
     readonly operation: string,
@@ -147,10 +147,24 @@ async function connection() {
   return prisma.platformWhatsappConnection.findUnique({ where: { id: PLATFORM_CONNECTION_ID } });
 }
 
-async function fetchPlatformEvolutionInstance() {
-  const payload = await evolutionRequest(
-    `/instance/fetchInstances?instanceName=${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`,
+export function isPlatformEvolutionInstanceNotFound(error: unknown) {
+  return (
+    error instanceof PlatformEvolutionRequestError &&
+    error.status === 404 &&
+    error.operation === 'instance/fetchInstances'
   );
+}
+
+async function fetchPlatformEvolutionInstance() {
+  let payload: unknown;
+  try {
+    payload = await evolutionRequest(
+      `/instance/fetchInstances?instanceName=${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`,
+    );
+  } catch (error) {
+    if (isPlatformEvolutionInstanceNotFound(error)) return null;
+    throw error;
+  }
   const instances = Array.isArray(payload) ? payload : [];
   return (
     instances.find(
