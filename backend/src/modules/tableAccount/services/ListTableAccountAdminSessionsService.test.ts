@@ -2,7 +2,10 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import tableAccountRepository from '../repositories/TableAccountRepository.js';
-import { ListTableAccountAdminSessionsService } from './ListTableAccountAdminSessionsService.js';
+import {
+  ListTableAccountAdminSessionsService,
+  resolveManualPaymentOrderPublicIds,
+} from './ListTableAccountAdminSessionsService.js';
 
 const originals = {
   listAdminSnapshotDataByRestaurant: tableAccountRepository.listAdminSnapshotDataByRestaurant,
@@ -35,6 +38,7 @@ function payment({
     createdAt: new Date('2026-08-26T18:00:00.000Z'),
     payerParticipant: { publicId: 'participant-1' },
     events,
+    allocations: [],
   };
 }
 
@@ -118,6 +122,7 @@ test('lista somente dinheiro ativo e mantém consultas no restaurante do garçom
       payerParticipantPublicId: 'participant-1',
       payerDisplayName: 'Samuel',
       staffReceiptRegistered: false,
+      orderPublicIds: [],
     },
     {
       publicId: 'cash-received',
@@ -128,8 +133,26 @@ test('lista somente dinheiro ativo e mantém consultas no restaurante do garçom
       payerParticipantPublicId: 'participant-1',
       payerDisplayName: 'Samuel',
       staffReceiptRegistered: true,
+      orderPublicIds: [],
     },
   ]);
   assert.equal(result.sessions[0]?.paymentCounts.inPerson, 4);
   assert.equal(queryCount, 1);
+});
+
+
+test('resolve pedidos ligados ao pagamento manual sem misturar itens não alocados', () => {
+  const result = resolveManualPaymentOrderPublicIds(
+    [
+      { publicId: 'item-a1', orderPublicId: 'order-a' },
+      { publicId: 'item-a2', orderPublicId: 'order-a' },
+      { publicId: 'item-b1', orderPublicId: 'order-b' },
+    ],
+    [
+      { tableBillItem: { publicId: 'item-a1' } },
+      { tableBillItem: { publicId: 'item-a2' } },
+    ],
+  );
+
+  assert.deepEqual(result, ['order-a']);
 });
