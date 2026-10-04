@@ -38,6 +38,9 @@ describe('PaymentMethodModal', () => {
     expect(markup).toContain('https://cdn.example.test/cliente.png');
     expect(markup).toContain('Meu Carrinho');
     expect(markup).toContain('Salvar Novo Cartão');
+    expect(markup).toContain('E-mail do comprador');
+    expect(markup).toContain('voce@exemplo.com');
+    expect(markup).toContain('CPF do titular');
   });
 
   it('inclui ondas, contactless, chip e preview seguro do cartão', () => {
