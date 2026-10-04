@@ -459,16 +459,52 @@ export const FigmaGuestCardForm = styled.div`
 
 export const FigmaSavedCardSecurity = styled.div`
   display: grid;
-  grid-template-rows: 1fr;
-  overflow: hidden;
+  grid-template-rows: auto;
+  min-width: 0;
+  overflow: visible;
   transform-origin: top;
   animation: ${paymentCardFormExpand} ${PAYMENT_CARD_OPEN_DURATION_MS}ms
     cubic-bezier(0.22, 0.78, 0.24, 1) both;
 
   ${paymentReducedMotion}
 
-  > section { min-height: 0; overflow: hidden; margin: 0; padding: 0; border: 0; background: transparent; }
-  > section > header, > section .security { display: none; }
-  > section label > span { font-size: 11px; }
+  > section {
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  > section > header,
+  > section .security {
+    display: none;
+  }
+
+  > section label {
+    min-width: 0;
+  }
+
+  > section label > span {
+    font-size: 11px;
+  }
+
+  > section input,
+  > section .secure-field {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 760px) {
+    padding-bottom: 2px;
+
+    > section {
+      padding-bottom: 2px;
+    }
+  }
 `;
 
