@@ -785,29 +785,26 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(page.getByRole('button', { name: /Confirmar recebimento/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Acompanhar entrega no GPS/i })).toHaveCount(0);
 
-  await expect(page.getByRole('button', { name: 'Acompanhar em tempo real' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Acompanhar pedido' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Pagar agora no PIX' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Outras formas de pagamento' })).toBeVisible();
   await page.getByRole('button', { name: 'Continuar pedindo', exact: true }).click();
+
   const tableDock = page.getByRole('navigation', { name: 'Ações da mesa' });
-  await expect(
-    tableDock.getByRole('button', { name: 'Acompanhar em tempo real' }),
-  ).toBeVisible();
-  await tableDock.getByRole('button', { name: 'Acompanhar em tempo real' }).click();
+  await expect(tableDock.getByRole('button', { name: 'Acompanhar pedido' })).toBeVisible();
+  await tableDock.getByRole('button', { name: 'Acompanhar pedido' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Seus pedidos' })).toBeVisible();
+  const firstTrackedOrder = page.getByRole('button').filter({ hasText: 'Pedido 1' }).first();
+  await expect(firstTrackedOrder).toBeVisible();
+  await firstTrackedOrder.click();
+
+  await expect(page.getByRole('heading', { name: 'Acompanhar pedido' })).toBeVisible();
   await expect(page.getByText(product.name, { exact: true })).toBeVisible();
-  await expect(page.getByText('Suco da casa', { exact: true })).toBeVisible();
-  await expect(page.getByText('cerca de 18 minutos', { exact: false })).toBeVisible();
   await expect(page.getByText('Pizza Calabresa', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Chamar garçom para mesa' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pagar agora com PIX' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Outras formas de pagamento' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Outras formas de pagamento' }).click();
-  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Escolher PIX' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /cartão/iu })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Deixar aberto na Mesa' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pagar com dinheiro' })).toBeVisible();
-  await page.getByRole('button', { name: 'Deixar aberto na Mesa' }).click();
-  await expect(page.getByRole('heading', { name: 'Painel da Mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /PIX/u })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Outras formas de pagamento' })).toHaveCount(0);
 
   await selectPersona(page, 'kitchen');
   await page.goto('/kitchen');
@@ -821,7 +818,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await expect(kitchenOrder.getByText(product.name)).toBeVisible();
 });
 
-test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async ({ page }) => {
+test('cliente escolhe PIX pelas outras formas de pagamento sem CTA direto na confirmação', async ({ page }) => {
   const state: FlowState = {
     tableCreated: true,
     tableOpen: true,
@@ -882,13 +879,13 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
   await expect.poll(() => completedStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(16, 185, 129)');
   await expect.poll(() => currentStep.locator('.dot').evaluate((element) => getComputedStyle(element).backgroundColor)).toBe('rgb(255, 75, 75)');
 
-  const payButton = page.getByRole('button', { name: 'Pagar agora no PIX', exact: true });
-  await expect(payButton).toBeVisible();
-  await expect(payButton.locator('[data-pix-mark]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pagar agora no PIX', exact: true })).toHaveCount(0);
+  const otherPaymentButton = page.getByRole('button', { name: 'Outras formas de pagamento' });
+  await expect(otherPaymentButton).toBeVisible();
 
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    await expect(payButton).toBeInViewport();
+    await expect(otherPaymentButton).toBeInViewport();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
@@ -896,7 +893,9 @@ test('cliente pode pagar agora com PIX ou acompanhar para pagar depois', async (
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '../artifacts/table-order-confirmation-mobile.png', fullPage: true });
-  await payButton.click();
+  await otherPaymentButton.click();
+  await expect(page.getByRole('heading', { name: 'Como prefere pagar?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Escolher PIX' }).click();
 
   await expect.poll(() => state.tablePaymentPayload).not.toBeNull();
   expect(state.tablePaymentPayload).toMatchObject({
