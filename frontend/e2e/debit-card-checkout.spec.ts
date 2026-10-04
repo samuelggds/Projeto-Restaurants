@@ -16,6 +16,11 @@ function json(route: Route, body: unknown, status = 200) {
 async function mockDebitCheckout(page: Page) {
   let submitted: Record<string, unknown> | null = null;
 
+  // A blocked optional device collector must not prevent a valid card checkout.
+  await page.route('https://www.mercadopago.com/v2/security.js', (route) =>
+    route.abort('blockedbyclient'),
+  );
+
   await page.addInitScript(() => {
     class MockField {
       name: string;
@@ -58,8 +63,7 @@ async function mockDebitCheckout(page: Page) {
       }
     }
 
-    (window as unknown as { MercadoPago: typeof MockMercadoPago }).MercadoPago =
-      MockMercadoPago;
+    (window as unknown as { MercadoPago: typeof MockMercadoPago }).MercadoPago = MockMercadoPago;
   });
 
   await page.route(LOCAL_API, async (route) => {
@@ -164,13 +168,17 @@ async function mockDebitCheckout(page: Page) {
 
     if (pathname === '/orders/card/checkout' && request.method() === 'POST') {
       submitted = request.postDataJSON() as Record<string, unknown>;
-      return json(route, {
-        orderId: 501,
-        orderPublicId: '323e4567-e89b-42d3-a456-426614174705',
-        provider: 'MERCADO_PAGO',
-        paid: true,
-        totalAmount: 36,
-      }, 201);
+      return json(
+        route,
+        {
+          orderId: 501,
+          orderPublicId: '323e4567-e89b-42d3-a456-426614174705',
+          provider: 'MERCADO_PAGO',
+          paid: true,
+          totalAmount: 36,
+        },
+        201,
+      );
     }
 
     return json(route, {});
@@ -201,18 +209,21 @@ test('cliente paga no débito sem converter para crédito e sem enviar dados bru
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
   await checkout.getByRole('button', { name: 'Retirada', exact: true }).click();
-  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: /^Continuar(?: para Pagamento)?$/ }).click();
 
   const debit = checkout.getByRole('button', { name: 'Cartão de débito', exact: true });
   await expect(debit).toBeEnabled();
   await debit.click();
 
-  await expect(checkout.getByText('Dados do cartão de débito', { exact: true })).toBeVisible();
+  await expect(checkout.getByRole('region', { name: 'Dados do cartão', exact: true })).toBeVisible();
   await checkout.getByLabel('Nome impresso no cartão').fill('Cliente Teste');
   await checkout.getByLabel('E-mail do comprador').fill('cliente@example.com');
   await checkout.getByLabel('CPF/CNPJ do titular').fill('12345678901');
 
-  await checkout.getByRole('button', { name: /Finalizar Pedido|Confirmar Pagamento/ }).first().click();
+  await checkout
+    .getByRole('button', { name: /Finalizar Pedido|Confirmar Pagamento/ })
+    .first()
+    .click();
 
   await expect.poll(() => state.submitted()).not.toBeNull();
   expect(state.submitted()).toMatchObject({

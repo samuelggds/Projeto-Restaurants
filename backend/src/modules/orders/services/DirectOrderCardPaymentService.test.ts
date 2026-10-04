@@ -390,6 +390,7 @@ test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async ()
 
 test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async () => {
   let requestBody: Record<string, unknown> | null = null;
+  let requestHeaders = new Headers();
 
   restaurantSettingsRepository.findByRestaurantId = async () =>
     ({
@@ -421,6 +422,7 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
     const url = String(input);
     assert.equal(url, 'https://api.mercadopago.com/v1/orders');
     requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+    requestHeaders = new Headers(init.headers);
     return new Response(
       JSON.stringify({
         id: 'ORD_CARD_SAVED_001',
@@ -438,6 +440,7 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
         paymentMethodId: 'saved-card-public-id',
         cardToken: 'saved-card-cvv-token',
         cardPaymentMethodId: 'master',
+        mercadoPagoDeviceId: 'saved-card-device-session',
       },
       order: {
         id: 903,
@@ -452,6 +455,7 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
 
     assert.ok(requestBody);
     assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
+    assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
     assert.equal(result.paymentApproved, true);
   } finally {
     prisma.$transaction = originalTransaction;

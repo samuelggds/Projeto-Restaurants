@@ -161,6 +161,10 @@ try {
         `${path}: reCAPTCHA Enterprise API`,
       );
       assert.match(scriptSrc, /https:\/\/sdk\.mercadopago\.com/u, `${path}: Mercado Pago SDK`);
+      assert.ok(
+        scriptSrc.split(/\s+/u).includes('https://www.mercadopago.com/v2/security.js'),
+        `${path}: Mercado Pago device session collector`,
+      );
       assert.match(
         scriptSrc,
         /sha256-jScCZLu0SadLFc4DoxXZPwUjNQGwU92I1\+SMbW1n2Uk=/u,
