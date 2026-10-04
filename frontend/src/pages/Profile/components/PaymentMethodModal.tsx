@@ -102,6 +102,7 @@ export function PaymentMethodModal({
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
   const [config, setConfig] = useState<ProviderConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -226,7 +227,20 @@ export function PaymentMethodModal({
             'Não foi possível validar este cartão no momento. Verifique os dados e tente novamente.',
           );
         }
-        secured = { cardToken: token.id, holderTaxId: taxId };
+        const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+        if (
+          normalizedPayerEmail.length < 3 ||
+          normalizedPayerEmail.length > 254 ||
+          /\s/u.test(normalizedPayerEmail) ||
+          !/^[^@]+@[^@]+\.[^@]+$/u.test(normalizedPayerEmail)
+        ) {
+          throw new Error('Informe um e-mail válido do comprador.');
+        }
+        secured = {
+          cardToken: token.id,
+          holderTaxId: taxId,
+          payerEmail: normalizedPayerEmail,
+        };
         display = {
           brand: String(token.payment_method_id || mercadoPagoBrand || detectedBrand.id),
           last4: String(token.last_four_digits || ''),
@@ -393,6 +407,20 @@ export function PaymentMethodModal({
                 </div>
               </>
             )}
+
+            <label>
+              E-mail do comprador
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder="voce@exemplo.com"
+                value={payerEmail}
+                onChange={(event) => setPayerEmail(event.target.value.slice(0, 254))}
+                maxLength={254}
+                required
+              />
+              <small>Use o e-mail do comprador que será associado ao cartão no provedor.</small>
+            </label>
 
             <label>
               CPF do titular
