@@ -35,7 +35,7 @@ export class PlatformWhatsappRecoveryRequiredError extends Error {
   }
 }
 
-class PlatformEvolutionRequestError extends Error {
+export class PlatformEvolutionRequestError extends Error {
   constructor(
     readonly status: number,
     readonly operation: string,
