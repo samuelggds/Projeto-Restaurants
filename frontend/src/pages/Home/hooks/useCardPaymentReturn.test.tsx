@@ -35,7 +35,7 @@ function DetailsProbe() {
   return (
     <output>
       {payment.details
-        ? `${payment.details.cardPaymentType}:${payment.details.cardBrand}:${payment.details.cardLast4}`
+        ? `${payment.details.cardPaymentType}:${payment.details.cardBrand}:${payment.details.cardLast4}:${payment.details.challengeUrl || ''}`
         : 'sem-detalhes'}
     </output>
   );
@@ -78,6 +78,7 @@ describe('useCardPaymentReturn', () => {
     vi.mocked(ordersService.getCardPaymentStatus).mockResolvedValue({
       status: 'PENDING',
       paid: false,
+      challengeUrl: 'https://auth.mercadopago.com/card/validation?token=challenge',
       paymentAttempt: {
         cardPaymentType: 'debit',
         cardBrand: 'mastercard',
@@ -88,7 +89,9 @@ describe('useCardPaymentReturn', () => {
     await act(async () => root.render(<DetailsProbe />));
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
 
-    expect(container.textContent).toBe('debit:mastercard:4444');
+    expect(container.textContent).toBe(
+      'debit:mastercard:4444:https://auth.mercadopago.com/card/validation?token=challenge',
+    );
   });
 
   it('confirma somente quando o backend devolve paid verdadeiro', async () => {
