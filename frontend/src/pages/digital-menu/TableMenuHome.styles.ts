@@ -357,7 +357,9 @@ export const Categories = styled.nav`
   align-items: flex-start;
   gap: 24px;
   overflow-x: auto;
-  padding: 0 0 8px;
+  padding: 6px 6px 10px;
+  margin: -6px -6px 0;
+  scroll-padding-inline: 6px;
   scrollbar-width: none;
   scroll-behavior: smooth;
 
@@ -366,8 +368,8 @@ export const Categories = styled.nav`
   }
 
   button {
-    width: 72px;
-    min-width: 72px;
+    width: 84px;
+    min-width: 84px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -465,8 +467,9 @@ export const Categories = styled.nav`
   }
 
   @media (max-width: 760px) {
-    margin-right: -20px;
-    padding-right: 20px;
+    margin: -6px -20px 0 -6px;
+    padding: 6px 20px 10px 6px;
+    scroll-padding-inline: 6px;
     gap: 16px;
 
     button {
