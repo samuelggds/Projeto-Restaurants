@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   canRecoverPlatformEvolutionLogoutFailure,
   isPlatformEvolutionInstanceNotFound,
+  PlatformEvolutionRequestError,
 } from './CommercialWhatsappService.js';
 
 test('recupera logout 500 somente quando o estado canônico confirma sessão encerrada', () => {
@@ -20,12 +21,22 @@ test('recupera logout 500 somente quando o estado canônico confirma sessão enc
 
 
 test('trata somente 404 de fetchInstances como sessão de plataforma ausente', () => {
-  const makeError = (status: number, operation: string) => {
-    const error = new Error('provider');
-    Object.setPrototypeOf(error, Object.getPrototypeOf(new Error()));
-    Object.assign(error, { status, operation });
-    return error;
-  };
-
-  assert.equal(isPlatformEvolutionInstanceNotFound(makeError(404, 'instance/fetchInstances')), false);
+  assert.equal(
+    isPlatformEvolutionInstanceNotFound(
+      new PlatformEvolutionRequestError(404, 'instance/fetchInstances'),
+    ),
+    true,
+  );
+  assert.equal(
+    isPlatformEvolutionInstanceNotFound(
+      new PlatformEvolutionRequestError(401, 'instance/fetchInstances'),
+    ),
+    false,
+  );
+  assert.equal(
+    isPlatformEvolutionInstanceNotFound(
+      new PlatformEvolutionRequestError(404, 'instance/delete'),
+    ),
+    false,
+  );
 });
