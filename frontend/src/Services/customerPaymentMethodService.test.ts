@@ -129,6 +129,8 @@ describe('customerPaymentMethodService integration contract', () => {
       restaurantId: 9,
       cardToken: 'tok_test_123456',
       holderName: 'CLIENTE TESTE',
+      payerEmail: 'comprador@example.com',
+      holderTaxId: '12345678901',
       brand: 'mastercard',
       last4: '4444',
       expMonth: 12,
