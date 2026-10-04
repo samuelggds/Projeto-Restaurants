@@ -475,6 +475,7 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await expect(paymentForm.locator('img[alt="Mastercard"]').first()).toBeVisible();
   await paymentForm.getByLabel('Validade').fill('1230');
   await paymentForm.getByLabel('CVV').fill('123');
+  await paymentForm.getByLabel('E-mail do comprador').fill('comprador@example.com');
   await paymentForm.getByLabel('CPF do titular').fill('12345678909');
   await paymentForm.getByRole('button', { name: 'Salvar Novo Cartão' }).click();
 
@@ -482,6 +483,8 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   expect(paymentCreatePayloads[0]).toMatchObject({
     restaurantId: 9,
     holderName: 'CLIENTE TESTE',
+    payerEmail: 'comprador@example.com',
+    holderTaxId: '123.456.789-09',
     brand: 'mastercard',
     last4: '4444',
     expMonth: 12,
