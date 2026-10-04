@@ -12,7 +12,10 @@ export function pixPaymentFailurePresentation({
   status?: string | null;
   statusDetail?: string | null;
 }): PixPaymentFailurePresentation | null {
-  const normalizedProvider = String(provider || '').trim().toUpperCase();
+  const normalizedProvider = String(provider || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/gu, '_');
   const normalizedStatus = String(status || '').trim().toLowerCase();
   const normalizedDetail = String(statusDetail || '').trim().toLowerCase();
 
