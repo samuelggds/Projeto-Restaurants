@@ -205,6 +205,16 @@ export function PaymentMethodModal({
     setSaving(true);
     setError('');
     try {
+      const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+      if (
+        normalizedPayerEmail.length < 3 ||
+        normalizedPayerEmail.length > 254 ||
+        /\s/u.test(normalizedPayerEmail) ||
+        !/^[^@]+@[^@]+\.[^@]+$/u.test(normalizedPayerEmail)
+      ) {
+        throw new Error('Informe um e-mail válido do comprador.');
+      }
+
       const providerConfig = config || (await customerPaymentMethodService.getConfig(restaurantId));
       let secured: Record<string, unknown>;
       let display: { brand: string; last4: string; month: number; year: number } = {
@@ -227,19 +237,9 @@ export function PaymentMethodModal({
             'Não foi possível validar este cartão no momento. Verifique os dados e tente novamente.',
           );
         }
-        const normalizedPayerEmail = payerEmail.trim().toLowerCase();
-        if (
-          normalizedPayerEmail.length < 3 ||
-          normalizedPayerEmail.length > 254 ||
-          /\s/u.test(normalizedPayerEmail) ||
-          !/^[^@]+@[^@]+\.[^@]+$/u.test(normalizedPayerEmail)
-        ) {
-          throw new Error('Informe um e-mail válido do comprador.');
-        }
         secured = {
           cardToken: token.id,
           holderTaxId: taxId,
-          payerEmail: normalizedPayerEmail,
         };
         display = {
           brand: String(token.payment_method_id || mercadoPagoBrand || detectedBrand.id),
@@ -253,6 +253,7 @@ export function PaymentMethodModal({
       await customerPaymentMethodService.create({
         restaurantId,
         ...secured,
+        payerEmail: normalizedPayerEmail,
         holderName: holder.trim(),
         brand: display.brand || undefined,
         last4: display.last4 || undefined,
