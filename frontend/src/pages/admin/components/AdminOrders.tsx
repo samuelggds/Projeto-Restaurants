@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -48,6 +48,47 @@ import {
 const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
 
 type QueueView = RestaurantOrdersQueue;
+
+type PendingTableCash = {
+  paymentPublicId: string;
+  totalCents: number;
+  payerDisplayName: string;
+};
+
+type PendingTableCashByOrderPublicId = Record<string, PendingTableCash>;
+
+async function readPendingTableCashByOrderPublicId(): Promise<PendingTableCashByOrderPublicId> {
+  const result = await tableAccountService.listAdminSessions();
+  const next: PendingTableCashByOrderPublicId = {};
+
+  for (const session of Array.isArray(result?.sessions) ? result.sessions : []) {
+    for (const payment of Array.isArray(session?.pendingManualPayments)
+      ? session.pendingManualPayments
+      : []) {
+      if (
+        payment?.method !== 'CASH' ||
+        payment?.staffReceiptRegistered !== true ||
+        !payment?.publicId
+      ) {
+        continue;
+      }
+
+      for (const orderPublicId of Array.isArray(payment?.orderPublicIds)
+        ? payment.orderPublicIds
+        : []) {
+        const normalizedOrderPublicId = String(orderPublicId || '').trim();
+        if (!normalizedOrderPublicId) continue;
+        next[normalizedOrderPublicId] = {
+          paymentPublicId: String(payment.publicId),
+          totalCents: Number(payment.totalCents || 0),
+          payerDisplayName: String(payment.payerDisplayName || 'Cliente da mesa'),
+        };
+      }
+    }
+  }
+
+  return next;
+}
 
 type AdminOrdersProps = {
   orders: AdminOrder[];
@@ -124,16 +165,8 @@ export function AdminOrders({
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
   const [confirmingTableCashId, setConfirmingTableCashId] = useState('');
-  const [tableCashByOrderPublicId, setTableCashByOrderPublicId] = useState<
-    Record<
-      string,
-      {
-        paymentPublicId: string;
-        totalCents: number;
-        payerDisplayName: string;
-      }
-    >
-  >({});
+  const [tableCashByOrderPublicId, setTableCashByOrderPublicId] =
+    useState<PendingTableCashByOrderPublicId>({});
   const [checkingRefundId, setCheckingRefundId] = useState<number | null>(null);
   const page = useAdminOrdersPage({
     search,
@@ -144,54 +177,31 @@ export function AdminOrders({
   });
   const { summary, orders: displayedOrders } = page;
 
-  const refreshPendingTableCash = useCallback(async () => {
+  const refreshPendingTableCash = async () => {
     try {
-      const result = await tableAccountService.listAdminSessions();
-      const next: Record<
-        string,
-        {
-          paymentPublicId: string;
-          totalCents: number;
-          payerDisplayName: string;
-        }
-      > = {};
-
-      for (const session of Array.isArray(result?.sessions) ? result.sessions : []) {
-        for (const payment of Array.isArray(session?.pendingManualPayments)
-          ? session.pendingManualPayments
-          : []) {
-          if (
-            payment?.method !== 'CASH' ||
-            payment?.staffReceiptRegistered !== true ||
-            !payment?.publicId
-          ) {
-            continue;
-          }
-          for (const orderPublicId of Array.isArray(payment?.orderPublicIds)
-            ? payment.orderPublicIds
-            : []) {
-            const normalizedOrderPublicId = String(orderPublicId || '').trim();
-            if (!normalizedOrderPublicId) continue;
-            next[normalizedOrderPublicId] = {
-              paymentPublicId: String(payment.publicId),
-              totalCents: Number(payment.totalCents || 0),
-              payerDisplayName: String(payment.payerDisplayName || 'Cliente da mesa'),
-            };
-          }
-        }
-      }
-
-      setTableCashByOrderPublicId(next);
+      setTableCashByOrderPublicId(await readPendingTableCashByOrderPublicId());
     } catch {
       // A fila de pedidos continua utilizável mesmo se o painel financeiro da mesa
       // estiver temporariamente indisponível. Nenhum pagamento é confirmado por fallback.
       setTableCashByOrderPublicId({});
     }
-  }, []);
+  };
 
   useEffect(() => {
-    void refreshPendingTableCash();
-  }, [orders, refreshPendingTableCash]);
+    let active = true;
+
+    void readPendingTableCashByOrderPublicId()
+      .then((next) => {
+        if (active) setTableCashByOrderPublicId(next);
+      })
+      .catch(() => {
+        if (active) setTableCashByOrderPublicId({});
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [orders]);
 
   const { cancelOrder, cancellingOrderId } = useAdminOrderCancellation({
     money,
