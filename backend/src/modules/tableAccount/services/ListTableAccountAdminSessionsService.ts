@@ -11,6 +11,22 @@ import {
 import { hasStaffCashReceiptEvent } from './tablePaymentLedger.js';
 import { TablePaymentError } from './tablePaymentSupport.js';
 
+export function resolveManualPaymentOrderPublicIds(
+  items: Array<{ publicId: string; orderPublicId: string }>,
+  allocations: Array<{ tableBillItem: { publicId: string } }> = [],
+) {
+  const allocatedItemPublicIds = new Set(
+    allocations.map((allocation) => allocation.tableBillItem.publicId),
+  );
+  return [
+    ...new Set(
+      items
+        .filter((item) => allocatedItemPublicIds.has(item.publicId))
+        .map((item) => item.orderPublicId),
+    ),
+  ];
+}
+
 export class ListTableAccountAdminSessionsService {
   async execute(actor: TableAccountActor) {
     const restaurantId = Number(actor.restaurantId || 0);
@@ -45,16 +61,10 @@ export class ListTableAccountAdminSessionsService {
           const payer = account.participants.find(
             (participant) => participant.publicId === payment.payerParticipant.publicId,
           );
-          const allocatedItemPublicIds = new Set(
-            payment.allocations.map((allocation) => allocation.tableBillItem.publicId),
+          const orderPublicIds = resolveManualPaymentOrderPublicIds(
+            account.items,
+            payment.allocations || [],
           );
-          const orderPublicIds = [
-            ...new Set(
-              account.items
-                .filter((item) => allocatedItemPublicIds.has(item.publicId))
-                .map((item) => item.orderPublicId),
-            ),
-          ];
           return {
             publicId: payment.publicId,
             method: payment.method,
