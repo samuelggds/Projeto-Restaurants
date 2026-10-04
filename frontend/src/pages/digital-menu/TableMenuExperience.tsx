@@ -37,8 +37,6 @@ import { FlowHeader } from './TableMenuFlow';
 import {
   confirmationSteps,
   formatTableNumber,
-  trackingHeadline,
-  trackingSteps,
 } from './TableMenuFlow.domain';
 import { TablePaymentChoiceView } from './TableMenuPaymentViews';
 import * as S from './TableMenuExperience.styles';
