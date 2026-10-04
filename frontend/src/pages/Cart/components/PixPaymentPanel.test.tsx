@@ -13,12 +13,21 @@ const payment = {
   paid: false,
 };
 
-function render(status: PixPaymentStatus) {
+function render(
+  status: PixPaymentStatus,
+  options: { statusDetail?: string | null; paymentError?: string | null } = {},
+) {
   return renderToStaticMarkup(
     <PixPaymentPanel
-      pixPaymentData={{ ...payment, paid: status === 'PAID' }}
+      pixPaymentData={{ ...payment, paid: status === 'PAID', statusDetail: options.statusDetail }}
       paymentStatus={status}
-      paymentError={status === 'ERROR' ? 'Consulta indisponível.' : null}
+      paymentError={
+        options.paymentError !== undefined
+          ? options.paymentError
+          : status === 'ERROR'
+            ? 'Consulta indisponível.'
+            : null
+      }
       formatCurrency={(value) => `R$ ${value.toFixed(2)}`}
       onCopyPixKey={vi.fn()}
       onVerify={vi.fn()}
@@ -41,6 +50,16 @@ describe('PixPaymentPanel', () => {
 
     expect(markup).toContain('Pagamento PIX Confirmado!');
     expect(markup).not.toContain('000201-pix-code');
+  });
+
+  it('mostra rejeição high risk do Mercado Pago com orientação segura', () => {
+    const markup = render('FAILED', { statusDetail: 'rejected_high_risk' });
+
+    expect(markup).toContain('Pagamento recusado pelo Mercado Pago');
+    expect(markup).toContain('não autorizou esta tentativa por análise de segurança');
+    expect(markup).toContain('Nenhum pagamento foi confirmado');
+    expect(markup).not.toContain('timeout');
+    expect(markup).not.toContain('rejected_high_risk');
   });
 
   it.each(['FAILED', 'CANCELED', 'EXPIRED'] as const)(
