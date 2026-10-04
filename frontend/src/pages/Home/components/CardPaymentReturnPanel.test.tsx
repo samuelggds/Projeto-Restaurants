@@ -83,6 +83,31 @@ describe('CardPaymentReturnPanel', () => {
     expect(markup).not.toContain('mini-card');
   });
 
+  it('renderiza o challenge 3DS somente quando o backend retorna URL segura e pagamento pendente', () => {
+    const markup = renderToStaticMarkup(
+      <CardPaymentReturnPanel
+        status="PENDING"
+        error={null}
+        providerReturnStatus="pending"
+        details={{
+          cardPaymentType: 'credit',
+          cardBrand: 'mastercard',
+          cardLast4: '0829',
+          challengeUrl: 'https://auth.mercadopago.com/card/validation?token=challenge',
+        }}
+        onVerify={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('Confirme sua compra com o banco');
+    expect(markup).toContain('title="Autenticação de segurança do cartão"');
+    expect(markup).toContain(
+      'src="https://auth.mercadopago.com/card/validation?token=challenge"',
+    );
+    expect(markup).not.toContain('Pagamento Aprovado!');
+  });
+
   it('preserva débito como débito em toda a tela de retorno', () => {
     const markup = renderToStaticMarkup(
       <CardPaymentReturnPanel

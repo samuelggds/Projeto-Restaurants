@@ -69,6 +69,7 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
     kitchenPrintedAt: null,
     status: 'PENDING',
     paid: false,
+    challengeUrl: null,
     paymentAttempt: null,
   });
 });

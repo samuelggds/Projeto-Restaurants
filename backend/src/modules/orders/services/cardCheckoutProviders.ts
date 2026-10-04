@@ -67,6 +67,9 @@ export type CardCheckoutResult = {
   checkoutUrl: string;
   persistenceSessionId?: string;
   paymentApproved?: boolean;
+  challengeUrl?: string | null;
+  providerStatus?: string | null;
+  providerStatusDetail?: string | null;
 };
 
 type CardCheckoutProviderContext = {

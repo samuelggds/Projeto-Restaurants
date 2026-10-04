@@ -34,6 +34,22 @@ type Props = {
 
 const terminalFailures: CardPaymentReturnStatus[] = ['FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'];
 
+function isTrustedMercadoPagoOrigin(origin: string) {
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    return (
+      url.protocol === 'https:' &&
+      (hostname === 'mercadopago.com' ||
+        hostname.endsWith('.mercadopago.com') ||
+        hostname === 'mercadopago.com.br' ||
+        hostname.endsWith('.mercadopago.com.br'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getTerminalPaymentCopy(
   status: CardPaymentReturnStatus,
   error: string | null,
@@ -119,11 +135,36 @@ export function CardPaymentReturnPanel({
       : ''
   );
   const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const challengeFrameRef = useRef<HTMLIFrameElement>(null);
+  const challengeUrl = status === 'PENDING' ? String(details?.challengeUrl || '').trim() : '';
 
   useEffect(() => {
     if (!paid && !failed) return;
     resultHeadingRef.current?.focus();
   }, [failed, paid]);
+
+  useEffect(() => {
+    if (!challengeUrl) return undefined;
+
+    const onMessage = (event: MessageEvent) => {
+      const frameWindow = challengeFrameRef.current?.contentWindow;
+      if (!frameWindow || event.source !== frameWindow) return;
+      if (!isTrustedMercadoPagoOrigin(event.origin)) return;
+
+      const message =
+        typeof event.data === 'string'
+          ? event.data
+          : event.data && typeof event.data === 'object'
+            ? String((event.data as { type?: unknown }).type || '')
+            : '';
+      if (message !== 'COMPLETE') return;
+
+      void onVerify();
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [challengeUrl, onVerify]);
 
   const printedAt = details?.kitchenPrintedAt
     ? new Date(details.kitchenPrintedAt).toLocaleTimeString('pt-BR', {
@@ -182,6 +223,29 @@ export function CardPaymentReturnPanel({
           ) : null}
 
           <MobileTitle>Pagamento com {cardTypeLabel}</MobileTitle>
+
+          {challengeUrl ? (
+            <ChallengeSection>
+              <div>
+                <b>Confirme sua compra com o banco</b>
+                <p>
+                  O Mercado Pago solicitou uma autenticação de segurança antes de concluir este
+                  pagamento.
+                </p>
+              </div>
+              <iframe
+                ref={challengeFrameRef}
+                src={challengeUrl}
+                title="Autenticação de segurança do cartão"
+                allow="payment"
+                referrerPolicy="no-referrer"
+              />
+              <small>
+                Não feche esta tela até a autenticação terminar. O pedido só será liberado após a
+                confirmação do Mercado Pago.
+              </small>
+            </ChallengeSection>
+          ) : null}
 
           <CardVisualWrap>
             <PaymentCardVisual
@@ -370,6 +434,45 @@ const MobileTitle = styled.h1`
     animation: ${paymentContentReveal} 300ms ease-out 70ms both;
 
     ${paymentReducedMotion}
+  }
+`;
+
+const ChallengeSection = styled.section`
+  width: min(420px, 100%);
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  text-align: center;
+
+  > div {
+    display: grid;
+    gap: 6px;
+  }
+
+  b {
+    font-size: 16px;
+  }
+
+  p,
+  small {
+    margin: 0;
+    color: #72706b;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  iframe {
+    width: 100%;
+    min-height: 420px;
+    border: 1px solid #efece6;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  @media (max-width: 760px) {
+    iframe {
+      min-height: 460px;
+    }
   }
 `;
 

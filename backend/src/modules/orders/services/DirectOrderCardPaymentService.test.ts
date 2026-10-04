@@ -87,6 +87,14 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.equal(Object.hasOwn(requestBody, 'capture_mode'), false);
   assert.equal(requestBody.total_amount, '1.00');
   assert.equal(requestBody.external_reference, 'ordercard_901_7');
+  assert.deepEqual(requestBody.config, {
+    online: {
+      transaction_security: {
+        validation: 'on_fraud_risk',
+        liability_shift: 'required',
+      },
+    },
+  });
   assert.equal(Object.hasOwn(requestBody, 'marketplace_fee'), false);
   assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
@@ -241,6 +249,7 @@ test('débito Mercado Pago envia debit_card e nunca é convertido silenciosament
     type: 'debit_card',
     token: 'test-debit-token',
   });
+  assert.equal(Object.hasOwn(requestBody || {}, 'config'), false);
   assert.equal(result.paymentApproved, true);
 });
 
@@ -266,6 +275,116 @@ test('recusa débito em gateway ainda não homologado sem expor dados do cartão
       error instanceof CardPaymentDeclinedError &&
       /débito online ainda não está disponível/i.test(error.message) &&
       !error.message.includes('4111111111111111'),
+  );
+});
+
+test('Mercado Pago action_required retorna challenge 3DS seguro sem aprovar pedido', async () => {
+  let requestBody: Record<string, unknown> | null = null;
+
+  globalThis.fetch = async (_input, init: RequestInit = {}) => {
+    requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+    return new Response(
+      JSON.stringify({
+        id: 'ORD_3DS_001',
+        status: 'action_required',
+        transactions: {
+          payments: [
+            {
+              status: 'action_required',
+              status_detail: 'pending_challenge',
+              payment_method: {
+                transaction_security: {
+                  url: 'https://auth.mercadopago.com/card/validation?token=challenge',
+                },
+              },
+            },
+          ],
+        },
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } },
+    );
+  };
+
+  const result = await directOrderCardPaymentService.execute({
+    provider: CARD_PROVIDERS.MERCADO_PAGO,
+    payload: {
+      cardPaymentType: 'credit',
+      cardToken: 'card-token-3ds',
+      cardPaymentMethodId: 'master',
+      payerEmail: 'cliente@example.com',
+    },
+    order: {
+      id: 910,
+      publicId: 'order-public-910',
+      restaurantId: 7,
+      total: 28.5,
+    },
+    successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+    idempotencyKey: '11111111-1111-4111-8111-111111111910',
+  });
+
+  assert.deepEqual(requestBody?.config, {
+    online: {
+      transaction_security: {
+        validation: 'on_fraud_risk',
+        liability_shift: 'required',
+      },
+    },
+  });
+  assert.equal(result.paymentApproved, false);
+  assert.equal(result.providerStatus, 'action_required');
+  assert.equal(result.providerStatusDetail, 'pending_challenge');
+  assert.equal(
+    result.challengeUrl,
+    'https://auth.mercadopago.com/card/validation?token=challenge',
+  );
+});
+
+test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async () => {
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: 'ORD_3DS_BAD_URL',
+        status: 'action_required',
+        transactions: {
+          payments: [
+            {
+              status: 'action_required',
+              status_detail: 'pending_challenge',
+              payment_method: {
+                transaction_security: {
+                  url: 'https://evil.example/phishing',
+                },
+              },
+            },
+          ],
+        },
+      }),
+      { status: 201, headers: { 'Content-Type': 'application/json' } },
+    );
+
+  await assert.rejects(
+    () =>
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          cardPaymentType: 'credit',
+          cardToken: 'card-token-3ds-bad',
+          cardPaymentMethodId: 'master',
+          payerEmail: 'cliente@example.com',
+        },
+        order: {
+          id: 911,
+          publicId: 'order-public-911',
+          restaurantId: 7,
+          total: 29.5,
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111911',
+      }),
+    (error) =>
+      error instanceof CardPaymentProviderRequestError &&
+      error.providerCode === 'missing_3ds_challenge_url',
   );
 });
 

@@ -30,6 +30,7 @@ export type CardPaymentReturnDetails = {
   cardPaymentType?: 'credit' | 'debit';
   cardBrand?: string | null;
   cardLast4?: string | null;
+  challengeUrl?: string | null;
 };
 
 type StatusState = {
@@ -116,6 +117,7 @@ export function useCardPaymentReturn({
               response?.paymentAttempt?.cardPaymentType === 'debit' ? 'debit' : 'credit',
             cardBrand: response?.paymentAttempt?.cardBrand || 'card',
             cardLast4: response?.paymentAttempt?.cardLast4 || null,
+            challengeUrl: response?.challengeUrl || null,
           },
         });
         if (status === 'PAID' || unsuccessful) {

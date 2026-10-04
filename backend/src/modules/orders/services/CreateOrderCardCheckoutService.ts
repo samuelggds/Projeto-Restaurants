@@ -291,7 +291,10 @@ class CreateOrderCardCheckoutService {
         : OrderPaymentAttemptStatus.PROCESSING,
       {
         providerOrderId: String(checkout.sessionId || '').trim() || null,
-        providerStatus: checkout.paymentApproved ? 'processed' : 'pending',
+        providerStatus:
+          String(checkout.providerStatus || '').trim() ||
+          (checkout.paymentApproved ? 'processed' : 'pending'),
+        providerStatusDetail: String(checkout.providerStatusDetail || '').trim() || null,
       },
     );
 
@@ -327,6 +330,7 @@ class CreateOrderCardCheckoutService {
       provider: checkout.provider,
       sessionId: checkout.sessionId,
       checkoutUrl: checkout.checkoutUrl,
+      challengeUrl: checkout.challengeUrl || null,
       paid: paymentConfirmed,
       paymentAttemptId: paymentAttempt.publicId,
     };

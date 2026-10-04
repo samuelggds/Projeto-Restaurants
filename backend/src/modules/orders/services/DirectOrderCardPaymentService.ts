@@ -13,6 +13,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
+import type { CardCheckoutResult } from './cardCheckoutProviders.js';
 
 export type CardPaymentType = 'credit' | 'debit';
 
@@ -211,6 +212,46 @@ export function mercadoPagoDeclineDetails(body: Record<string, unknown>) {
   };
 }
 
+export function mercadoPago3DSChallengeUrl(body: Record<string, unknown>) {
+  const data =
+    body.data && typeof body.data === 'object'
+      ? (body.data as Record<string, unknown>)
+      : body;
+  const transactions =
+    data.transactions && typeof data.transactions === 'object'
+      ? (data.transactions as Record<string, unknown>)
+      : null;
+  const payments = Array.isArray(transactions?.payments) ? transactions.payments : [];
+  const payment =
+    payments[0] && typeof payments[0] === 'object'
+      ? (payments[0] as Record<string, unknown>)
+      : null;
+  const paymentMethod =
+    payment?.payment_method && typeof payment.payment_method === 'object'
+      ? (payment.payment_method as Record<string, unknown>)
+      : null;
+  const transactionSecurity =
+    paymentMethod?.transaction_security && typeof paymentMethod.transaction_security === 'object'
+      ? (paymentMethod.transaction_security as Record<string, unknown>)
+      : null;
+  const rawUrl = String(transactionSecurity?.url || '').trim();
+  if (!rawUrl) return null;
+
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.toLowerCase();
+    const trustedHost =
+      hostname === 'mercadopago.com' ||
+      hostname.endsWith('.mercadopago.com') ||
+      hostname === 'mercadopago.com.br' ||
+      hostname.endsWith('.mercadopago.com.br');
+    if (url.protocol !== 'https:' || !trustedHost || url.username || url.password) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function isMercadoPagoRequestValidationError(status: number, body: Record<string, unknown>) {
   if (status !== 400) return false;
   return new Set([
@@ -347,6 +388,18 @@ async function mercadoPagoPayment(
   const body = {
     type: 'online',
     processing_mode: 'automatic',
+    ...(cardPaymentType === 'credit'
+      ? {
+          config: {
+            online: {
+              transaction_security: {
+                validation: 'on_fraud_risk',
+                liability_shift: 'required',
+              },
+            },
+          },
+        }
+      : {}),
     total_amount: total.toFixed(2),
     external_reference: reference,
     description: `Pedido #${order.id}`,
@@ -442,6 +495,29 @@ async function mercadoPagoPayment(
     .toLowerCase();
   if (!providerOrderId) throw new Error('Mercado Pago não retornou a identificação da cobrança.');
 
+  if (status === 'action_required' && diagnostic.statusDetail === 'pending_challenge') {
+    const challengeUrl = mercadoPago3DSChallengeUrl(result.body);
+    if (!challengeUrl) {
+      throw new CardPaymentProviderRequestError(
+        'O Mercado Pago solicitou autenticação adicional, mas não retornou um endereço seguro.',
+        result.response.status,
+        'missing_3ds_challenge_url',
+        diagnostic,
+      );
+    }
+
+    return {
+      provider: CARD_PROVIDERS.MERCADO_PAGO,
+      sessionId: providerOrderId,
+      persistenceSessionId: `mp_order:${providerOrderId}`,
+      checkoutUrl: internalReturnUrl(successUrlBase, order, 'pending'),
+      challengeUrl,
+      paymentApproved: false,
+      providerStatus: status,
+      providerStatusDetail: diagnostic.statusDetail,
+    } as const;
+  }
+
   if (['failed', 'rejected'].includes(status)) {
     console.warn('[MERCADO_PAGO_CARD_PAYMENT_FAILED]', {
       orderId: order.id,
@@ -466,6 +542,8 @@ async function mercadoPagoPayment(
     persistenceSessionId: `mp_order:${providerOrderId}`,
     checkoutUrl: internalReturnUrl(successUrlBase, order, approved ? 'success' : 'pending'),
     paymentApproved: approved,
+    providerStatus: status || (approved ? 'processed' : 'pending'),
+    providerStatusDetail: diagnostic.statusDetail,
   } as const;
 }
 
@@ -738,7 +816,7 @@ class DirectOrderCardPaymentService {
     order: CardOrder;
     successUrlBase: string;
     idempotencyKey?: string;
-  }) {
+  }): Promise<CardCheckoutResult> {
     const cardPaymentType = normalizeCardPaymentType(input.payload.cardPaymentType);
     if (cardPaymentType === 'debit' && input.provider !== CARD_PROVIDERS.MERCADO_PAGO) {
       throw new CardPaymentDeclinedError(
