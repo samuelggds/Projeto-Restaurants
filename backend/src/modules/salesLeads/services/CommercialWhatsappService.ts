@@ -24,6 +24,17 @@ const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
 const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY'];
 
+export class PlatformWhatsappRecoveryRequiredError extends Error {
+  readonly code = 'PLATFORM_WHATSAPP_ORPHAN_SESSION';
+
+  constructor() {
+    super(
+      'Existe uma sessão anterior do WhatsApp comercial na Evolution sem vínculo seguro com o banco atual. Reinicie essa conexão de forma controlada para gerar um novo QR Code.',
+    );
+    this.name = 'PlatformWhatsappRecoveryRequiredError';
+  }
+}
+
 function env(name: string) {
   return String(process.env[name] || '').trim();
 }
@@ -118,6 +129,42 @@ async function connection() {
   return prisma.platformWhatsappConnection.findUnique({ where: { id: PLATFORM_CONNECTION_ID } });
 }
 
+async function fetchPlatformEvolutionInstance() {
+  const payload = await evolutionRequest(
+    `/instance/fetchInstances?instanceName=${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`,
+  );
+  const instances = Array.isArray(payload) ? payload : [];
+  return (
+    instances.find(
+      (candidate) =>
+        candidate &&
+        typeof candidate === 'object' &&
+        String((candidate as JsonRecord).name || '').trim() === PLATFORM_INSTANCE_NAME,
+    ) || null
+  );
+}
+
+async function assertPlatformInstanceNameAvailable() {
+  const remote = await fetchPlatformEvolutionInstance();
+  if (remote) throw new PlatformWhatsappRecoveryRequiredError();
+}
+
+async function deletePlatformEvolutionInstance() {
+  const remote = await fetchPlatformEvolutionInstance();
+  if (!remote) return;
+
+  await evolutionRequest(`/instance/delete/${encodeURIComponent(PLATFORM_INSTANCE_NAME)}`, {
+    method: 'DELETE',
+  });
+
+  const remaining = await fetchPlatformEvolutionInstance();
+  if (remaining) {
+    throw new Error(
+      'A sessão anterior do WhatsApp comercial não pôde ser removida com segurança. Nenhuma nova conexão foi criada.',
+    );
+  }
+}
+
 function publicConnection(row: Awaited<ReturnType<typeof connection>>) {
   if (!row) return { configured: false, provider: 'EVOLUTION', status: 'NOT_CONFIGURED' } as const;
   return {
@@ -156,6 +203,8 @@ export async function createPlatformWhatsappConnection() {
   const existing = await connection();
   if (existing && existing.status !== 'ERROR') return publicConnection(existing);
 
+  await assertPlatformInstanceNameAvailable();
+
   const token = randomBytes(24).toString('hex');
   const secret = randomBytes(32).toString('hex');
   await evolutionRequest('/instance/create', {
@@ -189,6 +238,12 @@ export async function createPlatformWhatsappConnection() {
   });
   await configureWebhook(row, secret);
   return publicConnection(row);
+}
+
+export async function resetPlatformWhatsappConnection() {
+  await deletePlatformEvolutionInstance();
+  await prisma.platformWhatsappConnection.deleteMany({ where: { id: PLATFORM_CONNECTION_ID } });
+  return createPlatformWhatsappConnection();
 }
 
 export async function getPlatformWhatsappQrCode() {
