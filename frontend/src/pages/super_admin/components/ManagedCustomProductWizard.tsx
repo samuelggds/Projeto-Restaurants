@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import { Boxes, Layers3, PackagePlus, Pizza, Upload, X } from 'lucide-react';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import type {
@@ -164,7 +164,7 @@ export function ManagedCustomProductWizard({
   function toggleNumber(
     value: number,
     selected: boolean,
-    setter: React.Dispatch<React.SetStateAction<number[]>>,
+    setter: Dispatch<SetStateAction<number[]>>,
   ) {
     setter((current) =>
       selected ? [...new Set([...current, value])] : current.filter((item) => item !== value),
