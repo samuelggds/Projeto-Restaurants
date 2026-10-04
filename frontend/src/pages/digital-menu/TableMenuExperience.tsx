@@ -17,7 +17,6 @@ import {
   resolveProductEntryKind,
 } from '../Home/domain/productEntryFlow';
 import {
-  currentParticipantAccount,
   shouldReuseActiveTablePayment,
   tablePaymentMethodLabel,
   tablePaymentStatusLabel,
