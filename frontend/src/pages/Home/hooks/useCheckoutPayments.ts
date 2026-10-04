@@ -9,6 +9,7 @@ import {
 import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
 import { readStorage } from '../../../shared/storage/safeStorage';
 import { prepareCardPayment } from '../domain/cardPaymentPreparation';
+import { pixPaymentFailurePresentation } from '../domain/pixPaymentFailure';
 
 export type PixPaymentData = {
   restaurantId?: number;
@@ -21,6 +22,7 @@ export type PixPaymentData = {
   requiresStatusCheck?: boolean;
   paid?: boolean;
   expiresAt?: string | null;
+  statusDetail?: string | null;
 };
 
 export type PixPaymentStatus =
@@ -200,7 +202,15 @@ export function useCheckoutPayments(options: Options) {
           throw new Error('Não foi possível verificar este pagamento.');
         const unsuccessful = getUnsuccessfulPaymentOutcome(providerStatus?.status);
         if (unsuccessful) {
+          const statusDetail = String(providerStatus?.statusDetail || '').trim() || null;
+          const presentation = pixPaymentFailurePresentation({
+            provider: pixPaymentData.provider,
+            status: providerStatus?.status,
+            statusDetail,
+          });
           pixTerminalRef.current = unsuccessful;
+          setPixPaymentData((current) => (current ? { ...current, statusDetail } : current));
+          setPixPaymentError(presentation?.message || null);
           setPixPaymentStatus(unsuccessful);
           return unsuccessful;
         }
