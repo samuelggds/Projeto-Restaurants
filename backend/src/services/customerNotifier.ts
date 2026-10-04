@@ -135,9 +135,10 @@ function providerSupported(provider: string) {
   return SUPPORTED_QUEUE_PROVIDERS.has(provider);
 }
 
-function normalizeNationalBrPhone(phone: string | number | null | undefined) {
+function normalizeWhatsappPhone(phone: string | number | null | undefined) {
   const digits = String(phone || '').replace(/\D/g, '');
-  return /^[1-9]\d{9,10}$/u.test(digits) ? digits : '';
+  const international = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
+  return /^[1-9]\d{10,14}$/u.test(international) ? international : '';
 }
 
 function formatCurrencyBrl(value: number | string | { toString(): string } | null | undefined) {
@@ -212,9 +213,9 @@ async function queueWhatsappMessage({
     return { sent: false, reason: 'provider_not_supported', provider } as const;
   }
 
-  const from = normalizeNationalBrPhone(restaurantWhatsapp);
+  const from = normalizeWhatsappPhone(restaurantWhatsapp);
   if (!from) return { sent: false, reason: 'restaurant_whatsapp_not_configured' } as const;
-  const to = normalizeNationalBrPhone(destination);
+  const to = normalizeWhatsappPhone(destination);
   if (!to) return { sent: false, reason: 'invalid_or_missing_phone' } as const;
 
   return enqueueWhatsappNotification({

@@ -184,9 +184,10 @@ export function formatBusinessHoursSummary(businessHours?: BusinessHour[]) {
 
 export function buildWhatsAppUrl(number: string | undefined, message?: string) {
   const digits = String(number || '').replace(/\D/g, '');
-  if (digits.length < 10 || digits.length > 13) return '';
+  const international = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
+  if (!/^[1-9]\d{10,14}$/u.test(international)) return '';
   const normalizedMessage = String(message || '').trim();
-  return `https://wa.me/${digits}${
+  return `https://wa.me/${international}${
     normalizedMessage ? `?text=${encodeURIComponent(normalizedMessage)}` : ''
   }`;
 }

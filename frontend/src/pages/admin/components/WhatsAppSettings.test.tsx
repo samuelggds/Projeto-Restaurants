@@ -83,7 +83,7 @@ describe('WhatsAppSettings', () => {
       />,
     );
 
-    expect(markup).toContain('Use DDI, DDD e número, com 10 a 13 dígitos.');
+    expect(markup).toContain('Use DDI + DDD + número. Ex.: +55 85 99999-9999.');
     expect(markup).toContain('aria-invalid="true"');
   });
 

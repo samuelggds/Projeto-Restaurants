@@ -62,7 +62,10 @@ describe('configurações públicas da Home', () => {
 
   it('monta o contato de WhatsApp somente com número válido e mensagem codificada', () => {
     expect(buildWhatsAppUrl('(85) 99999-0000', 'Olá, quero ajuda!')).toBe(
-      'https://wa.me/85999990000?text=Ol%C3%A1%2C%20quero%20ajuda!',
+      'https://wa.me/5585999990000?text=Ol%C3%A1%2C%20quero%20ajuda!',
+    );
+    expect(buildWhatsAppUrl('+55 (85) 99999-0000', 'Olá, quero ajuda!')).toBe(
+      'https://wa.me/5585999990000?text=Ol%C3%A1%2C%20quero%20ajuda!',
     );
     expect(buildWhatsAppUrl('123', 'Olá')).toBe('');
   });

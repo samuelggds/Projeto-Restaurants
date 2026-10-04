@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
 import { ProductDrawer } from '../../admin/components/ProductDrawer';
+import { ManagedCustomProductWizard } from './ManagedCustomProductWizard';
+import { isManagedSimpleCustomProduct } from '../domain/managedCustomProductConfiguration';
 import type {
   AdminCategory,
   AdminIngredient,
@@ -811,16 +813,27 @@ export function ManagedRestaurantWorkspace({
         ) : null}
       </S.Dialog>
       {customProductEditor ? (
-        <ProductDrawer
-          product={customProductEditor === 'NEW' ? null : customProductEditor}
-          categories={managedCategories}
-          ingredients={managedIngredients}
-          products={managedProducts}
-          enableTemplates={false}
-          createIngredient={createManagedIngredient}
-          close={() => setCustomProductEditor(null)}
-          save={saveCustomProduct}
-        />
+        customProductEditor === 'NEW' || isManagedSimpleCustomProduct(customProductEditor) ? (
+          <ManagedCustomProductWizard
+            product={customProductEditor === 'NEW' ? null : customProductEditor}
+            categories={managedCategories}
+            ingredients={managedIngredients}
+            products={managedProducts}
+            close={() => setCustomProductEditor(null)}
+            save={saveCustomProduct}
+          />
+        ) : (
+          <ProductDrawer
+            product={customProductEditor}
+            categories={managedCategories}
+            ingredients={managedIngredients}
+            products={managedProducts}
+            enableTemplates={false}
+            createIngredient={createManagedIngredient}
+            close={() => setCustomProductEditor(null)}
+            save={saveCustomProduct}
+          />
+        )
       ) : null}
     </S.Backdrop>
   );

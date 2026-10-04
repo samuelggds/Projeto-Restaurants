@@ -659,11 +659,11 @@ export async function sendTenantEvolutionTextMessage(input: {
   if (!row || row.provider !== 'EVOLUTION' || row.status !== 'CONNECTED') {
     throw new Error('WhatsApp Evolution não conectado para este restaurante.');
   }
-  const nationalNumber = digitsOnly(input.destination);
-  if (!/^[1-9]\d{9,10}$/u.test(nationalNumber)) {
+  const digits = digitsOnly(input.destination);
+  const number = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
+  if (!/^[1-9]\d{10,14}$/u.test(number)) {
     throw new Error('Número de destino inválido para o WhatsApp.');
   }
-  const number = `55${nationalNumber}`;
   const text = String(input.message || '').trim();
   if (!text) throw new Error('Mensagem do WhatsApp vazia.');
 
