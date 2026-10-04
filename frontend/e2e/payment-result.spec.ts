@@ -17,6 +17,7 @@ type PaymentState = {
   cardUnavailable: boolean;
   cardReads: number;
   pixStatus: 'pending' | 'approved' | 'rejected';
+  pixStatusDetail: string | null;
   pixConfirmed: boolean;
   pixReads: number;
   pixConfirmationReads: number;
@@ -37,6 +38,7 @@ async function mockPaymentApi(page: Page, overrides: Partial<PaymentState> = {})
     cardUnavailable: false,
     cardReads: 0,
     pixStatus: 'pending',
+    pixStatusDetail: null,
     pixConfirmed: false,
     pixReads: 0,
     pixConfirmationReads: 0,
@@ -148,6 +150,7 @@ async function mockPaymentApi(page: Page, overrides: Partial<PaymentState> = {})
       return json(route, {
         isApproved: state.pixStatus === 'approved',
         status: state.pixStatus,
+        statusDetail: state.pixStatusDetail,
       });
     }
     if (pathname === '/orders/pix/payment/confirm') {
@@ -392,9 +395,15 @@ test('Pix recusado pelo provedor encerra a cobrança com X vermelho e remove o c
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toBeVisible();
   await pauseBeforePaymentResult(page);
   state.pixStatus = 'rejected';
+  state.pixStatusDetail = 'rejected_high_risk';
   await page.clock.runFor(5_000);
   const failed = paymentResult(page, 'FAILED');
-  await expect(failed.getByRole('heading', { name: 'Pagamento PIX não efetuado' })).toBeVisible();
+  await expect(
+    failed.getByRole('heading', { name: 'Pagamento recusado pelo Mercado Pago' }),
+  ).toBeVisible();
+  await expect(failed).toContainText('não autorizou esta tentativa por análise de segurança');
+  await expect(failed).toContainText('Nenhum pagamento foi confirmado');
+  await expect(failed).not.toContainText('rejected_high_risk');
   await expectResultIcon(failed, 'failure');
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toHaveCount(0);
   await expect(page.getByText(PIX_CODE, { exact: true })).toHaveCount(0);
