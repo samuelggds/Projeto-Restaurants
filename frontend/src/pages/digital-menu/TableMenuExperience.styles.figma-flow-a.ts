@@ -1150,6 +1150,59 @@ export const OrderItemsCard = styled(FlowCard)`
     font-weight: 500;
   }
 
+  .customer-order-card {
+    width: 100%;
+    min-height: 84px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .customer-order-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 62%, var(--line));
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(27, 31, 44, .06);
+  }
+
+  .customer-order-card:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 24%, transparent);
+    outline-offset: 2px;
+  }
+
+  .customer-order-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+
+  .customer-order-copy small,
+  .customer-order-copy span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .customer-order-copy b {
+    color: var(--text);
+    font-size: 15px;
+    line-height: 19px;
+  }
+
+  .customer-order-card > strong {
+    color: var(--primary);
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
   .account-total {
     padding-top: 16px;
     border-top: 1px solid var(--line);
@@ -1180,6 +1233,21 @@ export const OrderItemsCard = styled(FlowCard)`
       margin: 0 0 2px;
       font-size: 20px;
       line-height: 25px;
+    }
+
+    .customer-order-card {
+      min-height: 76px;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    .customer-order-copy b {
+      font-size: 14px;
+    }
+
+    .customer-order-copy small,
+    .customer-order-copy span {
+      font-size: 11px;
     }
 
     .account-total {
