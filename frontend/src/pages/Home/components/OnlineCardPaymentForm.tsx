@@ -11,45 +11,13 @@ import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
 import { detectCardBrand } from '../../Profile/domain/cardBrand';
+import type {
+  MercadoPagoField,
+  MercadoPagoInstance,
+} from '../../../shared/payments/mercadoPagoSdk';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
-
-type MercadoPagoCardToken = {
-  id?: string;
-  last_four_digits?: string;
-  payment_method_id?: string;
-  expiration_month?: number;
-  expiration_year?: number;
-};
-type MercadoPagoField = {
-  mount(containerId: string): void;
-  unmount?(): void;
-  on?(event: 'binChange', callback: (event: { bin?: string | null }) => void): MercadoPagoField;
-};
-type MercadoPagoInstance = {
-  fields: {
-    create(
-      name: 'cardNumber' | 'expirationDate' | 'securityCode',
-      options: { placeholder: string },
-    ): MercadoPagoField;
-    createCardToken(input: Record<string, string>): Promise<MercadoPagoCardToken>;
-  };
-  getPaymentMethods(input: { bin: string }): Promise<{
-    results?: Array<{
-      id?: string;
-      name?: string;
-      payment_type_id?: string;
-    }>;
-  }>;
-};
-
-declare global {
-  interface Window {
-    MercadoPago?: new (publicKey: string) => MercadoPagoInstance;
-    MP_DEVICE_SESSION_ID?: string;
-  }
-}
 
 const sdkPromises = new Map<string, Promise<void>>();
 function loadSdk(key: string, source: string, ready: () => boolean) {
