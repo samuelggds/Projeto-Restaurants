@@ -866,26 +866,14 @@ export default function TableMenuExperience({
 
           <S.ConfirmationActions>
             {confirmation.total > 0 ? (
-              <>
-                <S.SecondaryAction
-                  className="pix-action"
-                  type="button"
-                  disabled={paymentLoading}
-                  onClick={() => void startPayment('PIX')}
-                >
-                  <PixMark />
-                  Pagar agora no PIX
-                </S.SecondaryAction>
-
-                <S.TrackingOtherPaymentAction
-                  type="button"
-                  disabled={paymentLoading}
-                  onClick={() => setView('payment')}
-                >
-                  <WalletCards size={18} aria-hidden="true" />
-                  Outras formas de pagamento
-                </S.TrackingOtherPaymentAction>
-              </>
+              <S.TrackingOtherPaymentAction
+                type="button"
+                disabled={paymentLoading}
+                onClick={() => setView('payment')}
+              >
+                <WalletCards size={18} aria-hidden="true" />
+                Outras formas de pagamento
+              </S.TrackingOtherPaymentAction>
             ) : null}
             <S.SecondaryAction type="button" onClick={goToMenu}>
               Continuar pedindo
