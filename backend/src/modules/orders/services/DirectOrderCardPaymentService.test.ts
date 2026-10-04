@@ -117,9 +117,6 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
 
 test('usuário autenticado preserva o e-mail informado no pagamento', async () => {
   let requestBody: Record<string, unknown> | null = null;
-  const originalUserFindUnique = prisma.user.findUnique;
-  prisma.user.findUnique = async () =>
-    ({ id: 33, email: 'login@conta.example' }) as never;
 
   globalThis.fetch = async (_input, init: RequestInit = {}) => {
     requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
@@ -129,29 +126,25 @@ test('usuário autenticado preserva o e-mail informado no pagamento', async () =
     );
   };
 
-  try {
-    await directOrderCardPaymentService.execute({
-      provider: CARD_PROVIDERS.MERCADO_PAGO,
-      payload: {
-        userId: 33,
-        cardToken: 'card-token-auth-email',
-        cardPaymentMethodId: 'master',
-        payerEmail: 'pagador@cartao.example',
-      },
-      order: {
-        id: 908,
-        publicId: 'order-public-908',
-        restaurantId: 7,
-        total: 19.9,
-      },
-      successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
-      idempotencyKey: '11111111-1111-4111-8111-111111111908',
-    });
+  await directOrderCardPaymentService.execute({
+    provider: CARD_PROVIDERS.MERCADO_PAGO,
+    payload: {
+      userId: 33,
+      cardToken: 'card-token-auth-email',
+      cardPaymentMethodId: 'master',
+      payerEmail: 'pagador@cartao.example',
+    },
+    order: {
+      id: 908,
+      publicId: 'order-public-908',
+      restaurantId: 7,
+      total: 19.9,
+    },
+    successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+    idempotencyKey: '11111111-1111-4111-8111-111111111908',
+  });
 
-    assert.deepEqual(requestBody?.payer, { email: 'pagador@cartao.example' });
-  } finally {
-    prisma.user.findUnique = originalUserFindUnique;
-  }
+  assert.deepEqual(requestBody?.payer, { email: 'pagador@cartao.example' });
 });
 
 test('HTTP 2xx com transação failed é recusa terminal e preserva status_detail', async () => {
