@@ -239,9 +239,22 @@ export const HeroSlot = styled.div`
   --home-primary: var(--primary);
 
   > section {
-    height: 280px;
-    min-height: 280px;
+    height: clamp(300px, 32vw, 360px);
+    min-height: 300px;
     border-radius: 16px;
+  }
+
+  @media (min-width: 761px) {
+    /*
+     * PromotionCarousel also serves the full-width delivery home, where its
+     * copy is offset from the viewport. Inside the table menu it already sits
+     * in a centered 1120px container, so the copy must be positioned relative
+     * to this banner instead of applying the viewport offset a second time.
+     */
+    > section > article > div {
+      left: 40px;
+      width: min(46%, 480px);
+    }
   }
 
   @media (max-width: 760px) {
@@ -282,10 +295,10 @@ export const InfoRow = styled.div`
     min-height: 36px;
     padding: 0 14px;
     flex: 0 0 auto;
-    border: 1px solid color-mix(in srgb, #FF4B4B 26%, #fff);
+    border: 1px solid var(--table-line);
     border-radius: 12px;
-    background: color-mix(in srgb, #FF4B4B 4%, #fff);
-    color: #FF4B4B;
+    background: #fff;
+    color: var(--table-text);
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -297,13 +310,17 @@ export const InfoRow = styled.div`
   svg {
     width: 14px;
     height: 14px;
-    color: #FF4B4B;
+    color: var(--table-muted);
   }
 
   .rating {
     border-color: color-mix(in srgb, #FF4B4B 32%, #fff);
     color: #FF4B4B;
     background: color-mix(in srgb, #FF4B4B 7%, #fff);
+  }
+
+  .rating svg {
+    color: #FF4B4B;
   }
 
   @media (max-width: 760px) {
@@ -340,7 +357,9 @@ export const Categories = styled.nav`
   align-items: flex-start;
   gap: 24px;
   overflow-x: auto;
-  padding: 0 0 8px;
+  padding: 6px 6px 10px;
+  margin: -6px -6px 0;
+  scroll-padding-inline: 6px;
   scrollbar-width: none;
   scroll-behavior: smooth;
 
@@ -349,8 +368,8 @@ export const Categories = styled.nav`
   }
 
   button {
-    width: 72px;
-    min-width: 72px;
+    width: 84px;
+    min-width: 84px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -448,8 +467,9 @@ export const Categories = styled.nav`
   }
 
   @media (max-width: 760px) {
-    margin-right: -20px;
-    padding-right: 20px;
+    margin: -6px -20px 0 -6px;
+    padding: 6px 20px 10px 6px;
+    scroll-padding-inline: 6px;
     gap: 16px;
 
     button {
