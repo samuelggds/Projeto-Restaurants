@@ -33,7 +33,6 @@ import {
 import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusView';
 import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
-import { PixMark } from '../../components/payment/PixMark';
 import { TableMenuHome } from './TableMenuHome';
 import { FlowHeader } from './TableMenuFlow';
 import {
@@ -630,23 +629,6 @@ export default function TableMenuExperience({
   }
 
   if (effectiveView === 'tracking') {
-    const ownAccount = currentParticipantAccount(accountSnapshot);
-    const activeTablePayment = accountSnapshot?.activePayment || null;
-    const activePaymentPending = Boolean(
-      activeTablePayment && ['RESERVED', 'PROCESSING'].includes(activeTablePayment.status),
-    );
-    const activePixPending = Boolean(activePaymentPending && activeTablePayment?.method === 'PIX');
-    const pixBlockedByOtherPayment = Boolean(
-      activePaymentPending && activeTablePayment?.method !== 'PIX',
-    );
-    const canPayOwnAccount = Boolean(ownAccount && ownAccount.remainingCents > 0);
-    const allowPix = accountSnapshot?.capabilities.allowPix === true;
-    const pixUnavailable = !allowPix || pixBlockedByOtherPayment;
-    const pixButtonLabel = !allowPix
-      ? 'PIX indisponível'
-      : pixBlockedByOtherPayment
-        ? 'PIX indisponível no momento'
-        : 'Pagar agora com PIX';
     const preparationMinutes = Number.parseInt(String(data.deliveryTime || ''), 10);
     const confirmedAt = tableOrder?.createdAt
       ? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(
@@ -762,41 +744,6 @@ export default function TableMenuExperience({
                 </S.SecondaryAction>
               ) : null}
 
-              {canPayOwnAccount ? (
-                <>
-                  <S.TrackingPixAction
-                    type="button"
-                    disabled={paymentLoading || pixUnavailable}
-                    aria-label={pixButtonLabel}
-                    title={
-                      !allowPix
-                        ? 'O PIX será liberado quando o administrador configurar um provedor no restaurante.'
-                        : pixBlockedByOtherPayment
-                          ? 'Há outro pagamento em andamento para este consumo.'
-                          : undefined
-                    }
-                    onClick={() => {
-                      if (activePixPending && activeTablePayment) {
-                        setPixPayment(activeTablePayment);
-                        setView('pix');
-                        return;
-                      }
-                      void startPayment('PIX');
-                    }}
-                  >
-                    <PixMark /> {pixButtonLabel}
-                  </S.TrackingPixAction>
-
-                  <S.TrackingOtherPaymentAction
-                    type="button"
-                    disabled={paymentLoading}
-                    onClick={() => setView('payment')}
-                  >
-                    <WalletCards size={18} aria-hidden="true" />
-                    Outras formas de pagamento
-                  </S.TrackingOtherPaymentAction>
-                </>
-              ) : null}
             </S.OrderItemsCard>
           </S.TrackingLayout>
         </S.FlowPage>
