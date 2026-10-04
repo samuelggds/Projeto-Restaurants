@@ -298,7 +298,20 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
       },
     });
 
-  globalThis.fetch = async (_input, init: RequestInit = {}) => {
+  globalThis.fetch = async (input, init: RequestInit = {}) => {
+    const url = String(input);
+    if (url === 'https://api.mercadopago.com/v1/customers/customer-mp-123') {
+      assert.equal(init.method, 'GET');
+      return new Response(
+        JSON.stringify({
+          id: 'customer-mp-123',
+          email: 'comprador.cartao@example.com',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    assert.equal(url, 'https://api.mercadopago.com/v1/orders');
     requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
     return new Response(
       JSON.stringify({
@@ -330,7 +343,10 @@ test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async (
     });
 
     assert.ok(requestBody);
-    assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
+    assert.deepEqual(requestBody.payer, {
+      customer_id: 'customer-mp-123',
+      email: 'comprador.cartao@example.com',
+    });
     assert.equal(result.paymentApproved, true);
   } finally {
     prisma.$transaction = originalTransaction;
