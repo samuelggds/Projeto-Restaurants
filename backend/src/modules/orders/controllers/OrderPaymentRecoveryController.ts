@@ -47,7 +47,7 @@ class OrderPaymentRecoveryController {
           cardData: req.body?.cardData,
           holderName: req.body?.holderName,
           holderTaxId: req.body?.holderTaxId,
-          payerEmail: req.user?.email || req.body?.payerEmail,
+          payerEmail: req.body?.payerEmail,
           mercadoPagoDeviceId: req.body?.mercadoPagoDeviceId,
           expMonth: req.body?.expMonth,
           expYear: req.body?.expYear,
