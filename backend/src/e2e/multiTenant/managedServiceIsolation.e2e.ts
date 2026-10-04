@@ -292,6 +292,55 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
       JSON.stringify(foreignIngredientAttempt.data),
     );
 
+    const foreignHalfHalfProductAttempt = await apiRequest(
+      app.baseUrl,
+      `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/products`,
+      superToken,
+      {
+        method: 'POST',
+        json: {
+          name: 'Meio a meio com produto estrangeiro',
+          categoryId: fixture.categories.a.id,
+          saleMode: 'BUILDABLE',
+          pricingMode: 'HIGHEST_OPTION',
+          optionGroups: [
+            {
+              name: 'Primeira metade',
+              required: true,
+              selectionType: 'SINGLE',
+              minSelections: 1,
+              maxSelections: 1,
+              options: [
+                {
+                  referenceProductId: fixture.products.b.id,
+                  pricingMode: 'ABSOLUTE',
+                  absolutePrice: 0,
+                },
+              ],
+            },
+            {
+              name: 'Segunda metade',
+              required: true,
+              selectionType: 'SINGLE',
+              minSelections: 1,
+              maxSelections: 1,
+              options: [
+                {
+                  referenceProductId: fixture.products.b.id,
+                  pricingMode: 'ABSOLUTE',
+                  absolutePrice: 0,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    );
+    assert.ok(
+      [400, 404].includes(foreignHalfHalfProductAttempt.response.status),
+      JSON.stringify(foreignHalfHalfProductAttempt.data),
+    );
+
     const sensitiveAttempt = await apiRequest(
       app.baseUrl,
       `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/settings`,
