@@ -22,6 +22,7 @@ type RecoveryPayload = {
   paymentId?: string | null;
   provider?: string | null;
   status?: string | null;
+  statusDetail?: string | null;
   isApproved?: boolean;
   qrCode?: string | null;
   qrCodeBase64?: string | null;
@@ -460,6 +461,7 @@ export default function OrderPixPaymentPage() {
     requiresStatusCheck: payment.requiresStatusCheck !== false,
     paid: payment.paid === true,
     expiresAt: payment.expiresAt ? String(payment.expiresAt) : null,
+    statusDetail: payment.statusDetail ? String(payment.statusDetail) : null,
   };
 
   return (

@@ -229,6 +229,24 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     expect(onPaymentConfirmed).not.toHaveBeenCalled();
   });
 
+  it('preserva rejected_high_risk como falha terminal e mensagem segura para o cliente', async () => {
+    vi.mocked(ordersService.getPixPaymentStatus).mockResolvedValue({
+      isApproved: false,
+      status: 'rejected',
+      statusDetail: 'rejected_high_risk',
+    });
+    await act(async () => {
+      await checkoutPayments.current?.verifyPixPayment();
+    });
+    expect(container.textContent).toBe('FAILED');
+    expect(checkoutPayments.current?.pixPaymentError).toContain(
+      'Mercado Pago não autorizou esta tentativa por análise de segurança',
+    );
+    expect(checkoutPayments.current?.pixPaymentData?.statusDetail).toBe('rejected_high_risk');
+    expect(ordersService.confirmPixPayment).not.toHaveBeenCalled();
+    expect(onPaymentConfirmed).not.toHaveBeenCalled();
+  });
+
   it('não transforma falha de conexão em recusa e permite nova consulta', async () => {
     vi.mocked(ordersService.getPixPaymentStatus)
       .mockRejectedValueOnce(new Error('Conexão indisponível'))
