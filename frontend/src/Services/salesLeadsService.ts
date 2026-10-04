@@ -39,6 +39,10 @@ const salesLeadsService = {
     return (await api.post('/super-admin/sales-leads/commercial-whatsapp/connection/qr')).data;
   },
 
+  async resetCommercialWhatsappConnection() {
+    return (await api.post('/super-admin/sales-leads/commercial-whatsapp/connection/reset')).data;
+  },
+
   async refreshCommercialWhatsapp() {
     return (await api.post('/super-admin/sales-leads/commercial-whatsapp/connection/refresh')).data;
   },
