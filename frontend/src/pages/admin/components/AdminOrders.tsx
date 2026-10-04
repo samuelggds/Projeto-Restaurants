@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -27,6 +27,7 @@ import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
 import ordersService, { type RestaurantOrdersQueue } from '../../../Services/ordersService';
+import tableAccountService from '../../../Services/tableAccountService';
 import {
   ADMIN_ORDERS_PAGE_SIZE,
   useAdminOrdersPage,
@@ -47,6 +48,47 @@ import {
 const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
 
 type QueueView = RestaurantOrdersQueue;
+
+type PendingTableCash = {
+  paymentPublicId: string;
+  totalCents: number;
+  payerDisplayName: string;
+};
+
+type PendingTableCashByOrderPublicId = Record<string, PendingTableCash>;
+
+async function readPendingTableCashByOrderPublicId(): Promise<PendingTableCashByOrderPublicId> {
+  const result = await tableAccountService.listAdminSessions();
+  const next: PendingTableCashByOrderPublicId = {};
+
+  for (const session of Array.isArray(result?.sessions) ? result.sessions : []) {
+    for (const payment of Array.isArray(session?.pendingManualPayments)
+      ? session.pendingManualPayments
+      : []) {
+      if (
+        payment?.method !== 'CASH' ||
+        payment?.staffReceiptRegistered !== true ||
+        !payment?.publicId
+      ) {
+        continue;
+      }
+
+      for (const orderPublicId of Array.isArray(payment?.orderPublicIds)
+        ? payment.orderPublicIds
+        : []) {
+        const normalizedOrderPublicId = String(orderPublicId || '').trim();
+        if (!normalizedOrderPublicId) continue;
+        next[normalizedOrderPublicId] = {
+          paymentPublicId: String(payment.publicId),
+          totalCents: Number(payment.totalCents || 0),
+          payerDisplayName: String(payment.payerDisplayName || 'Cliente da mesa'),
+        };
+      }
+    }
+  }
+
+  return next;
+}
 
 type AdminOrdersProps = {
   orders: AdminOrder[];
@@ -122,6 +164,9 @@ export function AdminOrders({
   const [status, setStatus] = useState('');
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
+  const [confirmingTableCashId, setConfirmingTableCashId] = useState('');
+  const [tableCashByOrderPublicId, setTableCashByOrderPublicId] =
+    useState<PendingTableCashByOrderPublicId>({});
   const [checkingRefundId, setCheckingRefundId] = useState<number | null>(null);
   const page = useAdminOrdersPage({
     search,
@@ -131,6 +176,33 @@ export function AdminOrders({
     loadOrdersPage,
   });
   const { summary, orders: displayedOrders } = page;
+
+  const refreshPendingTableCash = async () => {
+    try {
+      setTableCashByOrderPublicId(await readPendingTableCashByOrderPublicId());
+    } catch {
+      // A fila de pedidos continua utilizável mesmo se o painel financeiro da mesa
+      // estiver temporariamente indisponível. Nenhum pagamento é confirmado por fallback.
+      setTableCashByOrderPublicId({});
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    void readPendingTableCashByOrderPublicId()
+      .then((next) => {
+        if (active) setTableCashByOrderPublicId(next);
+      })
+      .catch(() => {
+        if (active) setTableCashByOrderPublicId({});
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [orders]);
+
   const { cancelOrder, cancellingOrderId } = useAdminOrderCancellation({
     money,
     onCancelOrder,
@@ -191,6 +263,39 @@ export function AdminOrders({
       toast.error(getActionErrorMessage(error, 'Não foi possível confirmar o pagamento.'));
     } finally {
       setConfirmingPaymentId(null);
+    }
+  };
+
+  const confirmTableCashPayment = async (
+    order: AdminOrder,
+    payment: {
+      paymentPublicId: string;
+      totalCents: number;
+      payerDisplayName: string;
+    },
+  ) => {
+    const confirmed = await confirmDialog({
+      title: `Confirmar dinheiro recebido do pedido ${order.id}?`,
+      description: `${payment.payerDisplayName} · ${money(payment.totalCents / 100)}. O garçom já registrou o recebimento. Confirme somente depois de conferir o caixa; esta ação marca o pagamento da mesa como PAGO.`,
+      confirmLabel: 'Confirmar dinheiro recebido',
+      cancelLabel: 'Voltar e conferir',
+    });
+    if (!confirmed) return;
+
+    setConfirmingTableCashId(payment.paymentPublicId);
+    try {
+      await tableAccountService.confirmManualPayment(payment.paymentPublicId);
+      await Promise.all([page.refresh(), refreshPendingTableCash()]);
+      toast.success(`Pagamento em dinheiro do pedido ${order.id} confirmado.`);
+    } catch (error) {
+      toast.error(
+        getActionErrorMessage(
+          error,
+          'Não foi possível confirmar o pagamento em dinheiro da mesa.',
+        ),
+      );
+    } finally {
+      setConfirmingTableCashId('');
     }
   };
 
@@ -479,6 +584,12 @@ export function AdminOrders({
                 .toUpperCase();
               const canConfirmCashPayment =
                 !order.paid && order.payOnDelivery === true && payOnDeliveryMethod === 'DINHEIRO';
+              const pendingTableCash =
+                order.publicId && !order.paid
+                  ? tableCashByOrderPublicId[order.publicId] || null
+                  : null;
+              const isConfirmingTableCash =
+                pendingTableCash?.paymentPublicId === confirmingTableCashId;
 
               return (
                 <article
@@ -509,16 +620,24 @@ export function AdminOrders({
                       </span>
                       <div>
                         <span>Pagamento</span>
-                        <b>{isPickupPayAtStore ? 'Pagamento no balcão' : payment.title}</b>
+                        <b>
+                          {pendingTableCash
+                            ? 'Dinheiro recebido pelo garçom'
+                            : isPickupPayAtStore
+                              ? 'Pagamento no balcão'
+                              : payment.title}
+                        </b>
                         <small>
-                          {isPickupPayAtStore
-                            ? `Cliente escolheu ${String(
-                                order.payOnDeliveryMethod || 'pagamento presencial',
-                              )
-                                .replace('PIX', 'Pix')
-                                .replace('CARTAO', 'cartão na maquininha')
-                                .replace('DINHEIRO', 'dinheiro')}`
-                            : payment.detail}
+                          {pendingTableCash
+                            ? 'Aguardando confirmação final do administrador'
+                            : isPickupPayAtStore
+                              ? `Cliente escolheu ${String(
+                                  order.payOnDeliveryMethod || 'pagamento presencial',
+                                )
+                                  .replace('PIX', 'Pix')
+                                  .replace('CARTAO', 'cartão na maquininha')
+                                  .replace('DINHEIRO', 'dinheiro')}`
+                              : payment.detail}
                         </small>
                       </div>
                     </div>
@@ -653,6 +772,30 @@ export function AdminOrders({
                           {checkingRefundId === order.numericId
                             ? 'Consultando…'
                             : 'Consultar estorno'}
+                        </button>
+                      </div>
+                    )}
+                    {pendingTableCash && (
+                      <div className="action-buttons">
+                        <button
+                          className="confirm-payment"
+                          type="button"
+                          onClick={() => void confirmTableCashPayment(order, pendingTableCash)}
+                          disabled={
+                            Boolean(confirmingTableCashId) ||
+                            confirmingPaymentId !== null ||
+                            cancellingOrderId !== null
+                          }
+                          aria-label={`Confirmar dinheiro recebido do pedido ${order.id}`}
+                        >
+                          {isConfirmingTableCash ? (
+                            <LoaderCircle className="loading-icon" aria-hidden="true" />
+                          ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                          )}
+                          {isConfirmingTableCash
+                            ? 'Confirmando...'
+                            : 'Confirmar dinheiro recebido'}
                         </button>
                       </div>
                     )}

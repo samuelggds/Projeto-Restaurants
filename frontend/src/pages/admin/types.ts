@@ -69,6 +69,7 @@ export type TableAccountAdminSettings = {
 export type AdminOrder = {
   id: string;
   numericId: number;
+  publicId?: string;
   userId?: string;
   customerName: string;
   customerEmail?: string;

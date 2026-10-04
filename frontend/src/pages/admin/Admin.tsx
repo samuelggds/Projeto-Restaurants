@@ -65,6 +65,7 @@ function mapOrder(value: unknown): AdminOrder {
   return {
     id: String(raw.orderNumber ?? `#${numericId}`),
     numericId,
+    publicId: String(raw.publicId ?? '') || undefined,
     userId: String(raw.userId ?? user.id ?? '') || undefined,
     customerName: String(user.name ?? raw.customerName ?? 'Cliente'),
     customerEmail: String(user.email ?? raw.customerEmail ?? '') || undefined,
@@ -701,6 +702,9 @@ export default function Admin() {
       if (soundNotificationsRef.current) playOrderNotificationSound();
       refreshOrders();
     };
+    const onTableAccountUpdated = () => {
+      refreshOrders();
+    };
     const onEmployeeIssue = (issue: { issueStatus?: string | null; senderLabel?: string }) => {
       if (issue.issueStatus === 'OPEN') {
         toast.info(`Novo relato da equipe: ${issue.senderLabel || 'funcionário'}.`);
@@ -714,6 +718,7 @@ export default function Admin() {
     socket.on('new-order', onNewOrder);
     socket.on('order:payment-confirmed', refreshOrders);
     socket.on('order:status-changed', refreshOrders);
+    socket.on('table-account:updated', onTableAccountUpdated);
     socket.on('support:chat-message', onEmployeeIssue);
     socket.on('support:issue-updated', syncEmployeeIssues);
     socket.on('support:issue-deleted', syncEmployeeIssues);
@@ -722,6 +727,7 @@ export default function Admin() {
       socket.off('new-order', onNewOrder);
       socket.off('order:payment-confirmed', refreshOrders);
       socket.off('order:status-changed', refreshOrders);
+      socket.off('table-account:updated', onTableAccountUpdated);
       socket.off('support:chat-message', onEmployeeIssue);
       socket.off('support:issue-updated', syncEmployeeIssues);
       socket.off('support:issue-deleted', syncEmployeeIssues);

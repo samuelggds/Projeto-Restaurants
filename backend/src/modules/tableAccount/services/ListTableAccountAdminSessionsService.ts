@@ -11,6 +11,22 @@ import {
 import { hasStaffCashReceiptEvent } from './tablePaymentLedger.js';
 import { TablePaymentError } from './tablePaymentSupport.js';
 
+export function resolveManualPaymentOrderPublicIds(
+  items: Array<{ publicId: string; orderPublicId: string }>,
+  allocations: Array<{ tableBillItem: { publicId: string } }> = [],
+) {
+  const allocatedItemPublicIds = new Set(
+    allocations.map((allocation) => allocation.tableBillItem.publicId),
+  );
+  return [
+    ...new Set(
+      items
+        .filter((item) => allocatedItemPublicIds.has(item.publicId))
+        .map((item) => item.orderPublicId),
+    ),
+  ];
+}
+
 export class ListTableAccountAdminSessionsService {
   async execute(actor: TableAccountActor) {
     const restaurantId = Number(actor.restaurantId || 0);
@@ -45,6 +61,10 @@ export class ListTableAccountAdminSessionsService {
           const payer = account.participants.find(
             (participant) => participant.publicId === payment.payerParticipant.publicId,
           );
+          const orderPublicIds = resolveManualPaymentOrderPublicIds(
+            account.items,
+            payment.allocations || [],
+          );
           return {
             publicId: payment.publicId,
             method: payment.method,
@@ -57,6 +77,7 @@ export class ListTableAccountAdminSessionsService {
             payerParticipantPublicId: payment.payerParticipant.publicId,
             payerDisplayName: payer?.displayName || 'Cliente da mesa',
             staffReceiptRegistered,
+            orderPublicIds,
           };
         });
       return {
