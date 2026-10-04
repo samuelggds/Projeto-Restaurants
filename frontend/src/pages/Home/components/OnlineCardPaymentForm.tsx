@@ -15,6 +15,7 @@ import type {
   MercadoPagoField,
   MercadoPagoInstance,
 } from '../../../shared/payments/mercadoPagoSdk';
+import { collectMercadoPagoDeviceSession } from '../../../shared/payments/mercadoPagoDeviceSession';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
@@ -109,6 +110,7 @@ export function OnlineCardPaymentForm({
 
   useEffect(() => {
     if (config?.provider !== 'MERCADO_PAGO' || !config.publicKey) return undefined;
+    void collectMercadoPagoDeviceSession();
     let active = true;
     const mounted: MercadoPagoField[] = [];
     void loadSdk(
@@ -187,11 +189,11 @@ export function OnlineCardPaymentForm({
             if (!savedCard.providerCardId || !mercadoPagoRef.current) {
               throw new Error('Aguarde a preparação segura do cartão salvo.');
             }
+            const mercadoPagoDeviceId = await collectMercadoPagoDeviceSession();
             const token = await mercadoPagoRef.current.fields.createCardToken({
               cardId: savedCard.providerCardId,
             });
             if (!token.id) throw new Error('Não foi possível validar o CVV do cartão salvo.');
-            const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
             return {
               paymentMethodId: savedCard.publicId,
               cardToken: token.id,
@@ -223,6 +225,7 @@ export function OnlineCardPaymentForm({
             throw new Error('Informe um e-mail válido do comprador.');
           }
           if (!mercadoPagoRef.current) throw new Error('Aguarde a preparação segura do cartão.');
+          const mercadoPagoDeviceId = await collectMercadoPagoDeviceSession();
           const token = await mercadoPagoRef.current.fields.createCardToken({
             cardholderName: holderName,
             identificationType: holderTaxId.length === 11 ? 'CPF' : 'CNPJ',
@@ -240,7 +243,6 @@ export function OnlineCardPaymentForm({
                 : 'Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.',
             );
           }
-          const mercadoPagoDeviceId = String(window.MP_DEVICE_SESSION_ID || '').trim();
           return {
             cardToken: token.id,
             cardPaymentMethodId: paymentMethodId,

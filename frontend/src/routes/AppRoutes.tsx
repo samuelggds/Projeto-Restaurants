@@ -74,7 +74,7 @@ import {
   TENANT_REQUIRED_PATH,
 } from '../shared/navigation/authNavigation';
 import { consumeSignedOutEntryUrl } from '../shared/navigation/sessionEntry';
-import { CustomDomainTenantProvider } from '../shared/tenant/CustomDomainTenantContext';
+import { CustomDomainTenantProvider } from '../shared/tenant/CustomDomainTenantProvider';
 import { useCustomDomainTenant } from '../shared/tenant/useCustomDomainTenant';
 
 function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
