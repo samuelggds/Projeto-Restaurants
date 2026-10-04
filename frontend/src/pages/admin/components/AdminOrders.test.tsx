@@ -8,7 +8,12 @@ import { AdminOrders } from './AdminOrders';
 import type { RestaurantOrdersPageQuery } from '../../../Services/ordersService';
 import { getAdminOrdersSummary } from '../domain/adminOrders';
 
-const mocks = vi.hoisted(() => ({ listPage: vi.fn(), reconcileRefund: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  listPage: vi.fn(),
+  reconcileRefund: vi.fn(),
+  listAdminSessions: vi.fn(),
+  confirmManualPayment: vi.fn(),
+}));
 
 vi.mock('../../../Services/ordersService', () => ({
   default: {
@@ -18,6 +23,13 @@ vi.mock('../../../Services/ordersService', () => ({
 }));
 vi.mock('../../../Services/paymentTerminalService', () => ({
   default: { list: vi.fn().mockResolvedValue({ terminals: [] }) },
+}));
+
+vi.mock('../../../Services/tableAccountService', () => ({
+  default: {
+    listAdminSessions: mocks.listAdminSessions,
+    confirmManualPayment: mocks.confirmManualPayment,
+  },
 }));
 
 vi.mock('react-toastify', () => ({
@@ -85,6 +97,13 @@ describe('AdminOrders', () => {
     root = createRoot(container);
     vi.clearAllMocks();
     mocks.listPage.mockReset();
+    mocks.listAdminSessions.mockReset();
+    mocks.confirmManualPayment.mockReset();
+    mocks.listAdminSessions.mockResolvedValue({ sessions: [] });
+    mocks.confirmManualPayment.mockResolvedValue({
+      payment: { status: 'PAID' },
+      confirmationStage: 'PAID',
+    });
   });
 
   afterEach(() => {
@@ -171,6 +190,104 @@ describe('AdminOrders', () => {
       await Promise.resolve();
     });
     expect(onConfirmPayment).toHaveBeenCalledExactlyOnceWith(304);
+  });
+
+  it('mostra no pedido de mesa o dinheiro registrado pelo garçom e confirma pelo payment intent', async () => {
+    const tableCashOrder: AdminOrder = {
+      id: '#305',
+      numericId: 305,
+      publicId: 'table-order-public-305',
+      customerName: 'Cliente da mesa',
+      status: 'PREPARANDO',
+      total: 29,
+      paid: false,
+      type: 'MESA',
+      createdAt: '2026-10-04T12:00:00.000Z',
+    };
+    mocks.listAdminSessions.mockResolvedValue({
+      sessions: [
+        {
+          pendingManualPayments: [
+            {
+              publicId: 'cash-payment-public-305',
+              method: 'CASH',
+              status: 'RESERVED',
+              totalCents: 2900,
+              payerDisplayName: 'Cliente da mesa',
+              staffReceiptRegistered: true,
+              orderPublicIds: ['table-order-public-305'],
+            },
+          ],
+        },
+      ],
+    });
+
+    await renderOrders(undefined, [tableCashOrder]);
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain('Dinheiro recebido pelo garçom');
+    });
+    expect(container.textContent).toContain('Aguardando confirmação final do administrador');
+
+    const button = buttonByLabel(container, 'Confirmar dinheiro recebido do pedido #305');
+    expect(button).not.toBeNull();
+    await act(async () => button.click());
+    expect(container.textContent).toContain('O garçom já registrou o recebimento');
+
+    const confirmButton = container.querySelector(
+      '[role="dialog"] button[type="submit"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      confirmButton.click();
+      await Promise.resolve();
+    });
+
+    expect(mocks.confirmManualPayment).toHaveBeenCalledExactlyOnceWith(
+      'cash-payment-public-305',
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      'Pagamento em dinheiro do pedido #305 confirmado.',
+    );
+  });
+
+  it('não oferece confirmação final antes do garçom registrar o dinheiro', async () => {
+    const tableCashOrder: AdminOrder = {
+      id: '#306',
+      numericId: 306,
+      publicId: 'table-order-public-306',
+      customerName: 'Cliente da mesa',
+      status: 'PREPARANDO',
+      total: 18,
+      paid: false,
+      type: 'MESA',
+    };
+    mocks.listAdminSessions.mockResolvedValue({
+      sessions: [
+        {
+          pendingManualPayments: [
+            {
+              publicId: 'cash-payment-public-306',
+              method: 'CASH',
+              status: 'RESERVED',
+              totalCents: 1800,
+              payerDisplayName: 'Cliente da mesa',
+              staffReceiptRegistered: false,
+              orderPublicIds: ['table-order-public-306'],
+            },
+          ],
+        },
+      ],
+    });
+
+    await renderOrders(undefined, [tableCashOrder]);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      buttonByLabel(container, 'Confirmar dinheiro recebido do pedido #306'),
+    ).toBeNull();
+    expect(mocks.confirmManualPayment).not.toHaveBeenCalled();
   });
 
   it('consulta um estorno pendente sem pedir outro cancelamento ou confirmação de pagamento', async () => {
