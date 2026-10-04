@@ -14,7 +14,10 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 import { verifyGuestOrderOwnershipTokenByPublicId } from '../utils/guestOrderOwnershipToken.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
-import { mercadoPagoDeclineDetails } from './DirectOrderCardPaymentService.js';
+import {
+  mercadoPago3DSChallengeUrl,
+  mercadoPagoDeclineDetails,
+} from './DirectOrderCardPaymentService.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -70,6 +73,7 @@ class GetOrderCardPaymentStatusService {
     }
 
     const sessionId = String(order.cardCheckoutSessionId || '');
+    let challengeUrl: string | null = null;
     let latestAttempt = await orderPaymentAttemptRepository.latestForOrder(
       order.id,
       order.restaurantId,
@@ -99,6 +103,21 @@ class GetOrderCardPaymentStatusService {
           remoteDiagnostic.transactionStatusDetail ||
           String(remote.status_detail || '').trim() ||
           null;
+        if (remoteStatus === 'action_required' && remoteStatusDetail === 'pending_challenge') {
+          challengeUrl = mercadoPago3DSChallengeUrl(remote as unknown as Record<string, unknown>);
+          if (latestAttempt) {
+            latestAttempt = await orderPaymentAttemptRepository.update(
+              latestAttempt.id,
+              order.restaurantId,
+              OrderPaymentAttemptStatus.PROCESSING,
+              {
+                providerOrderId,
+                providerStatus: remoteStatus,
+                providerStatusDetail: remoteStatusDetail,
+              },
+            );
+          }
+        }
         if (
           remoteStatus === 'processed' &&
           validReference &&
@@ -243,6 +262,7 @@ class GetOrderCardPaymentStatusService {
           : null,
       status,
       paid: status === 'PAID',
+      challengeUrl: status === 'PENDING' ? challengeUrl : null,
       paymentAttempt: latestAttempt
         ? {
             publicId: latestAttempt.publicId,
