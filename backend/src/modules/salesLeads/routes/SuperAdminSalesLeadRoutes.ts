@@ -5,12 +5,14 @@ import salesLeadService from '../services/SalesLeadService.js';
 import {
   createPlatformWhatsappConnection,
   disconnectPlatformWhatsappConnection,
+  PlatformWhatsappRecoveryRequiredError,
   enqueueManualCommercialWhatsappMessage,
   getCommercialWhatsappSettings,
   getPlatformWhatsappConnection,
   getPlatformWhatsappQrCode,
   listCommercialWhatsappConversations,
   refreshPlatformWhatsappConnection,
+  resetPlatformWhatsappConnection,
   setCommercialWhatsappConversationMode,
   updateCommercialWhatsappSettings,
 } from '../services/CommercialWhatsappService.js';
@@ -70,6 +72,17 @@ router.get('/commercial-whatsapp/connection', async (_req, res, next) => {
 router.post('/commercial-whatsapp/connection', async (_req, res, next) => {
   try {
     return res.status(201).json(await createPlatformWhatsappConnection());
+  } catch (error) {
+    if (error instanceof PlatformWhatsappRecoveryRequiredError) {
+      return res.status(409).json({ error: error.message, code: error.code });
+    }
+    return next(error);
+  }
+});
+
+router.post('/commercial-whatsapp/connection/reset', async (_req, res, next) => {
+  try {
+    return res.status(201).json(await resetPlatformWhatsappConnection());
   } catch (error) {
     return next(error);
   }

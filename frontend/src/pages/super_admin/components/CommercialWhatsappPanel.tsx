@@ -35,6 +35,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
   const [success, setSuccess] = useState('');
   const [settingsFeedback, setSettingsFeedback] = useState('');
   const [hoursFeedback, setHoursFeedback] = useState('');
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const selected = useMemo(
@@ -177,13 +178,47 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
     setBusy('connection');
     setError('');
     setSuccess('');
+    setRecoveryRequired(false);
     try {
       await salesLeadsService.connectCommercialWhatsapp();
       const result = await salesLeadsService.getCommercialWhatsappQrCode();
       setConnection(result);
       setSuccess('QR Code gerado. Escaneie com o WhatsApp Business da GastroNexa.');
     } catch (requestError) {
+      const typed = requestError as { response?: { data?: { code?: string } } };
+      if (typed.response?.data?.code === 'PLATFORM_WHATSAPP_ORPHAN_SESSION') {
+        setRecoveryRequired(true);
+      }
       setError(requestErrorMessage(requestError, 'Não foi possível iniciar a conexão.'));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const resetConnection = async () => {
+    if (
+      !window.confirm(
+        'A sessão antiga gastronexa-platform será removida da Evolution e uma nova conexão será criada. Continuar?',
+      )
+    ) {
+      return;
+    }
+    setBusy('reset-connection');
+    setError('');
+    setSuccess('');
+    try {
+      await salesLeadsService.resetCommercialWhatsappConnection();
+      const result = await salesLeadsService.getCommercialWhatsappQrCode();
+      setConnection(result);
+      setRecoveryRequired(false);
+      setSuccess('Sessão antiga reiniciada com segurança. Escaneie o novo QR Code.');
+    } catch (requestError) {
+      setError(
+        requestErrorMessage(
+          requestError,
+          'Não foi possível reiniciar a sessão anterior do WhatsApp comercial.',
+        ),
+      );
     } finally {
       setBusy('');
     }
@@ -324,14 +359,25 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
 
           <S.ActionGroup>
             {connection.status !== 'CONNECTED' ? (
-              <S.Button
-                type="button"
-                $variant="primary"
-                disabled={Boolean(busy)}
-                onClick={() => void connect()}
-              >
-                <QrCode size={16} aria-hidden="true" /> Conectar WhatsApp Business
-              </S.Button>
+              recoveryRequired ? (
+                <S.Button
+                  type="button"
+                  $variant="primary"
+                  disabled={Boolean(busy)}
+                  onClick={() => void resetConnection()}
+                >
+                  <RefreshCw size={16} aria-hidden="true" /> Reiniciar conexão antiga
+                </S.Button>
+              ) : (
+                <S.Button
+                  type="button"
+                  $variant="primary"
+                  disabled={Boolean(busy)}
+                  onClick={() => void connect()}
+                >
+                  <QrCode size={16} aria-hidden="true" /> Conectar WhatsApp Business
+                </S.Button>
+              )
             ) : null}
             {connection.configured ? (
               <S.Button type="button" disabled={Boolean(busy)} onClick={() => void disconnect()}>
