@@ -1247,62 +1247,6 @@ export const OrderItemLine = styled.article`
   }
 `;
 
-export const TrackingPixAction = styled.button`
-  width: 100%;
-  min-height: 48px;
-  padding: 12px 20px;
-  border: 0;
-  border-radius: 6px;
-  background: #ff4b4b;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 15px;
-  line-height: 19px;
-  font-weight: 700;
-  box-shadow: none;
-
-  svg {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
-    color: currentColor;
-  }
-
-  &:hover:not(:disabled) {
-    background: #ff4b4b;
-    filter: brightness(.96);
-  }
-
-  &:active:not(:disabled) {
-    background: #ff4b4b;
-    filter: brightness(.92);
-  }
-
-  &:focus-visible {
-    outline: 3px solid rgba(255, 75, 75, .28);
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    background: #e7e7e3;
-    color: #8b8b97;
-    opacity: 1;
-    cursor: not-allowed;
-  }
-
-  &:disabled:hover,
-  &:disabled:active {
-    background: #e7e7e3;
-  }
-
-  @media (min-width: 760px) {
-    margin-top: 4px;
-  }
-`;
-
 export const TrackingOtherPaymentAction = styled.button`
   width: 100%;
   min-height: 48px;
