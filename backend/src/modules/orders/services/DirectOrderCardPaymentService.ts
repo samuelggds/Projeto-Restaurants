@@ -13,6 +13,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
+import type { CardCheckoutResult } from './cardCheckoutProviders.js';
 
 export type CardPaymentType = 'credit' | 'debit';
 
@@ -815,7 +816,7 @@ class DirectOrderCardPaymentService {
     order: CardOrder;
     successUrlBase: string;
     idempotencyKey?: string;
-  }) {
+  }): Promise<CardCheckoutResult> {
     const cardPaymentType = normalizeCardPaymentType(input.payload.cardPaymentType);
     if (cardPaymentType === 'debit' && input.provider !== CARD_PROVIDERS.MERCADO_PAGO) {
       throw new CardPaymentDeclinedError(
