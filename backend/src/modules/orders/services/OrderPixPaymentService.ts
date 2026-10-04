@@ -93,6 +93,7 @@ type PaymentApprovalPayload = PaymentStatusPayload & {
 type PixPaymentPayload = {
   id?: string | number;
   status?: string;
+  status_detail?: string;
   external_reference?: string;
   transaction_amount?: number;
   currency_id?: string;
@@ -967,6 +968,7 @@ class OrderPixPaymentService {
     return {
       paymentId: normalizedPaymentId,
       status: this.normalizePaymentStatus(paymentData?.status),
+      statusDetail: String(paymentData?.status_detail || '').trim().toLowerCase() || null,
       provider: PIX_PROVIDERS.MERCADO_PAGO,
       isApproved: APPROVED_PAYMENT_STATUSES.has(
         this.normalizePaymentStatus(paymentData?.status),
@@ -1206,6 +1208,7 @@ class OrderPixPaymentService {
     return {
       paymentId: normalizedPaymentId,
       status,
+      statusDetail: String(paymentData?.status_detail || '').trim().toLowerCase() || null,
       provider: PIX_PROVIDERS.MERCADO_PAGO,
       isApproved: APPROVED_PAYMENT_STATUSES.has(status),
       sameRestaurant,
