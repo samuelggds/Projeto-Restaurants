@@ -16,6 +16,16 @@ describe('pixPaymentFailurePresentation', () => {
     });
   });
 
+  it('aceita o rótulo legado Mercado Pago além do identificador canônico', () => {
+    expect(
+      pixPaymentFailurePresentation({
+        provider: 'Mercado Pago',
+        status: 'rejected',
+        statusDetail: 'rejected_high_risk',
+      })?.title,
+    ).toBe('Pagamento recusado pelo Mercado Pago');
+  });
+
   it('não atribui motivo específico quando o provedor não informou high risk', () => {
     expect(
       pixPaymentFailurePresentation({
