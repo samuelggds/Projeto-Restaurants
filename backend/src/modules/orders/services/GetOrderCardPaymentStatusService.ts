@@ -14,6 +14,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 import { verifyGuestOrderOwnershipTokenByPublicId } from '../utils/guestOrderOwnershipToken.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import { mercadoPagoDeclineDetails } from './DirectOrderCardPaymentService.js';
 
 const publicOrderIdSchema = z.string().uuid();
 const notFoundMessage = 'Pagamento com cartão não encontrado.';
@@ -88,8 +89,16 @@ class GetOrderCardPaymentStatusService {
         const validReference = new Set(
           mercadoPagoCardExternalReferenceCandidates(order.id, order.restaurantId),
         ).has(reference);
-        const remoteStatus = String(remote.status || '').trim().toLowerCase();
-        const remoteStatusDetail = String(remote.status_detail || '').trim() || null;
+        const remoteDiagnostic = mercadoPagoDeclineDetails(
+          remote as unknown as Record<string, unknown>,
+        );
+        const remoteStatus = String(remoteDiagnostic.transactionStatus || remote.status || '')
+          .trim()
+          .toLowerCase();
+        const remoteStatusDetail =
+          remoteDiagnostic.transactionStatusDetail ||
+          String(remote.status_detail || '').trim() ||
+          null;
         if (
           remoteStatus === 'processed' &&
           validReference &&
