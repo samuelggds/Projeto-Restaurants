@@ -142,6 +142,26 @@ async function gatewayContext(restaurantId: number) {
   throw new Error('No momento, apenas Mercado Pago está disponível para cadastrar cartões.');
 }
 
+export function buildMercadoPagoCustomerPayload(customer: {
+  name: string;
+  payerEmail: string;
+  holderTaxId?: string | null;
+}) {
+  const identification = String(customer.holderTaxId || '').replace(/\D/g, '');
+  return {
+    email: customer.payerEmail,
+    first_name: customer.name,
+    ...([11, 14].includes(identification.length)
+      ? {
+          identification: {
+            type: identification.length === 11 ? 'CPF' : 'CNPJ',
+            number: identification,
+          },
+        }
+      : {}),
+  };
+}
+
 async function mercadoPagoCustomer(
   baseUrl: string,
   token: string,
@@ -160,21 +180,9 @@ async function mercadoPagoCustomer(
   const existing = String((results[0] as { id?: unknown } | undefined)?.id || '').trim();
   if (existing) return existing;
 
-  const identification = String(customer.holderTaxId || '').replace(/\D/g, '');
   const created = await providerJson(`${baseUrl}/v1/customers`, headers, {
     method: 'POST',
-    body: JSON.stringify({
-      email: customer.payerEmail,
-      first_name: customer.name,
-      ...([11, 14].includes(identification.length)
-        ? {
-            identification: {
-              type: identification.length === 11 ? 'CPF' : 'CNPJ',
-              number: identification,
-            },
-          }
-        : {}),
-    }),
+    body: JSON.stringify(buildMercadoPagoCustomerPayload(customer)),
   });
   const id = String(created.id || '').trim();
   if (!id) throw new Error('O Mercado Pago não retornou o cliente protegido.');
