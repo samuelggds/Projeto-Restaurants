@@ -40,6 +40,7 @@ export function PaymentMethodModal({
   restaurantDescription,
   userAvatarUrl,
   userName,
+  userEmail,
   primaryColor,
   cartCount = 0,
   onClose,
@@ -57,6 +58,7 @@ export function PaymentMethodModal({
   restaurantDescription?: string;
   userAvatarUrl?: string;
   userName?: string;
+  userEmail?: string;
   primaryColor?: string;
   cartCount?: number;
   onClose: () => void;
@@ -73,7 +75,7 @@ export function PaymentMethodModal({
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
-  const [payerEmail, setPayerEmail] = useState('');
+  const payerEmail = String(userEmail || '').trim().toLowerCase();
   const [secureExpiryValid, setSecureExpiryValid] = useState(false);
   const [config, setConfig] = useState<ProviderConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -184,14 +186,14 @@ export function PaymentMethodModal({
     setSaving(true);
     setError('');
     try {
-      const normalizedPayerEmail = payerEmail.trim().toLowerCase();
+      const normalizedPayerEmail = payerEmail;
       if (
         normalizedPayerEmail.length < 3 ||
         normalizedPayerEmail.length > 254 ||
         /\s/u.test(normalizedPayerEmail) ||
         !/^[^@]+@[^@]+\.[^@]+$/u.test(normalizedPayerEmail)
       ) {
-        throw new Error('Informe um e-mail válido do comprador.');
+        throw new Error('Sua conta precisa ter um e-mail válido para salvar um cartão.');
       }
 
       const providerConfig = config || (await customerPaymentMethodService.getConfig(restaurantId));
@@ -395,17 +397,16 @@ export function PaymentMethodModal({
             )}
 
             <label>
-              E-mail do comprador
+              E-mail da conta
               <input
                 type="email"
                 autoComplete="email"
-                placeholder="voce@exemplo.com"
                 value={payerEmail}
-                onChange={(event) => setPayerEmail(event.target.value.slice(0, 254))}
-                maxLength={254}
+                readOnly
+                aria-readonly="true"
                 required
               />
-              <small>Use o e-mail do comprador que será associado ao cartão no provedor.</small>
+              <small>O cartão será vinculado ao mesmo e-mail da sua conta para evitar divergências no provedor.</small>
             </label>
 
             <label>
