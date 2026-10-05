@@ -778,6 +778,13 @@ export default function Home() {
         restaurantId={restaurantId}
         visitor={!user}
         onCloseCardPaymentReturn={closeCardPaymentReturn}
+        onRetryCardPayment={(orderPublicId) => {
+          if (!normalizedSlug || mesaMode) {
+            closeCardPaymentReturn();
+            return;
+          }
+          navigate(buildTenantPublicPath(normalizedSlug, `/pedido/${orderPublicId}/pagamento`));
+        }}
         onClearPaymentResult={clearPaymentResult}
         onVerifyPixPayment={verifyPixPayment}
         onClearPixPayment={clearPixPayment}
