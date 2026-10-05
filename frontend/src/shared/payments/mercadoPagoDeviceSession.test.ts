@@ -64,29 +64,39 @@ describe('collectMercadoPagoDeviceSession', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('libera o pagamento sem inventar uma sessão quando a coleta excede 1500 ms', async () => {
+  it('encerra a espera após 5s e permite uma nova tentativa de coleta', async () => {
     const { collectMercadoPagoDeviceSession } = await import('./mercadoPagoDeviceSession');
     const pending = collectMercadoPagoDeviceSession();
-    await vi.advanceTimersByTimeAsync(1500);
+    await vi.advanceTimersByTimeAsync(5000);
 
     await expect(pending).resolves.toBeUndefined();
     expect(vi.getTimerCount()).toBe(0);
-    await expect(collectMercadoPagoDeviceSession()).resolves.toBeUndefined();
-    expect(document.querySelectorAll(scriptSelector)).toHaveLength(1);
-
-    // If the provider finishes later, the next payment uses that authentic ID.
+    const retry = collectMercadoPagoDeviceSession();
     window.MP_DEVICE_SESSION_ID = 'late-provider-session';
-    await expect(collectMercadoPagoDeviceSession()).resolves.toBe('late-provider-session');
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(retry).resolves.toBe('late-provider-session');
+    expect(document.querySelectorAll(scriptSelector)).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('libera o pagamento e remove a espera quando o script é bloqueado', async () => {
+  it('falha de script não fica memorizada e o pagamento pode tentar coletar novamente', async () => {
     const { collectMercadoPagoDeviceSession } = await import('./mercadoPagoDeviceSession');
     const pending = collectMercadoPagoDeviceSession();
     document.querySelector(scriptSelector)!.dispatchEvent(new Event('error'));
 
     await expect(pending).resolves.toBeUndefined();
     expect(vi.getTimerCount()).toBe(0);
-    await expect(collectMercadoPagoDeviceSession()).resolves.toBeUndefined();
+
+    const retry = collectMercadoPagoDeviceSession();
+    window.MP_DEVICE_SESSION_ID = 'session-after-retry';
+    await vi.advanceTimersByTimeAsync(50);
+    await expect(retry).resolves.toBe('session-after-retry');
+  });
+
+  it('bloqueia a preparação quando não existe sessão antifraude', async () => {
+    const { requireMercadoPagoDeviceSession } = await import('./mercadoPagoDeviceSession');
+    const pending = requireMercadoPagoDeviceSession();
+    await vi.advanceTimersByTimeAsync(5000);
+    await expect(pending).rejects.toThrow(/proteção antifraude/i);
   });
 });
