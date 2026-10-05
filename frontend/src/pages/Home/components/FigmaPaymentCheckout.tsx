@@ -55,8 +55,10 @@ export function FigmaPaymentCheckout({
       {loggedIn ? (
         <S.LoggedDesktopHeader>
           <div className="brand">
-            <span>G</span>
-            <b>GastroNexa</b>
+            <span>
+              {logoUrl ? <img src={logoUrl} alt="" /> : brandName.trim().slice(0, 1).toUpperCase() || 'R'}
+            </span>
+            <b>{brandName.trim() || 'Restaurante'}</b>
           </div>
           <nav aria-label="Navegação do cliente">
             <span>Cardápio</span>
