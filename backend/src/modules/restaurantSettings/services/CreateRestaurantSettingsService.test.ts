@@ -115,6 +115,7 @@ test('aceita telefone comercial com +55 e persiste o mesmo número nacional', as
     capturedUpdate = data;
     return { id: 1, restaurantId: 7, ...data };
   };
+  prisma.restaurant.update = async ({ data }) => ({ id: 7, ...data });
 
   await updateRestaurantSettingsService.execute({
     restaurantId: 7,
