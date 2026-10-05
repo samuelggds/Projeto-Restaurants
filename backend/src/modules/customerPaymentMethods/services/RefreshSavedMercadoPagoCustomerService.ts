@@ -124,7 +124,7 @@ export async function refreshSavedMercadoPagoCustomer(input: Input) {
 
   if (!input.verifiedPayer) return { outcome: 'skipped_unverified_identity' as const, updatedFields: [] };
   if (text(customer.email).toLowerCase() !== text(input.verifiedPayer.email).toLowerCase()) {
-    return { outcome: 'skipped_email_mismatch' as const, updatedFields: [] };
+    throw new SavedMercadoPagoCustomerRefreshError('saved_card_email_mismatch', 409);
   }
   const update = customerUpdate(customer, input.verifiedPayer);
   if (!Object.keys(update).length) return { outcome: 'unchanged' as const, updatedFields: [] };
