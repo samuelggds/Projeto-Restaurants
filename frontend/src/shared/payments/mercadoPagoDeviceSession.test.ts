@@ -96,7 +96,8 @@ describe('collectMercadoPagoDeviceSession', () => {
   it('bloqueia a preparação quando não existe sessão antifraude', async () => {
     const { requireMercadoPagoDeviceSession } = await import('./mercadoPagoDeviceSession');
     const pending = requireMercadoPagoDeviceSession();
+    const rejection = expect(pending).rejects.toThrow(/proteção antifraude/i);
     await vi.advanceTimersByTimeAsync(5000);
-    await expect(pending).rejects.toThrow(/proteção antifraude/i);
+    await rejection;
   });
 });
