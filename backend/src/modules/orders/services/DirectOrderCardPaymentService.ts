@@ -271,7 +271,15 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
         active: true,
       },
       include: {
-        user: { select: { name: true, email: true, cpf: true, emailVerifiedAt: true } },
+        user: {
+          select: {
+            name: true,
+            email: true,
+            cpf: true,
+            emailVerifiedAt: true,
+            createdAt: true,
+          },
+        },
       },
     }),
   );
@@ -427,9 +435,32 @@ async function mercadoPagoPayment(
     }
   }
 
+  const storedPayerEmail = String(stored?.user.email || '').trim().toLowerCase();
   const payer = stored
-    ? { customer_id: storedCustomerId }
+    ? {
+        ...(isValidPayerEmail(storedPayerEmail) ? { email: storedPayerEmail } : {}),
+        customer_id: storedCustomerId,
+      }
     : { email: await payerEmail(payload, order) };
+  const orderTitle = [String(order.restaurant?.name || '').trim(), `Pedido #${order.id}`]
+    .filter(Boolean)
+    .join(' - ');
+  const items = [
+    {
+      title: orderTitle || `Pedido #${order.id}`,
+      unit_price: total.toFixed(2),
+      quantity: 1,
+      unit_measure: 'unit',
+      total_amount: total.toFixed(2),
+    },
+  ];
+  const additionalInfo =
+    stored?.user.createdAt instanceof Date
+      ? {
+          'payer.authentication_type': 'WEB',
+          'payer.registration_date': stored.user.createdAt.toISOString(),
+        }
+      : undefined;
 
   const body = {
     type: 'online',
@@ -450,6 +481,8 @@ async function mercadoPagoPayment(
     external_reference: reference,
     description: `Pedido #${order.id}`,
     payer,
+    items,
+    ...(additionalInfo ? { additional_info: additionalInfo } : {}),
     transactions: {
       payments: [
         {
