@@ -55,6 +55,31 @@ if [[ ! "$READINESS_SLEEP_SECONDS" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+sync_release_source() {
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo 'Checkout Git ausente; sincronizacao de fonte ignorada apenas para fixture isolada.'
+    return
+  fi
+
+  if ! git diff --quiet --ignore-submodules -- || ! git diff --cached --quiet --ignore-submodules --; then
+    echo 'Deploy recusado: existem alteracoes locais em arquivos versionados.' >&2
+    git status --short --untracked-files=no >&2
+    exit 1
+  fi
+
+  git fetch --no-tags origin main
+  git cat-file -e "${DEPLOY_SHA}^{commit}"
+  if ! git merge-base --is-ancestor "$DEPLOY_SHA" origin/main; then
+    echo 'DEPLOY_SHA nao pertence a origin/main.' >&2
+    exit 1
+  fi
+
+  git checkout --detach "$DEPLOY_SHA"
+  test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+}
+
+sync_release_source
+
 for required_file in "$ENV_FILE" "$COMPOSE_FILE" "$RELEASE_OVERLAY"; do
   if [[ ! -f "$required_file" ]]; then
     echo "Arquivo obrigatorio ausente: $APP_DIR/$required_file" >&2
