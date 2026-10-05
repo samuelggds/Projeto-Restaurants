@@ -41,7 +41,7 @@ describe('PaymentMethodModal', () => {
     expect(markup).toContain('Salvar Novo Cartão');
     expect(markup).toContain('E-mail da conta');
     expect(markup).toContain('cliente@teste.com');
-    expect(markup).toContain('readOnly');
+    expect(markup).toContain('readonly=""');
     expect(markup).toContain('CPF do titular');
   });
 
