@@ -310,7 +310,7 @@ async function mercadoPagoPayment(
     });
   };
 
-  if (!deviceSessionId) {
+  if (payload.paymentMethodId && !deviceSessionId) {
     trace(
       'charge',
       {
