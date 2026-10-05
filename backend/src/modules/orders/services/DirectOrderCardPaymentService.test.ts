@@ -605,16 +605,9 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
 
       assert.ok(requestBody);
       assert.deepEqual(requestBody.payer, {
-        email: 'cliente@example.test',
         customer_id: 'customer-mp-123',
       });
-      assert.deepEqual(requestBody.items, [
-        {
-          title: 'North Pizza - Pedido #903',
-          unit_price: '50.00',
-          quantity: 1,
-        },
-      ]);
+      assert.equal(requestBody.items, undefined);
       assert.equal(requestBody.additional_info, undefined);
       assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
       assert.equal(result.paymentApproved, true);
