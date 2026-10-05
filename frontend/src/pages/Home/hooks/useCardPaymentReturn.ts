@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
 import type { OrderType } from '../domain/checkout';
 import { getCheckoutErrorMessage } from './useCheckoutPayments';
+import type { CardPaymentFailureDetails } from '../domain/cardPaymentFailure';
 import {
   getUnsuccessfulPaymentOutcome,
   type TerminalPaymentOutcome,
@@ -31,6 +32,7 @@ export type CardPaymentReturnDetails = {
   cardBrand?: string | null;
   cardLast4?: string | null;
   challengeUrl?: string | null;
+  paymentAttempt?: CardPaymentFailureDetails | null;
 };
 
 type StatusState = {
@@ -118,6 +120,13 @@ export function useCardPaymentReturn({
             cardBrand: response?.paymentAttempt?.cardBrand || 'card',
             cardLast4: response?.paymentAttempt?.cardLast4 || null,
             challengeUrl: response?.challengeUrl || null,
+            paymentAttempt: status === 'FAILED'
+              ? {
+                  publicId: response?.paymentAttempt?.publicId || null,
+                  failureCode: response?.paymentAttempt?.failureCode || null,
+                  providerStatusDetail: response?.paymentAttempt?.providerStatusDetail || null,
+                }
+              : null,
           },
         });
         if (status === 'PAID' || unsuccessful) {

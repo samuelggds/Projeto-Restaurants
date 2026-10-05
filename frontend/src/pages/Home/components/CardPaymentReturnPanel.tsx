@@ -15,6 +15,7 @@ import type {
   CardPaymentReturnDetails,
   CardPaymentReturnStatus,
 } from '../hooks/useCardPaymentReturn';
+import { cardPaymentFailurePresentation } from '../domain/cardPaymentFailure';
 
 type Props = {
   status: CardPaymentReturnStatus;
@@ -123,7 +124,16 @@ export function CardPaymentReturnPanel({
   const cardPaymentType = details?.cardPaymentType === 'debit' ? 'debit' : 'credit';
   const cardTypeLabel =
     cardPaymentType === 'debit' ? 'Cartão de Débito' : 'Cartão de Crédito';
-  const terminalCopy = getTerminalPaymentCopy(status, error, cardTypeLabel);
+  const failure = status === 'FAILED'
+    ? cardPaymentFailurePresentation(details?.paymentAttempt)
+    : null;
+  const terminalCopy = getTerminalPaymentCopy(status, failure?.message || error, cardTypeLabel);
+  if (terminalCopy && failure?.isTechnicalFailure) {
+    terminalCopy.title = 'Pagamento não concluído';
+    terminalCopy.badge = 'Falha no pagamento';
+    terminalCopy.summary = 'Não foi possível processar o cartão';
+    terminalCopy.bottom = 'Consulte o motivo informado acima antes de tentar novamente.';
+  }
   const cardBrand = details?.cardBrand || 'card';
   const cardLast4 = String(details?.cardLast4 || '').replace(/\D/g, '').slice(-4);
   const maskedCardNumber = cardLast4
@@ -307,6 +317,12 @@ export function CardPaymentReturnPanel({
                 ? 'Seu pagamento foi recebido com segurança. O restaurante já foi notificado e iniciará a preparação do seu pedido.'
                 : 'Estamos aguardando a confirmação segura do provedor de pagamento.'}
           </MobileInstructions>
+
+          {failure?.supportReference ? (
+            <SupportReference>
+              Referência para suporte: <code>{failure.supportReference}</code>
+            </SupportReference>
+          ) : null}
 
           <DesktopActions>
             {paid ? (
@@ -621,6 +637,17 @@ const DesktopActions = styled.div`
   button.secondary { border: 1px solid #efece6; background: #fff; color: #72706b; }
   button:disabled { opacity: .5; }
   @media (max-width: 760px) { display: none; }
+`;
+
+const SupportReference = styled.p`
+  margin: 0;
+  color: #72706b;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+
+  code { display: block; }
 `;
 
 const MobileBottom = styled.section`

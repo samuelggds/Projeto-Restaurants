@@ -73,7 +73,7 @@ function customerUpdate(customer: ProviderRecord, payer: Input['verifiedPayer'])
 }
 
 /** Called only after resolving an active saved method by userId + restaurantId. */
-export async function refreshSavedMercadoPagoCustomer(input: Input): Promise<void> {
+export async function refreshSavedMercadoPagoCustomer(input: Input) {
   if (!input.customerId || !input.cardId || !/^\d{4}$/.test(input.expectedLast4)) {
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_reference_invalid', 422);
   }
@@ -122,10 +122,15 @@ export async function refreshSavedMercadoPagoCustomer(input: Input): Promise<voi
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_reference_mismatch', 422);
   }
 
+  if (!input.verifiedPayer) return { outcome: 'skipped_unverified_identity' as const, updatedFields: [] };
+  if (text(customer.email).toLowerCase() !== text(input.verifiedPayer.email).toLowerCase()) {
+    return { outcome: 'skipped_email_mismatch' as const, updatedFields: [] };
+  }
   const update = customerUpdate(customer, input.verifiedPayer);
-  if (!Object.keys(update).length) return;
+  if (!Object.keys(update).length) return { outcome: 'unchanged' as const, updatedFields: [] };
   const updated = await request(customerPath, update);
   if (String(updated.id || '') !== input.customerId) {
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_refresh_invalid_response');
   }
+  return { outcome: 'updated' as const, updatedFields: Object.keys(update) };
 }

@@ -36,6 +36,52 @@ afterEach(() => {
   Object.assign(process.env, originalEnv);
 });
 
+test('rastreia recusa com referência e códigos sem logar segredos nem texto do provedor', async (t) => {
+  const events: Record<string, unknown>[] = [];
+  t.mock.method(console, 'info', (_tag, value) => { events.push(value); });
+  t.mock.method(console, 'warn', () => {});
+  globalThis.fetch = async () => Response.json({
+    id: 'ORD-REFUSED-001', status: 'failed',
+    message: 'CVV 987 secret-card-token customer@example.test',
+    errors: [{ code: 'card_payment_failed', message: 'secret-card-token' }],
+    transactions: { payments: [{ id: 'PAY-REFUSED-001', status: 'failed', status_detail: 'high_risk', token: 'secret-card-token' }] },
+  }, { status: 402, headers: { 'x-request-id': 'mp-request-001' } });
+  await assert.rejects(directOrderCardPaymentService.execute({
+    provider: CARD_PROVIDERS.MERCADO_PAGO,
+    payload: { cardToken: 'secret-card-token', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test' },
+    order: { id: 500, publicId: 'order-500', restaurantId: 7, total: 10 },
+    successUrlBase: 'https://pedido.local',
+    idempotencyKey: '11111111-1111-4111-8111-111111111111',
+    paymentAttemptId: '22222222-2222-4222-8222-222222222222',
+  }), (error) => {
+    assert.ok(error instanceof CardPaymentDeclinedError);
+    assert.equal(error.diagnostic?.providerPaymentId, 'PAY-REFUSED-001');
+    assert.equal(error.diagnostic?.providerRequestId, 'mp-request-001');
+    assert.equal(error.diagnostic?.statusDetail, 'high_risk');
+    assert.doesNotMatch(error.message, /987|secret|example/);
+    return true;
+  });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].cardSource, 'new_card');
+  assert.equal(events[0].hasDeviceSession, false);
+  assert.equal(events[0].paymentAttemptId, '22222222-2222-4222-8222-222222222222');
+  assert.equal(events[0].stage, 'charge');
+  assert.doesNotMatch(JSON.stringify(events), /987|secret|customer@example/);
+});
+
+test('status de pagamento desconhecido não aprova pela situação da order', async () => {
+  globalThis.fetch = async () => Response.json({
+    id: 'ORD-PENDING', status: 'processed', transactions: { payments: [{ status: 'future_pending_status' }] },
+  }, { status: 201 });
+  const result = await directOrderCardPaymentService.execute({
+    provider: CARD_PROVIDERS.MERCADO_PAGO,
+    payload: { cardToken: 'token-unknown', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test' },
+    order: { id: 501, publicId: 'order-501', restaurantId: 7, total: 10 },
+    successUrlBase: 'https://pedido.local', idempotencyKey: '11111111-1111-4111-8111-111111111112',
+  });
+  assert.equal(result.paymentApproved, false);
+});
+
 test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode', async () => {
   let requestBody: Record<string, unknown> | null = null;
   let requestHeaders: Headers | null = null;
@@ -389,7 +435,9 @@ test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async ()
 });
 
 for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverified-email']) {
-  test(`cartão salvo valida cadastro antes da Order: ${scenario}`, async () => {
+  test(`cartão salvo valida cadastro antes da Order: ${scenario}`, async (t) => {
+    const events: Record<string, unknown>[] = [];
+    t.mock.method(console, 'info', (_event, data) => { events.push(data); });
     const refreshFails = scenario === 'refresh-failed';
     let requestBody: Record<string, unknown> | null = null;
     let requestHeaders = new Headers();
@@ -503,6 +551,7 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
         },
         successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
         idempotencyKey: '11111111-1111-4111-8111-111111111903',
+        paymentAttemptId: '11111111-1111-4111-8111-111111111904',
       });
 
       if (refreshFails) {
@@ -513,6 +562,9 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
             error.providerCode === 'saved_card_refresh_failed',
         );
         assert.equal(requestBody, null);
+        assert.equal(events[0].stage, 'customer_refresh');
+        assert.equal(events[0].outcome, 'failed_before_charge');
+        assert.equal(events[0].providerCode, 'saved_card_refresh_failed');
         assert.equal(
           requests.some((request) => request.endsWith('/v1/orders')),
           false,
@@ -525,6 +577,12 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
       assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
       assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
       assert.equal(result.paymentApproved, true);
+      assert.equal(events[1].paymentAttemptId, '11111111-1111-4111-8111-111111111904');
+      assert.equal(events[1].stage, 'charge');
+      assert.equal(events[1].cardSource, 'saved_card');
+      assert.equal(events[1].hasDeviceSession, true);
+      assert.equal(events[1].refreshOutcome, scenario === 'updated' ? 'updated' : scenario === 'shared-customer' ? 'skipped_shared_customer' : 'skipped_unverified_identity');
+      assert.doesNotMatch(JSON.stringify(events), /saved-card-cvv-token|saved-card-device-session|12345678901|cliente@example/);
       if (scenario === 'updated') assert.ok(requests[2].startsWith('PUT '));
       else
         assert.equal(
@@ -664,6 +722,9 @@ test('preserva diagnóstico seguro do Mercado Pago em processing_error', async (
         statusDetail: 'processing_error',
         providerRequestId: 'mp-request-processing-123',
         providerOrderId: null,
+        providerPaymentId: null,
+        providerCodes: [],
+        hasUnrecognizedCode: false,
       });
       assert.equal(JSON.stringify(error.diagnostic).includes('card-token'), false);
       return true;

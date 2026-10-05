@@ -41,6 +41,17 @@ function DetailsProbe() {
   );
 }
 
+function FailureProbe() {
+  const payment = useCardPaymentReturn({
+    restaurantId: 7,
+    orderPublicId: '123e4567-e89b-42d3-a456-426614174001',
+    orderType: 'DELIVERY',
+    providerReturnStatus: '',
+    onPaymentConfirmed,
+  });
+  return <output>{JSON.stringify(payment.details?.paymentAttempt ?? null)}</output>;
+}
+
 describe('useCardPaymentReturn', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -105,6 +116,35 @@ describe('useCardPaymentReturn', () => {
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
 
     expect(container.textContent).toBe('PAID');
+    expect(onPaymentConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserva os códigos e a referência pública da recusa canônica', async () => {
+    const paymentAttempt = {
+      publicId: '123e4567-e89b-42d3-a456-426614174002',
+      providerStatusDetail: 'high_risk',
+      failureCode: 'card_declined',
+    };
+    vi.mocked(ordersService.getCardPaymentStatus).mockResolvedValue({
+      status: 'FAILED', paid: false, paymentAttempt,
+    });
+    await act(async () => root.render(<FailureProbe />));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+    expect(JSON.parse(container.textContent || '{}')).toEqual(paymentAttempt);
+    expect(onPaymentConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('não propaga a última recusa quando o pedido está pago', async () => {
+    vi.mocked(ordersService.getCardPaymentStatus).mockResolvedValue({
+      status: 'PAID', paid: true,
+      paymentAttempt: {
+        publicId: '123e4567-e89b-42d3-a456-426614174002',
+        providerStatusDetail: 'high_risk', failureCode: 'card_declined',
+      },
+    });
+    await act(async () => root.render(<FailureProbe />));
+    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 5)));
+    expect(container.textContent).toBe('null');
     expect(onPaymentConfirmed).toHaveBeenCalledTimes(1);
   });
 

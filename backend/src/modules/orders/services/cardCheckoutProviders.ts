@@ -70,6 +70,8 @@ export type CardCheckoutResult = {
   challengeUrl?: string | null;
   providerStatus?: string | null;
   providerStatusDetail?: string | null;
+  providerRequestId?: string | null;
+  providerPaymentId?: string | null;
 };
 
 type CardCheckoutProviderContext = {
