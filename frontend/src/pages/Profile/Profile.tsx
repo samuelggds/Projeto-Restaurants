@@ -500,6 +500,7 @@ export default function Profile() {
           restaurantDescription={data.brand.description}
           userAvatarUrl={data.user.avatarUrl}
           userName={data.user.fullName || data.user.firstName}
+          userEmail={String(user?.email || '')}
           primaryColor={data.brand.primaryColor}
           cartCount={storedCartCount}
           onGoHome={() => navigate(restaurantHomePath)}

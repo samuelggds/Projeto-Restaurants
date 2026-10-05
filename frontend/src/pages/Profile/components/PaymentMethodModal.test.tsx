@@ -11,6 +11,7 @@ function renderModal(overrides: Partial<ComponentProps<typeof PaymentMethodModal
       restaurantLogoUrl="https://cdn.example.test/north-pizza.png"
       restaurantDescription="Pizzas artesanais."
       userName="Cliente Teste"
+      userEmail="cliente@teste.com"
       userAvatarUrl="https://cdn.example.test/cliente.png"
       primaryColor="#d05632"
       cartCount={2}
@@ -38,8 +39,9 @@ describe('PaymentMethodModal', () => {
     expect(markup).toContain('https://cdn.example.test/cliente.png');
     expect(markup).toContain('Meu Carrinho');
     expect(markup).toContain('Salvar Novo Cartão');
-    expect(markup).toContain('E-mail do comprador');
-    expect(markup).toContain('voce@exemplo.com');
+    expect(markup).toContain('E-mail da conta');
+    expect(markup).toContain('cliente@teste.com');
+    expect(markup).toContain('readOnly=""');
     expect(markup).toContain('CPF do titular');
   });
 

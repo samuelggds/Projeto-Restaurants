@@ -69,6 +69,36 @@ test('rastreia recusa com referência e códigos sem logar segredos nem texto do
   assert.doesNotMatch(JSON.stringify(events), /987|secret|customer@example/);
 });
 
+test('cartão salvo não cria cobrança sem sessão antifraude do Mercado Pago', async (t) => {
+  const events: Record<string, unknown>[] = [];
+  t.mock.method(console, 'info', (_tag, value) => { events.push(value); });
+
+  await assert.rejects(
+    directOrderCardPaymentService.execute({
+      provider: CARD_PROVIDERS.MERCADO_PAGO,
+      payload: {
+        userId: 33,
+        paymentMethodId: 'saved-card-public-id',
+        cardToken: 'saved-card-cvv-token',
+        cardPaymentMethodId: 'master',
+      },
+      order: { id: 506, publicId: 'order-506', restaurantId: 7, total: 10 },
+      successUrlBase: 'https://pedido.local',
+      idempotencyKey: '11111111-1111-4111-8111-111111111506',
+      paymentAttemptId: '22222222-2222-4222-8222-222222222506',
+    }),
+    (error) =>
+      error instanceof CardPaymentProviderRequestError &&
+      error.providerCode === 'missing_device_session' &&
+      error.providerStatus === 422,
+  );
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].stage, 'charge');
+  assert.equal(events[0].outcome, 'blocked_before_charge');
+  assert.equal(events[0].hasDeviceSession, false);
+});
+
 test('status de pagamento desconhecido não aprova pela situação da order', async () => {
   globalThis.fetch = async () => Response.json({
     id: 'ORD-PENDING', status: 'processed', transactions: { payments: [{ status: 'future_pending_status' }] },

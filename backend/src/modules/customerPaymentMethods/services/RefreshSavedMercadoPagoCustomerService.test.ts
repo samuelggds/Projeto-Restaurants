@@ -156,9 +156,15 @@ test('sem vínculo de email verificado não altera customer mesmo com titular di
   assert.deepEqual(updates, []);
 });
 
-test('não altera customer cujo email difere da conta verificada', async (t) => {
+test('bloqueia customer legado cujo email difere da conta verificada', async (t) => {
   const { updates } = provider(t, { id: 'customer-1', email: 'outra-conta@example.test' });
-  await refreshSavedMercadoPagoCustomer(input);
+  await assert.rejects(
+    refreshSavedMercadoPagoCustomer(input),
+    (error) =>
+      error instanceof SavedMercadoPagoCustomerRefreshError &&
+      error.code === 'saved_card_email_mismatch' &&
+      error.httpStatus === 409,
+  );
   assert.deepEqual(updates, []);
 });
 

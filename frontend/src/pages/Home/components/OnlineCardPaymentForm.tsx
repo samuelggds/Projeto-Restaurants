@@ -15,7 +15,10 @@ import type {
   MercadoPagoField,
   MercadoPagoInstance,
 } from '../../../shared/payments/mercadoPagoSdk';
-import { collectMercadoPagoDeviceSession } from '../../../shared/payments/mercadoPagoDeviceSession';
+import {
+  collectMercadoPagoDeviceSession,
+  requireMercadoPagoDeviceSession,
+} from '../../../shared/payments/mercadoPagoDeviceSession';
 
 export type PreparedCardPayment = Record<string, unknown>;
 export type CardPaymentPreparer = () => Promise<PreparedCardPayment>;
@@ -195,7 +198,7 @@ export function OnlineCardPaymentForm({
                 throw new Error('O cartão selecionado mudou. Informe o CVV e tente novamente.');
               }
             };
-            const mercadoPagoDeviceId = await collectMercadoPagoDeviceSession();
+            const mercadoPagoDeviceId = await requireMercadoPagoDeviceSession();
             ensureSelectedCard();
             const token = await mp.fields.createCardToken({
               cardId: savedCard.providerCardId,
@@ -209,7 +212,7 @@ export function OnlineCardPaymentForm({
               cardPaymentType: 'credit',
               cardBrand: savedCard.brand,
               cardLast4: savedCard.last4,
-              ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
+              mercadoPagoDeviceId,
             };
           }
           return {
@@ -233,7 +236,7 @@ export function OnlineCardPaymentForm({
             throw new Error('Informe um e-mail válido do comprador.');
           }
           if (!mercadoPagoRef.current) throw new Error('Aguarde a preparação segura do cartão.');
-          const mercadoPagoDeviceId = await collectMercadoPagoDeviceSession();
+          const mercadoPagoDeviceId = await requireMercadoPagoDeviceSession();
           const token = await mercadoPagoRef.current.fields.createCardToken({
             cardholderName: holderName,
             identificationType: holderTaxId.length === 11 ? 'CPF' : 'CNPJ',
@@ -260,7 +263,7 @@ export function OnlineCardPaymentForm({
             holderName,
             holderTaxId,
             payerEmail: normalizedPayerEmail,
-            ...(mercadoPagoDeviceId ? { mercadoPagoDeviceId } : {}),
+            mercadoPagoDeviceId,
           };
         }
 

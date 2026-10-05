@@ -278,6 +278,7 @@ router.post('/', async (req, res): Promise<void> => {
       select: {
         name: true,
         email: true,
+        emailVerifiedAt: true,
         cpf: true,
         phone: true,
         addresses: { where: { isDefault: true }, take: 1 },
@@ -292,12 +293,15 @@ router.post('/', async (req, res): Promise<void> => {
     let providerExpYear = 0;
     if (context.provider === 'MERCADO_PAGO') {
       if (!parsed.data.cardToken) throw new Error('Token seguro do Mercado Pago não informado.');
-      if (!parsed.data.payerEmail) {
-        throw new Error('Informe o e-mail do comprador para salvar o cartão no Mercado Pago.');
+      const accountEmail = String(user.email || '').trim().toLowerCase();
+      if (!accountEmail || !user.emailVerifiedAt) {
+        throw new Error(
+          'Confirme o e-mail da sua conta antes de salvar um cartão no Mercado Pago.',
+        );
       }
       providerCustomerId = await mercadoPagoCustomer(context.baseUrl, context.token, {
         name: user.name,
-        payerEmail: parsed.data.payerEmail,
+        payerEmail: accountEmail,
         holderTaxId: parsed.data.holderTaxId,
       });
       const saved = await providerJson(
