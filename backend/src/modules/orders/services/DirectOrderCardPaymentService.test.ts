@@ -388,79 +388,155 @@ test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async ()
   );
 });
 
-test('cartão salvo Mercado Pago envia payer.customer_id na Orders API', async () => {
-  let requestBody: Record<string, unknown> | null = null;
-  let requestHeaders = new Headers();
+for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverified-email']) {
+  test(`cartão salvo valida cadastro antes da Order: ${scenario}`, async () => {
+    const refreshFails = scenario === 'refresh-failed';
+    let requestBody: Record<string, unknown> | null = null;
+    let requestHeaders = new Headers();
+    const requests: string[] = [];
 
-  restaurantSettingsRepository.findByRestaurantId = async () =>
-    ({
-      restaurantId: 7,
-      cardGateway: 'MERCADO_PAGO',
-      mercadoPagoAccessToken: 'restaurant-access-token',
-      mercadoPagoRefreshToken: 'restaurant-refresh-token',
-      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
-    }) as never;
-
-  const originalTransaction = prisma.$transaction;
-  prisma.$transaction = async (callback: any) =>
-    callback({
-      $queryRaw: async () => [{ set_config: '7' }],
-      customerPaymentMethod: {
-        findFirst: async () => ({
-          publicId: 'saved-card-public-id',
-          userId: 33,
-          restaurantId: 7,
-          provider: 'MERCADO_PAGO',
-          providerCustomerId: 'customer-mp-123',
-          brand: 'master',
-          active: true,
-        }),
-      },
-    });
-
-  globalThis.fetch = async (input, init: RequestInit = {}) => {
-    const url = String(input);
-    assert.equal(url, 'https://api.mercadopago.com/v1/orders');
-    requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
-    requestHeaders = new Headers(init.headers);
-    return new Response(
-      JSON.stringify({
-        id: 'ORD_CARD_SAVED_001',
-        status: 'processed',
-      }),
-      { status: 201, headers: { 'Content-Type': 'application/json' } },
-    );
-  };
-
-  try {
-    const result = await directOrderCardPaymentService.execute({
-      provider: CARD_PROVIDERS.MERCADO_PAGO,
-      payload: {
-        userId: 33,
-        paymentMethodId: 'saved-card-public-id',
-        cardToken: 'saved-card-cvv-token',
-        cardPaymentMethodId: 'master',
-        mercadoPagoDeviceId: 'saved-card-device-session',
-      },
-      order: {
-        id: 903,
-        publicId: 'order-public-903',
+    restaurantSettingsRepository.findByRestaurantId = async () =>
+      ({
         restaurantId: 7,
-        total: 50,
-        restaurant: { name: 'North Pizza' },
-      },
-      successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
-      idempotencyKey: '11111111-1111-4111-8111-111111111903',
-    });
+        cardGateway: 'MERCADO_PAGO',
+        mercadoPagoAccessToken: 'restaurant-access-token',
+        mercadoPagoRefreshToken: 'restaurant-refresh-token',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+      }) as never;
 
-    assert.ok(requestBody);
-    assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
-    assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
-    assert.equal(result.paymentApproved, true);
-  } finally {
-    prisma.$transaction = originalTransaction;
-  }
-});
+    const originalTransaction = prisma.$transaction;
+    prisma.$transaction = async (callback: any) =>
+      callback({
+        $queryRaw: async () => [{ set_config: '7' }],
+        customerPaymentMethod: {
+          findFirst: async (query: { where: Record<string, unknown> }) => {
+            if (!query.where.publicId) {
+              assert.deepEqual(query.where, {
+                restaurantId: 7,
+                provider: 'MERCADO_PAGO',
+                providerCustomerId: 'customer-mp-123',
+                userId: { not: 33 },
+              });
+              return scenario === 'shared-customer' ? { id: 456 } : null;
+            }
+            assert.deepEqual(query.where, {
+              publicId: 'saved-card-public-id',
+              userId: 33,
+              restaurantId: 7,
+              provider: 'MERCADO_PAGO',
+              active: true,
+            });
+            return {
+              publicId: 'saved-card-public-id',
+              userId: 33,
+              restaurantId: 7,
+              provider: 'MERCADO_PAGO',
+              providerCustomerId: 'customer-mp-123',
+              providerPaymentMethodId: 'card-mp-123',
+              brand: 'master',
+              last4: '0829',
+              active: true,
+              user: {
+                name: 'Cliente Teste',
+                email: 'cliente@example.test',
+                cpf: '12345678901',
+                emailVerifiedAt: scenario === 'unverified-email' ? null : new Date(),
+              },
+            };
+          },
+        },
+      });
+
+    globalThis.fetch = async (input, init: RequestInit = {}) => {
+      const url = String(input);
+      requests.push(`${init.method} ${url}`);
+      if (url.endsWith('/customers/customer-mp-123/cards/card-mp-123')) {
+        return Response.json({
+          id: 'card-mp-123',
+          customer_id: 'customer-mp-123',
+          last_four_digits: '0829',
+          payment_method: { id: 'master' },
+          cardholder: {
+            name: 'Cliente Teste',
+            identification: { type: 'CPF', number: '12345678901' },
+          },
+        });
+      }
+      if (url.endsWith('/customers/customer-mp-123')) {
+        if (init.method === 'PUT') {
+          assert.deepEqual(JSON.parse(String(init.body)), {
+            first_name: 'Cliente Teste',
+            identification: { type: 'CPF', number: '12345678901' },
+          });
+          if (refreshFails) return Response.json({ message: 'Unavailable' }, { status: 503 });
+        }
+        return Response.json({ id: 'customer-mp-123', email: 'cliente@example.test' });
+      }
+      assert.equal(url, 'https://api.mercadopago.com/v1/orders');
+      requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      requestHeaders = new Headers(init.headers);
+      return new Response(
+        JSON.stringify({
+          id: 'ORD_CARD_SAVED_001',
+          status: 'processed',
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      );
+    };
+
+    try {
+      const payment = directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          userId: 33,
+          paymentMethodId: 'saved-card-public-id',
+          cardToken: 'saved-card-cvv-token',
+          cardPaymentMethodId: 'master',
+          mercadoPagoDeviceId: 'saved-card-device-session',
+        },
+        order: {
+          id: 903,
+          publicId: 'order-public-903',
+          restaurantId: 7,
+          total: 50,
+          restaurant: { name: 'North Pizza' },
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111903',
+      });
+
+      if (refreshFails) {
+        await assert.rejects(
+          payment,
+          (error) =>
+            error instanceof CardPaymentProviderRequestError &&
+            error.providerCode === 'saved_card_refresh_failed',
+        );
+        assert.equal(requestBody, null);
+        assert.equal(
+          requests.some((request) => request.endsWith('/v1/orders')),
+          false,
+        );
+        return;
+      }
+      const result = await payment;
+
+      assert.ok(requestBody);
+      assert.deepEqual(requestBody.payer, { customer_id: 'customer-mp-123' });
+      assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
+      assert.equal(result.paymentApproved, true);
+      if (scenario === 'updated') assert.ok(requests[2].startsWith('PUT '));
+      else
+        assert.equal(
+          requests.some((request) => request.startsWith('PUT ')),
+          false,
+        );
+      assert.equal(requests.at(-1), 'POST https://api.mercadopago.com/v1/orders');
+    } finally {
+      prisma.$transaction = originalTransaction;
+    }
+  });
+}
 
 test('property_value do Mercado Pago não é tratado como cartão recusado', async () => {
   globalThis.fetch = async () =>

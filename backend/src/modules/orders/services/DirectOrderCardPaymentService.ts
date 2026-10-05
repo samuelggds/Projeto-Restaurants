@@ -11,6 +11,10 @@ import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
+import {
+  refreshSavedMercadoPagoCustomer,
+  SavedMercadoPagoCustomerRefreshError,
+} from '../../customerPaymentMethods/services/RefreshSavedMercadoPagoCustomerService.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import type { CardCheckoutResult } from './cardCheckoutProviders.js';
@@ -328,6 +332,9 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
         provider,
         active: true,
       },
+      include: {
+        user: { select: { name: true, email: true, cpf: true, emailVerifiedAt: true } },
+      },
     }),
   );
 }
@@ -379,6 +386,35 @@ async function mercadoPagoPayment(
     throw new CardPaymentDeclinedError(
       'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
     );
+  }
+
+  if (stored) {
+    try {
+      const sharedCustomer = await withTenantDbContext(order.restaurantId, (db) =>
+        db.customerPaymentMethod.findFirst({
+          where: {
+            restaurantId: order.restaurantId,
+            provider: CARD_PROVIDERS.MERCADO_PAGO,
+            providerCustomerId: storedCustomerId,
+            userId: { not: stored.userId },
+          },
+          select: { id: true },
+        }),
+      );
+      await refreshSavedMercadoPagoCustomer({
+        accessToken,
+        customerId: storedCustomerId,
+        cardId: String(stored.providerPaymentMethodId || '').trim(),
+        expectedBrand: paymentMethodId,
+        expectedLast4: stored.last4,
+        verifiedPayer: !sharedCustomer && stored.user.emailVerifiedAt ? stored.user : null,
+      });
+    } catch (error) {
+      if (error instanceof SavedMercadoPagoCustomerRefreshError) {
+        throw new CardPaymentProviderRequestError(error.message, error.httpStatus, error.code);
+      }
+      throw error;
+    }
   }
 
   const payer = stored

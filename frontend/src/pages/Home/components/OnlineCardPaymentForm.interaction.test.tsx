@@ -48,6 +48,10 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    createField.mockImplementation(() => ({ mount: vi.fn(), unmount: vi.fn() }));
+    createField.mockReset();
+    createField.mockImplementation(() => ({ mount: vi.fn(), unmount: vi.fn() }));
+    createCardToken.mockReset();
     preparer.current = null;
     delete window.MP_DEVICE_SESSION_ID;
     vi.mocked(collectMercadoPagoDeviceSession).mockImplementation(
@@ -167,4 +171,85 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
       cardPaymentMethodId: 'master',
     });
   });
+
+  it('exige um novo CVV ao trocar o cartão salvo selecionado', async () => {
+    const secureFields: Array<{
+      value: string;
+      mount: ReturnType<typeof vi.fn>;
+      unmount: ReturnType<typeof vi.fn>;
+    }> = [];
+    createField.mockImplementation(() => {
+      // The provider owns this value: a mounted field retains it until unmounted.
+      const field = { value: '', mount: vi.fn(), unmount: vi.fn() };
+      field.unmount.mockImplementation(() => { field.value = ''; });
+      secureFields.push(field);
+      return field;
+    });
+    createCardToken.mockImplementation(async ({ cardId }) => {
+      if (!secureFields.at(-1)?.value) throw new Error('Informe o CVV do cartão selecionado.');
+      return { id: `fresh-token-${cardId}` };
+    });
+
+    await renderForm(savedCard);
+    const firstField = secureFields[0];
+    firstField.value = '123';
+
+    await renderForm({
+      ...savedCard,
+      publicId: 'second-saved-card',
+      providerCardId: 'second-provider-card',
+    });
+
+    expect(firstField.unmount).toHaveBeenCalledOnce();
+    const secondField = secureFields.at(-1)!;
+    expect(secondField).not.toBe(firstField);
+    expect(secondField.value).toBe('');
+    await expect(prepare()).rejects.toThrow('Informe o CVV do cartão selecionado.');
+
+    secondField.value = '456';
+    expect(await prepare()).toMatchObject({
+      paymentMethodId: 'second-saved-card',
+      cardToken: 'fresh-token-second-provider-card',
+    });
+  });
+
+  it.each(['sessão antifraude', 'tokenização'] as const)(
+    'descarta a preparação do cartão anterior quando a troca ocorre durante a %s',
+    async (stage) => {
+      await renderForm(savedCard);
+      let release: () => void = () => {};
+      if (stage === 'sessão antifraude') {
+        vi.mocked(collectMercadoPagoDeviceSession).mockImplementationOnce(
+          () => new Promise((resolve) => { release = () => resolve('device-session'); }),
+        );
+      } else {
+        createCardToken.mockImplementationOnce(
+          () => new Promise((resolve) => { release = () => resolve({ id: 'obsolete-token' }); }),
+        );
+      }
+
+      let pending!: Promise<unknown>;
+      await act(async () => {
+        pending = preparer.current!().catch((reason: unknown) => reason);
+      });
+      await renderForm({
+        ...savedCard,
+        publicId: 'second-saved-card',
+        providerCardId: 'second-provider-card',
+      });
+      let outcome: unknown;
+      await act(async () => {
+        release();
+        outcome = await pending;
+      });
+
+      expect(outcome).toBeInstanceOf(Error);
+      expect((outcome as Error).message).toMatch(/cartão selecionado mudou/i);
+      if (stage === 'sessão antifraude') expect(createCardToken).not.toHaveBeenCalled();
+      expect(await prepare()).toMatchObject({
+        paymentMethodId: 'second-saved-card',
+        cardToken: 'fresh-card-token',
+      });
+    },
+  );
 });

@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ordersService from '../../../Services/ordersService';
 import type { CheckoutPaymentMethod, ResolvedCheckoutPaymentMethod } from '../domain/checkout';
-import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
 import {
   getUnsuccessfulPaymentOutcome,
   type TerminalPaymentOutcome,
 } from '../domain/paymentOutcome';
 import type { PaymentResultStatus } from '../../../components/payment/PaymentResultView';
-import { readStorage } from '../../../shared/storage/safeStorage';
 import { prepareCardPayment } from '../domain/cardPaymentPreparation';
 import { pixPaymentFailurePresentation } from '../domain/pixPaymentFailure';
 
@@ -405,34 +403,7 @@ export function useCheckoutPayments(options: Options) {
         return true;
       }
 
-      const tablePayment = String(payload.type || '').toUpperCase() === 'MESA';
-      let cardPayload: Record<string, unknown> = {};
-      if (tablePayment) {
-        try {
-          cardPayload = await prepareCardPayment();
-        } catch (preparationError) {
-          if (paymentMethod === 'debit_card') {
-            throw preparationError;
-          }
-          const savedMethods = restaurantId
-            ? await customerPaymentMethodService.list(restaurantId).catch(() => [])
-            : [];
-          const storedMethodId = restaurantId
-            ? readStorage(`selectedCustomerPaymentMethodId:${restaurantId}`)
-            : '';
-          const selectedSavedMethod =
-            savedMethods.find((method) => method.publicId === storedMethodId) ||
-            savedMethods.find((method) => method.isDefault) ||
-            savedMethods[0];
-          if (!selectedSavedMethod) throw preparationError;
-          cardPayload = {
-            paymentMethodId: selectedSavedMethod.publicId,
-            cardPaymentType: 'credit',
-          };
-        }
-      } else {
-        cardPayload = await prepareCardPayment();
-      }
+      const cardPayload = await prepareCardPayment();
 
       const result = await ordersService.createCardCheckout({
         ...payload,

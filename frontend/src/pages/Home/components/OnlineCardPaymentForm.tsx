@@ -164,7 +164,7 @@ export function OnlineCardPaymentForm({
       mercadoPagoRef.current = null;
       setMercadoPagoPaymentMethodId('');
     };
-  }, [config, isSavedMercadoPago, paymentType]);
+  }, [config, isSavedMercadoPago, paymentType, savedCard?.publicId, savedCard?.providerCardId]);
 
 
   useEffect(() => {
@@ -186,13 +186,21 @@ export function OnlineCardPaymentForm({
             throw new Error('O cartão salvo não pertence ao provedor atual do restaurante.');
           }
           if (config.provider === 'MERCADO_PAGO') {
-            if (!savedCard.providerCardId || !mercadoPagoRef.current) {
+            const mp = mercadoPagoRef.current;
+            if (!savedCard.providerCardId || !mp) {
               throw new Error('Aguarde a preparação segura do cartão salvo.');
             }
+            const ensureSelectedCard = () => {
+              if (mercadoPagoRef.current !== mp) {
+                throw new Error('O cartão selecionado mudou. Informe o CVV e tente novamente.');
+              }
+            };
             const mercadoPagoDeviceId = await collectMercadoPagoDeviceSession();
-            const token = await mercadoPagoRef.current.fields.createCardToken({
+            ensureSelectedCard();
+            const token = await mp.fields.createCardToken({
               cardId: savedCard.providerCardId,
             });
+            ensureSelectedCard();
             if (!token.id) throw new Error('Não foi possível validar o CVV do cartão salvo.');
             return {
               paymentMethodId: savedCard.publicId,
