@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
 import publicCardPaymentService from '../../../Services/publicCardPaymentService';
-import { collectMercadoPagoDeviceSession } from '../../../shared/payments/mercadoPagoDeviceSession';
+import {
+  collectMercadoPagoDeviceSession,
+  requireMercadoPagoDeviceSession,
+} from '../../../shared/payments/mercadoPagoDeviceSession';
 import type { MercadoPagoCardToken } from '../../../shared/payments/mercadoPagoSdk';
 import {
   OnlineCardPaymentForm,
@@ -17,6 +20,7 @@ vi.mock('../../../Services/publicCardPaymentService', () => ({
 }));
 vi.mock('../../../shared/payments/mercadoPagoDeviceSession', () => ({
   collectMercadoPagoDeviceSession: vi.fn(),
+  requireMercadoPagoDeviceSession: vi.fn(),
 }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
@@ -54,9 +58,14 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
     createCardToken.mockReset();
     preparer.current = null;
     delete window.MP_DEVICE_SESSION_ID;
-    vi.mocked(collectMercadoPagoDeviceSession).mockImplementation(
-      async () => String(window.MP_DEVICE_SESSION_ID || '').trim() || undefined,
-    );
+    const currentDeviceSession = async () =>
+      String(window.MP_DEVICE_SESSION_ID || '').trim() || undefined;
+    vi.mocked(collectMercadoPagoDeviceSession).mockImplementation(currentDeviceSession);
+    vi.mocked(requireMercadoPagoDeviceSession).mockImplementation(async () => {
+      const session = await currentDeviceSession();
+      if (!session) throw new Error('Não foi possível iniciar a proteção antifraude do Mercado Pago.');
+      return session;
+    });
     vi.mocked(publicCardPaymentService.getConfig).mockResolvedValue({
       provider: 'MERCADO_PAGO',
       publicKey: 'restaurant-public-key',
@@ -219,7 +228,7 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
       await renderForm(savedCard);
       let release: () => void = () => {};
       if (stage === 'sessão antifraude') {
-        vi.mocked(collectMercadoPagoDeviceSession).mockImplementationOnce(
+        vi.mocked(requireMercadoPagoDeviceSession).mockImplementationOnce(
           () => new Promise((resolve) => { release = () => resolve('device-session'); }),
         );
       } else {
