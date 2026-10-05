@@ -75,7 +75,7 @@ test('aceita telefone com ou sem +55 e envia E.164 sem duplicar o DDI', async ()
   process.env.GUPSHUP_API_KEY = 'test-key';
   process.env.GUPSHUP_APP_NAME = 'NorthPizza';
 
-  let bodies: URLSearchParams[] = [];
+  const bodies: URLSearchParams[] = [];
   const send = async (_url, init) => {
     bodies.push(new URLSearchParams(String(init?.body || '')));
     return new Response(null, { status: 202 });
