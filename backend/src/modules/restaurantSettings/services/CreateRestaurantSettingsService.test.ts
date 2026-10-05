@@ -103,6 +103,29 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
   });
 });
 
+test('aceita telefone comercial com +55 e persiste o mesmo número nacional', async () => {
+  let capturedUpdate = null;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    id: 1,
+    restaurantId: 7,
+    pixProvider: 'MERCADO_PAGO',
+    restaurant: { whatsapp: '85999999999' },
+  });
+  restaurantSettingsRepository.update = async (_restaurantId, data) => {
+    capturedUpdate = data;
+    return { id: 1, restaurantId: 7, ...data };
+  };
+
+  await updateRestaurantSettingsService.execute({
+    restaurantId: 7,
+    whatsapp: '+55 (85) 99999-9999',
+    ownerPhone: '+55 (85) 99999-9999',
+    whatsappEnabled: true,
+  });
+
+  assert.equal(capturedUpdate.ownerPhone, '85999999999');
+});
+
 test('rejeita provedor antigo em novas configurações de pagamento', async () => {
   restaurantSettingsRepository.findByRestaurantId = async () => null;
   await assert.rejects(
