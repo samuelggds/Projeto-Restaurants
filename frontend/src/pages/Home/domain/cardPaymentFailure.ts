@@ -12,6 +12,10 @@ const messages: Record<string, string> = {
     'Não foi possível consultar ou atualizar o cadastro do cartão salvo. Nenhuma cobrança foi enviada nesta tentativa. Aguarde alguns minutos antes de tentar novamente.',
   saved_card_reference_invalid:
     'Não foi possível validar o vínculo deste cartão salvo. Nenhuma cobrança foi enviada nesta tentativa. Cadastre o cartão novamente ou informe outro cartão.',
+  saved_card_email_mismatch:
+    'Este cartão salvo está vinculado a outro e-mail no Mercado Pago. Remova o cartão salvo e cadastre-o novamente com a sua conta atual.',
+  missing_device_session:
+    'Não foi possível iniciar a proteção antifraude do Mercado Pago. Recarregue a página e tente novamente antes de pagar.',
   invalid_card_token:
     'A validação segura do cartão não foi aceita. Informe os dados do cartão novamente antes de tentar pagar.',
   processing_error:
