@@ -249,14 +249,15 @@ describe('checkout', () => {
     expect(order.payload.customerPhone).toBe('11988887777');
   });
 
-  it('formata DDD + número e permite o campo ser apagado completamente', () => {
+  it('formata e aceita DDD + número com ou sem +55', () => {
     expect(formatBrazilPhoneInput('85999999999')).toBe('(85) 99999-9999');
+    expect(formatBrazilPhoneInput('+55 (85) 99999-9999')).toBe('+55 (85) 99999-9999');
     expect(formatBrazilPhoneInput('')).toBe('');
     expect(isValidWhatsappOrderPhone('(85) 99999-9999')).toBe(true);
-    expect(isValidWhatsappOrderPhone('+55 (85) 99999-9999')).toBe(false);
+    expect(isValidWhatsappOrderPhone('+55 (85) 99999-9999')).toBe(true);
   });
 
-  it('rejeita DDI no telefone do checkout', () => {
+  it('normaliza +55 para o mesmo telefone nacional no checkout', () => {
     expect(
       validateCheckout({
         type: 'RETIRADA',
@@ -264,8 +265,11 @@ describe('checkout', () => {
         deliveryAddress: address,
         cepStatus: 'idle',
         paymentMethod: 'pix',
-      })?.title,
-    ).toBe('Informe seu telefone');
+      }),
+    ).toBeNull();
+
+    writeWhatsappOrderPhone(7, '+55 (85) 99999-9999');
+    expect(readWhatsappOrderPhone(7)).toBe('85999999999');
   });
 
   it('mantém opt-in e telefone de WhatsApp isolados por restaurante', () => {
