@@ -277,7 +277,6 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
             email: true,
             cpf: true,
             emailVerifiedAt: true,
-            createdAt: true,
           },
         },
       },
@@ -450,17 +449,8 @@ async function mercadoPagoPayment(
       title: orderTitle || `Pedido #${order.id}`,
       unit_price: total.toFixed(2),
       quantity: 1,
-      unit_measure: 'unit',
-      total_amount: total.toFixed(2),
     },
   ];
-  const additionalInfo =
-    stored?.user.createdAt instanceof Date
-      ? {
-          'payer.authentication_type': 'WEB',
-          'payer.registration_date': stored.user.createdAt.toISOString(),
-        }
-      : undefined;
 
   const body = {
     type: 'online',
@@ -482,7 +472,6 @@ async function mercadoPagoPayment(
     description: `Pedido #${order.id}`,
     payer,
     items,
-    ...(additionalInfo ? { additional_info: additionalInfo } : {}),
     transactions: {
       payments: [
         {
