@@ -71,31 +71,33 @@ test('envia texto usando o contrato oficial da Gupshup', async () => {
   });
 });
 
-test('rejeita DDI no contrato interno e acrescenta 55 somente no envio externo', async () => {
+test('aceita telefone com ou sem +55 e envia E.164 sem duplicar o DDI', async () => {
   process.env.GUPSHUP_API_KEY = 'test-key';
   process.env.GUPSHUP_APP_NAME = 'NorthPizza';
 
-  await assert.rejects(
-    () =>
-      sendGupshupTextMessage({
-        source: '+55 85 99999-9999',
-        destination: '85988887777',
-        message: 'Teste',
-        send: async () => new Response(null, { status: 202 }),
-      }),
-    /origem inválido|origem inválida|Número de origem inválido/i,
-  );
+  let bodies: URLSearchParams[] = [];
+  const send = async (_url, init) => {
+    bodies.push(new URLSearchParams(String(init?.body || '')));
+    return new Response(null, { status: 202 });
+  };
 
-  await assert.rejects(
-    () =>
-      sendGupshupTextMessage({
-        source: '85999999999',
-        destination: '5585988887777',
-        message: 'Teste',
-        send: async () => new Response(null, { status: 202 }),
-      }),
-    /destino inválido/i,
-  );
+  await sendGupshupTextMessage({
+    source: '+55 85 99999-9999',
+    destination: '85988887777',
+    message: 'Teste',
+    send,
+  });
+  await sendGupshupTextMessage({
+    source: '85999999999',
+    destination: '5585988887777',
+    message: 'Teste',
+    send,
+  });
+
+  assert.equal(bodies[0].get('source'), '5585999999999');
+  assert.equal(bodies[0].get('destination'), '5585988887777');
+  assert.equal(bodies[1].get('source'), '5585999999999');
+  assert.equal(bodies[1].get('destination'), '5585988887777');
 });
 
 test('resolve template por número e usa fallback global por evento', () => {
