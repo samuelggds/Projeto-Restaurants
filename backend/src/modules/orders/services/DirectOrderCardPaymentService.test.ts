@@ -519,7 +519,6 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
                 email: 'cliente@example.test',
                 cpf: '12345678901',
                 emailVerifiedAt: scenario === 'unverified-email' ? null : new Date(),
-                createdAt: new Date('2025-01-10T12:00:00.000Z'),
               },
             };
           },
@@ -614,14 +613,9 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
           title: 'North Pizza - Pedido #903',
           unit_price: '50.00',
           quantity: 1,
-          unit_measure: 'unit',
-          total_amount: '50.00',
         },
       ]);
-      assert.deepEqual(requestBody.additional_info, {
-        'payer.authentication_type': 'WEB',
-        'payer.registration_date': '2025-01-10T12:00:00.000Z',
-      });
+      assert.equal(requestBody.additional_info, undefined);
       assert.equal(requestHeaders.get('x-meli-session-id'), 'saved-card-device-session');
       assert.equal(result.paymentApproved, true);
       assert.equal(events[1].paymentAttemptId, '11111111-1111-4111-8111-111111111904');
