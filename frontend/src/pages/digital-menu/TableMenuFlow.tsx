@@ -21,7 +21,7 @@ export function FlowHeader({
   onOrders: () => void;
 }) {
   const isCartHeader = title === 'Meu Pedido';
-  const headerBrandName = isCartHeader ? 'GastroNexa' : data.brand.name;
+  const headerBrandName = data.brand.name.trim() || 'Restaurante';
 
   return (
     <S.FigmaHeader $hasTitle={Boolean(title)} className={isCartHeader ? 'cart-header' : undefined}>
@@ -37,23 +37,23 @@ export function FlowHeader({
           </button>
         ) : null}
         <S.FigmaBrand>
-          {isCartHeader ? (
-            <span className="mark">G</span>
-          ) : data.brand.logoUrl ? (
-            <img src={data.brand.logoUrl} alt={data.brand.name} />
+          {data.brand.logoUrl ? (
+            <img src={data.brand.logoUrl} alt={headerBrandName} />
           ) : (
-            <span className="mark">{data.brand.monogram || data.brand.name.slice(0, 1)}</span>
+            <span className="mark">
+              {data.brand.monogram || headerBrandName.slice(0, 1).toUpperCase()}
+            </span>
           )}
           <span className="name">
             <b>{headerBrandName}</b>
             <small className="brand-subtitle desktop-subtitle">Mesa Inteligente</small>
-            <small className="brand-subtitle mobile-subtitle">{data.brand.name}</small>
+            <small className="brand-subtitle mobile-subtitle">{headerBrandName}</small>
           </span>
         </S.FigmaBrand>
         {title ? (
           <span className="context-title">
             <b>{title}</b>
-            <small>{isCartHeader ? 'GastroNexa' : data.brand.name}</small>
+            <small>{headerBrandName}</small>
           </span>
         ) : null}
       </div>

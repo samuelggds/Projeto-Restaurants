@@ -76,6 +76,13 @@ export const LoggedDesktopHeader = styled.header`
     font-weight: 800;
   }
 
+  .brand span img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
   .brand b { font-size: 18px; }
 
   nav {
