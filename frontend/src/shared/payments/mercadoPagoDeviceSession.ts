@@ -1,18 +1,18 @@
 const SECURITY_SCRIPT_URL = 'https://www.mercadopago.com/v2/security.js';
-const SESSION_WAIT_MS = 1500;
+const SESSION_WAIT_MS = 5000;
 let sessionPromise: Promise<string | undefined> | undefined;
 
 function currentDeviceSession() {
   return String(window.MP_DEVICE_SESSION_ID || '').trim() || undefined;
 }
 
-/** Collect the optional session header without blocking checkout when tracking is unavailable. */
+/** Starts the official Mercado Pago device fingerprint collection as early as possible. */
 export function collectMercadoPagoDeviceSession(): Promise<string | undefined> {
   const current = currentDeviceSession();
   if (current) return Promise.resolve(current);
   if (sessionPromise) return sessionPromise;
 
-  sessionPromise = new Promise((resolve) => {
+  const pending = new Promise<string | undefined>((resolve) => {
     const existingScript = document.querySelector<HTMLScriptElement>(
       `script[src="${SECURITY_SCRIPT_URL}"]`,
     );
@@ -42,5 +42,20 @@ export function collectMercadoPagoDeviceSession(): Promise<string | undefined> {
       }
     }
   });
+  sessionPromise = pending.then((value) => {
+    // A blocked/slow fingerprint must be retryable on the next payment attempt.
+    if (!value) sessionPromise = undefined;
+    return value;
+  });
   return sessionPromise;
+}
+
+export async function requireMercadoPagoDeviceSession() {
+  const session = await collectMercadoPagoDeviceSession();
+  if (!session) {
+    throw new Error(
+      'Não foi possível iniciar a proteção antifraude do Mercado Pago. Recarregue a página e tente novamente.',
+    );
+  }
+  return session;
 }
