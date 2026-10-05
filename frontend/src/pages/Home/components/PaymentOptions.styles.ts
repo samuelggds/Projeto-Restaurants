@@ -418,7 +418,22 @@ export const FigmaSavedCards = styled.div`
   .radio { width: 16px; height: 16px; display: grid; place-items: center; border: 2px solid #efece6; border-radius: 50%; }
   button.selected .radio { border-color: var(--checkout-primary); }
   button.selected .radio i { width: 8px; height: 8px; border-radius: 50%; background: var(--checkout-primary); }
-  .add-card { width: max-content; display: inline-flex; align-items: center; gap: 6px; color: var(--checkout-primary); font-size: 12px; font-weight: 700; text-decoration: none; }
+  .add-card {
+    width: max-content;
+    min-height: 0;
+    padding: 4px 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--checkout-primary);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .add-card:hover { background: transparent; }
   .add-card svg { width: 15px; }
 `;
 
