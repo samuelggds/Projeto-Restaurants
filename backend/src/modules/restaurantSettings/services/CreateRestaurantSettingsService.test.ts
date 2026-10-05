@@ -99,7 +99,7 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
   assert.equal(capturedCreateData.cardGateway, 'MERCADO_PAGO');
   assert.deepEqual(capturedRestaurantUpdate, {
     name: 'Pizzaria do Carlos',
-    whatsapp: '5511999998888',
+    whatsapp: '11999998888',
   });
 });
 
@@ -295,7 +295,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
   assert.equal(capturedCreateData.landingPageEnabled, true);
   assert.equal(capturedCreateData.whatsappEnabled, true);
   assert.equal(capturedCreateData.receiveStatusNotifications, true);
-  assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '5585999999999' });
+  assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '85999999999' });
 });
 
 test('aplica a matriz de plano para domínio próprio e página personalizada', async () => {
