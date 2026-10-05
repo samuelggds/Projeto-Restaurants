@@ -13,7 +13,8 @@ function normalizeId(value: unknown) {
 
 function normalizePhone(value: unknown) {
   const digits = String(value || '').replace(/\D/g, '');
-  return /^[1-9]\d{9,10}$/u.test(digits) ? digits : '';
+  const national = /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
+  return /^[1-9]\d{9,10}$/u.test(national) ? national : '';
 }
 
 function destinationPhoneFromMetadata(metadata: unknown) {

@@ -382,10 +382,13 @@ test('cliente vê promoção, aplica benefício de fidelidade e envia o resgate 
   await expect(orderPhone).toHaveValue(/\(85\).*99999-9999|85999999999/);
   await orderPhone.fill('');
   await expect(orderPhone).toHaveValue('');
-  await expect(checkout.getByRole('alert')).toContainText('Use somente DDD + número, sem +55');
+  await expect(checkout.getByRole('alert')).toContainText(
+    'Informe DDD + número. O +55 é opcional.',
+  );
 
   await orderPhone.fill('+55 (85) 99999-9999');
-  await expect(checkout.getByRole('alert')).toContainText('Use somente DDD + número, sem +55');
+  await expect(orderPhone).toHaveValue('+55 (85) 99999-9999');
+  await expect(checkout.getByText('Confira o telefone')).toHaveCount(0);
 
   await orderPhone.fill('85999999999');
   await expect(orderPhone).toHaveValue('(85) 99999-9999');

@@ -123,7 +123,8 @@ function requireApiKey() {
 }
 
 function normalizedPhone(value: string, kind: 'source' | 'destination') {
-  const national = digitsOnly(value);
+  const digits = digitsOnly(value);
+  const national = /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
   if (!/^[1-9]\d{9,10}$/u.test(national)) {
     throw new WhatsAppProviderConfigurationError(
       kind === 'source' ? 'invalid_gupshup_source' : 'invalid_gupshup_destination',

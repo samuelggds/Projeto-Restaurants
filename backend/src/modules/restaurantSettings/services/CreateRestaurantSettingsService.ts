@@ -254,7 +254,8 @@ class CreateRestaurantSettingsService {
     const normalizedCompanyDocument = String(companyDocument || '').replace(/\D/g, '');
     const normalizedBankHolderDocument = String(bankHolderDocument || '').replace(/\D/g, '');
     const normalizedOwnerCpf = String(ownerCpf || '').replace(/\D/g, '');
-    const normalizedOwnerPhone = String(ownerPhone || '').replace(/\D/g, '');
+    const normalizedOwnerPhone =
+      ownerPhone === undefined ? undefined : normalizeWhatsappNumber(ownerPhone);
     const normalizedBusinessHours = normalizeBusinessHours(
       businessHours === undefined ? createDisabledBusinessHours() : businessHours,
     );
@@ -296,10 +297,7 @@ class CreateRestaurantSettingsService {
     if (companyLegalName !== undefined && String(companyLegalName || '').trim().length < 2) {
       throw new Error('Razão social inválida.');
     }
-    if (
-      ownerPhone !== undefined &&
-      (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))
-    ) {
+    if (ownerPhone !== undefined && !normalizedOwnerPhone) {
       throw new Error('Telefone comercial inválido.');
     }
     const normalizedOwnerEmail =
@@ -424,7 +422,7 @@ class CreateRestaurantSettingsService {
       ownerCpf: normalizedOwnerCpf || null,
       ownerBirthDate: ownerBirthDate ? new Date(ownerBirthDate) : null,
       ownerEmail: normalizedOwnerEmail || null,
-      ownerPhone: normalizedOwnerPhone || null,
+      ownerPhone: normalizedOwnerPhone ?? null,
       ownerAddress: String(ownerAddress || '').trim() || null,
       bankName: String(bankName || '').trim() || null,
       bankCode: String(bankCode || '').trim() || null,

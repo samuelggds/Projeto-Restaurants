@@ -30,6 +30,17 @@ function env(name: string) {
   return String(process.env[name] || '').trim();
 }
 
+function normalizeBrazilNationalPhone(value: unknown) {
+  const digits = String(value || '').replace(/\D/g, '');
+  const national = /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
+  return /^[1-9]\d{9,10}$/u.test(national) ? national : '';
+}
+
+function brazilPhoneForProvider(value: unknown) {
+  const national = normalizeBrazilNationalPhone(value);
+  return national ? `55${national}` : '';
+}
+
 function normalizedBaseUrl() {
   const configured = env('ZAPI_BASE_URL') || ZAPI_BASE_URL;
   const url = new URL(configured);
@@ -302,11 +313,10 @@ export async function sendTenantZapiTextMessage(input: {
 }) {
   const row = await readConnectionByRestaurant(input.restaurantId);
   if (!row || row.provider !== 'ZAPI') throw new Error('WhatsApp Z-API não conectado para este restaurante.');
-  const nationalPhone = String(input.destination || '').replace(/\D/g, '');
-  if (!/^[1-9]\d{9,10}$/u.test(nationalPhone)) {
+  const phone = brazilPhoneForProvider(input.destination);
+  if (!phone) {
     throw new Error('Número de destino inválido para o WhatsApp.');
   }
-  const phone = `55${nationalPhone}`;
   await zapiInstanceRequest(row, '/send-text', {
     method: 'POST',
     body: JSON.stringify({ phone, message: String(input.message || '') }),
@@ -373,8 +383,13 @@ export async function processTenantZapiInbound(
     return { accepted: true, queued: false, reason: 'tenant_whatsapp_not_enabled' } as const;
   }
 
-  const configuredPhone = String(restaurant.whatsapp || '').replace(/\D/g, '');
-  if (connectedPhone && configuredPhone && connectedPhone !== configuredPhone) {
+  const configuredPhone = normalizeBrazilNationalPhone(restaurant.whatsapp);
+  const connectedNationalPhone = normalizeBrazilNationalPhone(connectedPhone);
+  if (
+    connectedNationalPhone &&
+    configuredPhone &&
+    connectedNationalPhone !== configuredPhone
+  ) {
     return { accepted: true, queued: false, reason: 'connected_phone_mismatch' } as const;
   }
 
@@ -395,7 +410,7 @@ export async function processTenantZapiInbound(
   });
   const result = await enqueueWhatsappSessionGreeting({
     restaurantId: restaurant.id,
-    from: configuredPhone || connectedPhone,
+    from: configuredPhone || connectedNationalPhone,
     to: customerPhone,
     message: greeting,
     providerMessageId: String(body.messageId || '').trim() || null,

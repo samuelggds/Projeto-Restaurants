@@ -83,7 +83,7 @@ describe('WhatsAppSettings', () => {
       />,
     );
 
-    expect(markup).toContain('Use DDI + DDD + número. Ex.: +55 85 99999-9999.');
+    expect(markup).toContain('Informe DDD + número; o +55 é opcional.');
     expect(markup).toContain('aria-invalid="true"');
   });
 

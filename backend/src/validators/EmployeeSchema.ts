@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
 import {
   clearableBrazilPhoneSchema,
-  isBrazilPhoneWithDddWithoutDdi,
+  isBrazilPhoneWithOptionalDdi,
 } from './PhoneValidator.js';
 
 const employeeNameSchema = z
@@ -32,7 +32,7 @@ const employeePhoneSchema = z
   })
   .trim()
   .min(1, 'Telefone obrigatório')
-  .refine(isBrazilPhoneWithDddWithoutDdi, 'Número de telefone inválido!');
+  .refine(isBrazilPhoneWithOptionalDdi, 'Número de telefone inválido!');
 
 export const EmployeeUserSchema = z
   .object({

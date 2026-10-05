@@ -8,7 +8,10 @@ type Props = {
 };
 
 export function WhatsappSettings({ settings, onChange }: Props) {
-  const previewNumber = settings.whatsappNumber.replace(/\D/g, '');
+  const previewDigits = settings.whatsappNumber.replace(/\D/g, '');
+  const previewNumber = /^[1-9]\d{9,10}$/u.test(previewDigits)
+    ? `55${previewDigits}`
+    : previewDigits;
   const previewUrl = `https://wa.me/${previewNumber}?text=${encodeURIComponent(settings.whatsappDefaultMessage)}`;
 
   return (
@@ -30,11 +33,11 @@ export function WhatsappSettings({ settings, onChange }: Props) {
         <S.Grid>
           <Field
             label="Número do WhatsApp"
-            hint="Informe DDI + DDD + número. Exemplo: 5585999999999."
+            hint="Informe DDD + número; o +55 é opcional."
           >
             <FormInput
               value={settings.whatsappNumber}
-              placeholder="5585999999999"
+              placeholder="(85) 99999-9999 ou +55 85 99999-9999"
               onChange={(e) => onChange({ whatsappNumber: e.target.value })}
             />
           </Field>

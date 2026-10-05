@@ -415,7 +415,7 @@ class UpdateRestaurantSettingsService {
     const normalizedOwnerCpf =
       ownerCpf === undefined ? undefined : String(ownerCpf || '').replace(/\D/g, '') || null;
     const normalizedOwnerPhone =
-      ownerPhone === undefined ? undefined : String(ownerPhone || '').replace(/\D/g, '') || null;
+      ownerPhone === undefined ? undefined : normalizeWhatsappNumber(ownerPhone);
     const normalizedOwnerEmail =
       ownerEmail === undefined
         ? undefined
@@ -542,10 +542,7 @@ class UpdateRestaurantSettingsService {
     if (companyLegalName !== undefined && String(companyLegalName || '').trim().length < 2) {
       throw new Error('Razão social inválida.');
     }
-    if (
-      normalizedOwnerPhone !== undefined &&
-      (!normalizedOwnerPhone || !/^\d{10,11}$/.test(normalizedOwnerPhone))
-    ) {
+    if (ownerPhone !== undefined && !normalizedOwnerPhone) {
       throw new Error('Telefone comercial inválido.');
     }
     if (

@@ -33,11 +33,11 @@ test('valida redes sociais e bloqueia referências inseguras ou ambíguas', () =
   assert.throws(() => normalizeSocialReference('perfil com espaço', 'Instagram'), /inválido/);
 });
 
-test('normaliza WhatsApp para E.164 e migra números brasileiros antigos', () => {
-  assert.equal(normalizeWhatsappNumber('+55 (85) 99999-9999'), '5585999999999');
-  assert.equal(normalizeWhatsappNumber('(85) 99999-9999'), '5585999999999');
-  assert.equal(normalizeWhatsappNumber('(85) 3333-4444'), '558533334444');
-  assert.equal(normalizeWhatsappNumber('123456789012345'), '123456789012345');
+test('normaliza WhatsApp brasileiro para formato nacional aceitando +55 opcional', () => {
+  assert.equal(normalizeWhatsappNumber('+55 (85) 99999-9999'), '85999999999');
+  assert.equal(normalizeWhatsappNumber('(85) 99999-9999'), '85999999999');
+  assert.equal(normalizeWhatsappNumber('(85) 3333-4444'), '8533334444');
+  assert.throws(() => normalizeWhatsappNumber('123456789012345'), /WhatsApp inválido/);
   assert.throws(() => normalizeWhatsappNumber('123'), /WhatsApp inválido/);
 });
 

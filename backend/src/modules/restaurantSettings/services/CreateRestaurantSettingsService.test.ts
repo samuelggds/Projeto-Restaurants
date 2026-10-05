@@ -99,8 +99,32 @@ test('deve cadastrar banco e cartao como um dono de restaurante e normalizar os 
   assert.equal(capturedCreateData.cardGateway, 'MERCADO_PAGO');
   assert.deepEqual(capturedRestaurantUpdate, {
     name: 'Pizzaria do Carlos',
-    whatsapp: '5511999998888',
+    whatsapp: '11999998888',
   });
+});
+
+test('aceita telefone comercial com +55 e persiste o mesmo número nacional', async () => {
+  let capturedUpdate = null;
+  restaurantSettingsRepository.findByRestaurantId = async () => ({
+    id: 1,
+    restaurantId: 7,
+    pixProvider: 'MERCADO_PAGO',
+    restaurant: { whatsapp: '85999999999' },
+  });
+  restaurantSettingsRepository.update = async (_restaurantId, data) => {
+    capturedUpdate = data;
+    return { id: 1, restaurantId: 7, ...data };
+  };
+  prisma.restaurant.update = async ({ data }) => ({ id: 7, ...data });
+
+  await updateRestaurantSettingsService.execute({
+    restaurantId: 7,
+    whatsapp: '+55 (85) 99999-9999',
+    ownerPhone: '+55 (85) 99999-9999',
+    whatsappEnabled: true,
+  });
+
+  assert.equal(capturedUpdate.ownerPhone, '85999999999');
 });
 
 test('rejeita provedor antigo em novas configurações de pagamento', async () => {
@@ -295,7 +319,7 @@ test('persiste os canais, aparência, SEO, WhatsApp e redes sociais do restauran
   assert.equal(capturedCreateData.landingPageEnabled, true);
   assert.equal(capturedCreateData.whatsappEnabled, true);
   assert.equal(capturedCreateData.receiveStatusNotifications, true);
-  assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '5585999999999' });
+  assert.deepEqual(capturedRestaurantUpdate, { whatsapp: '85999999999' });
 });
 
 test('aplica a matriz de plano para domínio próprio e página personalizada', async () => {
