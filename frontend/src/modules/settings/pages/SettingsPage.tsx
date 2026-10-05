@@ -135,7 +135,7 @@ function buildApiPayload(settings: RestaurantSettings) {
     restaurantCoverImage: settings.coverImageUrl,
     primaryColor: settings.primaryColor,
     description: settings.description,
-    whatsapp: settings.phone || settings.social.whatsapp,
+    whatsapp: settings.whatsappNumber || settings.phone || settings.social.whatsapp,
     instagram: settings.social.instagram || settings.instagram,
     facebook: settings.social.facebook,
     tiktok: settings.social.tiktok,
