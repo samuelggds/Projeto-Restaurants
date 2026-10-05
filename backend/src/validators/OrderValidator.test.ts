@@ -116,16 +116,16 @@ test('rejeita telefone opcional quando ele é informado sem DDD válido', () => 
 });
 
 
-test('rejeita DDI explícito e normaliza DDD mais número', () => {
-  const withDdi = createOrderSchema.safeParse({
+test('aceita DDD com ou sem +55 e normaliza para o mesmo telefone nacional', () => {
+  const withDdi = createOrderSchema.parse({
     ...baseOrder,
     customerPhone: '+55 (85) 99999-9999',
   });
-  assert.equal(withDdi.success, false);
-
   const national = createOrderSchema.parse({
     ...baseOrder,
     customerPhone: '(85) 99999-9999',
   });
+
+  assert.equal(withDdi.customerPhone, '85999999999');
   assert.equal(national.customerPhone, '85999999999');
 });
