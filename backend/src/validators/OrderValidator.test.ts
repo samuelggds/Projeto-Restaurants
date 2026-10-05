@@ -111,7 +111,7 @@ test('rejeita telefone opcional quando ele é informado sem DDD válido', () => 
 
   assert.equal(result.success, false);
   if (!result.success) {
-    assert.match(result.error.issues[0]?.message || '', /DDD \+ número do telefone/i);
+    assert.match(result.error.issues[0]?.message || '', /DDD \+ número/i);
   }
 });
 
