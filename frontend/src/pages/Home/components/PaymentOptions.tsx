@@ -225,6 +225,7 @@ export function PaymentOptions({
   const [savedCards, setSavedCards] = useState<CustomerPaymentMethod[]>([]);
   const [savedCardsLoading, setSavedCardsLoading] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState('');
+  const [useNewCard, setUseNewCard] = useState(false);
   const [showCardAccountNotice, setShowCardAccountNotice] = useState(false);
   const [openFinanceInstitutions, setOpenFinanceInstitutions] = useState<
     Array<{ id: string; name: string; logo: string | null }>
@@ -267,6 +268,7 @@ export function PaymentOptions({
           cards.find((card) => card.isDefault) ||
           cards[0];
         setSelectedCardId(preferred?.publicId || '');
+        setUseNewCard(!preferred);
         if (preferred) {
           localStorage.setItem(key, preferred.publicId);
         }
@@ -275,6 +277,7 @@ export function PaymentOptions({
         if (active) {
           setSavedCards([]);
           setSelectedCardId('');
+          setUseNewCard(true);
         }
       })
       .finally(() => active && setSavedCardsLoading(false));
@@ -330,8 +333,11 @@ export function PaymentOptions({
 
 
   const selectedSavedCard = useMemo(
-    () => savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
-    [savedCards, selectedCardId],
+    () =>
+      useNewCard
+        ? null
+        : savedCards.find((card) => card.publicId === selectedCardId) || savedCards[0] || null,
+    [savedCards, selectedCardId, useNewCard],
   );
 
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard, allowDebitCard);
@@ -469,7 +475,7 @@ export function PaymentOptions({
             ) : savedCards.length ? (
               <P.FigmaSavedCards>
                 {savedCards.map((card) => {
-                  const selected = selectedCardId === card.publicId;
+                  const selected = !useNewCard && selectedCardId === card.publicId;
                   return (
                     <button
                       key={card.publicId}
@@ -477,6 +483,7 @@ export function PaymentOptions({
                       className={selected ? 'selected' : ''}
                       onClick={() => {
                         handlePaymentChange('card');
+                        setUseNewCard(false);
                         setSelectedCardId(card.publicId);
                         localStorage.setItem(
                           `selectedCustomerPaymentMethodId:${restaurantId}`,
@@ -493,20 +500,24 @@ export function PaymentOptions({
                     </button>
                   );
                 })}
-                <a
+                <button
+                  type="button"
                   className="add-card"
-                  href={paymentMethodsHref}
-                  onClick={rememberPaymentRestaurant}
+                  aria-pressed={useNewCard}
+                  onClick={() => {
+                    setUseNewCard(true);
+                    registerCardPreparer(null);
+                  }}
                 >
-                  <Plus aria-hidden="true" /> Adicionar novo cartão
-                </a>
+                  <Plus aria-hidden="true" /> Usar outro cartão
+                </button>
               </P.FigmaSavedCards>
             ) : (
               <P.FigmaEmptyCards>
                 <b>Você não tem cartões salvos</b>
-                <span>Cadastre um cartão para pagamentos mais rápidos</span>
+                <span>Informe um cartão nesta compra. Ele não será salvo automaticamente.</span>
                 <a href={paymentMethodsHref} onClick={rememberPaymentRestaurant}>
-                  Cadastrar Cartão
+                  Cadastrar para próximas compras
                 </a>
               </P.FigmaEmptyCards>
             )
@@ -521,7 +532,16 @@ export function PaymentOptions({
             </P.FigmaGuestCardForm>
           ) : null}
 
-          {allowCard && loggedIn && creditActive && selectedSavedCard ? (
+          {allowCard && loggedIn && creditActive && restaurantId && useNewCard ? (
+            <P.FigmaGuestCardForm>
+              <OnlineCardPaymentForm
+                restaurantId={restaurantId}
+                payerEmail={userEmail}
+                paymentType="credit"
+                onPreparerChange={registerCardPreparer}
+              />
+            </P.FigmaGuestCardForm>
+          ) : allowCard && loggedIn && creditActive && selectedSavedCard ? (
             <P.FigmaSavedCardSecurity>
               <OnlineCardPaymentForm
                 restaurantId={restaurantId!}
@@ -865,6 +885,7 @@ export function PaymentOptions({
                     type="button"
                     className={selectedCardId === card.publicId ? 'active' : ''}
                     onClick={() => {
+                      setUseNewCard(false);
                       setSelectedCardId(card.publicId);
                       localStorage.setItem(
                         `selectedCustomerPaymentMethodId:${restaurantId}`,
@@ -887,32 +908,39 @@ export function PaymentOptions({
                     </span>
                   </button>
                 ))}
-                <a
-                  className="add"
-                  href={paymentMethodsHref}
-                  onClick={rememberPaymentRestaurant}
-                  aria-label="Cadastrar cartão em Meus cartões"
+                <button
+                  type="button"
+                  className={useNewCard ? 'active' : ''}
+                  aria-pressed={useNewCard}
+                  onClick={() => {
+                    setUseNewCard(true);
+                    registerCardPreparer(null);
+                  }}
                 >
-                  <span className="add-icon">
-                    <WalletCards size={19} />
+                  <Plus size={18} aria-hidden="true" />
+                  <span>
+                    <b>Usar outro cartão</b>
+                    <small>Informe os dados nesta compra sem salvar automaticamente</small>
                   </span>
-                  <span className="add-copy">
-                    <b>Cadastrar outro cartão</b>
-                    <small>Abra “Meus cartões” no seu perfil</small>
-                  </span>
-                  <ChevronRight className="add-arrow" size={18} />
-                </a>
+                </button>
               </S.SavedPaymentChooser>
             )}
 
-            {selectedSavedCard && (
+            {useNewCard ? (
+              <OnlineCardPaymentForm
+                restaurantId={restaurantId}
+                payerEmail={userEmail}
+                paymentType="credit"
+                onPreparerChange={registerCardPreparer}
+              />
+            ) : selectedSavedCard ? (
               <OnlineCardPaymentForm
                 restaurantId={restaurantId}
                 savedCard={selectedSavedCard}
                 paymentType="credit"
                 onPreparerChange={registerCardPreparer}
               />
-            )}
+            ) : null}
           </>
         )}
 

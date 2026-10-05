@@ -33,6 +33,7 @@ type Props = {
   restaurantId: number | null;
   visitor: boolean;
   onCloseCardPaymentReturn: () => void;
+  onRetryCardPayment: (orderPublicId: string) => void;
   onClearPaymentResult: () => void;
   onVerifyPixPayment: () => void | Promise<unknown>;
   onClearPixPayment: () => void;
@@ -54,6 +55,7 @@ export function HomePaymentOutcome({
   restaurantId,
   visitor,
   onCloseCardPaymentReturn,
+  onRetryCardPayment,
   onClearPaymentResult,
   onVerifyPixPayment,
   onClearPixPayment,
@@ -77,7 +79,15 @@ export function HomePaymentOutcome({
             : undefined
         }
         onVerify={cardPaymentReturn.verify}
-        onClose={onCloseCardPaymentReturn}
+        onClose={() => {
+          const retryable = ['FAILED', 'CANCELED', 'EXPIRED'].includes(cardPaymentReturn.status);
+          const orderPublicId = String(cardPaymentReturn.details?.orderPublicId || '').trim();
+          if (retryable && orderPublicId) {
+            onRetryCardPayment(orderPublicId);
+            return;
+          }
+          onCloseCardPaymentReturn();
+        }}
         onTrackOrder={() => {
           const orderId = Number(cardPaymentReturn.details?.orderId || 0);
           if (orderId > 0) onTrackOrder(orderId);
