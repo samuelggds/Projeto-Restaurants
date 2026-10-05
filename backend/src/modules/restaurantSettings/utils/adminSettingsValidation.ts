@@ -87,7 +87,7 @@ export function normalizeWhatsappNumber(value: unknown) {
   const normalized = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
 
   if (!/^[1-9]\d{10,14}$/u.test(normalized)) {
-    throw new Error('Número do WhatsApp inválido. Informe DDI, DDD e número.');
+    throw new Error('Número do WhatsApp inválido. Informe DDD + número; o +55 é opcional.');
   }
   return normalized;
 }
