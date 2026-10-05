@@ -11,9 +11,14 @@ import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
+import {
+  refreshSavedMercadoPagoCustomer,
+  SavedMercadoPagoCustomerRefreshError,
+} from '../../customerPaymentMethods/services/RefreshSavedMercadoPagoCustomerService.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import type { CardCheckoutResult } from './cardCheckoutProviders.js';
+import { extractPaymentDiagnostic, safePaymentReference } from '../domain/cardPaymentDiagnostic.js';
 
 export type CardPaymentType = 'credit' | 'debit';
 
@@ -71,6 +76,9 @@ export type CardPaymentProviderDiagnostic = {
   statusDetail: string | null;
   providerRequestId: string | null;
   providerOrderId: string | null;
+  providerPaymentId: string | null;
+  providerCodes: string[];
+  hasUnrecognizedCode: boolean;
 };
 
 export class CardPaymentDeclinedError extends Error {
@@ -159,57 +167,8 @@ function safeProviderMessage(body: Record<string, unknown>, fallback: string) {
 }
 
 export function mercadoPagoDeclineDetails(body: Record<string, unknown>) {
-  const data =
-    body.data && typeof body.data === 'object'
-      ? (body.data as Record<string, unknown>)
-      : body;
-  const transactions =
-    data.transactions && typeof data.transactions === 'object'
-      ? (data.transactions as Record<string, unknown>)
-      : null;
-  const payments = Array.isArray(transactions?.payments) ? transactions?.payments : [];
-  const payment =
-    payments[0] && typeof payments[0] === 'object'
-      ? (payments[0] as Record<string, unknown>)
-      : null;
-
-  const errors = providerErrorItems(body);
-  const firstError =
-    errors[0] && typeof errors[0] === 'object'
-      ? (errors[0] as Record<string, unknown>)
-      : null;
-  const errorDetails = Array.isArray(firstError?.details) ? firstError?.details : [];
-  const firstDetail =
-    errorDetails[0] && typeof errorDetails[0] === 'object'
-      ? (errorDetails[0] as Record<string, unknown>)
-      : null;
-
-  const status = String(
-    payment?.status ||
-      firstDetail?.status ||
-      data.status ||
-      body.status ||
-      '',
-  ).trim().slice(0, 80);
-  const statusDetail = String(
-    payment?.status_detail ||
-      payment?.statusDetail ||
-      firstDetail?.status_detail ||
-      firstDetail?.statusDetail ||
-      firstDetail?.code ||
-      data.status_detail ||
-      data.statusDetail ||
-      body.status_detail ||
-      body.statusDetail ||
-      '',
-  )
-    .trim()
-    .slice(0, 160);
-
-  return {
-    transactionStatus: status || null,
-    transactionStatusDetail: statusDetail || null,
-  };
+  const diagnostic = extractPaymentDiagnostic(body);
+  return { transactionStatus: diagnostic.status, transactionStatusDetail: diagnostic.statusDetail };
 }
 
 export function mercadoPago3DSChallengeUrl(body: Record<string, unknown>) {
@@ -273,29 +232,12 @@ async function readResponse(response: Response) {
   return (await response.json().catch(() => ({}))) as Record<string, unknown>;
 }
 
-function mercadoPagoDiagnostic(
-  response: Response,
-  body: Record<string, unknown>,
-): CardPaymentProviderDiagnostic {
-  const decline = mercadoPagoDeclineDetails(body);
-  const providerCode = providerErrorCode(body);
-  const providerRequestId = String(response.headers.get('x-request-id') || '')
-    .trim()
-    .slice(0, 160);
-  const data =
-    body.data && typeof body.data === 'object'
-      ? (body.data as Record<string, unknown>)
-      : body;
-  const providerOrderId = String(data.id || body.id || '').trim().slice(0, 160);
-
+function mercadoPagoDiagnostic(response: Response, body: Record<string, unknown>): CardPaymentProviderDiagnostic {
   return {
     provider: 'MERCADO_PAGO',
     httpStatus: response.status,
-    providerCode: providerCode || null,
-    status: decline.transactionStatus,
-    statusDetail: decline.transactionStatusDetail,
-    providerRequestId: providerRequestId || null,
-    providerOrderId: providerOrderId || null,
+    ...extractPaymentDiagnostic(body),
+    providerRequestId: safePaymentReference(response.headers.get('x-request-id')),
   };
 }
 
@@ -328,6 +270,9 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
         provider,
         active: true,
       },
+      include: {
+        user: { select: { name: true, email: true, cpf: true, emailVerifiedAt: true } },
+      },
     }),
   );
 }
@@ -337,10 +282,32 @@ async function mercadoPagoPayment(
   order: CardOrder,
   successUrlBase: string,
   idempotencyKey: string,
+  paymentAttemptId?: string,
 ) {
   const cardPaymentType = normalizeCardPaymentType(payload.cardPaymentType);
   const token = String(payload.cardToken || '').trim();
   if (!token) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
+  const startedAt = Date.now();
+  let refreshOutcome = payload.paymentMethodId ? 'not_started' : 'not_applicable';
+  let refreshedFields: string[] = [];
+  const trace = (stage: 'customer_refresh' | 'charge', diagnostic: Partial<CardPaymentProviderDiagnostic>, outcome: string) => {
+    console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
+      timestamp: new Date().toISOString(),
+      paymentAttemptId: safePaymentReference(paymentAttemptId),
+      orderPublicId: order.publicId,
+      orderId: order.id,
+      restaurantId: order.restaurantId,
+      stage,
+      outcome,
+      cardSource: payload.paymentMethodId ? 'saved_card' : 'new_card',
+      cardPaymentType,
+      hasDeviceSession: Boolean(String(payload.mercadoPagoDeviceId || '').trim()),
+      refreshOutcome,
+      refreshedFields,
+      elapsedMs: Date.now() - startedAt,
+      ...diagnostic,
+    });
+  };
 
   const stored = await savedMethod(payload, order, CARD_PROVIDERS.MERCADO_PAGO);
   if (cardPaymentType === 'debit' && stored) {
@@ -379,6 +346,48 @@ async function mercadoPagoPayment(
     throw new CardPaymentDeclinedError(
       'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
     );
+  }
+
+  if (stored) {
+    try {
+      const sharedCustomer = await withTenantDbContext(order.restaurantId, (db) =>
+        db.customerPaymentMethod.findFirst({
+          where: {
+            restaurantId: order.restaurantId,
+            provider: CARD_PROVIDERS.MERCADO_PAGO,
+            providerCustomerId: storedCustomerId,
+            userId: { not: stored.userId },
+          },
+          select: { id: true },
+        }),
+      );
+      const refresh = await refreshSavedMercadoPagoCustomer({
+        accessToken,
+        customerId: storedCustomerId,
+        cardId: String(stored.providerPaymentMethodId || '').trim(),
+        expectedBrand: paymentMethodId,
+        expectedLast4: stored.last4,
+        verifiedPayer: !sharedCustomer && stored.user.emailVerifiedAt ? stored.user : null,
+      });
+      refreshOutcome = sharedCustomer ? 'skipped_shared_customer' : refresh.outcome;
+      refreshedFields = refresh.updatedFields;
+      trace('customer_refresh', {}, 'completed');
+    } catch (error) {
+      refreshOutcome = 'failed';
+      trace('customer_refresh', {
+        providerCode: error instanceof SavedMercadoPagoCustomerRefreshError ? error.code : 'saved_card_refresh_unavailable',
+        httpStatus: error instanceof SavedMercadoPagoCustomerRefreshError ? error.httpStatus : 502,
+      }, 'failed_before_charge');
+      if (error instanceof SavedMercadoPagoCustomerRefreshError) {
+        throw new CardPaymentProviderRequestError(error.message, error.httpStatus, error.code, {
+          provider: 'MERCADO_PAGO', httpStatus: error.httpStatus,
+          providerCode: error.code, providerCodes: [error.code], hasUnrecognizedCode: false,
+          status: null, statusDetail: null, providerRequestId: null,
+          providerOrderId: null, providerPaymentId: null,
+        });
+      }
+      throw error;
+    }
   }
 
   const payer = stored
@@ -439,7 +448,11 @@ async function mercadoPagoPayment(
     return { response, body: responseBody };
   };
 
-  const result = await send();
+  const result = await send().catch(() => {
+    trace('charge', {}, 'response_unknown');
+    throw new Error('Resposta do Mercado Pago não recebida; aguarde a conciliação do pagamento.');
+  });
+  trace('charge', mercadoPagoDiagnostic(result.response, result.body), 'response_received');
   if (!result.response.ok) {
     if (isMercadoPagoRequestValidationError(result.response.status, result.body)) {
       const diagnostic = mercadoPagoDiagnostic(result.response, result.body);
@@ -472,7 +485,7 @@ async function mercadoPagoPayment(
         providerRequestId: diagnostic.providerRequestId,
       });
       throw new CardPaymentDeclinedError(
-        safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
+        'O Mercado Pago não autorizou este cartão.',
         diagnostic,
       );
     }
@@ -515,6 +528,8 @@ async function mercadoPagoPayment(
       paymentApproved: false,
       providerStatus: status,
       providerStatusDetail: diagnostic.statusDetail,
+      providerRequestId: diagnostic.providerRequestId,
+      providerPaymentId: diagnostic.providerPaymentId,
     } as const;
   }
 
@@ -529,7 +544,7 @@ async function mercadoPagoPayment(
       providerRequestId: diagnostic.providerRequestId,
     });
     throw new CardPaymentDeclinedError(
-      safeProviderMessage(result.body, 'O Mercado Pago não autorizou este cartão.'),
+      'O Mercado Pago não autorizou este cartão.',
       diagnostic,
     );
   }
@@ -544,6 +559,8 @@ async function mercadoPagoPayment(
     paymentApproved: approved,
     providerStatus: status || (approved ? 'processed' : 'pending'),
     providerStatusDetail: diagnostic.statusDetail,
+    providerRequestId: diagnostic.providerRequestId,
+    providerPaymentId: diagnostic.providerPaymentId,
   } as const;
 }
 
@@ -816,6 +833,7 @@ class DirectOrderCardPaymentService {
     order: CardOrder;
     successUrlBase: string;
     idempotencyKey?: string;
+    paymentAttemptId?: string;
   }): Promise<CardCheckoutResult> {
     const cardPaymentType = normalizeCardPaymentType(input.payload.cardPaymentType);
     if (cardPaymentType === 'debit' && input.provider !== CARD_PROVIDERS.MERCADO_PAGO) {
@@ -829,7 +847,7 @@ class DirectOrderCardPaymentService {
       if (!idempotencyKey) {
         throw new Error('Tentativa de pagamento sem chave de idempotência.');
       }
-      return mercadoPagoPayment(input.payload, input.order, input.successUrlBase, idempotencyKey);
+      return mercadoPagoPayment(input.payload, input.order, input.successUrlBase, idempotencyKey, input.paymentAttemptId);
     }
     if (input.provider === CARD_PROVIDERS.PAGARME) {
       assertFuturePaymentProviderEnabled('PAGARME');

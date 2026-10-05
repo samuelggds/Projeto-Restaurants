@@ -14,6 +14,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 import { verifyGuestOrderOwnershipTokenByPublicId } from '../utils/guestOrderOwnershipToken.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import { extractPaymentDiagnostic, safePaymentCode } from '../domain/cardPaymentDiagnostic.js';
 import {
   mercadoPago3DSChallengeUrl,
   mercadoPagoDeclineDetails,
@@ -101,8 +102,23 @@ class GetOrderCardPaymentStatusService {
           .toLowerCase();
         const remoteStatusDetail =
           remoteDiagnostic.transactionStatusDetail ||
-          String(remote.status_detail || '').trim() ||
+          safePaymentCode(remote.status_detail) ||
           null;
+        const providerDiagnostic = extractPaymentDiagnostic(remote as unknown as Record<string, unknown>);
+        if (validReference && latestAttempt &&
+          (!latestAttempt.providerOrderId || latestAttempt.providerOrderId === providerOrderId) &&
+          (latestAttempt.providerStatus !== remoteStatus || latestAttempt.providerStatusDetail !== remoteStatusDetail)) {
+          console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
+            timestamp: new Date().toISOString(),
+            paymentAttemptId: latestAttempt.publicId,
+            orderPublicId: order.publicId,
+            orderId: order.id,
+            restaurantId: order.restaurantId,
+            stage: 'reconciliation',
+            outcome: 'status_changed',
+            ...providerDiagnostic,
+          });
+        }
         if (remoteStatus === 'action_required' && remoteStatusDetail === 'pending_challenge') {
           challengeUrl = mercadoPago3DSChallengeUrl(remote as unknown as Record<string, unknown>);
           if (latestAttempt) {
@@ -155,6 +171,7 @@ class GetOrderCardPaymentStatusService {
               providerStatus: remoteStatus,
               providerStatusDetail: remoteStatusDetail,
               failureCode: remoteStatusDetail || remoteStatus,
+              providerPaymentId: providerDiagnostic.providerPaymentId,
               failureMessage: 'Pagamento não autorizado pelo provedor.',
             },
           );
@@ -271,8 +288,9 @@ class GetOrderCardPaymentStatusService {
               latestAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
             cardBrand: latestAttempt.cardBrand || 'card',
             cardLast4: latestAttempt.cardLast4 || null,
-            providerStatus: latestAttempt.providerStatus,
-            providerStatusDetail: latestAttempt.providerStatusDetail,
+            providerStatus: safePaymentCode(latestAttempt.providerStatus),
+            providerStatusDetail: safePaymentCode(latestAttempt.providerStatusDetail),
+            failureCode: safePaymentCode(latestAttempt.failureCode),
           }
         : null,
     } as const;

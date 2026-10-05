@@ -8,6 +8,10 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import { buildTenantPublicPath } from '../../shared/navigation/authNavigation';
 import { useResolvedTenantSlug } from '../../shared/tenant/useCustomDomainTenant';
 import {
+  cardPaymentFailurePresentation,
+  type CardPaymentFailureDetails,
+} from '../Home/domain/cardPaymentFailure';
+import {
   OnlineCardPaymentForm,
   type CardPaymentPreparer,
 } from '../Home/components/OnlineCardPaymentForm';
@@ -35,11 +39,9 @@ type RecoveryPayload = {
   itemsSubtotal?: number | null;
   items?: Array<{ name: string; quantity: number; total: number }>;
   canRetry?: boolean;
-  paymentAttempt?: {
+  paymentAttempt?: CardPaymentFailureDetails & {
     status?: string;
     cardPaymentType?: 'credit' | 'debit';
-    failureCode?: string | null;
-    failureMessage?: string | null;
   } | null;
 };
 
@@ -173,6 +175,13 @@ const CardRecovery = styled.main<{ $primary: string }>`
     color: #365a47;
     background: #f6faf7;
   }
+
+  .support-reference {
+    margin: 8px 0 0;
+    overflow-wrap: anywhere;
+  }
+
+  .support-reference code { display: block; }
 
   .actions {
     display: grid;
@@ -356,6 +365,10 @@ export default function OrderPixPaymentPage() {
   }
 
   if (payment.paymentMethod === 'CARTAO') {
+    const cardFailure = !payment.paid && !error &&
+      ['DECLINED', 'FAILED'].includes(String(payment.paymentAttempt?.status || '').toUpperCase())
+      ? cardPaymentFailurePresentation(payment.paymentAttempt)
+      : null;
     const retryCard = async () => {
       if (!orderPublicId || cardSubmitting) return;
       setError('');
@@ -375,7 +388,30 @@ export default function OrderPixPaymentPage() {
           await loadPayment(true);
         }
       } catch (requestError: unknown) {
-        const typed = requestError as { response?: { data?: { error?: string; code?: string } }; message?: string };
+        const typed = requestError as {
+          response?: { data?: {
+            error?: string;
+            code?: string;
+            paymentAttemptId?: string;
+            paymentError?: { providerCode?: string; statusDetail?: string };
+          } };
+          message?: string;
+        };
+        const data = typed.response?.data;
+        if (['CARD_PAYMENT_FAILED', 'CARD_DECLINED', 'CARD_PROVIDER_ERROR'].includes(data?.code || '')) {
+          setPayment((current) => current ? {
+            ...current,
+            paymentAttempt: {
+              cardPaymentType: current.paymentAttempt?.cardPaymentType,
+              publicId: data?.paymentAttemptId || null,
+              status: data?.code === 'CARD_PROVIDER_ERROR' ? 'FAILED' : 'DECLINED',
+              failureCode: data?.paymentError?.providerCode || null,
+              providerStatusDetail: data?.paymentError?.statusDetail || null,
+            },
+          } : current);
+          setCardFailed(true);
+          return;
+        }
         setError(
           typed.response?.data?.error ||
             typed.message ||
@@ -417,9 +453,14 @@ export default function OrderPixPaymentPage() {
               <div className={cardFailed ? 'notice' : 'notice pending'} role={cardFailed ? 'alert' : 'status'}>
                 {cardFailed
                   ? error ||
-                    payment.paymentAttempt?.failureMessage ||
+                    cardFailure?.message ||
                     'A última tentativa não foi aprovada. Você pode tentar novamente sem criar outro pedido.'
                   : 'Aguardando pagamento. Se a tentativa anterior já terminou, use outro cartão ou tente novamente.'}
+                {cardFailure?.supportReference ? (
+                  <p className="support-reference">
+                    Referência para suporte: <code>{cardFailure.supportReference}</code>
+                  </p>
+                ) : null}
               </div>
               <OnlineCardPaymentForm
                 restaurantId={payment.restaurantId}

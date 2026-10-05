@@ -162,7 +162,7 @@ export function buildMercadoPagoCustomerPayload(customer: {
   };
 }
 
-async function mercadoPagoCustomer(
+export async function mercadoPagoCustomer(
   baseUrl: string,
   token: string,
   customer: {

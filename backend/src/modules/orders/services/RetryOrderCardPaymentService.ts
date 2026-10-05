@@ -148,6 +148,7 @@ class RetryOrderCardPaymentService {
         },
         successUrlBase,
         idempotencyKey: attempt.idempotencyKey,
+        paymentAttemptId: attempt.publicId,
       });
 
       await orderPaymentAttemptRepository.update(
@@ -158,7 +159,10 @@ class RetryOrderCardPaymentService {
           : OrderPaymentAttemptStatus.PROCESSING,
         {
           providerOrderId: String(checkout.sessionId || '').trim() || null,
-          providerStatus: checkout.paymentApproved ? 'processed' : 'pending',
+          providerPaymentId: checkout.providerPaymentId || null,
+          providerRequestId: checkout.providerRequestId || null,
+          providerStatus: checkout.providerStatus || (checkout.paymentApproved ? 'processed' : 'pending'),
+          providerStatusDetail: checkout.providerStatusDetail || null,
         },
       );
 
@@ -199,6 +203,7 @@ class RetryOrderCardPaymentService {
           OrderPaymentAttemptStatus.DECLINED,
           {
             providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerPaymentId: error.diagnostic?.providerPaymentId || null,
             providerStatus: error.diagnostic?.status || 'declined',
             providerStatusDetail: error.diagnostic?.statusDetail || null,
             providerRequestId: error.diagnostic?.providerRequestId || null,
@@ -222,6 +227,7 @@ class RetryOrderCardPaymentService {
           OrderPaymentAttemptStatus.FAILED,
           {
             providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerPaymentId: error.diagnostic?.providerPaymentId || null,
             providerStatus: error.diagnostic?.status || 'failed',
             providerStatusDetail: error.diagnostic?.statusDetail || null,
             providerRequestId: error.diagnostic?.providerRequestId || null,

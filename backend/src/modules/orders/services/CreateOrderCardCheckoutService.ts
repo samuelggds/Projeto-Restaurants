@@ -189,6 +189,7 @@ class CreateOrderCardCheckoutService {
           order: orderForPayment,
           successUrlBase,
           idempotencyKey: paymentAttempt.idempotencyKey,
+          paymentAttemptId: paymentAttempt.publicId,
         });
       } else {
         const providerHandler = getCardCheckoutProviderHandler(resolvedCardProvider);
@@ -207,6 +208,7 @@ class CreateOrderCardCheckoutService {
           OrderPaymentAttemptStatus.DECLINED,
           {
             providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerPaymentId: error.diagnostic?.providerPaymentId || null,
             providerStatus: error.diagnostic?.status || 'declined',
             providerStatusDetail: error.diagnostic?.statusDetail || null,
             providerRequestId: error.diagnostic?.providerRequestId || null,
@@ -235,6 +237,7 @@ class CreateOrderCardCheckoutService {
           OrderPaymentAttemptStatus.FAILED,
           {
             providerOrderId: error.diagnostic?.providerOrderId || null,
+            providerPaymentId: error.diagnostic?.providerPaymentId || null,
             providerStatus: error.diagnostic?.status || 'failed',
             providerStatusDetail: error.diagnostic?.statusDetail || null,
             providerRequestId: error.diagnostic?.providerRequestId || null,
@@ -291,6 +294,8 @@ class CreateOrderCardCheckoutService {
         : OrderPaymentAttemptStatus.PROCESSING,
       {
         providerOrderId: String(checkout.sessionId || '').trim() || null,
+        providerPaymentId: checkout.providerPaymentId || null,
+        providerRequestId: checkout.providerRequestId || null,
         providerStatus:
           String(checkout.providerStatus || '').trim() ||
           (checkout.paymentApproved ? 'processed' : 'pending'),

@@ -406,13 +406,16 @@ class OrdersService {
   }
 
   async createCardCheckout(payload: PixPaymentPayload) {
-    return this.createOnlinePayment('/orders/card/checkout', payload);
+    return this.createOnlinePayment('/orders/card/checkout', payload, 45_000);
   }
 
-  private async createOnlinePayment(endpoint: string, payload: PixPaymentPayload) {
+  private async createOnlinePayment(endpoint: string, payload: PixPaymentPayload, timeout?: number) {
     const result = await withOrderCreationAttempt({ endpoint, payload }, async (headers) => {
       try {
-        const response = await api.post(endpoint, payload, { headers });
+        const response = await api.post(endpoint, payload, {
+          headers,
+          ...(timeout ? { timeout } : {}),
+        });
         return { data: response.data };
       } catch (error: unknown) {
         const data = asRecord(asRecord(asRecord(error)?.response)?.data);
@@ -473,7 +476,10 @@ class OrdersService {
     const response = await api.post(
       `/orders/payment/${encodeURIComponent(orderPublicId)}/card/retry`,
       payload,
-      guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : undefined,
+      {
+        timeout: 45_000,
+        ...(guestToken ? { headers: { 'x-guest-order-ownership': guestToken } } : {}),
+      },
     );
     return response.data;
   }

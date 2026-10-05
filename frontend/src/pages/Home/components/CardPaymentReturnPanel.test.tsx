@@ -25,6 +25,53 @@ function render(
 }
 
 describe('CardPaymentReturnPanel', () => {
+  it.each(['FAILED', 'PAID', 'PENDING', 'ERROR'] as const)(
+    'mostra motivo e referência de suporte somente na recusa, estado %s', (status) => {
+      const publicId = '123e4567-e89b-42d3-a456-426614174002';
+      const markup = renderToStaticMarkup(
+        <CardPaymentReturnPanel
+          status={status}
+          error={null}
+          providerReturnStatus=""
+          details={{ paymentAttempt: { publicId, providerStatusDetail: 'high_risk' } }}
+          onVerify={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+      if (status === 'FAILED') {
+        expect(markup).toContain('análise de segurança');
+        expect(markup).toContain('O motivo específico não foi informado');
+        expect(markup).toContain('Referência para suporte:');
+        expect(markup).toContain(publicId);
+      } else {
+        expect(markup).not.toContain('análise de segurança');
+        expect(markup).not.toContain('Referência para suporte:');
+        expect(markup).not.toContain(publicId);
+      }
+    },
+  );
+
+  it('não renderiza mensagem ou identificadores brutos do provedor em uma recusa', () => {
+    const markup = renderToStaticMarkup(
+      <CardPaymentReturnPanel
+        status="FAILED"
+        error="provider raw error buyer@example.test"
+        providerReturnStatus=""
+        details={{ paymentAttempt: {
+          publicId: 'provider-request-private',
+          providerStatusDetail: 'buyer@example.test',
+          failureCode: 'unmapped-provider-error',
+        } }}
+        onVerify={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(markup).toContain('O provedor não informou um motivo específico');
+    expect(markup).not.toContain('buyer@example.test');
+    expect(markup).not.toContain('provider-request-private');
+    expect(markup).not.toContain('unmapped-provider-error');
+  });
+
   it.each([
     ['VERIFYING', 'Processando pagamento'],
     ['PENDING', 'Aguardando confirmação'],
@@ -57,6 +104,17 @@ describe('CardPaymentReturnPanel', () => {
     const markup = render('ERROR');
     expect(markup).not.toContain('Pagamento recusado');
     expect(markup).not.toContain('Pagamento cancelado');
+  });
+
+  it('distingue falha de atualização anterior à cobrança de uma recusa bancária', () => {
+    const markup = renderToStaticMarkup(
+      <CardPaymentReturnPanel status="FAILED" error={null} providerReturnStatus=""
+        details={{ paymentAttempt: { failureCode: 'saved_card_refresh_failed' } }}
+        onVerify={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(markup).toContain('Pagamento não concluído');
+    expect(markup).toContain('Nenhuma cobrança foi enviada nesta tentativa');
+    expect(markup).not.toContain('Pagamento recusado');
   });
 
   it('usa o cartão preto compartilhado com ondas, contactless e bandeira dinâmica', () => {

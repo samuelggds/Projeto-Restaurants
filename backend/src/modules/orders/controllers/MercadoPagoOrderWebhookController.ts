@@ -15,6 +15,7 @@ import { OrderPaymentAttemptStatus } from '@prisma/client';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { parseMercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import reconcileTableOrderWebhookService from '../../tableAccount/services/ReconcileTableOrderWebhookService.js';
+import { extractPaymentDiagnostic } from '../domain/cardPaymentDiagnostic.js';
 
 const APPROVED_STATUSES = new Set(['approved', 'accredited', 'paid']);
 const TERMINAL_UNPAID_STATUSES = new Set(['cancelled', 'rejected', 'refunded', 'charged_back']);
@@ -99,11 +100,22 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
   }
 
   if (TERMINAL_ORDER_STATUSES.has(status)) {
+    const diagnostic = extractPaymentDiagnostic(remoteOrder as unknown as Record<string, unknown>);
     const attempt = await orderPaymentAttemptRepository.latestForOrder(
       localOrder.id,
       localOrder.restaurantId,
     );
     if (attempt) {
+      if ((!attempt.providerOrderId || attempt.providerOrderId === providerOrderId) &&
+        (attempt.providerStatus !== status || attempt.providerStatusDetail !== diagnostic.statusDetail)) {
+        console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
+          timestamp: new Date().toISOString(),
+          paymentAttemptId: attempt.publicId,
+          orderId: localOrder.id,
+          restaurantId: localOrder.restaurantId,
+          stage: 'webhook', outcome: 'status_changed', ...diagnostic,
+        });
+      }
       const nextStatus =
         status === 'expired'
           ? OrderPaymentAttemptStatus.EXPIRED
@@ -119,8 +131,9 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
         {
           providerOrderId,
           providerStatus: status,
-          providerStatusDetail: String(remoteOrder.status_detail || '').trim() || null,
-          failureCode: String(remoteOrder.status_detail || status),
+          providerStatusDetail: diagnostic.statusDetail,
+          providerPaymentId: diagnostic.providerPaymentId,
+          failureCode: diagnostic.statusDetail || status,
           failureMessage: 'Pagamento com cartão não concluído no Mercado Pago.',
         },
       );
