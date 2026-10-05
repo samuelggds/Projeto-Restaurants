@@ -15,7 +15,8 @@ invalid_total_amount json_syntax_error minimum_properties minimum_items maximum_
 bad_request invalid_request unauthorized forbidden not_found idempotency_key_already_used
 invalid_credentials invalid_token internal_error processing_error card_payment_failed
 saved_card_reference_invalid saved_card_reference_mismatch saved_card_refresh_failed
-saved_card_refresh_unavailable saved_card_refresh_invalid_response missing_3ds_challenge_url`.split(
+saved_card_refresh_unavailable saved_card_refresh_invalid_response saved_card_email_mismatch
+missing_device_session missing_3ds_challenge_url`.split(
     /\s+/,
   ),
 );
