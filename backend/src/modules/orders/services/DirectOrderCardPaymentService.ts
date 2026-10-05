@@ -288,6 +288,7 @@ async function mercadoPagoPayment(
   const token = String(payload.cardToken || '').trim();
   if (!token) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
   const startedAt = Date.now();
+  const deviceSessionId = String(payload.mercadoPagoDeviceId || '').trim();
   let refreshOutcome = payload.paymentMethodId ? 'not_started' : 'not_applicable';
   let refreshedFields: string[] = [];
   const trace = (stage: 'customer_refresh' | 'charge', diagnostic: Partial<CardPaymentProviderDiagnostic>, outcome: string) => {
@@ -301,13 +302,49 @@ async function mercadoPagoPayment(
       outcome,
       cardSource: payload.paymentMethodId ? 'saved_card' : 'new_card',
       cardPaymentType,
-      hasDeviceSession: Boolean(String(payload.mercadoPagoDeviceId || '').trim()),
+      hasDeviceSession: Boolean(deviceSessionId),
       refreshOutcome,
       refreshedFields,
       elapsedMs: Date.now() - startedAt,
       ...diagnostic,
     });
   };
+
+  if (!deviceSessionId) {
+    trace(
+      'charge',
+      {
+        provider: 'MERCADO_PAGO',
+        httpStatus: 422,
+        providerCode: 'missing_device_session',
+        providerCodes: ['missing_device_session'],
+        hasUnrecognizedCode: false,
+        status: null,
+        statusDetail: null,
+        providerRequestId: null,
+        providerOrderId: null,
+        providerPaymentId: null,
+      },
+      'blocked_before_charge',
+    );
+    throw new CardPaymentProviderRequestError(
+      'Não foi possível iniciar a proteção antifraude do Mercado Pago.',
+      422,
+      'missing_device_session',
+      {
+        provider: 'MERCADO_PAGO',
+        httpStatus: 422,
+        providerCode: 'missing_device_session',
+        providerCodes: ['missing_device_session'],
+        hasUnrecognizedCode: false,
+        status: null,
+        statusDetail: null,
+        providerRequestId: null,
+        providerOrderId: null,
+        providerPaymentId: null,
+      },
+    );
+  }
 
   const stored = await savedMethod(payload, order, CARD_PROVIDERS.MERCADO_PAGO);
   if (cardPaymentType === 'debit' && stored) {
@@ -438,9 +475,7 @@ async function mercadoPagoPayment(
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-Idempotency-Key': idempotencyKey,
-        ...(String(payload.mercadoPagoDeviceId || '').trim()
-          ? { 'X-meli-session-id': String(payload.mercadoPagoDeviceId).trim().slice(0, 256) }
-          : {}),
+        'X-meli-session-id': deviceSessionId.slice(0, 256),
       },
       body: JSON.stringify(body),
     });
