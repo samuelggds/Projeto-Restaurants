@@ -199,7 +199,7 @@ export function CustomerRegisterExperience({
                         inputMode="tel"
                         value={phone}
                         onChange={(event) => onPhoneChange(event.target.value)}
-                        placeholder="+55 (11) 99999-0000"
+                        placeholder="(11) 99999-0000 ou +55 (11) 99999-0000"
                         autoComplete="tel"
                         required
                       />
