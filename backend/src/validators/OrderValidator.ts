@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { OrderType, PaymentMethod } from '@prisma/client';
-import { isBrazilPhoneWithDddWithoutDdi, normalizedBrazilPhoneSchema } from './PhoneValidator.js';
+import { isBrazilPhoneWithOptionalDdi, normalizedBrazilPhoneSchema } from './PhoneValidator.js';
 
 const optionalCustomerPhoneSchema = z.preprocess(
   (value) =>
@@ -128,7 +128,7 @@ export const createOrderSchema = z
       return;
     }
 
-    if (!isBrazilPhoneWithDddWithoutDdi(data.customerPhone)) {
+    if (!isBrazilPhoneWithOptionalDdi(data.customerPhone)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['customerPhone'],
