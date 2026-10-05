@@ -96,10 +96,14 @@ test('webhook preserva motivo da transação e registra referência sem corpo br
   process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
   const events: Record<string, unknown>[] = [];
   t.mock.method(console, 'info', (_tag, value) => { events.push(value); });
-  t.mock.method(prisma.order, 'findFirst', async () => ({
-    id: 321,
-    restaurantId: 7,
-  }) as never);
+  const orderDelegate = prisma.order as unknown as {
+    findFirst: (args: unknown) => Promise<unknown>;
+  };
+  const originalFindOrder = orderDelegate.findFirst;
+  orderDelegate.findFirst = async () => ({ id: 321, restaurantId: 7 });
+  t.after(() => {
+    orderDelegate.findFirst = originalFindOrder;
+  });
   t.mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => ({
     mercadoPagoAccessToken: 'test-access', mercadoPagoRefreshToken: 'test-refresh',
     mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
