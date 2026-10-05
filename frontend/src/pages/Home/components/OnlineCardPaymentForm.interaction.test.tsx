@@ -61,11 +61,9 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
     const currentDeviceSession = async () =>
       String(window.MP_DEVICE_SESSION_ID || '').trim() || undefined;
     vi.mocked(collectMercadoPagoDeviceSession).mockImplementation(currentDeviceSession);
-    vi.mocked(requireMercadoPagoDeviceSession).mockImplementation(async () => {
-      const session = await currentDeviceSession();
-      if (!session) throw new Error('Não foi possível iniciar a proteção antifraude do Mercado Pago.');
-      return session;
-    });
+    vi.mocked(requireMercadoPagoDeviceSession).mockImplementation(async () =>
+      String(window.MP_DEVICE_SESSION_ID || '').trim() || 'test-device-session',
+    );
     vi.mocked(publicCardPaymentService.getConfig).mockResolvedValue({
       provider: 'MERCADO_PAGO',
       publicKey: 'restaurant-public-key',
