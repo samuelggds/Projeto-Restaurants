@@ -53,7 +53,7 @@ function getNumberError(value: string, required: boolean) {
   const digits = normalizeWhatsAppNumber(value);
   if (!digits) return required ? 'Informe o número que será usado no WhatsApp.' : '';
   return !/^[1-9]\d{10,14}$/u.test(digits)
-    ? 'Use DDI + DDD + número. Ex.: +55 85 99999-9999.'
+    ? 'Informe DDD + número; o +55 é opcional.'
     : '';
 }
 
@@ -420,8 +420,8 @@ export function WhatsAppSettings({ settings, update }: Props) {
             <header className="card-heading"><span className="step">2</span><div><h3>Seu número do WhatsApp</h3><p>Informe o mesmo número comercial que será conectado pelo QR Code.</p></div></header>
             <S.Field>
               Número comercial
-              <input name="whatsapp" inputMode="tel" autoComplete="tel" placeholder="Ex.: +55 85 99999-9999" value={settings.whatsapp} aria-invalid={Boolean(numberError)} onChange={(event) => update('whatsapp', event.target.value)} />
-              <small className={numberError ? 'error' : 'help'}>{numberError || 'Use DDI + DDD + número. Ex.: +55 85 99999-9999. Números brasileiros antigos sem DDI são convertidos automaticamente para +55 ao salvar.'}</small>
+              <input name="whatsapp" inputMode="tel" autoComplete="tel" placeholder="Ex.: (85) 99999-9999 ou +55 (85) 99999-9999" value={settings.whatsapp} aria-invalid={Boolean(numberError)} onChange={(event) => update('whatsapp', event.target.value)} />
+              <small className={numberError ? 'error' : 'help'}>{numberError || 'Aceita DDD + número ou +55 + DDD + número. O sistema normaliza automaticamente sem duplicar o 55.'}</small>
             </S.Field>
           </section>
 
