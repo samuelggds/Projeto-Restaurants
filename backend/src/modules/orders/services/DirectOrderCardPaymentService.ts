@@ -434,23 +434,9 @@ async function mercadoPagoPayment(
     }
   }
 
-  const storedPayerEmail = String(stored?.user.email || '').trim().toLowerCase();
   const payer = stored
-    ? {
-        ...(isValidPayerEmail(storedPayerEmail) ? { email: storedPayerEmail } : {}),
-        customer_id: storedCustomerId,
-      }
+    ? { customer_id: storedCustomerId }
     : { email: await payerEmail(payload, order) };
-  const orderTitle = [String(order.restaurant?.name || '').trim(), `Pedido #${order.id}`]
-    .filter(Boolean)
-    .join(' - ');
-  const items = [
-    {
-      title: orderTitle || `Pedido #${order.id}`,
-      unit_price: total.toFixed(2),
-      quantity: 1,
-    },
-  ];
 
   const body = {
     type: 'online',
@@ -471,7 +457,6 @@ async function mercadoPagoPayment(
     external_reference: reference,
     description: `Pedido #${order.id}`,
     payer,
-    items,
     transactions: {
       payments: [
         {
