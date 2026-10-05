@@ -83,10 +83,11 @@ export function normalizeWhatsappNumber(value: unknown) {
   const digits = String(value ?? '').replace(/\D/g, '');
   if (!digits) return null;
 
-  // Compatibilidade com cadastros brasileiros antigos que guardavam apenas DDD + número.
-  const normalized = /^[1-9]\d{9,10}$/u.test(digits) ? `55${digits}` : digits;
+  // O cadastro interno usa o formato nacional. O DDI +55 é acrescentado
+  // somente nas integrações externas que exigem E.164.
+  const normalized = /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
 
-  if (!/^[1-9]\d{10,14}$/u.test(normalized)) {
+  if (!/^[1-9]\d{9,10}$/u.test(normalized)) {
     throw new Error('Número do WhatsApp inválido. Informe DDD + número; o +55 é opcional.');
   }
   return normalized;
