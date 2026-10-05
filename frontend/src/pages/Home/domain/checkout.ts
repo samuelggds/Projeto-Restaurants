@@ -20,7 +20,8 @@ export type ResolvedCheckoutPaymentMethod = 'PIX' | 'CARTAO' | 'DINHEIRO';
 
 function optionalCustomerPhone(value: unknown) {
   const digits = String(value || '').replace(/\D/g, '');
-  return /^[1-9]\d{9,10}$/u.test(digits) ? digits : undefined;
+  const national = /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
+  return /^[1-9]\d{9,10}$/u.test(national) ? national : undefined;
 }
 
 export function isValidWhatsappOrderPhone(value: unknown) {
@@ -28,19 +29,21 @@ export function isValidWhatsappOrderPhone(value: unknown) {
 }
 
 export function formatBrazilPhoneInput(value: unknown) {
-  const raw = String(value || '');
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length > 11) return digits.slice(0, 13);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 13);
+  const hasBrazilDdi = digits.length > 11 && digits.startsWith('55');
+  const national = hasBrazilDdi ? digits.slice(2) : digits.slice(0, 11);
+  const prefix = hasBrazilDdi ? '+55 ' : '';
+
+  if (national.length <= 2) return `${prefix}${national}`;
+  if (national.length <= 6) return `${prefix}(${national.slice(0, 2)}) ${national.slice(2)}`;
+  if (national.length <= 10) {
+    return `${prefix}(${national.slice(0, 2)}) ${national.slice(2, 6)}-${national.slice(6)}`;
   }
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  return `${prefix}(${national.slice(0, 2)}) ${national.slice(2, 7)}-${national.slice(7)}`;
 }
 
 export const BRAZIL_PHONE_CHECKOUT_MESSAGE =
-  'Use somente DDD + número, sem +55. Exemplo: (85) 99999-9999.';
+  'Informe DDD + número. O +55 é opcional. Ex.: (85) 99999-9999 ou +55 (85) 99999-9999.';
 
 export function whatsappOrderOptInStorageKey(restaurantId: number | null | undefined) {
   const normalizedRestaurantId = Number(restaurantId || 0);
