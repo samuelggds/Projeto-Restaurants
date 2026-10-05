@@ -71,6 +71,9 @@ export default function RestaurantLandingPage() {
     [restaurant],
   );
   const whatsappDigits = String(settings?.whatsapp || '').replace(/\D/gu, '');
+  const whatsappNumber = /^[1-9]\d{9,10}$/u.test(whatsappDigits)
+    ? `55${whatsappDigits}`
+    : whatsappDigits;
   const socialLinks = [
     ['Instagram', safeSocialHref(settings?.instagram)],
     ['Facebook', safeSocialHref(settings?.facebook)],
@@ -143,8 +146,8 @@ export default function RestaurantLandingPage() {
               <p>Consulte os horários e a disponibilidade diretamente no cardápio.</p>
             </div>
           </S.InfoCard>
-          {whatsappDigits ? (
-            <S.InfoCard as="a" href={`https://wa.me/${whatsappDigits}`} target="_blank" rel="noreferrer">
+          {whatsappNumber ? (
+            <S.InfoCard as="a" href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noreferrer">
               <MessageCircle />
               <div>
                 <h2>WhatsApp</h2>
