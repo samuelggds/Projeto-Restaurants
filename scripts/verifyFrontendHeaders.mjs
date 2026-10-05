@@ -178,7 +178,12 @@ try {
       assert.match(
         scriptSrc,
         /sha256-YbJPKtzVNFfNAaJXmQ9fk\+1BnAC1QR8xVDJ9Zr56qI=/u,
-        `${path}: Mercado Pago latest inline SDK hash`,
+        `${path}: Mercado Pago previous inline SDK hash`,
+      );
+      assert.match(
+        scriptSrc,
+        /sha256-6LhnyPFedFY3WUX4FRerFamKijVmstr7LasFPy7kXY=/u,
+        `${path}: Mercado Pago current inline security hash`,
       );
       assert.doesNotMatch(
         scriptSrc,
