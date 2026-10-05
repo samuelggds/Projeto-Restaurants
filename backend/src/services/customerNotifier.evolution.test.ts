@@ -144,13 +144,11 @@ test('Z-API recebe telefone nacional e acrescenta 55 somente na chamada externa'
   assert.equal(body.phone, '5585988887777');
   assert.equal(body.message, 'Pedido pronto.');
 
-  await assert.rejects(
-    () =>
-      sendTenantZapiTextMessage({
-        restaurantId: 9,
-        destination: '5585988887777',
-        message: 'Pedido pronto.',
-      }),
-    /Número de destino inválido/i,
-  );
+  const internationalResult = await sendTenantZapiTextMessage({
+    restaurantId: 9,
+    destination: '5585988887777',
+    message: 'Pedido pronto.',
+  });
+  assert.deepEqual(internationalResult, { sent: true, provider: 'zapi' });
+  assert.equal(body.phone, '5585988887777');
 });
