@@ -1,16 +1,29 @@
 import { z } from 'zod';
 
 export const BRAZIL_PHONE_WITH_DDD_MESSAGE =
-  'Informe DDD + número do telefone, sem DDI (ex.: 85999999999).';
+  'Informe DDD + número; o +55 é opcional (ex.: 85999999999 ou +5585999999999).';
 
-export function normalizeBrazilPhone(value: unknown) {
+function phoneDigits(value: unknown) {
   return String(value ?? '').replace(/\D/gu, '');
 }
 
-export function isBrazilPhoneWithDddWithoutDdi(value: unknown) {
-  const digits = normalizeBrazilPhone(value);
-  return /^[1-9]\d{9,10}$/u.test(digits);
+export function normalizeBrazilPhone(value: unknown) {
+  const digits = phoneDigits(value);
+
+  // Mantém a representação nacional já usada pelo banco e evita duplicidade
+  // entre 85... e +55 85... para o mesmo telefone brasileiro.
+  return /^55[1-9]\d{9,10}$/u.test(digits) ? digits.slice(2) : digits;
 }
+
+export function isBrazilPhoneWithOptionalDdi(value: unknown) {
+  return /^[1-9]\d{9,10}$/u.test(normalizeBrazilPhone(value));
+}
+
+/**
+ * Compatibilidade com imports antigos. O nome histórico dizia "sem DDI",
+ * mas a regra atual aceita DDD+número ou +55+DDD+número.
+ */
+export const isBrazilPhoneWithDddWithoutDdi = isBrazilPhoneWithOptionalDdi;
 
 export const brazilPhoneSchema = z
   .string({
@@ -19,7 +32,7 @@ export const brazilPhoneSchema = z
   })
   .trim()
   .min(1, BRAZIL_PHONE_WITH_DDD_MESSAGE)
-  .refine(isBrazilPhoneWithDddWithoutDdi, BRAZIL_PHONE_WITH_DDD_MESSAGE);
+  .refine(isBrazilPhoneWithOptionalDdi, BRAZIL_PHONE_WITH_DDD_MESSAGE);
 
 export const normalizedBrazilPhoneSchema = brazilPhoneSchema.transform(normalizeBrazilPhone);
 
