@@ -86,9 +86,17 @@ describe('PaymentOptions logged-in new-card fallback', () => {
     );
     expect(useOtherCard).toBeTruthy();
 
+    expect(localStorage.getItem('selectedCustomerPaymentMethodId:7')).toBe('saved-card-1');
+
     await act(async () => useOtherCard?.click());
 
     expect(container.querySelector('[data-testid="card-mode"]')?.textContent).toBe('new-card');
     expect(container.textContent).toContain('Usar outro cartão');
+    expect(localStorage.getItem('selectedCustomerPaymentMethodId:7')).toBeNull();
+
+    const savedCardButton = [...container.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent?.includes('0829'),
+    );
+    expect(savedCardButton?.classList.contains('selected')).toBe(false);
   });
 });
