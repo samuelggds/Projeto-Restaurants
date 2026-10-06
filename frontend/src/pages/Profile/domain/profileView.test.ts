@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { resolveProfileView } from './profileView';
 
 describe('resolveProfileView', () => {
-  it('abre diretamente Meus cartões quando solicitado pela URL', () => {
-    expect(resolveProfileView('paymentMethods')).toBe('paymentMethods');
+  it('não reabre a antiga tela de cartões salvos pela URL', () => {
+    expect(resolveProfileView('paymentMethods')).toBe('overview');
   });
 
   it('abre diretamente os atalhos avançados do perfil quando solicitados pela Home', () => {
