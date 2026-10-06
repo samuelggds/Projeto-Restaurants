@@ -136,7 +136,16 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
       cardToken: 'card-token-001',
       cardPaymentMethodId: 'master',
       customerName: 'Cliente Teste',
+      customerPhone: '+55 (85) 99999-9999',
       payerEmail: 'cliente.real@example.com',
+      holderTaxId: '12345678901',
+      address: 'Rua Teste',
+      number: '123',
+      complement: 'Apto 45',
+      district: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      zipCode: '60000-000',
       mercadoPagoDeviceId: 'device-session-901',
     },
     order: {
@@ -175,6 +184,36 @@ test('checkout transparente Mercado Pago segue o contrato atual sem capture_mode
   assert.match(String(requestBody.external_reference), /^[A-Za-z0-9_-]+$/);
   assert.deepEqual(requestBody.payer, {
     email: 'cliente.real@example.com',
+    first_name: 'Cliente',
+    last_name: 'Teste',
+    identification: {
+      type: 'CPF',
+      number: '12345678901',
+    },
+    phone: {
+      area_code: '85',
+      number: '999999999',
+    },
+    address: {
+      zip_code: '60000000',
+      street_name: 'Rua Teste',
+      street_number: '123',
+      neighborhood: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      complement: 'Apto 45',
+    },
+  });
+  assert.deepEqual(requestBody.shipment, {
+    address: {
+      zip_code: '60000000',
+      street_name: 'Rua Teste',
+      street_number: '123',
+      neighborhood: 'Centro',
+      city: 'Fortaleza',
+      state: 'CE',
+      complement: 'Apto 45',
+    },
   });
 
   const transactions = requestBody.transactions as {
