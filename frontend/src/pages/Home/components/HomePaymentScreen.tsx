@@ -7,6 +7,7 @@ type Props = {
   primaryColor: string;
   loggedIn: boolean;
   brandName: string;
+  restaurantSlug?: string;
   logoUrl?: string;
   cart: CartItem[];
   cartCount: number;
@@ -34,6 +35,7 @@ export function HomePaymentScreen({
   primaryColor,
   loggedIn,
   brandName,
+  restaurantSlug,
   logoUrl,
   cart,
   cartCount,
@@ -61,6 +63,7 @@ export function HomePaymentScreen({
       primaryColor={primaryColor}
       loggedIn={loggedIn}
       brandName={brandName}
+      restaurantSlug={restaurantSlug}
       logoUrl={logoUrl}
       cart={cart}
       cartCount={cartCount}
