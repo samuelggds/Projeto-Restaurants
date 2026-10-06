@@ -9,6 +9,7 @@ describe('FigmaPaymentCheckout tenant branding', () => {
         primaryColor="#ff4b4b"
         loggedIn
         brandName="North Pizza"
+        restaurantSlug="north-pizza"
         logoUrl="https://cdn.example.test/north-pizza.png"
         cart={[]}
         cartCount={0}
@@ -25,6 +26,10 @@ describe('FigmaPaymentCheckout tenant branding', () => {
     expect(markup).toContain('North Pizza');
     expect(markup).toContain('https://cdn.example.test/north-pizza.png');
     expect(markup).not.toContain('<b>GastroNexa</b>');
+    expect(markup).toContain('href="/north-pizza#cardapio"');
+    expect(markup).toContain('href="/profile?support=1"');
+    expect(markup).toContain('href="/profile"');
+    expect(markup).not.toContain('>Cupons<');
   });
   it('marks checkout buttons busy and shows payment processing copy while submitting', () => {
     const markup = renderToStaticMarkup(
