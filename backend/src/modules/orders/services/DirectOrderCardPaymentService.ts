@@ -338,15 +338,19 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
         provider,
         active: true,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            cpf: true,
-            emailVerifiedAt: true,
-          },
-        },
+      select: {
+        id: true,
+        publicId: true,
+        userId: true,
+        restaurantId: true,
+        provider: true,
+        providerCustomerId: true,
+        providerPaymentMethodId: true,
+        payerEmail: true,
+        brand: true,
+        last4: true,
+        holderName: true,
+        active: true,
       },
     }),
   );
@@ -460,6 +464,13 @@ async function mercadoPagoPayment(
       'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
     );
   }
+  const storedPayerEmail = String(stored?.payerEmail || '').trim().toLowerCase();
+  const storedHolderName = String(stored?.holderName || '').trim();
+  if (stored && (!isValidPayerEmail(storedPayerEmail) || storedHolderName.length < 2)) {
+    throw new CardPaymentDeclinedError(
+      'Este cartão salvo é de uma versão anterior. Remova e cadastre novamente para pagar com segurança.',
+    );
+  }
 
   if (stored) {
     try {
@@ -481,9 +492,11 @@ async function mercadoPagoPayment(
         expectedBrand: paymentMethodId,
         expectedLast4: stored.last4,
         verifiedPayer:
-          !sharedCustomer && stored.user.emailVerifiedAt
+          !sharedCustomer
             ? {
-                ...stored.user,
+                name: storedHolderName,
+                email: storedPayerEmail,
+                cpf: null,
                 phone: payload.customerPhone,
                 address: {
                   zipCode: payload.zipCode,
