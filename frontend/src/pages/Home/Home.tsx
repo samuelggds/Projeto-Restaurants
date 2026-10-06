@@ -1164,6 +1164,7 @@ export default function Home() {
               primaryColor={primary}
               loggedIn={Boolean(user)}
               brandName={homeData.brand.name}
+              restaurantSlug={normalizedSlug}
               logoUrl={homeData.brand.logoUrl}
               cart={cart}
               cartCount={cartCount}
