@@ -8,8 +8,8 @@ type Input = {
   cardId: string;
   expectedBrand: string;
   expectedLast4: string;
-  // Identity is loaded from the authenticated account. Contact/address context
-  // may come from the current order and is only used when the remote identity matches.
+  // Identity is the payer identity stored with this saved card. Contact/address
+  // context may come from the current order and is only used when the remote identity matches.
   verifiedPayer?: {
     name: string;
     email: string;
@@ -81,7 +81,7 @@ function customerUpdate(customer: ProviderRecord, payer: Input['verifiedPayer'])
     update.identification = { type, number };
   }
 
-  if (sameIdentity && compatibleDocument) {
+  if (sameIdentity) {
     const currentPhone = record(customer.phone);
     const rawPhone = text(payer.phone).replace(/\D/g, '');
     const nationalPhone =
