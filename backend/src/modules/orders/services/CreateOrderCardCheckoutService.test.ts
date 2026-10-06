@@ -9,6 +9,7 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 const originalHttpCreateServer = http.createServer;
 
