@@ -340,6 +340,15 @@ export function PaymentOptions({
     [savedCards, selectedCardId, useNewCard],
   );
 
+  const chooseNewCard = () => {
+    setUseNewCard(true);
+    setSelectedCardId('');
+    registerCardPreparer(null);
+    if (restaurantId) {
+      localStorage.removeItem(`selectedCustomerPaymentMethodId:${restaurantId}`);
+    }
+  };
+
   const onlineOptions = filterOptions(ONLINE_OPTIONS, allowPix, allowCard, allowDebitCard);
   if (allowOpenFinancePix) {
     onlineOptions.splice(Math.min(1, onlineOptions.length), 0, {
@@ -504,10 +513,7 @@ export function PaymentOptions({
                   type="button"
                   className="add-card"
                   aria-pressed={useNewCard}
-                  onClick={() => {
-                    setUseNewCard(true);
-                    registerCardPreparer(null);
-                  }}
+                  onClick={chooseNewCard}
                 >
                   <Plus aria-hidden="true" /> Usar outro cartão
                 </button>
@@ -883,7 +889,7 @@ export function PaymentOptions({
                   <button
                     key={card.publicId}
                     type="button"
-                    className={selectedCardId === card.publicId ? 'active' : ''}
+                    className={!useNewCard && selectedCardId === card.publicId ? 'active' : ''}
                     onClick={() => {
                       setUseNewCard(false);
                       setSelectedCardId(card.publicId);
@@ -912,10 +918,7 @@ export function PaymentOptions({
                   type="button"
                   className={useNewCard ? 'active' : ''}
                   aria-pressed={useNewCard}
-                  onClick={() => {
-                    setUseNewCard(true);
-                    registerCardPreparer(null);
-                  }}
+                  onClick={chooseNewCard}
                 >
                   <Plus size={18} aria-hidden="true" />
                   <span>
