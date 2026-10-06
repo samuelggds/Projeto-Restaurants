@@ -524,9 +524,7 @@ test('rejeita cartão salvo antes de criar pedido ou chamar provedor', async () 
 
   restaurantSettingsRepository.findByRestaurantId = async () => ({
     cardGateway: 'MERCADO_PAGO',
-    mercadoPagoAccessToken: 'restaurant-access-token',
-    mercadoPagoRefreshToken: 'restaurant-refresh-token',
-    mercadoPagoTokenExpiresAt: new Date(Date.now() + 3_600_000),
+    ...readyMercadoPagoSettings(),
   });
   createOrderService.execute = async () => {
     createOrderCalls += 1;
