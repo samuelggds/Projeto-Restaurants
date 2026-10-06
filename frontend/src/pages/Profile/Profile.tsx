@@ -42,7 +42,7 @@ export default function Profile() {
     [activeOrders, history.orders],
   );
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
-  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(() => searchParams.get('support') === '1');
   const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
   const [addressModalOpen, setAddressModalOpen] = useState(
     () => searchParams.get('newAddress') === '1',
