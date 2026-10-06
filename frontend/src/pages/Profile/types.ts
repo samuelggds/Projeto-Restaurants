@@ -20,7 +20,6 @@ export type ProfileUser = {
   phone?: string;
   avatarUrl: string;
   mainAddress: string;
-  paymentLastDigits?: string;
 };
 
 export type ProfileOrderStatus = 'confirmed' | 'preparing' | 'onTheWay' | 'delivered' | 'cancelled';
