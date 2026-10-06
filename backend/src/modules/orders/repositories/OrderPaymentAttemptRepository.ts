@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { OrderPaymentAttemptStatus, PaymentMethod } from '@prisma/client';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
-import { normalizeStoredCardBrand } from '../../customerPaymentMethods/domain/cardBrand.js';
+import { normalizeStoredCardBrand } from '../domain/cardBrand.js';
 
 type CreateCardAttemptInput = {
   orderId: number;
