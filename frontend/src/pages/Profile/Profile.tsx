@@ -388,12 +388,6 @@ export default function Profile() {
     [navigate, orders, restaurantHomePath],
   );
 
-  useEffect(() => {
-    if (searchParams.get('support') !== '1') return;
-    setSupportOrderId(null);
-    setSupportOpen(true);
-  }, [searchParams]);
-
   const resolvedProfileView = resolveProfileView(searchParams.get('view'));
 
   return (
