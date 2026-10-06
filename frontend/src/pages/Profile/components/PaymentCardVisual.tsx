@@ -57,16 +57,18 @@ export function PaymentCardVisual({
 
 
 const PaymentCardPreview = styled.div<{ $brand?: string; $compact?: boolean }>`
-  width: ({ $compact }) => ($compact ? '320px' : '536px');
-  min-height: ({ $compact }) => ($compact ? '174px' : '220px');
+  width: ${({ $compact }) => ($compact ? '320px' : '536px')};
+  max-width: 100%;
+  aspect-ratio: 1.586 / 1;
   box-sizing: border-box;
-  padding: ({ $compact }) => ($compact ? '22px' : '32px');
+  padding: ${({ $compact }) => ($compact ? '18px 20px' : '28px 30px')};
   border: 0;
   border-radius: 20px;
   background: linear-gradient(135deg, #2e2d2a 0%, #12110f 100%);
   color: #fff;
   box-shadow: 0 12px 24px rgba(31, 30, 26, 0.2);
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   overflow: hidden;
   position: relative;
@@ -141,8 +143,7 @@ const PaymentCardPreview = styled.div<{ $brand?: string; $compact?: boolean }>`
   > strong {
     position: relative;
     z-index: 1;
-    margin-top: 36px;
-    margin-bottom: 30px;
+    margin: auto 0 18px;
     color: #fff;
     font-size: 19px;
     line-height: 24px;
@@ -192,7 +193,59 @@ const PaymentCardPreview = styled.div<{ $brand?: string; $compact?: boolean }>`
   }
 
   @media (max-width: 900px) {
-    width: 100%;
-    min-height: ({ $compact }) => ($compact ? '168px' : '190px');
+    width: min(100%, ${({ $compact }) => ($compact ? '320px' : '536px')});
+    padding: ${({ $compact }) => ($compact ? '16px 18px' : '22px 24px')};
+
+    > strong {
+      margin-bottom: 14px;
+      font-size: ${({ $compact }) => ($compact ? '16px' : '18px')};
+      line-height: 1.2;
+      letter-spacing: 0.06em;
+    }
+
+    footer b {
+      font-size: 11px;
+      line-height: 14px;
+    }
+  }
+
+  @media (max-width: 360px) {
+    padding: 14px 16px;
+
+    .payment-chip {
+      width: 28px;
+      height: 21px;
+      flex-basis: 28px;
+    }
+
+    .card-tech {
+      width: 54px;
+      gap: 9px;
+    }
+
+    .card-brand-logo {
+      max-width: 68px;
+      max-height: 24px;
+    }
+
+    > strong {
+      margin-bottom: 10px;
+      font-size: 15px;
+    }
+
+    footer span:first-child {
+      width: 124px;
+      flex-basis: 124px;
+    }
+
+    footer small {
+      font-size: 7px;
+      line-height: 9px;
+    }
+
+    footer b {
+      font-size: 10px;
+      line-height: 12px;
+    }
   }
 `;

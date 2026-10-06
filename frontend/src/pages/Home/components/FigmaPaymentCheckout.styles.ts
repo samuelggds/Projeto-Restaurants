@@ -1,10 +1,19 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import {
   paymentReducedMotion,
   paymentScreenFade,
   paymentSurfaceRise,
 } from '../../../components/payment/paymentMotion';
 
+const checkoutLoadingProgress = keyframes`
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+`;
 export const Page = styled.div<{ $primary: string }>`
   --checkout-primary: ${({ $primary }) => $primary};
   position: fixed;
@@ -197,6 +206,9 @@ export const SummaryCard = styled.aside`
 
   button {
     min-height: 46px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     border: 0;
     border-radius: 12px;
     background: linear-gradient(90deg, #ff6a3d, #ff3d1f);
@@ -222,6 +234,27 @@ export const SummaryCard = styled.aside`
   button:not(:disabled):active { transform: translateY(0) scale(0.985); }
   button:disabled { opacity: .5; cursor: not-allowed; }
 
+  button > .checkout-button-label {
+    position: relative;
+    z-index: 1;
+  }
+
+  button[data-loading='true']::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: rgba(31, 30, 26, 0.22);
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: ${checkoutLoadingProgress} 3.4s linear infinite;
+    pointer-events: none;
+  }
+
+  button[data-loading='true']:disabled {
+    opacity: 1;
+    cursor: wait;
+  }
   @media (max-width: 760px) { display: none; }
 `;
 
@@ -303,6 +336,9 @@ export const MobileAction = styled.div`
     button {
       width: 100%;
       min-height: 46px;
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
       border: 0;
       border-radius: 12px;
       background: linear-gradient(90deg, #ff6a3d, #ff3d1f);
@@ -321,5 +357,26 @@ export const MobileAction = styled.div`
 
     button:not(:disabled):active { transform: scale(0.985); }
     button:disabled { opacity: .5; }
+    button > .checkout-button-label {
+      position: relative;
+      z-index: 1;
+    }
+
+    button[data-loading='true']::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: rgba(31, 30, 26, 0.22);
+      transform: scaleX(0);
+      transform-origin: left center;
+      animation: ${checkoutLoadingProgress} 3.4s linear infinite;
+      pointer-events: none;
+    }
+
+    button[data-loading='true']:disabled {
+      opacity: 1;
+      cursor: wait;
+    }
   }
 `;

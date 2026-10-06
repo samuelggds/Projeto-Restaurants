@@ -26,4 +26,29 @@ describe('FigmaPaymentCheckout tenant branding', () => {
     expect(markup).toContain('https://cdn.example.test/north-pizza.png');
     expect(markup).not.toContain('<b>GastroNexa</b>');
   });
+  it('marks checkout buttons busy and shows payment processing copy while submitting', () => {
+    const markup = renderToStaticMarkup(
+      <FigmaPaymentCheckout
+        primaryColor="#ff4b4b"
+        loggedIn
+        brandName="North Pizza"
+        cart={[]}
+        cartCount={1}
+        subtotal={0.85}
+        couponDiscount={0}
+        deliveryFee={1}
+        total={1.85}
+        paymentMethods={<div>Cartão</div>}
+        onBack={vi.fn()}
+        onContinue={vi.fn()}
+        loading
+      />,
+    );
+
+    expect(markup).toContain('Processando pagamento...');
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain('data-loading="true"');
+    expect(markup).toContain('disabled=""');
+  });
+
 });
