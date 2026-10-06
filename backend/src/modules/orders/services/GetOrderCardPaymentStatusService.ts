@@ -286,6 +286,8 @@ class GetOrderCardPaymentStatusService {
             status: latestAttempt.status,
             cardPaymentType:
               latestAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
+            cardSource:
+              latestAttempt.cardSource === 'saved_card' ? 'saved_card' : 'new_card',
             cardBrand: latestAttempt.cardBrand || 'card',
             cardLast4: latestAttempt.cardLast4 || null,
             providerStatus: safePaymentCode(latestAttempt.providerStatus),
