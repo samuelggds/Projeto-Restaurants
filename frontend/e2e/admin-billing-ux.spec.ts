@@ -457,8 +457,14 @@ test('erros técnicos ficam fora da interface e o cadastro permite tentar novame
   await expect(page.getByRole('button', { name: 'Cadastrar cartão automático' })).toBeDisabled();
   state.recurringError = false;
   await page.getByRole('button', { name: 'Tentar novamente' }).click();
+  const configFailure = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === '/billing/recurring/config' && response.status() === 503;
+  });
   await page.getByRole('button', { name: 'Cadastrar cartão automático' }).click();
   const dialog = page.getByRole('dialog', { name: 'Cartão para renovação automática' });
+  await expect(dialog).toBeVisible();
+  await configFailure;
   await expect(dialog.getByRole('alert')).toContainText('cadastro de cartão está indisponível');
   await expect(page.getByText('Chave pública do Mercado Pago', { exact: false })).toHaveCount(0);
   await page.keyboard.press('Escape');
