@@ -105,8 +105,16 @@ export function FigmaPaymentCheckout({
           <div className="row"><span>Taxa de Entrega</span><strong className={deliveryFee <= 0 ? 'free' : ''}>{deliveryFee > 0 ? money(deliveryFee) : 'Grátis'}</strong></div>
           <div className="total"><span>Total</span><strong>{money(total)}</strong></div>
 
-          <button type="button" disabled={disabled || loading} onClick={onContinue}>
-            {loading ? 'Processando...' : loggedIn ? 'Finalizar Pedido' : 'Continuar'}
+          <button
+            type="button"
+            disabled={disabled || loading}
+            aria-busy={loading}
+            data-loading={loading ? 'true' : undefined}
+            onClick={onContinue}
+          >
+            <span className="checkout-button-label">
+              {loading ? 'Processando pagamento...' : loggedIn ? 'Finalizar Pedido' : 'Continuar'}
+            </span>
           </button>
         </S.SummaryCard>
       </S.Content>
@@ -125,8 +133,16 @@ export function FigmaPaymentCheckout({
       </S.DesktopFooter>
 
       <S.MobileAction>
-        <button type="button" disabled={disabled || loading} onClick={onContinue}>
-          {loading ? 'Processando...' : loggedIn ? 'Confirmar Pagamento' : 'Continuar'}
+        <button
+          type="button"
+          disabled={disabled || loading}
+          aria-busy={loading}
+          data-loading={loading ? 'true' : undefined}
+          onClick={onContinue}
+        >
+          <span className="checkout-button-label">
+            {loading ? 'Processando pagamento...' : loggedIn ? 'Confirmar Pagamento' : 'Continuar'}
+          </span>
         </button>
       </S.MobileAction>
     </S.Page>
