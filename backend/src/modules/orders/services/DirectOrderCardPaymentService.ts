@@ -370,7 +370,6 @@ async function mercadoPagoPayment(
   const deviceSessionId = String(payload.mercadoPagoDeviceId || '').trim();
   let refreshOutcome = payload.paymentMethodId ? 'not_started' : 'not_applicable';
   let refreshedFields: string[] = [];
-  let storedCustomerEmail = '';
   const trace = (stage: 'customer_refresh' | 'charge', diagnostic: Partial<CardPaymentProviderDiagnostic>, outcome: string) => {
     console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
       timestamp: new Date().toISOString(),
@@ -508,7 +507,6 @@ async function mercadoPagoPayment(
       });
       refreshOutcome = sharedCustomer ? 'skipped_shared_customer' : refresh.outcome;
       refreshedFields = refresh.updatedFields;
-      storedCustomerEmail = String(refresh.customerEmail || '').trim().toLowerCase();
       trace('customer_refresh', {}, 'completed');
     } catch (error) {
       refreshOutcome = 'failed';
@@ -529,10 +527,7 @@ async function mercadoPagoPayment(
   }
 
   const payer = stored
-    ? {
-        customer_id: storedCustomerId,
-        ...(isValidPayerEmail(storedCustomerEmail) ? { email: storedCustomerEmail } : {}),
-      }
+    ? { customer_id: storedCustomerId }
     : await mercadoPagoNewCardPayer(payload, order);
 
   const shipmentAddress = stored ? undefined : mercadoPagoPayerAddress(payload);

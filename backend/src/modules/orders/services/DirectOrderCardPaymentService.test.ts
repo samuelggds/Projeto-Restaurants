@@ -654,7 +654,6 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer']) {
       assert.ok(requestBody);
       assert.deepEqual(requestBody.payer, {
         customer_id: 'customer-mp-123',
-        email: 'pagador-cartao@example.test',
       });
       assert.equal(requestBody.items, undefined);
       assert.equal(requestBody.additional_info, undefined);
