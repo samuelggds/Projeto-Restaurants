@@ -44,6 +44,8 @@ type Option = {
   icon: 'pix' | 'bank' | 'card' | 'store' | 'cash';
 };
 
+const DEBIT_SUPPORT_COPY = 'Somente Elo e débito virtual CAIXA';
+
 const ONLINE_OPTIONS: Option[] = [
   {
     method: 'pix',
@@ -62,7 +64,7 @@ const ONLINE_OPTIONS: Option[] = [
   {
     method: 'debit_card',
     name: 'Cartão de débito',
-    description: 'Pagamento online no débito',
+    description: DEBIT_SUPPORT_COPY,
     color: '#3b6cf6',
     icon: 'card',
   },
@@ -424,7 +426,11 @@ export function PaymentOptions({
             <span className="method-icon"><CreditCard aria-hidden="true" /></span>
             <span className="method-copy">
               <span className="method-name">Cartão de débito</span>
-              {!allowDebitCard ? unavailableLabel : null}
+              {allowDebitCard ? (
+                <span className="method-detail">{DEBIT_SUPPORT_COPY}</span>
+              ) : (
+                unavailableLabel
+              )}
             </span>
             <span className="radio"><i /></span>
           </button>

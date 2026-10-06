@@ -177,11 +177,16 @@ export const FigmaPaymentOption = styled.button<{ $active: boolean; $disabled: b
     font-weight: 600;
   }
 
-  .unavailable {
+  .unavailable,
+  .method-detail {
     color: #9a958f;
     font-size: 10px;
     line-height: 13px;
     font-weight: 500;
+  }
+
+  .method-detail {
+    color: #6f6a64;
   }
 
   .recommended {
@@ -306,11 +311,16 @@ export const FigmaCardSection = styled.section<{ $active: boolean; $disabled: bo
     font-weight: 600;
   }
 
-  .unavailable {
+  .unavailable,
+  .method-detail {
     color: #9a958f;
     font-size: 10px;
     line-height: 13px;
     font-weight: 500;
+  }
+
+  .method-detail {
+    color: #6f6a64;
   }
 
   .radio {

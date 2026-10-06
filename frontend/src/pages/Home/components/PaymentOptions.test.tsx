@@ -159,6 +159,7 @@ describe('PaymentOptions', () => {
     expect(markup).toContain('PIX');
     expect(markup).toContain('Cartão de Crédito');
     expect(markup).toContain('Cartão de débito');
+    expect(markup).toContain('Somente Elo e débito virtual CAIXA');
     expect(markup).toContain('Dinheiro');
     expect(markup).not.toContain('Pix QR Code temporariamente indisponível');
     expect(markup).not.toContain('Cartão de Crédito temporariamente indisponível');
