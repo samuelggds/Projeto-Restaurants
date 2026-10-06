@@ -102,7 +102,27 @@ export const LoggedDesktopHeader = styled.header`
     font-size: 13px;
   }
 
-  nav b { color: #1f1e1a; }
+  nav a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  nav a:hover,
+  nav a:focus-visible,
+  nav a.active {
+    color: #1f1e1a;
+  }
+
+  nav a.active {
+    font-weight: 700;
+  }
+
+  nav a:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--checkout-primary) 28%, transparent);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
 
   @media (max-width: 760px) { display: none; }
 `;
