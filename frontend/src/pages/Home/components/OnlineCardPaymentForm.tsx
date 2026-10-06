@@ -193,7 +193,7 @@ export function OnlineCardPaymentForm({
           if (!token.id || !paymentMethodId) {
             throw new Error(
               paymentType === 'debit'
-                ? 'Este cartão não está disponível para débito online. Tente outro cartão ou escolha crédito.'
+                ? 'O débito online pelo Mercado Pago aceita somente cartões Elo e débito virtual CAIXA. Use um cartão compatível, crédito ou Pix.'
                 : 'Não foi possível identificar a bandeira do cartão. Revise os dados e tente novamente.',
             );
           }
@@ -329,6 +329,13 @@ export function OnlineCardPaymentForm({
           <span>Pagamento online protegido pelo provedor do restaurante.</span>
         </div>
       </header>
+
+      {paymentType === 'debit' && config?.provider === 'MERCADO_PAGO' ? (
+        <p className="debit-support" role="note">
+          <CircleAlert size={15} aria-hidden="true" />
+          Débito online: somente cartões Elo e débito virtual CAIXA são aceitos pelo Mercado Pago.
+        </p>
+      ) : null}
 
       <label className="full">
           <span>Nome impresso no cartão</span>
@@ -533,13 +540,25 @@ const CardForm = styled.section`
     border-color: var(--home-primary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-primary) 12%, transparent);
   }
-  .security {
+  .security,
+  .debit-support {
     margin: 0;
     display: flex;
     align-items: center;
     gap: 6px;
     color: #68706b;
     font-size: 10px;
+  }
+  .debit-support {
+    padding: 9px 10px;
+    border: 1px solid #eadfcb;
+    border-radius: 9px;
+    background: #fffaf1;
+    color: #725d39;
+    line-height: 1.4;
+  }
+  .debit-support svg {
+    flex: 0 0 auto;
   }
   .error-alert {
     display: flex;
