@@ -5,7 +5,6 @@ const profileViews = new Set<ProfileView>([
   'orders',
   'coupons',
   'addresses',
-  'paymentMethods',
   'loyalty',
   'help',
   'settings',

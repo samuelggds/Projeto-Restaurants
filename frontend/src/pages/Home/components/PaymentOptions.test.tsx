@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { getAvailablePaymentMethods } from '../domain/publicSettings';
-import { shouldShowSavedCardAccountNotice } from '../domain/paymentAccountNotice';
 import { PaymentOptions } from './PaymentOptions';
 
 describe('PaymentOptions', () => {
@@ -100,41 +99,7 @@ describe('PaymentOptions', () => {
     ).toEqual(['card']);
   });
 
-  it('solicita uma conta somente para cartão online de visitante', () => {
-    expect(shouldShowSavedCardAccountNotice(false, 'card')).toBe(true);
-    expect(shouldShowSavedCardAccountNotice(true, 'card')).toBe(false);
-    expect(shouldShowSavedCardAccountNotice(false, 'delivery_card')).toBe(false);
-    expect(shouldShowSavedCardAccountNotice(false, 'pix')).toBe(false);
-  });
-
-  it('mostra o atalho para cadastrar cartão somente para usuário logado', () => {
-    const loggedMarkup = renderToStaticMarkup(
-      <PaymentOptions
-        paymentMethod="pix"
-        allowPayOnDelivery
-        allowCard
-        onChange={() => undefined}
-        loggedIn
-        restaurantId={1}
-      />,
-    );
-    const guestMarkup = renderToStaticMarkup(
-      <PaymentOptions
-        paymentMethod="pix"
-        allowPayOnDelivery
-        allowCard
-        onChange={() => undefined}
-        loggedIn={false}
-        restaurantId={1}
-      />,
-    );
-
-    expect(loggedMarkup).toContain('Cadastrar cartão');
-    expect(loggedMarkup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
-    expect(guestMarkup).not.toContain('href="/profile?view=paymentMethods');
-  });
-
-  it('direciona o cadastro para a aba Meus cartões do perfil', () => {
+  it('usa o mesmo formulário completo de cartão para cliente logado', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions
         paymentMethod="card"
@@ -142,13 +107,19 @@ describe('PaymentOptions', () => {
         allowCard
         onChange={() => undefined}
         loggedIn
+        userEmail="cliente@teste.com"
         restaurantId={1}
+        figmaCheckout
       />,
     );
 
-    expect(markup).toContain('href="/profile?view=paymentMethods&amp;restaurantId=1"');
-    expect(markup).toContain('Cadastrar cartão para próximas compras');
+    expect(markup).toContain('Dados do cartão de crédito');
+    expect(markup).toContain('Nome impresso no cartão');
+    expect(markup).toContain('CPF/CNPJ do titular');
+    expect(markup).not.toContain('Cartões salvos');
+    expect(markup).not.toContain('Usar outro cartão');
   });
+
   it('mantém Pix e cartões visíveis e desabilitados no checkout Figma quando o gateway não está pronto', () => {
     const markup = renderToStaticMarkup(
       <PaymentOptions

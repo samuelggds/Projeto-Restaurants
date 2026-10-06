@@ -7,7 +7,6 @@ import { captureReadmeScreenshot } from './helpers/readmeScreenshot';
 test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', async ({ page }) => {
   let loyaltyRestaurantId = '';
   const quotePayloads: Array<Record<string, unknown>> = [];
-  const paymentCreatePayloads: Array<Record<string, unknown>> = [];
   const mfaPreferencePayloads: Array<Record<string, unknown>> = [];
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
@@ -160,51 +159,6 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
               state: 'CE',
               complement: 'Apto 302',
               isDefault: true,
-            },
-          ],
-        }),
-      });
-      return;
-    }
-
-    if (pathname === '/customer-payment-methods') {
-      if (route.request().method() === 'POST') {
-        const payload = route.request().postDataJSON() as Record<string, unknown>;
-        paymentCreatePayloads.push(payload);
-        await route.fulfill({
-          status: 201,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            paymentMethod: {
-              publicId: 'card-created',
-              provider: 'ASAAS',
-              brand: payload.brand || 'mastercard',
-              last4: payload.last4 || '4444',
-              expMonth: payload.expMonth || 12,
-              expYear: payload.expYear || 2030,
-              holderName: payload.holderName || 'Cliente Teste',
-              isDefault: false,
-            },
-          }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          paymentMethods: [
-            {
-              publicId: 'card-1',
-              provider: 'ASAAS',
-              brand: 'visa',
-              last4: '4242',
-              expMonth: 12,
-              expYear: 2030,
-              holderName: 'Cliente Teste',
-              isDefault: true,
-              createdAt: '2026-09-15T12:00:00.000Z',
             },
           ],
         }),
@@ -410,89 +364,6 @@ test('cliente consulta cupons válidos, histórico e o novo ciclo no perfil', as
   await expect(visibleProfileContent.getByText(/Rua Francisco Calaça/)).toBeVisible();
   await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
 
-  await page.getByRole('button', { name: /^Métodos de pagamento/ }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Cartões Salvos', exact: true }),
-  ).toBeVisible();
-  const savedCards = page.getByLabel('Cartões salvos');
-  const primaryVisa = savedCards.getByRole('button', {
-    name: 'Ver detalhes do cartão final 4242',
-  });
-  await expect(primaryVisa).toContainText('Visa');
-  await expect(primaryVisa).toContainText('4242');
-  await expect(primaryVisa).toContainText('Principal');
-  await expect(savedCards.getByRole('button', { name: 'Adicionar novo cartão' })).toBeVisible();
-
-  await primaryVisa.click();
-  await expect(page.getByRole('heading', { name: 'Detalhes do Cartão' })).toBeVisible();
-  const savedCardDetails = page.getByLabel('Detalhes do cartão salvo');
-  await expect(savedCardDetails).toContainText('Método de pagamento principal');
-  await expect(savedCardDetails).toContainText('Visa');
-  await expect(savedCardDetails).toContainText('4242');
-  await expect(savedCardDetails).toContainText('Cliente Teste');
-  await expect(savedCardDetails).toContainText('12/30');
-  await expect(savedCardDetails).toContainText('15 set 2026');
-  await expect(savedCardDetails.locator('.card-waves')).toBeVisible();
-  await expect(savedCardDetails.locator('.contactless-icon')).toBeVisible();
-  await expect(savedCardDetails.locator('img[alt="Visa"]')).toBeVisible();
-  await expect(savedCardDetails.getByRole('button', { name: 'Definir como principal' })).toBeDisabled();
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(savedCardDetails).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
-    .toBeLessThanOrEqual(391);
-  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
-  await page.setViewportSize({ width: 1280, height: 900 });
-
-  await page.getByRole('button', { name: 'Adicionar novo cartão' }).click();
-  await expect(page.getByRole('heading', { name: 'Adicionar Novo Cartão' })).toBeVisible();
-
-  await expect(page.getByText('North Pizza', { exact: true }).first()).toBeVisible();
-  await expect(page.locator('footer').filter({ hasText: 'North Pizza' }).last()).toContainText(
-    'North Pizza',
-  );
-  await expect(
-    page.locator('footer img[src="https://cdn.example.test/north-pizza-logo.png"]').last(),
-  ).toBeVisible();
-
-  // rodapé da nova tela usa a identidade dinâmica vinda das configurações do restaurante
-  const paymentForm = page.getByRole('form', { name: 'Cadastrar cartão' });
-  await expect(paymentForm.locator('.card-waves')).toBeVisible();
-  await expect(paymentForm.locator('.contactless-icon')).toBeVisible();
-  await expect(paymentForm.locator('.payment-chip')).toBeVisible();
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByText('Novo Cartão', { exact: true })).toBeVisible();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' })).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
-    .toBeLessThanOrEqual(391);
-  await page.setViewportSize({ width: 1280, height: 900 });
-
-  await paymentForm.getByLabel('Nome impresso no cartão').fill('CLIENTE TESTE');
-  await paymentForm.getByLabel('Número do cartão').fill('5555555555554444');
-  await expect(paymentForm.locator('img[alt="Mastercard"]').first()).toBeVisible();
-  await paymentForm.getByLabel('Validade').fill('1230');
-  await paymentForm.getByLabel('CVV').fill('123');
-  await expect(paymentForm.getByLabel('E-mail do pagador')).toHaveValue('cliente@teste.com');
-  await paymentForm.getByLabel('E-mail do pagador').fill('pagador-cartao@teste.com');
-  await paymentForm.getByLabel('CPF do titular').fill('12345678909');
-  await paymentForm.getByRole('button', { name: 'Salvar Novo Cartão' }).click();
-
-  await expect.poll(() => paymentCreatePayloads.length).toBe(1);
-  expect(paymentCreatePayloads[0]).toMatchObject({
-    restaurantId: 9,
-    holderName: 'CLIENTE TESTE',
-    payerEmail: 'pagador-cartao@teste.com',
-    holderTaxId: '123.456.789-09',
-    brand: 'mastercard',
-    last4: '4444',
-    expMonth: 12,
-    expYear: 2030,
-  });
-
-  await page.getByRole('main').getByRole('button', { name: 'Voltar para minha conta' }).click();
   await page.getByRole('button', { name: /^Meus Cupons/ }).click();
   await expect(page.getByRole('heading', { name: 'Meus Cupons', exact: true })).toBeVisible();
   const cliente10Coupons = visibleProfileContent

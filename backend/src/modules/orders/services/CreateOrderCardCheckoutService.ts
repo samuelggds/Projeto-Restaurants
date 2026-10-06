@@ -31,6 +31,7 @@ import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
+    paymentMethodId?: string | null;
     enforceSingleActiveOnlinePayment?: boolean;
   };
 
@@ -113,6 +114,13 @@ class CreateOrderCardCheckoutService {
       );
     }
     const normalizedPayload = { ...payload, cardPaymentType };
+    if (String(normalizedPayload.paymentMethodId || '').trim()) {
+      throw new OrderRequestError(
+        'Cartão salvo não está disponível. Informe os dados do cartão nesta compra.',
+        400,
+        'SAVED_CARD_DISABLED',
+      );
+    }
     if (cardPaymentType === 'debit' && !hasDirectCardPaymentPayload(normalizedPayload)) {
       throw new OrderRequestError(
         'Informe os dados do cartão de débito para continuar.',

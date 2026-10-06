@@ -5,10 +5,7 @@ import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { getMercadoPagoPreferenceApi } from '../../payments/providers/mercadoPagoClient.js';
 import { mercadoPagoOrderNotificationFields } from '../../payments/providers/mercadoPagoOrderNotification.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
-import prisma from '../../../config/prisma.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
-import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 
 type CheckoutOrder = {
@@ -57,7 +54,6 @@ export type CreateOrderCardCheckoutPayload = {
   successUrl?: string;
   cancelUrl?: string;
   couponRedemptionId?: number | string | null;
-  paymentMethodId?: string | null;
   customerIp?: string | null;
 };
 
@@ -189,33 +185,6 @@ async function fetchAsaasJson<T>(
 const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ payload, order, successUrlBase, cancelUrlBase }) {
     const preferenceApi = await getMercadoPagoPreferenceApi(order.restaurantId);
-    const savedMethodId = String(payload.paymentMethodId || '').trim();
-    let payerEmail = '';
-
-    if (savedMethodId) {
-      const userId = Number(payload.userId || 0);
-      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
-        db.customerPaymentMethod.findFirst({
-          where: {
-            publicId: savedMethodId,
-            userId,
-            restaurantId: order.restaurantId,
-            provider: 'MERCADO_PAGO',
-            active: true,
-          },
-        }),
-      );
-      if (!savedMethod?.providerCustomerId) {
-        throw new Error('O cartão selecionado não foi encontrado no Mercado Pago.');
-      }
-      const payer = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      });
-      payerEmail = String(payer?.email || '').trim();
-    }
-
     const preferenceBody = {
       items: [
         {
@@ -233,7 +202,6 @@ const mercadoPagoCardCheckoutProvider: CardCheckoutProviderHandler = {
         restaurant_id: String(order.restaurantId),
         source: 'order_card_checkout',
       },
-      ...(payerEmail ? { payer: { email: payerEmail } } : {}),
       ...mercadoPagoOrderNotificationFields(order.restaurantId),
       back_urls: {
         success: withQueryParam(successUrlBase, {
@@ -279,81 +247,6 @@ const asaasCardCheckoutProvider: CardCheckoutProviderHandler = {
   async createCheckout({ payload, order, successUrlBase }) {
     const asaasBaseUrl = resolveAsaasBaseUrl();
     const accessToken = await getAsaasAccessToken(order.restaurantId);
-    const savedMethodId = String(payload.paymentMethodId || '').trim();
-
-    if (savedMethodId) {
-      const userId = Number(payload.userId || 0);
-      if (!userId) throw new Error('Entre na sua conta para pagar com um cartão salvo.');
-      const savedMethod = await withTenantDbContext(order.restaurantId, (db) =>
-        db.customerPaymentMethod.findFirst({
-          where: {
-            publicId: savedMethodId,
-            userId,
-            restaurantId: order.restaurantId,
-            provider: 'ASAAS',
-            active: true,
-          },
-        }),
-      );
-      if (!savedMethod?.providerCustomerId) {
-        throw new Error('O cartão selecionado não foi encontrado no Asaas.');
-      }
-
-      const paymentResult = await fetchAsaasJson<AsaasCardPaymentPayload>(
-        `${asaasBaseUrl}/v3/payments`,
-        accessToken,
-        {
-          method: 'POST',
-          body: {
-            customer: savedMethod.providerCustomerId,
-            billingType: 'CREDIT_CARD',
-            value: Number(order.total || 0),
-            dueDate: new Date().toISOString().slice(0, 10),
-            description: `Pedido #${order.id}`,
-            externalReference: `ordercard:${order.id}:${order.restaurantId}`,
-            creditCardToken: savedMethod.providerPaymentMethodId,
-            remoteIp: String(payload.customerIp || '').trim() || undefined,
-          },
-        },
-      );
-
-      if (!paymentResult.ok) {
-        throw new Error(
-          getAsaasError(
-            paymentResult.responseBody,
-            'O Asaas recusou o pagamento com o cartão salvo.',
-          ),
-        );
-      }
-
-      const sessionId = String(paymentResult.responseBody?.id || '').trim();
-      const status = String(paymentResult.responseBody?.status || '')
-        .trim()
-        .toUpperCase();
-      if (!sessionId) throw new Error('O Asaas não retornou a identificação do pagamento.');
-      const paymentApproved =
-        ['CONFIRMED', 'RECEIVED'].includes(status) &&
-        String(paymentResult.responseBody?.billingType || '').toUpperCase() === 'CREDIT_CARD' &&
-        String(paymentResult.responseBody?.externalReference || '').trim() ===
-          `ordercard:${order.id}:${order.restaurantId}` &&
-        matchesOrderPaymentEvidence({
-          expectedAmount: order.total,
-          providerAmount: paymentResult.responseBody?.value,
-          providerCurrency: 'BRL',
-        });
-
-      return {
-        provider: CARD_PROVIDERS.ASAAS,
-        sessionId,
-        persistenceSessionId: `asaas_pay:${sessionId}`,
-        checkoutUrl: withQueryParam(successUrlBase, {
-          cardCheckoutStatus: paymentApproved ? 'success' : 'pending',
-          orderPublicId: order.publicId,
-        }),
-        paymentApproved,
-      };
-    }
-
     const payerEmail = String(payload.userId ? '' : '').trim();
     const customerName = String(payload.customerName || 'Cliente').trim();
     const cpf = String(payload.customerCpf || '').replace(/\D/g, '');

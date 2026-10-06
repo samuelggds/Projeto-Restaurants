@@ -9,6 +9,7 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 const originalHttpCreateServer = http.createServer;
 
@@ -43,7 +44,6 @@ const originalSetCardCheckoutSessionId = orderRepository.setCardCheckoutSessionI
 const originalDeleteById = orderRepository.deleteById;
 const originalCreatePaymentAttempt = orderPaymentAttemptRepository.createCardAttempt;
 const originalUpdatePaymentAttempt = orderPaymentAttemptRepository.update;
-const originalFindCustomerPaymentMethod = prisma.customerPaymentMethod.findFirst;
 const originalTransaction = prisma.$transaction;
 const originalQueryRaw = prisma.$queryRaw;
 const originalFetch = globalThis.fetch;
@@ -132,7 +132,6 @@ afterEach(() => {
   orderRepository.deleteById = originalDeleteById;
   orderPaymentAttemptRepository.createCardAttempt = originalCreatePaymentAttempt;
   orderPaymentAttemptRepository.update = originalUpdatePaymentAttempt;
-  prisma.customerPaymentMethod.findFirst = originalFindCustomerPaymentMethod;
   prisma.$transaction = originalTransaction;
   prisma.$queryRaw = originalQueryRaw;
   globalThis.fetch = originalFetch;
@@ -519,172 +518,40 @@ test('checkout Asaas usa somente a conta do restaurante e nunca envia split', as
   });
 });
 
-test('deve reutilizar token Asaas sem expor os dados completos do cartão', async () => {
-  let paymentBody = null;
-  let savedSessionId = null;
+test('rejeita cartão salvo antes de criar pedido ou chamar provedor', async () => {
+  let createOrderCalls = 0;
+  let providerCalls = 0;
 
   restaurantSettingsRepository.findByRestaurantId = async () => ({
-    cardGateway: 'ASAAS',
-    asaasAccessToken: 'asaas-token-restaurante',
+    cardGateway: 'MERCADO_PAGO',
+    ...readyMercadoPagoSettings(),
   });
-  createOrderService.execute = async () => ({
-    id: 655,
-    restaurantId: 9,
-    total: 89.9,
-    systemFee: 0,
-    restaurant: { name: 'Pizzaria da Ana' },
-  });
-  prisma.customerPaymentMethod.findFirst = async () => ({
-    publicId: 'saved-card-public-id',
-    providerCustomerId: 'cus_saved_001',
-    providerPaymentMethodId: 'tok_saved_001',
-    active: true,
-  });
-  orderRepository.setCardCheckoutSessionId = async (_orderId, _restaurantId, sessionId) => {
-    savedSessionId = sessionId;
+  createOrderService.execute = async () => {
+    createOrderCalls += 1;
+    throw new Error('não deveria criar pedido');
   };
-  globalThis.fetch = async (input, init = {}) => {
-    assert.match(String(input), /\/v3\/payments$/);
-    paymentBody = JSON.parse(String(init.body || '{}'));
-    return new Response(JSON.stringify({ id: 'pay_saved_001', status: 'PENDING' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  globalThis.fetch = async () => {
+    providerCalls += 1;
+    return Response.json({}, { status: 500 });
   };
 
-  const result = await createOrderCardCheckoutService.execute({
-    userId: 33,
-    restaurantId: 9,
-    userRestaurantId: 9,
-    type: 'DELIVERY',
-    paymentMethod: 'CARTAO',
-    paymentMethodId: 'saved-card-public-id',
-    customerIp: '203.0.113.42',
-    items: [{ productId: 1, quantity: 1 }],
-    successUrl: 'https://pedido.local/sucesso',
-  });
+  await assert.rejects(
+    createOrderCardCheckoutService.execute({
+      userId: 33,
+      restaurantId: 9,
+      userRestaurantId: 9,
+      type: 'DELIVERY',
+      paymentMethod: 'CARTAO',
+      paymentMethodId: 'saved-card-public-id',
+      items: [{ productId: 1, quantity: 1 }],
+      successUrl: 'https://pedido.local/sucesso',
+    }),
+    (error) =>
+      error instanceof OrderRequestError &&
+      error.code === 'SAVED_CARD_DISABLED' &&
+      /Cartão salvo não está disponível/iu.test(error.message),
+  );
 
-  assert.equal(result.provider, 'ASAAS');
-  assert.equal(result.sessionId, 'pay_saved_001');
-  assert.equal(result.paid, false);
-  assert.equal(savedSessionId, 'asaas_pay:pay_saved_001');
-  assert.deepEqual(paymentBody, {
-    customer: 'cus_saved_001',
-    billingType: 'CREDIT_CARD',
-    value: 89.9,
-    dueDate: new Date().toISOString().slice(0, 10),
-    description: 'Pedido #655',
-    externalReference: 'ordercard:655:9',
-    creditCardToken: 'tok_saved_001',
-    remoteIp: '203.0.113.42',
-  });
-});
-
-test('não confirma cartão salvo Asaas com valor divergente na resposta aprovada', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async () => ({
-    cardGateway: 'ASAAS',
-    asaasAccessToken: 'asaas-token-restaurante',
-  });
-  createOrderService.execute = async () => ({
-    id: 656,
-    restaurantId: 9,
-    total: 89.9,
-    systemFee: 0,
-    restaurant: { name: 'Pizzaria da Ana' },
-  });
-  prisma.customerPaymentMethod.findFirst = async () => ({
-    publicId: 'saved-card-public-id',
-    providerCustomerId: 'cus_saved_001',
-    providerPaymentMethodId: 'tok_saved_001',
-    active: true,
-  });
-  orderRepository.setCardCheckoutSessionId = async () => null;
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        id: 'pay_saved_002',
-        status: 'CONFIRMED',
-        value: 0.01,
-        billingType: 'CREDIT_CARD',
-        externalReference: 'ordercard:656:9',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
-
-  let finalizeCalls = 0;
-  finalizeOrderCardPaymentService.execute = async () => {
-    finalizeCalls += 1;
-    return null;
-  };
-
-  const result = await createOrderCardCheckoutService.execute({
-    userId: 33,
-    restaurantId: 9,
-    userRestaurantId: 9,
-    type: 'DELIVERY',
-    paymentMethod: 'CARTAO',
-    paymentMethodId: 'saved-card-public-id',
-    items: [{ productId: 1, quantity: 1 }],
-    successUrl: 'https://pedido.local/sucesso',
-  });
-
-  assert.equal(result.paid, false);
-  assert.equal(finalizeCalls, 0);
-});
-
-test('retorna paid somente quando a finalização canônica confirma o cartão', async () => {
-  restaurantSettingsRepository.findByRestaurantId = async () => ({
-    cardGateway: 'ASAAS',
-    asaasAccessToken: 'asaas-token-restaurante',
-  });
-  createOrderService.execute = async () => ({
-    id: 658,
-    restaurantId: 9,
-    total: 89.9,
-    systemFee: 0,
-    restaurant: { name: 'Pizzaria da Ana' },
-  });
-  prisma.customerPaymentMethod.findFirst = async () => ({
-    publicId: 'saved-card-public-id',
-    providerCustomerId: 'cus_saved_001',
-    providerPaymentMethodId: 'tok_saved_001',
-    active: true,
-  });
-  orderRepository.setCardCheckoutSessionId = async () => null;
-  globalThis.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        id: 'pay_saved_003',
-        status: 'CONFIRMED',
-        value: 89.9,
-        billingType: 'CREDIT_CARD',
-        externalReference: 'ordercard:658:9',
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    );
-
-  let canonicalPaid = false;
-  let finalizeCalls = 0;
-  finalizeOrderCardPaymentService.execute = async () => {
-    finalizeCalls += 1;
-    return { paid: canonicalPaid };
-  };
-  const payload = {
-    userId: 33,
-    restaurantId: 9,
-    userRestaurantId: 9,
-    type: 'DELIVERY',
-    paymentMethod: 'CARTAO',
-    paymentMethodId: 'saved-card-public-id',
-    items: [{ productId: 1, quantity: 1 }],
-    successUrl: 'https://pedido.local/sucesso',
-  };
-
-  const unresolvedResult = await createOrderCardCheckoutService.execute(payload);
-  assert.equal(unresolvedResult.paid, false);
-
-  canonicalPaid = true;
-  const paidResult = await createOrderCardCheckoutService.execute(payload);
-  assert.equal(paidResult.paid, true);
-  assert.equal(finalizeCalls, 2);
+  assert.equal(createOrderCalls, 0);
+  assert.equal(providerCalls, 0);
 });

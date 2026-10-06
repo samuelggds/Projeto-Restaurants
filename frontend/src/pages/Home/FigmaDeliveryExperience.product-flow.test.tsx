@@ -73,7 +73,7 @@ describe('FigmaDeliveryExperience product flow', () => {
     expect(dialog).toBeTruthy();
     expect(dialog?.textContent).toContain('Meus pedidos');
     expect(dialog?.textContent).toContain('Endereços salvos');
-    expect(dialog?.textContent).toContain('Métodos de pagamento');
+    expect(dialog?.textContent).not.toContain('Métodos de pagamento');
     expect(dialog?.textContent).toContain('Meus Cupons');
     expect(dialog?.textContent).toContain('Programa de Fidelidade');
     expect(dialog?.textContent).toContain('Ajuda e suporte');

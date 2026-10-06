@@ -9,7 +9,6 @@ import {
   Star,
   TicketPercent,
   UserRound,
-  WalletCards,
   X,
 } from 'lucide-react';
 import type { CustomerAddress } from '../../../Services/customerAddressService';
@@ -110,11 +109,6 @@ export function ProfileQuickMenuOverlay({
             <MapPin aria-hidden="true" />
             <span>Endereços salvos</span>
             <em>{addressCount}</em>
-            <ChevronRight aria-hidden="true" />
-          </button>
-          <button type="button" onClick={() => onOpenDestination('paymentMethods')}>
-            <WalletCards aria-hidden="true" />
-            <span>Métodos de pagamento</span>
             <ChevronRight aria-hidden="true" />
           </button>
           <button type="button" onClick={() => onOpenDestination('coupons')}>

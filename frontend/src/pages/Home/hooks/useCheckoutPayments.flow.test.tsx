@@ -2,7 +2,6 @@ import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ordersService from '../../../Services/ordersService';
-import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
 import { setCardPaymentPreparer } from '../domain/cardPaymentPreparation';
 import { getCheckoutErrorMessage, useCheckoutPayments } from './useCheckoutPayments';
 
@@ -15,10 +14,6 @@ vi.mock('../../../Services/ordersService', () => ({
     confirmPixPayment: vi.fn(),
     getCardPaymentStatus: vi.fn(),
   },
-}));
-
-vi.mock('../../../Services/customerPaymentMethodService', () => ({
-  default: { list: vi.fn().mockResolvedValue([]) },
 }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
@@ -58,7 +53,6 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    vi.mocked(customerPaymentMethodService.list).mockReset().mockResolvedValue([]);
     onPaymentConfirmed.mockReset();
     onActivePaymentExists.mockReset();
     vi.mocked(ordersService.getPixPaymentStatus).mockReset();
@@ -106,17 +100,6 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
   it.each(['CVV inválido', 'Falha ao proteger o cartão', 'sem formulário'])(
     'interrompe pagamento de mesa quando a preparação falha: %s',
     async (reason) => {
-      vi.mocked(customerPaymentMethodService.list).mockResolvedValueOnce([{
-        publicId: 'saved-card',
-        provider: 'MERCADO_PAGO',
-        providerCardId: 'provider-card',
-        brand: 'master',
-        last4: '0829',
-        expMonth: 12,
-        expYear: 2030,
-        holderName: 'Cliente Teste',
-        isDefault: true,
-      }]);
       setCardPaymentPreparer(reason === 'sem formulário' ? null : async () => {
         throw new Error(reason);
       });
@@ -130,15 +113,17 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
 
       expect(completed).toBe(false);
       expect(ordersService.createCardCheckout).not.toHaveBeenCalled();
-      expect(customerPaymentMethodService.list).not.toHaveBeenCalled();
       expect(onPaymentConfirmed).not.toHaveBeenCalled();
     },
   );
 
-  it.each([
-    { paymentMethodId: 'saved-mp', cardToken: 'fresh-cvv-token', cardPaymentType: 'credit' as const },
-    { paymentMethodId: 'saved-asaas', cardPaymentType: 'credit' as const },
-  ])('encaminha o cartão preparado explicitamente para o pagamento de mesa: %j', async (card) => {
+  it('encaminha somente cartão digitado para o pagamento de mesa', async () => {
+    const card = {
+      cardToken: 'fresh-card-token',
+      cardPaymentMethodId: 'master',
+      cardPaymentType: 'credit' as const,
+      payerEmail: 'cliente@example.test',
+    };
     setCardPaymentPreparer(async () => card);
     vi.mocked(ordersService.createCardCheckout).mockResolvedValueOnce({
       orderId: 91,
@@ -152,7 +137,9 @@ describe('useCheckoutPayments confirmação canônica do Pix', () => {
     });
 
     expect(ordersService.createCardCheckout).toHaveBeenCalledWith(expect.objectContaining(card));
-    expect(customerPaymentMethodService.list).not.toHaveBeenCalled();
+    expect(ordersService.createCardCheckout).not.toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethodId: expect.anything() }),
+    );
   });
 
   it.each(['pix', 'card'] as const)(

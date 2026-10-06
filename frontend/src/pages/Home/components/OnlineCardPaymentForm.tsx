@@ -6,7 +6,6 @@ import {
   selectMercadoPagoPaymentMethod,
   type CardPaymentType,
 } from '../domain/cardPayment';
-import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
 import publicCardPaymentService, {
   type PublicCardPaymentConfig,
 } from '../../../Services/publicCardPaymentService';
@@ -68,19 +67,17 @@ function parseExpiry(value: string) {
 
 export function OnlineCardPaymentForm({
   restaurantId,
-  savedCard,
   payerEmail: initialPayerEmail = '',
   paymentType = 'credit',
   onPreparerChange,
 }: {
   restaurantId: number;
-  savedCard?: CustomerPaymentMethod | null;
   payerEmail?: string;
   paymentType?: CardPaymentType;
   onPreparerChange: (preparer: CardPaymentPreparer | null) => void;
 }) {
   const [config, setConfig] = useState<PublicCardPaymentConfig | null>(null);
-  const [holder, setHolder] = useState(savedCard?.holderName || '');
+  const [holder, setHolder] = useState('');
   const [number, setNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
@@ -91,8 +88,6 @@ export function OnlineCardPaymentForm({
   const [error, setError] = useState('');
   const [mercadoPagoPaymentMethodId, setMercadoPagoPaymentMethodId] = useState('');
   const mercadoPagoRef = useRef<MercadoPagoInstance | null>(null);
-  const isSaved = Boolean(savedCard);
-  const isSavedMercadoPago = savedCard?.provider === 'MERCADO_PAGO';
 
   useEffect(() => {
     let active = true;
@@ -125,38 +120,32 @@ export function OnlineCardPaymentForm({
         if (!active || !window.MercadoPago || !config.publicKey) return;
         const mp = new window.MercadoPago(config.publicKey);
         mercadoPagoRef.current = mp;
-        if (isSavedMercadoPago) {
-          const security = mp.fields.create('securityCode', { placeholder: 'CVV' });
-          security.mount('checkout-mp-security-code');
-          mounted.push(security);
-        } else {
-          const cardNumber = mp.fields.create('cardNumber', { placeholder: 'Número do cartão' });
-          cardNumber.on?.('binChange', ({ bin }) => {
-            const normalizedBin = String(bin || '')
-              .replace(/\D/g, '')
-              .slice(0, 8);
-            if (!active) return;
-            setMercadoPagoPaymentMethodId('');
-            if (normalizedBin.length < 6) return;
-            void mp
-              .getPaymentMethods({ bin: normalizedBin })
-              .then((response) => {
-                if (!active) return;
-                setMercadoPagoPaymentMethodId(
-                  selectMercadoPagoPaymentMethod(response.results, paymentType),
-                );
-              })
-              .catch(() => {
-                if (active) setMercadoPagoPaymentMethodId('');
-              });
-          });
-          const expiration = mp.fields.create('expirationDate', { placeholder: 'MM/AA' });
-          const security = mp.fields.create('securityCode', { placeholder: 'CVV' });
-          cardNumber.mount('checkout-mp-card-number');
-          expiration.mount('checkout-mp-expiration');
-          security.mount('checkout-mp-security-code');
-          mounted.push(cardNumber, expiration, security);
-        }
+        const cardNumber = mp.fields.create('cardNumber', { placeholder: 'Número do cartão' });
+        cardNumber.on?.('binChange', ({ bin }) => {
+          const normalizedBin = String(bin || '')
+            .replace(/\D/g, '')
+            .slice(0, 8);
+          if (!active) return;
+          setMercadoPagoPaymentMethodId('');
+          if (normalizedBin.length < 6) return;
+          void mp
+            .getPaymentMethods({ bin: normalizedBin })
+            .then((response) => {
+              if (!active) return;
+              setMercadoPagoPaymentMethodId(
+                selectMercadoPagoPaymentMethod(response.results, paymentType),
+              );
+            })
+            .catch(() => {
+              if (active) setMercadoPagoPaymentMethodId('');
+            });
+        });
+        const expiration = mp.fields.create('expirationDate', { placeholder: 'MM/AA' });
+        const security = mp.fields.create('securityCode', { placeholder: 'CVV' });
+        cardNumber.mount('checkout-mp-card-number');
+        expiration.mount('checkout-mp-expiration');
+        security.mount('checkout-mp-security-code');
+        mounted.push(cardNumber, expiration, security);
       })
       .catch(() => {
         if (active) setError('Não foi possível carregar a proteção do Mercado Pago.');
@@ -167,7 +156,7 @@ export function OnlineCardPaymentForm({
       mercadoPagoRef.current = null;
       setMercadoPagoPaymentMethodId('');
     };
-  }, [config, isSavedMercadoPago, paymentType, savedCard?.publicId, savedCard?.providerCardId]);
+  }, [config, paymentType]);
 
 
   useEffect(() => {
@@ -179,50 +168,6 @@ export function OnlineCardPaymentForm({
     const prepare: CardPaymentPreparer = async () => {
       setError('');
       try {
-        if (savedCard) {
-          if (paymentType === 'debit') {
-            throw new Error(
-              'Para pagar no débito, informe o cartão nesta compra. Cartões salvos continuam disponíveis no crédito.',
-            );
-          }
-          if (savedCard.provider !== config.provider) {
-            throw new Error('O cartão salvo não pertence ao provedor atual do restaurante.');
-          }
-          if (config.provider === 'MERCADO_PAGO') {
-            const mp = mercadoPagoRef.current;
-            if (!savedCard.providerCardId || !mp) {
-              throw new Error('Aguarde a preparação segura do cartão salvo.');
-            }
-            const ensureSelectedCard = () => {
-              if (mercadoPagoRef.current !== mp) {
-                throw new Error('O cartão selecionado mudou. Informe o CVV e tente novamente.');
-              }
-            };
-            const mercadoPagoDeviceId = await requireMercadoPagoDeviceSession();
-            ensureSelectedCard();
-            const token = await mp.fields.createCardToken({
-              cardId: savedCard.providerCardId,
-            });
-            ensureSelectedCard();
-            if (!token.id) throw new Error('Não foi possível validar o CVV do cartão salvo.');
-            return {
-              paymentMethodId: savedCard.publicId,
-              cardToken: token.id,
-              cardPaymentMethodId: String(token.payment_method_id || savedCard.brand).trim(),
-              cardPaymentType: 'credit',
-              cardBrand: savedCard.brand,
-              cardLast4: savedCard.last4,
-              mercadoPagoDeviceId,
-            };
-          }
-          return {
-            paymentMethodId: savedCard.publicId,
-            cardPaymentType: 'credit',
-            cardBrand: savedCard.brand,
-            cardLast4: savedCard.last4,
-          };
-        }
-
         const holderName = holder.trim();
         const holderTaxId = digits(taxId);
         if (holderName.length < 2) throw new Error('Informe o nome impresso no cartão.');
@@ -369,45 +314,25 @@ export function OnlineCardPaymentForm({
     onPreparerChange,
     payerEmail,
     postalCode,
-    savedCard,
     taxId,
     paymentType,
   ]);
 
-  if (isSaved && config?.provider !== 'MERCADO_PAGO') {
-    return (
-      <SecureHint>
-        <LockKeyhole size={17} />
-        <span>
-          <b>Cartão protegido e pronto para uso</b>
-          <small>O pagamento será processado online usando o token seguro salvo no provedor.</small>
-        </span>
-      </SecureHint>
-    );
-  }
-
   return (
-    <CardForm aria-label={isSaved ? 'Confirmar cartão salvo' : 'Dados do cartão'}>
+    <CardForm aria-label="Dados do cartão">
       <header>
         <CreditCard size={20} />
         <div>
           <b>
-            {isSaved
-              ? 'Confirme seu cartão salvo'
-              : paymentType === 'debit'
-                ? 'Dados do cartão de débito'
-                : 'Dados do cartão de crédito'}
+            {paymentType === 'debit'
+              ? 'Dados do cartão de débito'
+              : 'Dados do cartão de crédito'}
           </b>
-          <span>
-            {isSaved
-              ? `Final ${savedCard?.last4}. Informe somente o código de segurança.`
-              : 'Pagamento online protegido pelo provedor do restaurante.'}
-          </span>
+          <span>Pagamento online protegido pelo provedor do restaurante.</span>
         </div>
       </header>
 
-      {!isSaved && (
-        <label className="full">
+      <label className="full">
           <span>Nome impresso no cartão</span>
           <input
             autoComplete="cc-name"
@@ -415,30 +340,25 @@ export function OnlineCardPaymentForm({
             onChange={(event) => setHolder(event.target.value.slice(0, 60))}
           />
         </label>
-      )}
 
       {config?.provider === 'MERCADO_PAGO' ? (
         <>
-          {!isSaved && (
-            <label className="full">
+          <label className="full">
               <span>Número do cartão</span>
               <div id="checkout-mp-card-number" className="secure-field" />
             </label>
-          )}
           <div className="row">
-            {!isSaved && (
-              <label>
+            <label>
                 <span>Validade</span>
                 <div id="checkout-mp-expiration" className="secure-field" />
               </label>
-            )}
-            <label className={isSaved ? 'full' : undefined}>
+            <label>
               <span>CVV</span>
               <div id="checkout-mp-security-code" className="secure-field" />
             </label>
           </div>
         </>
-      ) : !isSaved ? (
+      ) : (
         <>
           <label className="full">
             <span>Número do cartão</span>
@@ -487,9 +407,9 @@ export function OnlineCardPaymentForm({
             </label>
           </div>
         </>
-      ) : null}
+      )}
 
-      {!isSaved && (config?.provider === 'MERCADO_PAGO' || config?.provider === 'PAGARME') && (
+      {(config?.provider === 'MERCADO_PAGO' || config?.provider === 'PAGARME') && (
         <label className="full">
           <span>E-mail do comprador</span>
           <input
@@ -502,8 +422,7 @@ export function OnlineCardPaymentForm({
         </label>
       )}
 
-      {!isSaved && (
-        <label className="full">
+      <label className="full">
           <span>CPF/CNPJ do titular</span>
           <input
             inputMode="numeric"
@@ -512,9 +431,8 @@ export function OnlineCardPaymentForm({
             placeholder="Somente números"
           />
         </label>
-      )}
 
-      {!isSaved && (config?.provider === 'ASAAS' || config?.provider === 'PAGARME') && (
+      {(config?.provider === 'ASAAS' || config?.provider === 'PAGARME') && (
         <div className="row">
           <label>
             <span>CEP do titular</span>
@@ -665,28 +583,5 @@ const CardForm = styled.section`
     .row {
       grid-template-columns: 1fr;
     }
-  }
-`;
-
-const SecureHint = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 12px;
-  border: 1px solid #d9e6dc;
-  border-radius: 12px;
-  color: #226438;
-  background: #f8fcf9;
-  span {
-    display: grid;
-    gap: 2px;
-  }
-  b {
-    font-size: 11px;
-  }
-  small {
-    color: #617068;
-    font-size: 10px;
-    line-height: 1.35;
   }
 `;

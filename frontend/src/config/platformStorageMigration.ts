@@ -8,6 +8,14 @@ export function migratePlatformStorage(storage: Storage) {
     const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index));
     for (const key of keys) {
       if (!key) continue;
+      if (
+        key === '@PecaJaFood:cardPaymentWallet' ||
+        key === '@GastroNexa:cardPaymentWallet' ||
+        key.startsWith('selectedCustomerPaymentMethodId:')
+      ) {
+        storage.removeItem(key);
+        continue;
+      }
       const prefix = prefixes.find(([previous]) => key.startsWith(previous));
       if (!prefix) continue;
       const nextKey = prefix[1] + key.slice(prefix[0].length);

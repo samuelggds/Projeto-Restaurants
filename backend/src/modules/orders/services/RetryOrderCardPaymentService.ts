@@ -93,6 +93,13 @@ class RetryOrderCardPaymentService {
       }
     }
 
+    if (String(payload.paymentMethodId || '').trim()) {
+      throw new OrderRequestError(
+        'Cartão salvo não está disponível. Informe os dados do cartão novamente.',
+        400,
+        'SAVED_CARD_DISABLED',
+      );
+    }
     if (!hasDirectCardPaymentPayload(payload)) {
       throw new OrderRequestError('Informe os dados do cartão para tentar novamente.', 400);
     }

@@ -206,7 +206,6 @@ export type HomeData = {
 export type HomeProfileView =
   | 'orders'
   | 'addresses'
-  | 'paymentMethods'
   | 'coupons'
   | 'loyalty'
   | 'help'

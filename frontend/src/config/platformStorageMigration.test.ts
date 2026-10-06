@@ -5,19 +5,22 @@ import { applyRestaurantBrowserBranding } from './browserBranding';
 
 describe('identidade GastroNexa e preferências existentes', () => {
   beforeEach(() => localStorage.clear());
-  it('migra preferências sem substituir as já gravadas na nova versão', () => {
+  it('migra preferências válidas e remove referências legadas de cartões salvos', () => {
     localStorage.setItem('@PecaJaFood:cardPaymentWallet', 'saved-card-references');
+    localStorage.setItem('@GastroNexa:cardPaymentWallet', 'saved-card-references');
+    localStorage.setItem('selectedCustomerPaymentMethodId:9', 'saved-card-public-id');
     localStorage.setItem('pecajaf:remembered-account:v2:admin:north-pizza', 'owner@example.test');
     localStorage.setItem('@PecaJaFood:floatingActionsPosition', 'old-position');
     localStorage.setItem('@GastroNexa:floatingActionsPosition', 'current-position');
     migratePlatformStorage(localStorage);
     migratePlatformStorage(localStorage);
-    expect(localStorage.getItem('@GastroNexa:cardPaymentWallet')).toBe('saved-card-references');
+    expect(localStorage.getItem('@GastroNexa:cardPaymentWallet')).toBeNull();
+    expect(localStorage.getItem('@PecaJaFood:cardPaymentWallet')).toBeNull();
+    expect(localStorage.getItem('selectedCustomerPaymentMethodId:9')).toBeNull();
     expect(localStorage.getItem('gastronexa:remembered-account:v2:admin:north-pizza')).toBe(
       'owner@example.test',
     );
     expect(localStorage.getItem('@GastroNexa:floatingActionsPosition')).toBe('current-position');
-    expect(localStorage.getItem('@PecaJaFood:cardPaymentWallet')).toBeNull();
   });
   it('usa GastroNexa por padrão e mantém o restaurante personalizado', () => {
     expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.svg' });
