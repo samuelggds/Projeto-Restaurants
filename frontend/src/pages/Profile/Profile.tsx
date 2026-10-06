@@ -19,10 +19,6 @@ import { buildReorderCart, findOrderByDisplayId } from '../Profile/domain/reorde
 import { readJsonStorage } from '../../shared/storage/jsonStorage';
 import type { CartItem } from '../Home/hooks/useCart';
 import type { LoyaltySummary } from '../Home/types';
-import customerPaymentMethodService, {
-  type CustomerPaymentMethod,
-} from '../../Services/customerPaymentMethodService';
-import { PaymentMethodModal } from './components/PaymentMethodModal';
 import { resolveProfileView } from './domain/profileView';
 import {
   buildProfileRestaurantHomePath,
@@ -46,8 +42,6 @@ export default function Profile() {
     [activeOrders, history.orders],
   );
   const [addresses, setAddresses] = useState<Record<string, unknown>[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<CustomerPaymentMethod[]>([]);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [supportOrderId, setSupportOrderId] = useState<number | null>(null);
   const [addressModalOpen, setAddressModalOpen] = useState(
@@ -217,23 +211,6 @@ export default function Profile() {
       release();
     };
   }, [refreshHistory, refreshActiveOrders, user?.role]);
-
-  const loadPaymentMethods = useCallback(async () => {
-    if (!restaurantId) {
-      setPaymentMethods([]);
-      return;
-    }
-    try {
-      setPaymentMethods(await customerPaymentMethodService.list(restaurantId));
-    } catch {
-      setPaymentMethods([]);
-    }
-  }, [restaurantId]);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void loadPaymentMethods(), 0);
-    return () => window.clearTimeout(timeout);
-  }, [loadPaymentMethods]);
 
   useEffect(() => {
     let active = true;
@@ -420,7 +397,6 @@ export default function Profile() {
           ...data,
           user: {
             ...data.user,
-            paymentLastDigits: paymentMethods.find((method) => method.isDefault)?.last4,
           },
         }}
         initialView={resolvedProfileView}
@@ -448,21 +424,6 @@ export default function Profile() {
         onDeactivateAccount={handleDeactivateAccount}
         onNewAddress={() => setAddressModalOpen(true)}
         onSelectAddress={selectAddress}
-        paymentMethods={paymentMethods}
-        onEditPayment={() => setPaymentModalOpen(true)}
-        onAddPaymentMethod={() => setPaymentModalOpen(true)}
-        onSelectPaymentMethod={async (publicId) => {
-          if (!restaurantId) return;
-          await customerPaymentMethodService.makeDefault(publicId, restaurantId);
-          await loadPaymentMethods();
-          toast.success('Cartão principal atualizado.');
-        }}
-        onRemovePaymentMethod={async (publicId) => {
-          if (!restaurantId) return;
-          await customerPaymentMethodService.remove(publicId, restaurantId);
-          await loadPaymentMethods();
-          toast.success('Cartão removido.');
-        }}
         onTrackOrder={handleTrackOrder}
         onViewOrder={handleTrackOrder}
         onContinuePayment={handleContinuePayment}
@@ -491,35 +452,6 @@ export default function Profile() {
       />
       {addressModalOpen && (
         <AddressModal onClose={() => setAddressModalOpen(false)} onSave={saveAddress} />
-      )}
-      {paymentModalOpen && restaurantId && (
-        <PaymentMethodModal
-          restaurantId={restaurantId}
-          restaurantName={data.brand.name}
-          restaurantLogoUrl={data.brand.logoUrl}
-          restaurantDescription={data.brand.description}
-          userAvatarUrl={data.user.avatarUrl}
-          userName={data.user.fullName || data.user.firstName}
-          userEmail={String(user?.email || '')}
-          primaryColor={data.brand.primaryColor}
-          cartCount={storedCartCount}
-          onGoHome={() => navigate(restaurantHomePath)}
-          onOpenSearch={() => navigate(restaurantHomePath, { state: { openSearch: true } })}
-          onOpenCart={() => navigate(restaurantHomePath, { state: { openCart: true } })}
-          onCoupons={() => navigate('/profile?view=coupons')}
-          onHelp={() => navigate('/profile?view=help')}
-          onSupport={() => {
-            setPaymentModalOpen(false);
-            setSupportOrderId(null);
-            setSupportOpen(true);
-          }}
-          onClose={() => setPaymentModalOpen(false)}
-          onSaved={() => {
-            setPaymentModalOpen(false);
-            void loadPaymentMethods();
-            toast.success('Cartão cadastrado com segurança.');
-          }}
-        />
       )}
     </>
   );
