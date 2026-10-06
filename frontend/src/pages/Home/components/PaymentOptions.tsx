@@ -203,7 +203,6 @@ export function PaymentOptions({
   allowDebitCard = false,
   onChange,
   restaurantId,
-  loggedIn = false,
   userEmail = '',
   onCardPreparerChange,
   figmaCheckout = false,
