@@ -158,10 +158,6 @@ async function mockDebitCheckout(page: Page) {
       });
     }
 
-    if (pathname === '/customer-payment-methods') {
-      return json(route, { paymentMethods: [] });
-    }
-
     if (pathname === '/coupons/loyalty') {
       return json(route, { restaurantId: RESTAURANT_ID, rewards: [], redemptions: [] });
     }
