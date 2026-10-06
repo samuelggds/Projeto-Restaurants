@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { CartItem } from '../hooks/useCart';
+import { buildTenantPublicPath } from '../../../shared/navigation/authNavigation';
 import * as S from './FigmaPaymentCheckout.styles';
 
 const money = (value: number) =>
@@ -10,6 +11,7 @@ type Props = {
   primaryColor: string;
   loggedIn: boolean;
   brandName: string;
+  restaurantSlug?: string;
   logoUrl?: string;
   cart: CartItem[];
   cartCount: number;
@@ -29,6 +31,7 @@ export function FigmaPaymentCheckout({
   primaryColor,
   loggedIn,
   brandName,
+  restaurantSlug,
   logoUrl,
   cart,
   cartCount,
@@ -43,6 +46,8 @@ export function FigmaPaymentCheckout({
   disabled = false,
   loading = false,
 }: Props) {
+  const menuHref = `${buildTenantPublicPath(restaurantSlug)}#cardapio`;
+
   return (
     <S.Page $primary={primaryColor} role="dialog" aria-modal="true" aria-label="Finalizar pedido">
       <S.MobileHeader>
@@ -61,10 +66,9 @@ export function FigmaPaymentCheckout({
             <b>{brandName.trim() || 'Restaurante'}</b>
           </div>
           <nav aria-label="Navegação do cliente">
-            <span>Cardápio</span>
-            <span>Cupons</span>
-            <span>Suporte</span>
-            <b>Minha Conta</b>
+            <a href={menuHref}>Cardápio</a>
+            <a href="/profile?support=1">Suporte</a>
+            <a className="active" href="/profile">Minha Conta</a>
           </nav>
         </S.LoggedDesktopHeader>
       ) : null}
