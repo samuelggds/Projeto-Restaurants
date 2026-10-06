@@ -31,6 +31,7 @@ import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
+    paymentMethodId?: string | null;
     enforceSingleActiveOnlinePayment?: boolean;
   };
 
