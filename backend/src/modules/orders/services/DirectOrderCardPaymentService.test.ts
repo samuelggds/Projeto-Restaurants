@@ -48,7 +48,7 @@ test('rastreia recusa com referência e códigos sem logar segredos nem texto do
   }, { status: 402, headers: { 'x-request-id': 'mp-request-001' } });
   await assert.rejects(directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
-    payload: { cardToken: 'secret-card-token', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test' },
+    payload: { cardToken: 'secret-card-token', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test', mercadoPagoDeviceId: 'test-device-session' },
     order: { id: 500, publicId: 'order-500', restaurantId: 7, total: 10 },
     successUrlBase: 'https://pedido.local',
     idempotencyKey: '11111111-1111-4111-8111-111111111111',
@@ -63,7 +63,7 @@ test('rastreia recusa com referência e códigos sem logar segredos nem texto do
   });
   assert.equal(events.length, 1);
   assert.equal(events[0].cardSource, 'new_card');
-  assert.equal(events[0].hasDeviceSession, false);
+  assert.equal(events[0].hasDeviceSession, true);
   assert.equal(events[0].paymentAttemptId, '22222222-2222-4222-8222-222222222222');
   assert.equal(events[0].stage, 'charge');
   assert.doesNotMatch(JSON.stringify(events), /987|secret|customer@example/);
@@ -105,7 +105,7 @@ test('status de pagamento desconhecido não aprova pela situação da order', as
   }, { status: 201 });
   const result = await directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
-    payload: { cardToken: 'token-unknown', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test' },
+    payload: { cardToken: 'token-unknown', cardPaymentMethodId: 'visa', payerEmail: 'customer@example.test', mercadoPagoDeviceId: 'test-device-session' },
     order: { id: 501, publicId: 'order-501', restaurantId: 7, total: 10 },
     successUrlBase: 'https://pedido.local', idempotencyKey: '11111111-1111-4111-8111-111111111112',
   });
