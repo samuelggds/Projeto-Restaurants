@@ -1,5 +1,4 @@
 import prisma from '../../../config/prisma.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/RestaurantPaymentCredentialsService.js';
 import {
@@ -11,10 +10,6 @@ import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
-import {
-  refreshSavedMercadoPagoCustomer,
-  SavedMercadoPagoCustomerRefreshError,
-} from '../../customerPaymentMethods/services/RefreshSavedMercadoPagoCustomerService.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import type { CardCheckoutResult } from './cardCheckoutProviders.js';
@@ -322,40 +317,6 @@ async function mercadoPagoNewCardPayer(payload: BasePayload, order: CardOrder) {
   };
 }
 
-async function savedMethod(payload: BasePayload, order: CardOrder, provider: CardProvider) {
-  const publicId = String(payload.paymentMethodId || '').trim();
-  if (!publicId) return null;
-  const userId = Number(payload.userId || 0);
-  if (!Number.isSafeInteger(userId) || userId <= 0) {
-    throw new CardPaymentDeclinedError('Entre na sua conta para usar um cartão salvo.');
-  }
-  return withTenantDbContext(order.restaurantId, (db) =>
-    db.customerPaymentMethod.findFirst({
-      where: {
-        publicId,
-        userId,
-        restaurantId: order.restaurantId,
-        provider,
-        active: true,
-      },
-      select: {
-        id: true,
-        publicId: true,
-        userId: true,
-        restaurantId: true,
-        provider: true,
-        providerCustomerId: true,
-        providerPaymentMethodId: true,
-        payerEmail: true,
-        brand: true,
-        last4: true,
-        holderName: true,
-        active: true,
-      },
-    }),
-  );
-}
-
 async function mercadoPagoPayment(
   payload: BasePayload,
   order: CardOrder,
@@ -368,8 +329,8 @@ async function mercadoPagoPayment(
   if (!token) throw new CardPaymentDeclinedError('Informe os dados do cartão para continuar.');
   const startedAt = Date.now();
   const deviceSessionId = String(payload.mercadoPagoDeviceId || '').trim();
-  let refreshOutcome = payload.paymentMethodId ? 'not_started' : 'not_applicable';
-  let refreshedFields: string[] = [];
+  const refreshOutcome = 'not_applicable';
+  const refreshedFields: string[] = [];
   const trace = (stage: 'customer_refresh' | 'charge', diagnostic: Partial<CardPaymentProviderDiagnostic>, outcome: string) => {
     console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
       timestamp: new Date().toISOString(),
@@ -379,7 +340,7 @@ async function mercadoPagoPayment(
       restaurantId: order.restaurantId,
       stage,
       outcome,
-      cardSource: payload.paymentMethodId ? 'saved_card' : 'new_card',
+      cardSource: 'new_card',
       cardPaymentType,
       hasDeviceSession: Boolean(deviceSessionId),
       refreshOutcome,
@@ -389,7 +350,7 @@ async function mercadoPagoPayment(
     });
   };
 
-  if (payload.paymentMethodId && !deviceSessionId) {
+  if (!deviceSessionId) {
     trace(
       'charge',
       {
@@ -425,28 +386,13 @@ async function mercadoPagoPayment(
     );
   }
 
-  const stored = await savedMethod(payload, order, CARD_PROVIDERS.MERCADO_PAGO);
-  if (cardPaymentType === 'debit' && stored) {
+  if (payload.paymentMethodId) {
     throw new CardPaymentDeclinedError(
-      'Cartão salvo não pode ser reutilizado como débito. Informe o cartão nesta compra.',
+      'Cartão salvo não está disponível. Informe os dados do cartão nesta compra.',
     );
   }
-  if (payload.paymentMethodId && !stored) {
-    throw new CardPaymentDeclinedError('O cartão salvo selecionado não foi encontrado.');
-  }
-  const tokenPaymentMethodId = normalizeMercadoPagoPaymentMethodId(payload.cardPaymentMethodId);
-  const storedPaymentMethodId = normalizeMercadoPagoPaymentMethodId(stored?.brand);
-  if (
-    stored &&
-    tokenPaymentMethodId &&
-    storedPaymentMethodId &&
-    tokenPaymentMethodId !== storedPaymentMethodId
-  ) {
-    throw new CardPaymentDeclinedError(
-      'O cartão validado não corresponde à bandeira do cartão salvo.',
-    );
-  }
-  const paymentMethodId = tokenPaymentMethodId || storedPaymentMethodId;
+
+  const paymentMethodId = normalizeMercadoPagoPaymentMethodId(payload.cardPaymentMethodId);
   if (!paymentMethodId) {
     throw new CardPaymentDeclinedError('Não foi possível identificar a bandeira do cartão.');
   }
@@ -456,81 +402,9 @@ async function mercadoPagoPayment(
   const reference =
     String(order.externalReference || '').trim() ||
     mercadoPagoCardExternalReference(order.id, order.restaurantId);
-  const storedCustomerId = String(stored?.providerCustomerId || '').trim();
 
-  if (stored && !storedCustomerId) {
-    throw new CardPaymentDeclinedError(
-      'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
-    );
-  }
-  const storedPayerEmail = String(stored?.payerEmail || '').trim().toLowerCase();
-  const storedHolderName = String(stored?.holderName || '').trim();
-  if (stored && (!isValidPayerEmail(storedPayerEmail) || storedHolderName.length < 2)) {
-    throw new CardPaymentDeclinedError(
-      'Este cartão salvo é de uma versão anterior. Remova e cadastre novamente para pagar com segurança.',
-    );
-  }
-
-  if (stored) {
-    try {
-      const sharedCustomer = await withTenantDbContext(order.restaurantId, (db) =>
-        db.customerPaymentMethod.findFirst({
-          where: {
-            restaurantId: order.restaurantId,
-            provider: CARD_PROVIDERS.MERCADO_PAGO,
-            providerCustomerId: storedCustomerId,
-            userId: { not: stored.userId },
-          },
-          select: { id: true },
-        }),
-      );
-      const refresh = await refreshSavedMercadoPagoCustomer({
-        accessToken,
-        customerId: storedCustomerId,
-        cardId: String(stored.providerPaymentMethodId || '').trim(),
-        expectedBrand: paymentMethodId,
-        expectedLast4: stored.last4,
-        verifiedPayer:
-          !sharedCustomer
-            ? {
-                name: storedHolderName,
-                email: storedPayerEmail,
-                cpf: null,
-                phone: payload.customerPhone,
-                address: {
-                  zipCode: payload.zipCode,
-                  streetName: payload.address,
-                  streetNumber: payload.number,
-                },
-              }
-            : null,
-      });
-      refreshOutcome = sharedCustomer ? 'skipped_shared_customer' : refresh.outcome;
-      refreshedFields = refresh.updatedFields;
-      trace('customer_refresh', {}, 'completed');
-    } catch (error) {
-      refreshOutcome = 'failed';
-      trace('customer_refresh', {
-        providerCode: error instanceof SavedMercadoPagoCustomerRefreshError ? error.code : 'saved_card_refresh_unavailable',
-        httpStatus: error instanceof SavedMercadoPagoCustomerRefreshError ? error.httpStatus : 502,
-      }, 'failed_before_charge');
-      if (error instanceof SavedMercadoPagoCustomerRefreshError) {
-        throw new CardPaymentProviderRequestError(error.message, error.httpStatus, error.code, {
-          provider: 'MERCADO_PAGO', httpStatus: error.httpStatus,
-          providerCode: error.code, providerCodes: [error.code], hasUnrecognizedCode: false,
-          status: null, statusDetail: null, providerRequestId: null,
-          providerOrderId: null, providerPaymentId: null,
-        });
-      }
-      throw error;
-    }
-  }
-
-  const payer = stored
-    ? { customer_id: storedCustomerId }
-    : await mercadoPagoNewCardPayer(payload, order);
-
-  const shipmentAddress = stored ? undefined : mercadoPagoPayerAddress(payload);
+  const payer = await mercadoPagoNewCardPayer(payload, order);
+  const shipmentAddress = mercadoPagoPayerAddress(payload);
   const body = {
     type: 'online',
     processing_mode: 'automatic',
