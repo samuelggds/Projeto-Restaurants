@@ -9,6 +9,7 @@ type CreateCardAttemptInput = {
   provider: string;
   amount: number;
   cardPaymentType?: 'credit' | 'debit';
+  cardSource?: 'saved_card' | 'new_card';
   cardBrand?: string | null;
   cardLast4?: string | null;
 };
@@ -47,6 +48,7 @@ class OrderPaymentAttemptRepository {
           restaurantId: input.restaurantId,
           method: PaymentMethod.CARTAO,
           cardPaymentType: input.cardPaymentType === 'debit' ? 'debit' : 'credit',
+          cardSource: input.cardSource === 'saved_card' ? 'saved_card' : 'new_card',
           cardBrand,
           cardLast4,
           provider: input.provider,
