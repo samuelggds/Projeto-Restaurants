@@ -2,7 +2,6 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CustomerPaymentMethod } from '../../../Services/customerPaymentMethodService';
 import publicCardPaymentService from '../../../Services/publicCardPaymentService';
 import {
   collectMercadoPagoDeviceSession,
@@ -26,44 +25,21 @@ vi.mock('../../../shared/payments/mercadoPagoDeviceSession', () => ({
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
 
-const savedCard: CustomerPaymentMethod = {
-  publicId: 'saved-card-public-id',
-  provider: 'MERCADO_PAGO',
-  providerCardId: 'provider-card-id',
-  brand: 'master',
-  last4: '0829',
-  expMonth: 12,
-  expYear: 2030,
-  holderName: 'Cliente Teste',
-  isDefault: true,
-};
-
-describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
+describe('OnlineCardPaymentForm manual card flow', () => {
   let container: HTMLDivElement;
   let root: Root;
   const preparer: { current: CardPaymentPreparer | null } = { current: null };
-  const registerPreparer = (next: CardPaymentPreparer | null) => {
-    preparer.current = next;
-  };
   const createCardToken = vi.fn<(input: Record<string, string>) => Promise<MercadoPagoCardToken>>();
-  const createField = vi.fn(() => ({ mount: vi.fn(), unmount: vi.fn() }));
+  const createField = vi.fn(() => ({ mount: vi.fn(), unmount: vi.fn(), on: vi.fn() }));
   const originalMercadoPago = window.MercadoPago;
   const originalDeviceSessionId = window.MP_DEVICE_SESSION_ID;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    createField.mockImplementation(() => ({ mount: vi.fn(), unmount: vi.fn() }));
-    createField.mockReset();
-    createField.mockImplementation(() => ({ mount: vi.fn(), unmount: vi.fn() }));
-    createCardToken.mockReset();
     preparer.current = null;
     delete window.MP_DEVICE_SESSION_ID;
-    const currentDeviceSession = async () =>
-      String(window.MP_DEVICE_SESSION_ID || '').trim() || undefined;
-    vi.mocked(collectMercadoPagoDeviceSession).mockImplementation(currentDeviceSession);
-    vi.mocked(requireMercadoPagoDeviceSession).mockImplementation(async () =>
-      String(window.MP_DEVICE_SESSION_ID || '').trim() || 'test-device-session',
-    );
+    vi.mocked(collectMercadoPagoDeviceSession).mockResolvedValue('test-device-session');
+    vi.mocked(requireMercadoPagoDeviceSession).mockResolvedValue('test-device-session');
     vi.mocked(publicCardPaymentService.getConfig).mockResolvedValue({
       provider: 'MERCADO_PAGO',
       publicKey: 'restaurant-public-key',
@@ -89,16 +65,19 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
     window.MP_DEVICE_SESSION_ID = originalDeviceSessionId;
   });
 
-  async function renderForm(card?: CustomerPaymentMethod) {
+  async function renderForm() {
     await act(async () => {
       root.render(
         <OnlineCardPaymentForm
           restaurantId={7}
-          savedCard={card}
           payerEmail="cliente@example.com"
-          onPreparerChange={registerPreparer}
+          onPreparerChange={(next) => {
+            preparer.current = next;
+          }}
         />,
       );
+      await Promise.resolve();
+      await Promise.resolve();
     });
   }
 
@@ -120,143 +99,38 @@ describe('OnlineCardPaymentForm preparação segura do Mercado Pago', () => {
     return payload;
   }
 
-  it.each(['salvo', 'novo'] as const)(
-    'encaminha a sessão antifraude atual junto ao token do cartão %s',
-    async (cardType) => {
-      await renderForm(cardType === 'salvo' ? savedCard : undefined);
-      if (cardType === 'novo') {
-        await fillInput('input[autocomplete="cc-name"]', 'Cliente Teste');
-        await fillInput('input[placeholder="Somente números"]', '12345678909');
-      }
+  it('sempre monta os três campos seguros do cartão Mercado Pago', async () => {
+    await renderForm();
 
-      // The provider can publish the session after the form has mounted.
-      window.MP_DEVICE_SESSION_ID = ' device-session-at-payment ';
-      const payload = await prepare();
+    expect(createField).toHaveBeenCalledWith('cardNumber', { placeholder: 'Número do cartão' });
+    expect(createField).toHaveBeenCalledWith('expirationDate', { placeholder: 'MM/AA' });
+    expect(createField).toHaveBeenCalledWith('securityCode', { placeholder: 'CVV' });
+    expect(createField).toHaveBeenCalledTimes(3);
+    expect(container.textContent).toContain('Nome impresso no cartão');
+    expect(container.textContent).toContain('CPF/CNPJ do titular');
+    expect(container.textContent).not.toContain('cartão salvo');
+  });
 
-      expect(payload).toMatchObject({
-        cardToken: 'fresh-card-token',
-        cardPaymentMethodId: 'master',
-        cardPaymentType: 'credit',
-        mercadoPagoDeviceId: 'device-session-at-payment',
-      });
-      if (cardType === 'salvo') {
-        expect(createCardToken).toHaveBeenCalledWith({ cardId: 'provider-card-id' });
-        expect(payload.paymentMethodId).toBe('saved-card-public-id');
-        expect(createField).toHaveBeenCalledTimes(1);
-        expect(createField).toHaveBeenCalledWith('securityCode', { placeholder: 'CVV' });
-      } else {
-        expect(createCardToken).toHaveBeenCalledWith({
-          cardholderName: 'Cliente Teste',
-          identificationType: 'CPF',
-          identificationNumber: '12345678909',
-        });
-        expect(payload.payerEmail).toBe('cliente@example.com');
-        expect(payload).not.toHaveProperty('paymentMethodId');
-      }
-      expect(payload).not.toHaveProperty('cardData');
-      expect(payload).not.toHaveProperty('securityCode');
-    },
-  );
+  it('gera token como cartão novo e nunca envia paymentMethodId salvo', async () => {
+    await renderForm();
+    await fillInput('input[autocomplete="cc-name"]', 'Cliente Teste');
+    await fillInput('input[placeholder="Somente números"]', '12345678909');
 
-  it('gera outro token CVV para cada tentativa e usa o cartão salvo selecionado', async () => {
-    await renderForm(savedCard);
-    createCardToken.mockResolvedValueOnce({ id: 'first-cvv-token' });
-    expect((await prepare()).cardToken).toBe('first-cvv-token');
-
-    await renderForm({
-      ...savedCard,
-      publicId: 'second-saved-card',
-      providerCardId: 'second-provider-card',
-    });
-    createCardToken.mockResolvedValueOnce({ id: 'second-cvv-token' });
     const payload = await prepare();
 
-    expect(createCardToken).toHaveBeenNthCalledWith(2, { cardId: 'second-provider-card' });
+    expect(createCardToken).toHaveBeenCalledWith({
+      cardholderName: 'Cliente Teste',
+      identificationType: 'CPF',
+      identificationNumber: '12345678909',
+    });
     expect(payload).toMatchObject({
-      paymentMethodId: 'second-saved-card',
-      cardToken: 'second-cvv-token',
+      cardToken: 'fresh-card-token',
       cardPaymentMethodId: 'master',
+      cardPaymentType: 'credit',
+      payerEmail: 'cliente@example.com',
+      mercadoPagoDeviceId: 'test-device-session',
     });
+    expect(payload).not.toHaveProperty('paymentMethodId');
+    expect(payload).not.toHaveProperty('cardData');
   });
-
-  it('exige um novo CVV ao trocar o cartão salvo selecionado', async () => {
-    const secureFields: Array<{
-      value: string;
-      mount: ReturnType<typeof vi.fn>;
-      unmount: ReturnType<typeof vi.fn>;
-    }> = [];
-    createField.mockImplementation(() => {
-      // The provider owns this value: a mounted field retains it until unmounted.
-      const field = { value: '', mount: vi.fn(), unmount: vi.fn() };
-      field.unmount.mockImplementation(() => { field.value = ''; });
-      secureFields.push(field);
-      return field;
-    });
-    createCardToken.mockImplementation(async ({ cardId }) => {
-      if (!secureFields.at(-1)?.value) throw new Error('Informe o CVV do cartão selecionado.');
-      return { id: `fresh-token-${cardId}` };
-    });
-
-    await renderForm(savedCard);
-    const firstField = secureFields[0];
-    firstField.value = '123';
-
-    await renderForm({
-      ...savedCard,
-      publicId: 'second-saved-card',
-      providerCardId: 'second-provider-card',
-    });
-
-    expect(firstField.unmount).toHaveBeenCalledOnce();
-    const secondField = secureFields.at(-1)!;
-    expect(secondField).not.toBe(firstField);
-    expect(secondField.value).toBe('');
-    await expect(prepare()).rejects.toThrow('Informe o CVV do cartão selecionado.');
-
-    secondField.value = '456';
-    expect(await prepare()).toMatchObject({
-      paymentMethodId: 'second-saved-card',
-      cardToken: 'fresh-token-second-provider-card',
-    });
-  });
-
-  it.each(['sessão antifraude', 'tokenização'] as const)(
-    'descarta a preparação do cartão anterior quando a troca ocorre durante a %s',
-    async (stage) => {
-      await renderForm(savedCard);
-      let release: () => void = () => {};
-      if (stage === 'sessão antifraude') {
-        vi.mocked(requireMercadoPagoDeviceSession).mockImplementationOnce(
-          () => new Promise((resolve) => { release = () => resolve('device-session'); }),
-        );
-      } else {
-        createCardToken.mockImplementationOnce(
-          () => new Promise((resolve) => { release = () => resolve({ id: 'obsolete-token' }); }),
-        );
-      }
-
-      let pending!: Promise<unknown>;
-      await act(async () => {
-        pending = preparer.current!().catch((reason: unknown) => reason);
-      });
-      await renderForm({
-        ...savedCard,
-        publicId: 'second-saved-card',
-        providerCardId: 'second-provider-card',
-      });
-      let outcome: unknown;
-      await act(async () => {
-        release();
-        outcome = await pending;
-      });
-
-      expect(outcome).toBeInstanceOf(Error);
-      expect((outcome as Error).message).toMatch(/cartão selecionado mudou/i);
-      if (stage === 'sessão antifraude') expect(createCardToken).not.toHaveBeenCalled();
-      expect(await prepare()).toMatchObject({
-        paymentMethodId: 'second-saved-card',
-        cardToken: 'fresh-card-token',
-      });
-    },
-  );
 });
