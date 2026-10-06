@@ -165,4 +165,12 @@ describe('OnlineCardPaymentForm manual card flow', () => {
     expect(payload).not.toHaveProperty('cardData');
   });
 
+  it('exibe aviso de compatibilidade antes do preenchimento no débito Mercado Pago', async () => {
+    await renderForm('debit');
+
+    expect(container.textContent).toContain(
+      'Débito online: somente cartões Elo e débito virtual CAIXA são aceitos pelo Mercado Pago.',
+    );
+  });
+
 });
