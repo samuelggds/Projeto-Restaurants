@@ -252,6 +252,7 @@ test('usuário autenticado preserva o e-mail informado no pagamento', async () =
   await directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
     payload: {
+      mercadoPagoDeviceId: 'test-device-session',
       userId: 33,
       cardToken: 'card-token-auth-email',
       cardPaymentMethodId: 'master',
@@ -299,6 +300,7 @@ test('HTTP 2xx com transação failed é recusa terminal e preserva status_detai
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           userId: 33,
           cardToken: 'card-token-2xx-failed',
           cardPaymentMethodId: 'master',
@@ -340,6 +342,7 @@ test('débito Mercado Pago envia debit_card e nunca é convertido silenciosament
   const result = await directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
     payload: {
+      mercadoPagoDeviceId: 'test-device-session',
       cardPaymentType: 'debit',
       cardToken: 'test-debit-token',
       cardPaymentMethodId: 'visa',
@@ -423,6 +426,7 @@ test('Mercado Pago action_required retorna challenge 3DS seguro sem aprovar pedi
   const result = await directOrderCardPaymentService.execute({
     provider: CARD_PROVIDERS.MERCADO_PAGO,
     payload: {
+      mercadoPagoDeviceId: 'test-device-session',
       cardPaymentType: 'credit',
       cardToken: 'card-token-3ds',
       cardPaymentMethodId: 'master',
@@ -483,6 +487,7 @@ test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async ()
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           cardPaymentType: 'credit',
           cardToken: 'card-token-3ds-bad',
           cardPaymentMethodId: 'master',
@@ -552,6 +557,7 @@ test('property_value do Mercado Pago não é tratado como cartão recusado', asy
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           cardToken: 'card-token-002',
           cardPaymentMethodId: 'visa',
           customerName: 'Cliente Teste',
@@ -633,6 +639,7 @@ test('preserva diagnóstico seguro do Mercado Pago em processing_error', async (
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           cardToken: 'card-token-003',
           cardPaymentMethodId: 'visa',
           payerEmail: 'cliente.real@example.com',
@@ -692,6 +699,7 @@ test('preserva invalid_card_token sem expor o token recebido', async () => {
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           cardToken: 'secret-card-token-004',
           cardPaymentMethodId: 'master',
           payerEmail: 'cliente.real@example.com',
@@ -743,6 +751,7 @@ test('não registra texto do provedor que possa ecoar token em erro de validaç�
       directOrderCardPaymentService.execute({
         provider: CARD_PROVIDERS.MERCADO_PAGO,
         payload: {
+      mercadoPagoDeviceId: 'test-device-session',
           cardToken: 'secret-card-token-log-001',
           cardPaymentMethodId: 'visa',
         },
