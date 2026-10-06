@@ -506,7 +506,7 @@ export function FigmaDeliveryExperience({
   };
 
   const openProfileDestination = (
-    view: 'orders' | 'addresses' | 'paymentMethods' | 'coupons' | 'loyalty' | 'help' | 'settings',
+    view: 'orders' | 'addresses' | 'coupons' | 'loyalty' | 'help' | 'settings',
   ) => {
     closeProfileQuickMenu(() => {
       if (onOpenProfileView) {
