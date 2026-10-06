@@ -2,31 +2,24 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  CircleCheck,
   ChevronRight,
   CircleHelp,
   CreditCard,
   Headphones,
   Mail,
   MapPin,
-  Plus,
   Settings,
   ShieldCheck,
   ShoppingBag,
   Star,
   TicketPercent,
-  Trash2,
   UserRound,
-  WalletCards,
   Camera,
 } from 'lucide-react';
 import { buildLoyaltyWalletEntries } from './domain/loyaltyWallet';
 import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews';
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
-import { PaymentCardVisual } from './components/PaymentCardVisual';
-import { CardBrandLogo } from './components/CardBrandLogo';
-import { getCardBrandDetails } from './domain/cardBrand';
 import { useAppDialog } from '../../components/AppDialog/context';
 import type {
   ActiveProfileOrder,
@@ -43,8 +36,6 @@ type Stage3View =
   | 'account'
   | 'orders'
   | 'addresses'
-  | 'paymentMethods'
-  | 'paymentMethodDetails'
   | 'coupons'
   | 'loyalty'
   | 'redeemCoupons'
@@ -57,7 +48,6 @@ const currency = (value: number) =>
 function initialStage3View(view: ProfileView): Stage3View {
   if (view === 'orders') return 'orders';
   if (view === 'addresses') return 'addresses';
-  if (view === 'paymentMethods') return 'paymentMethods';
   if (view === 'coupons') return 'coupons';
   if (view === 'loyalty') return 'loyalty';
   if (view === 'help') return 'help';
@@ -94,7 +84,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     data,
     initialView = 'overview',
     cartCount = 0,
-    paymentMethods = [],
     onGoHome,
     onOpenMenu,
     onOpenCart,
@@ -102,9 +91,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     onSupport,
     onNewAddress,
     onSelectAddress,
-    onAddPaymentMethod,
-    onSelectPaymentMethod,
-    onRemovePaymentMethod,
     onUseCoupon,
     onDeactivateAccount,
   } = props;
@@ -113,7 +99,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>(
     'forward',
   );
-  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [ordersTab, setOrdersTab] = useState<'active' | 'history'>('active');
@@ -164,7 +149,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     Number(data.activeOrderCount || 0),
   );
   const savedAddressCount = (data.addresses || []).length;
-  const activePaymentMethodCount = paymentMethods.length;
   const activeCouponCount = activeCoupons.length;
   const orderHistory = data.recentOrders;
   const primary = data.brand.primaryColor || '#e85a2b';
@@ -204,11 +188,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   };
 
   const goBack = () => {
-    if (view === 'paymentMethodDetails') {
-      setSelectedPaymentMethodId(null);
-      navigateProfileView('paymentMethods', 'backward');
-      return;
-    }
     navigateProfileView('account', 'backward');
   };
 
@@ -581,139 +560,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
       );
     }
 
-    if (view === 'paymentMethods') {
-      return (
-        <S.SavedPaymentsList aria-label="Cartões salvos">
-          <div className="saved-card-list">
-            {paymentMethods.map((method) => {
-              const brand = getCardBrandDetails(method.brand);
-              return (
-                <button
-                  key={method.publicId}
-                  type="button"
-                  className="saved-card-row"
-                  aria-label={`Ver detalhes do cartão final ${method.last4}`}
-                  onClick={() => {
-                    setSelectedPaymentMethodId(method.publicId);
-                    navigateProfileView('paymentMethodDetails');
-                  }}
-                >
-                  <span className="brand-box" aria-hidden="true">
-                    <CardBrandLogo brand={brand.id} />
-                  </span>
-                  <span className="saved-card-copy">
-                    <span className="brand-line">
-                      <strong>{brand.label}</strong>
-                      {method.isDefault ? <em>Principal</em> : null}
-                    </span>
-                    <span className="masked-number">•••• •••• •••• {method.last4}</span>
-                  </span>
-                  <ChevronRight className="row-chevron" aria-hidden="true" />
-                </button>
-              );
-            })}
-            {!paymentMethods.length ? (
-              <S.Empty>Nenhum cartão salvo. Adicione um cartão para começar.</S.Empty>
-            ) : null}
-          </div>
-
-          <div className="saved-card-actions">
-            <p>Gerencie seus métodos de pagamento favoritos.</p>
-            <button type="button" className="add-saved-card" onClick={onAddPaymentMethod}>
-              <Plus />
-              Adicionar novo cartão
-            </button>
-          </div>
-        </S.SavedPaymentsList>
-      );
-    }
-
-    if (view === 'paymentMethodDetails') {
-      const method = paymentMethods.find((item) => item.publicId === selectedPaymentMethodId);
-      if (!method) {
-        return (
-          <S.Empty>
-            Este cartão não está mais disponível.
-          </S.Empty>
-        );
-      }
-
-      const brand = getCardBrandDetails(method.brand);
-      const holder = method.holderName || data.user.fullName || data.user.firstName || 'Titular do cartão';
-      const expiry = `${String(method.expMonth).padStart(2, '0')}/${String(method.expYear).slice(-2)}`;
-      const addedAt = method.createdAt
-        ? (() => {
-            const date = new Date(method.createdAt);
-            if (Number.isNaN(date.getTime())) return 'Data não informada';
-            const months = [
-              'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-              'jul', 'ago', 'set', 'out', 'nov', 'dez',
-            ];
-            return `${String(date.getUTCDate()).padStart(2, '0')} ${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-          })()
-        : 'Data não informada';
-
-      return (
-        <S.SavedPaymentDetails aria-label="Detalhes do cartão salvo">
-          <div className="details-grid">
-            <div className="visual-side">
-              <PaymentCardVisual
-                compact
-                brand={brand.id}
-                numberLabel={`•••• •••• •••• ${method.last4}`}
-                holderName={holder}
-                expiryLabel={expiry}
-              />
-              <p className="protected">
-                <ShieldCheck />
-                <span>Dados protegidos com criptografia</span>
-              </p>
-            </div>
-
-            <div className="info-side">
-              {method.isDefault ? (
-                <div className="primary-badge">
-                  <CircleCheck />
-                  <span>Método de pagamento principal</span>
-                </div>
-              ) : null}
-
-              <dl>
-                <div><dt>Bandeira</dt><dd>{brand.label}</dd></div>
-                <div><dt>Últimos dígitos</dt><dd>{method.last4}</dd></div>
-                <div><dt>Titular do Cartão</dt><dd>{holder}</dd></div>
-                <div><dt>Validade</dt><dd>{expiry}</dd></div>
-                <div><dt>Adicionado em</dt><dd>{addedAt}</dd></div>
-              </dl>
-            </div>
-          </div>
-
-          <div className="detail-actions">
-            <button
-              type="button"
-              className="remove"
-              onClick={async () => {
-                await onRemovePaymentMethod?.(method.publicId);
-                setSelectedPaymentMethodId(null);
-                navigateProfileView('paymentMethods');
-              }}
-            >
-              <Trash2 />
-              Remover cartão
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={method.isDefault}
-              onClick={() => void onSelectPaymentMethod?.(method.publicId)}
-            >
-              Definir como principal
-            </button>
-          </div>
-        </S.SavedPaymentDetails>
-      );
-    }
-
     if (view === 'coupons') {
       if (props.loyaltyLoading) return <S.Empty>Carregando seus cupons...</S.Empty>;
       if (props.loyaltyError) return <S.Empty>{props.loyaltyError}</S.Empty>;
@@ -854,13 +700,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           </span>
           <ChevronRight className="chev" />
         </button>
-        <button type="button" onClick={() => setView('paymentMethods')}>
-          <WalletCards /><span>Métodos de pagamento</span>
-          <span className="badge">
-            {activePaymentMethodCount} {activePaymentMethodCount === 1 ? 'ativo' : 'ativos'}
-          </span>
-          <ChevronRight className="chev" />
-        </button>
         <button type="button" onClick={() => navigateProfileView('coupons')}>
           <TicketPercent /><span>Meus Cupons</span>
           <span className="badge">
@@ -890,11 +729,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
         ? 'Meus Pedidos'
         : view === 'addresses'
           ? 'Endereços Salvos'
-          : view === 'paymentMethods'
-            ? 'Cartões Salvos'
-            : view === 'paymentMethodDetails'
-              ? 'Detalhes do Cartão'
-            : view === 'coupons'
+          : view === 'coupons'
               ? 'Meus Cupons'
               : view === 'loyalty'
                 ? 'Programa de Fidelidade'
