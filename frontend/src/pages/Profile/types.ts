@@ -30,22 +30,9 @@ export type ProfileView =
   | 'orders'
   | 'coupons'
   | 'addresses'
-  | 'paymentMethods'
   | 'loyalty'
   | 'help'
   | 'settings';
-
-export type ProfilePaymentMethod = {
-  publicId: string;
-  provider: string;
-  brand: string;
-  last4: string;
-  expMonth: number;
-  expYear: number;
-  holderName?: string | null;
-  isDefault: boolean;
-  createdAt?: string;
-};
 
 export type ProfileOrder = {
   id: string;
@@ -119,11 +106,6 @@ export type ProfilePageProps = {
   onUseCoupon?: (redemptionId: number) => void;
   onNewAddress?: () => void;
   onSelectAddress?: (addressId: string) => void | Promise<void>;
-  onEditPayment?: () => void;
-  paymentMethods?: ProfilePaymentMethod[];
-  onAddPaymentMethod?: () => void;
-  onSelectPaymentMethod?: (publicId: string) => void | Promise<void>;
-  onRemovePaymentMethod?: (publicId: string) => void | Promise<void>;
   onSupport?: () => void;
   onSupportOrder?: (orderId: string) => void;
   onLogout?: () => void;
