@@ -65,12 +65,13 @@ describe('OnlineCardPaymentForm manual card flow', () => {
     window.MP_DEVICE_SESSION_ID = originalDeviceSessionId;
   });
 
-  async function renderForm() {
+  async function renderForm(paymentType: 'credit' | 'debit' = 'credit') {
     await act(async () => {
       root.render(
         <OnlineCardPaymentForm
           restaurantId={7}
           payerEmail="cliente@example.com"
+          paymentType={paymentType}
           onPreparerChange={(next) => {
             preparer.current = next;
           }}
@@ -133,4 +134,35 @@ describe('OnlineCardPaymentForm manual card flow', () => {
     expect(payload).not.toHaveProperty('paymentMethodId');
     expect(payload).not.toHaveProperty('cardData');
   });
+  it('usa a bandeira do token no débito quando a consulta por BIN não retorna debit_card', async () => {
+    window.MercadoPago = class {
+      fields = { create: createField, createCardToken };
+      getPaymentMethods = vi.fn().mockResolvedValue({
+        results: [{ id: 'visa', payment_type_id: 'credit_card' }],
+      });
+    };
+
+    createCardToken.mockResolvedValue({
+      id: 'fresh-debit-token',
+      payment_method_id: 'visa',
+      last_four_digits: '1982',
+    });
+
+    await renderForm('debit');
+    await fillInput('input[autocomplete="cc-name"]', 'Cliente Teste');
+    await fillInput('input[placeholder="Somente números"]', '12345678909');
+
+    const payload = await prepare();
+
+    expect(payload).toMatchObject({
+      cardToken: 'fresh-debit-token',
+      cardPaymentMethodId: 'visa',
+      cardPaymentType: 'debit',
+      payerEmail: 'cliente@example.com',
+      mercadoPagoDeviceId: 'test-device-session',
+    });
+    expect(payload).not.toHaveProperty('paymentMethodId');
+    expect(payload).not.toHaveProperty('cardData');
+  });
+
 });
