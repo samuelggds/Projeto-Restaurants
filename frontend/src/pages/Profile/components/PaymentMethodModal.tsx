@@ -75,7 +75,7 @@ export function PaymentMethodModal({
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [taxId, setTaxId] = useState('');
-  const payerEmail = String(userEmail || '').trim().toLowerCase();
+  const [payerEmail, setPayerEmail] = useState(String(userEmail || '').trim().toLowerCase());
   const [secureExpiryValid, setSecureExpiryValid] = useState(false);
   const [config, setConfig] = useState<ProviderConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -186,14 +186,14 @@ export function PaymentMethodModal({
     setSaving(true);
     setError('');
     try {
-      const normalizedPayerEmail = payerEmail;
+      const normalizedPayerEmail = payerEmail.trim().toLowerCase();
       if (
         normalizedPayerEmail.length < 3 ||
         normalizedPayerEmail.length > 254 ||
         /\s/u.test(normalizedPayerEmail) ||
         !/^[^@]+@[^@]+\.[^@]+$/u.test(normalizedPayerEmail)
       ) {
-        throw new Error('Sua conta precisa ter um e-mail válido para salvar um cartão.');
+        throw new Error('Informe um e-mail válido do pagador para salvar o cartão.');
       }
 
       const providerConfig = config || (await customerPaymentMethodService.getConfig(restaurantId));
@@ -397,16 +397,15 @@ export function PaymentMethodModal({
             )}
 
             <label>
-              E-mail da conta
+              E-mail do pagador
               <input
                 type="email"
                 autoComplete="email"
                 value={payerEmail}
-                readOnly
-                aria-readonly="true"
+                onChange={(event) => setPayerEmail(event.target.value.slice(0, 160))}
                 required
               />
-              <small>O cartão será vinculado ao mesmo e-mail da sua conta para evitar divergências no provedor.</small>
+              <small>Use o mesmo e-mail que você informa ao pagar com este cartão.</small>
             </label>
 
             <label>
