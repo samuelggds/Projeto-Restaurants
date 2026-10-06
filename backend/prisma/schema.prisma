@@ -476,6 +476,7 @@ model CustomerPaymentMethod {
   provider                String
   providerPaymentMethodId String
   providerCustomerId      String?
+  payerEmail              String?    @db.VarChar(254)
   brand                   String
   last4                   String
   expMonth                Int
