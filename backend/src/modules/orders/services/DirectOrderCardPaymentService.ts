@@ -338,15 +338,19 @@ async function savedMethod(payload: BasePayload, order: CardOrder, provider: Car
         provider,
         active: true,
       },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            cpf: true,
-            emailVerifiedAt: true,
-          },
-        },
+      select: {
+        id: true,
+        publicId: true,
+        userId: true,
+        restaurantId: true,
+        provider: true,
+        providerCustomerId: true,
+        providerPaymentMethodId: true,
+        payerEmail: true,
+        brand: true,
+        last4: true,
+        holderName: true,
+        active: true,
       },
     }),
   );
@@ -366,6 +370,7 @@ async function mercadoPagoPayment(
   const deviceSessionId = String(payload.mercadoPagoDeviceId || '').trim();
   let refreshOutcome = payload.paymentMethodId ? 'not_started' : 'not_applicable';
   let refreshedFields: string[] = [];
+  let storedCustomerEmail = '';
   const trace = (stage: 'customer_refresh' | 'charge', diagnostic: Partial<CardPaymentProviderDiagnostic>, outcome: string) => {
     console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
       timestamp: new Date().toISOString(),
@@ -459,6 +464,13 @@ async function mercadoPagoPayment(
       'Este cartão salvo precisa ser cadastrado novamente antes do pagamento.',
     );
   }
+  const storedPayerEmail = String(stored?.payerEmail || '').trim().toLowerCase();
+  const storedHolderName = String(stored?.holderName || '').trim();
+  if (stored && (!isValidPayerEmail(storedPayerEmail) || storedHolderName.length < 2)) {
+    throw new CardPaymentDeclinedError(
+      'Este cartão salvo é de uma versão anterior. Remova e cadastre novamente para pagar com segurança.',
+    );
+  }
 
   if (stored) {
     try {
@@ -479,10 +491,24 @@ async function mercadoPagoPayment(
         cardId: String(stored.providerPaymentMethodId || '').trim(),
         expectedBrand: paymentMethodId,
         expectedLast4: stored.last4,
-        verifiedPayer: !sharedCustomer && stored.user.emailVerifiedAt ? stored.user : null,
+        verifiedPayer:
+          !sharedCustomer
+            ? {
+                name: storedHolderName,
+                email: storedPayerEmail,
+                cpf: null,
+                phone: payload.customerPhone,
+                address: {
+                  zipCode: payload.zipCode,
+                  streetName: payload.address,
+                  streetNumber: payload.number,
+                },
+              }
+            : null,
       });
       refreshOutcome = sharedCustomer ? 'skipped_shared_customer' : refresh.outcome;
       refreshedFields = refresh.updatedFields;
+      storedCustomerEmail = String(refresh.customerEmail || '').trim().toLowerCase();
       trace('customer_refresh', {}, 'completed');
     } catch (error) {
       refreshOutcome = 'failed';
@@ -503,7 +529,10 @@ async function mercadoPagoPayment(
   }
 
   const payer = stored
-    ? { customer_id: storedCustomerId }
+    ? {
+        customer_id: storedCustomerId,
+        ...(isValidPayerEmail(storedCustomerEmail) ? { email: storedCustomerEmail } : {}),
+      }
     : await mercadoPagoNewCardPayer(payload, order);
 
   const shipmentAddress = stored ? undefined : mercadoPagoPayerAddress(payload);

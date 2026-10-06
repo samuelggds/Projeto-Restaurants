@@ -8,8 +8,19 @@ type Input = {
   cardId: string;
   expectedBrand: string;
   expectedLast4: string;
-  // Loaded from the authenticated user's record, never from checkout input.
-  verifiedPayer?: { name: string; email: string; cpf: string | null } | null;
+  // Identity is the payer identity stored with this saved card. Contact/address
+  // context may come from the current order and is only used when the remote identity matches.
+  verifiedPayer?: {
+    name: string;
+    email: string;
+    cpf: string | null;
+    phone?: string | null;
+    address?: {
+      zipCode?: string | null;
+      streetName?: string | null;
+      streetNumber?: string | null;
+    } | null;
+  } | null;
 };
 
 export class SavedMercadoPagoCustomerRefreshError extends Error {
@@ -69,6 +80,47 @@ function customerUpdate(customer: ProviderRecord, payer: Input['verifiedPayer'])
   if (!existingNumber && compatibleType && validDocument && sameIdentity) {
     update.identification = { type, number };
   }
+
+  if (sameIdentity) {
+    const currentPhone = record(customer.phone);
+    const rawPhone = text(payer.phone).replace(/\D/g, '');
+    const nationalPhone =
+      rawPhone.startsWith('55') && rawPhone.length >= 12 ? rawPhone.slice(2) : rawPhone;
+    if (
+      !text(currentPhone.area_code) &&
+      !text(currentPhone.number) &&
+      /^[1-9]\d{9,10}$/u.test(nationalPhone)
+    ) {
+      update.phone = {
+        area_code: nationalPhone.slice(0, 2),
+        number: nationalPhone.slice(2),
+      };
+    }
+
+    const currentAddress = record(customer.address);
+    const payerAddress = payer.address || {};
+    const zipCode = text(payerAddress.zipCode).replace(/\D/g, '').slice(0, 8);
+    const streetName = text(payerAddress.streetName).slice(0, 255);
+    const streetNumber = text(payerAddress.streetNumber).slice(0, 32);
+    const address: ProviderRecord = {};
+
+    if (!text(currentAddress.zip_code) && zipCode.length === 8) address.zip_code = zipCode;
+    if (!text(currentAddress.street_name) && streetName) address.street_name = streetName;
+    if (!text(currentAddress.street_number) && streetNumber) address.street_number = streetNumber;
+
+    if (Object.keys(address).length) {
+      update.address = {
+        ...(text(currentAddress.zip_code) ? { zip_code: text(currentAddress.zip_code) } : {}),
+        ...(text(currentAddress.street_name)
+          ? { street_name: text(currentAddress.street_name) }
+          : {}),
+        ...(text(currentAddress.street_number)
+          ? { street_number: text(currentAddress.street_number) }
+          : {}),
+        ...address,
+      };
+    }
+  }
   return update;
 }
 
@@ -122,15 +174,28 @@ export async function refreshSavedMercadoPagoCustomer(input: Input) {
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_reference_mismatch', 422);
   }
 
-  if (!input.verifiedPayer) return { outcome: 'skipped_unverified_identity' as const, updatedFields: [] };
-  if (text(customer.email).toLowerCase() !== text(input.verifiedPayer.email).toLowerCase()) {
+  const customerEmail = text(customer.email).toLowerCase();
+  if (!input.verifiedPayer) {
+    return {
+      outcome: 'skipped_unverified_identity' as const,
+      updatedFields: [],
+      customerEmail,
+    };
+  }
+  if (customerEmail !== text(input.verifiedPayer.email).toLowerCase()) {
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_email_mismatch', 409);
   }
   const update = customerUpdate(customer, input.verifiedPayer);
-  if (!Object.keys(update).length) return { outcome: 'unchanged' as const, updatedFields: [] };
+  if (!Object.keys(update).length) {
+    return { outcome: 'unchanged' as const, updatedFields: [], customerEmail };
+  }
   const updated = await request(customerPath, update);
   if (String(updated.id || '') !== input.customerId) {
     throw new SavedMercadoPagoCustomerRefreshError('saved_card_refresh_invalid_response');
   }
-  return { outcome: 'updated' as const, updatedFields: Object.keys(update) };
+  return {
+    outcome: 'updated' as const,
+    updatedFields: Object.keys(update),
+    customerEmail: text(updated.email).toLowerCase() || customerEmail,
+  };
 }

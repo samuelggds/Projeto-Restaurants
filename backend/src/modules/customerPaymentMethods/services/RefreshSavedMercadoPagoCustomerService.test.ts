@@ -83,6 +83,42 @@ test('completa CPF ausente quando o nome remoto corresponde ao perfil verificado
   assert.deepEqual(updates, [{ identification: { type: 'CPF', number: '12345678901' } }]);
 });
 
+test('enriquece telefone e endereço quando email e nome do pagador salvo correspondem', async (t) => {
+  const customer = {
+    id: 'customer-1',
+    email: 'payer@example.test',
+    first_name: 'Cliente de Teste',
+    identification: { type: 'CPF', number: '12345678901' },
+  };
+  const { updates } = provider(t, customer);
+  const result = await refreshSavedMercadoPagoCustomer({
+    ...input,
+    verifiedPayer: {
+      name: 'Cliente de Teste',
+      email: 'payer@example.test',
+      cpf: null,
+      phone: '+55 (85) 99999-9999',
+      address: {
+        zipCode: '60000-000',
+        streetName: 'Rua Teste',
+        streetNumber: '123',
+      },
+    },
+  });
+
+  assert.deepEqual(updates, [
+    {
+      phone: { area_code: '85', number: '999999999' },
+      address: {
+        zip_code: '60000000',
+        street_name: 'Rua Teste',
+        street_number: '123',
+      },
+    },
+  ]);
+  assert.equal(result.customerEmail, 'payer@example.test');
+});
+
 test('preserva identidade preenchida, email, telefone e endereço do comprador', async (t) => {
   const customer = {
     id: 'customer-1',

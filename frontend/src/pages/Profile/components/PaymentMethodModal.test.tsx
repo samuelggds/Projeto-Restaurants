@@ -39,9 +39,9 @@ describe('PaymentMethodModal', () => {
     expect(markup).toContain('https://cdn.example.test/cliente.png');
     expect(markup).toContain('Meu Carrinho');
     expect(markup).toContain('Salvar Novo Cartão');
-    expect(markup).toContain('E-mail da conta');
+    expect(markup).toContain('E-mail do pagador');
     expect(markup).toContain('cliente@teste.com');
-    expect(markup).toContain('readOnly=""');
+    expect(markup).not.toContain('readOnly=""');
     expect(markup).toContain('CPF do titular');
   });
 
