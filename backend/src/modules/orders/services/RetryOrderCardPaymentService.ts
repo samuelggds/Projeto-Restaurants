@@ -127,6 +127,7 @@ class RetryOrderCardPaymentService {
       provider,
       amount: recovery.totalAmount,
       cardPaymentType,
+      cardSource: payload.paymentMethodId ? 'saved_card' : 'new_card',
       cardBrand: payload.cardPaymentMethodId || payload.cardBrand,
       cardLast4: payload.cardLast4,
     });
