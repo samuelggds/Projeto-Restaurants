@@ -503,7 +503,7 @@ test('rejeita URL de challenge 3DS fora dos domínios do Mercado Pago', async ()
   );
 });
 
-for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverified-email']) {
+for (const scenario of ['updated', 'refresh-failed', 'shared-customer']) {
   test(`cartão salvo valida cadastro antes da Order: ${scenario}`, async (t) => {
     const events: Record<string, unknown>[] = [];
     t.mock.method(console, 'info', (_event, data) => { events.push(data); });
@@ -544,21 +544,18 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
               active: true,
             });
             return {
+              id: 123,
               publicId: 'saved-card-public-id',
               userId: 33,
               restaurantId: 7,
               provider: 'MERCADO_PAGO',
               providerCustomerId: 'customer-mp-123',
               providerPaymentMethodId: 'card-mp-123',
+              payerEmail: 'pagador-cartao@example.test',
               brand: 'master',
               last4: '0829',
+              holderName: 'Cliente Teste',
               active: true,
-              user: {
-                name: 'Cliente Teste',
-                email: 'cliente@example.test',
-                cpf: '12345678901',
-                emailVerifiedAt: scenario === 'unverified-email' ? null : new Date(),
-              },
             };
           },
         },
@@ -583,11 +580,19 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
         if (init.method === 'PUT') {
           assert.deepEqual(JSON.parse(String(init.body)), {
             first_name: 'Cliente Teste',
-            identification: { type: 'CPF', number: '12345678901' },
+            phone: { area_code: '85', number: '999999999' },
+            address: {
+              zip_code: '60000000',
+              street_name: 'Rua Teste',
+              street_number: '123',
+            },
           });
           if (refreshFails) return Response.json({ message: 'Unavailable' }, { status: 503 });
         }
-        return Response.json({ id: 'customer-mp-123', email: 'cliente@example.test' });
+        return Response.json({
+          id: 'customer-mp-123',
+          email: 'pagador-cartao@example.test',
+        });
       }
       assert.equal(url, 'https://api.mercadopago.com/v1/orders');
       requestBody = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
@@ -610,6 +615,10 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
           cardToken: 'saved-card-cvv-token',
           cardPaymentMethodId: 'master',
           mercadoPagoDeviceId: 'saved-card-device-session',
+          customerPhone: '+55 (85) 99999-9999',
+          address: 'Rua Teste',
+          number: '123',
+          zipCode: '60000-000',
         },
         order: {
           id: 903,
@@ -645,6 +654,7 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
       assert.ok(requestBody);
       assert.deepEqual(requestBody.payer, {
         customer_id: 'customer-mp-123',
+        email: 'pagador-cartao@example.test',
       });
       assert.equal(requestBody.items, undefined);
       assert.equal(requestBody.additional_info, undefined);
@@ -654,8 +664,14 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer', 'unverif
       assert.equal(events[1].stage, 'charge');
       assert.equal(events[1].cardSource, 'saved_card');
       assert.equal(events[1].hasDeviceSession, true);
-      assert.equal(events[1].refreshOutcome, scenario === 'updated' ? 'updated' : scenario === 'shared-customer' ? 'skipped_shared_customer' : 'skipped_unverified_identity');
-      assert.doesNotMatch(JSON.stringify(events), /saved-card-cvv-token|saved-card-device-session|12345678901|cliente@example/);
+      assert.equal(
+        events[1].refreshOutcome,
+        scenario === 'updated' ? 'updated' : 'skipped_shared_customer',
+      );
+      assert.doesNotMatch(
+        JSON.stringify(events),
+        /saved-card-cvv-token|saved-card-device-session|pagador-cartao@example/,
+      );
       if (scenario === 'updated') assert.ok(requests[2].startsWith('PUT '));
       else
         assert.equal(
