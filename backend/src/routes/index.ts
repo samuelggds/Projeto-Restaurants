@@ -30,7 +30,6 @@ import tableAccountRoutes from '../modules/tableAccount/routes/TableAccountRoute
 import superAdminRoutes from '../modules/superAdmin/routes/SuperAdminRoutes.js';
 import adminPortalRoutes from '../modules/adminPortal/routes/AdminPortalRoutes.js';
 import publicMediaRoutes from '../modules/publicMedia/routes/PublicMediaRoutes.js';
-import customerPaymentMethodRoutes from '../modules/customerPaymentMethods/routes/CustomerPaymentMethodRoutes.js';
 import kitchenPrintingRoutes from '../modules/kitchenPrinting/routes/KitchenPrintingRoutes.js';
 import courierCompensationRoutes from '../modules/courierCompensation/routes/CourierCompensationRoutes.js';
 import employeeCompensationRoutes from '../modules/employeeCompensation/routes/EmployeeCompensationRoutes.js';
@@ -95,7 +94,6 @@ router.use('/menu-import', menuImportRoutes);
 router.use('/audit-logs', auditRoutes);
 router.use('/image-enhancement', imageEnhancementRoutes);
 router.use('/customer-addresses', customerAddressRoutes);
-router.use('/customer-payment-methods', customerPaymentMethodRoutes);
 router.use('/kitchen-printing', kitchenPrintingRoutes);
 router.use('/courier-compensation', courierCompensationRoutes);
 router.use('/employee-compensation', employeeCompensationRoutes);
