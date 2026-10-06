@@ -176,6 +176,7 @@ class CreateOrderCardCheckoutService {
       provider: resolvedCardProvider,
       amount: Number(createdOrder.total),
       cardPaymentType,
+      cardSource: normalizedPayload.paymentMethodId ? 'saved_card' : 'new_card',
       cardBrand: normalizedPayload.cardPaymentMethodId || normalizedPayload.cardBrand,
       cardLast4: normalizedPayload.cardLast4,
     });
