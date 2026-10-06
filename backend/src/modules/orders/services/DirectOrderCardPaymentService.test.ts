@@ -685,6 +685,58 @@ for (const scenario of ['updated', 'refresh-failed', 'shared-customer']) {
   });
 }
 
+test('cartão salvo legado sem payerEmail exige recadastro em vez de adivinhar identidade', async () => {
+  const originalTransaction = prisma.$transaction;
+  prisma.$transaction = async (callback: any) =>
+    callback({
+      $queryRaw: async () => [{ set_config: '7' }],
+      customerPaymentMethod: {
+        findFirst: async () => ({
+          id: 321,
+          publicId: 'saved-card-legacy',
+          userId: 33,
+          restaurantId: 7,
+          provider: 'MERCADO_PAGO',
+          providerCustomerId: 'customer-legacy',
+          providerPaymentMethodId: 'card-legacy',
+          payerEmail: null,
+          brand: 'master',
+          last4: '0829',
+          holderName: 'Cliente Teste',
+          active: true,
+        }),
+      },
+    });
+
+  try {
+    await assert.rejects(
+      directOrderCardPaymentService.execute({
+        provider: CARD_PROVIDERS.MERCADO_PAGO,
+        payload: {
+          userId: 33,
+          paymentMethodId: 'saved-card-legacy',
+          cardToken: 'saved-card-token',
+          cardPaymentMethodId: 'master',
+          mercadoPagoDeviceId: 'device-session',
+        },
+        order: {
+          id: 912,
+          publicId: 'order-public-912',
+          restaurantId: 7,
+          total: 10,
+        },
+        successUrlBase: 'https://www.gastronexa.com.br/north-pizza',
+        idempotencyKey: '11111111-1111-4111-8111-111111111912',
+      }),
+      (error) =>
+        error instanceof CardPaymentDeclinedError &&
+        /versão anterior.*cadastre novamente/iu.test(error.message),
+    );
+  } finally {
+    prisma.$transaction = originalTransaction;
+  }
+});
+
 test('property_value do Mercado Pago não é tratado como cartão recusado', async () => {
   globalThis.fetch = async () =>
     new Response(
