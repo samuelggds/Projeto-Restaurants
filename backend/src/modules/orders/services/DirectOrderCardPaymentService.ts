@@ -286,7 +286,8 @@ function mercadoPagoPayerAddress(payload: BasePayload) {
   const neighborhood = String(payload.district || '').trim().slice(0, 255);
   const city = String(payload.city || '').trim().slice(0, 255);
   const state = String(payload.state || '').trim().toUpperCase().slice(0, 32);
-  if (!zipCode && !streetName && !streetNumber && !neighborhood && !city && !state) {
+  const complement = String(payload.complement || '').trim().slice(0, 255);
+  if (!zipCode && !streetName && !streetNumber && !neighborhood && !city && !state && !complement) {
     return undefined;
   }
   return {
@@ -295,7 +296,8 @@ function mercadoPagoPayerAddress(payload: BasePayload) {
     ...(streetNumber ? { street_number: streetNumber } : {}),
     ...(neighborhood ? { neighborhood } : {}),
     ...(city ? { city } : {}),
-    ...(state ? { federal_unit: state } : {}),
+    ...(state ? { state } : {}),
+    ...(complement ? { complement } : {}),
   };
 }
 
@@ -309,7 +311,6 @@ async function mercadoPagoNewCardPayer(payload: BasePayload, order: CardOrder) {
     ...mercadoPagoPayerName(payload),
     ...([11, 14].includes(taxId.length)
       ? {
-          entity_type: taxId.length === 14 ? 'association' : 'individual',
           identification: {
             type: taxId.length === 14 ? 'CNPJ' : 'CPF',
             number: taxId,
@@ -505,6 +506,7 @@ async function mercadoPagoPayment(
     ? { customer_id: storedCustomerId }
     : await mercadoPagoNewCardPayer(payload, order);
 
+  const shipmentAddress = stored ? undefined : mercadoPagoPayerAddress(payload);
   const body = {
     type: 'online',
     processing_mode: 'automatic',
@@ -524,6 +526,7 @@ async function mercadoPagoPayment(
     external_reference: reference,
     description: `Pedido #${order.id}`,
     payer,
+    ...(shipmentAddress ? { shipment: { address: shipmentAddress } } : {}),
     transactions: {
       payments: [
         {
