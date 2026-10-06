@@ -99,6 +99,8 @@ class GetOrderPaymentRecoveryService {
             provider: latestCardAttempt.provider,
             cardPaymentType:
               latestCardAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
+            cardSource:
+              latestCardAttempt.cardSource === 'saved_card' ? 'saved_card' : 'new_card',
             providerStatus: latestCardAttempt.providerStatus,
             providerStatusDetail: latestCardAttempt.providerStatusDetail,
             failureCode: latestCardAttempt.failureCode,
