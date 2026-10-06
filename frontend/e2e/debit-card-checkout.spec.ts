@@ -55,10 +55,7 @@ async function mockDebitCheckout(page: Page) {
 
       async getPaymentMethods() {
         return {
-          results: [
-            { id: 'visa-credit', payment_type_id: 'credit_card' },
-            { id: 'visa', payment_type_id: 'debit_card' },
-          ],
+          results: [{ id: 'visa', payment_type_id: 'credit_card' }],
         };
       }
     }
