@@ -1081,6 +1081,7 @@ model OrderPaymentAttempt {
   restaurantId         Int
   method               PaymentMethod
   cardPaymentType      String                    @default("credit") @db.VarChar(10)
+  cardSource           String                    @default("new_card") @db.VarChar(16)
   cardBrand            String?                   @db.VarChar(32)
   cardLast4            String?                   @db.VarChar(4)
   provider             String
