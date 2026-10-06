@@ -9,7 +9,7 @@ import {
 import type { CardProvider } from '../../payments/providers/providerCatalog.js';
 import { CARD_PROVIDERS } from '../../payments/providers/providerCatalog.js';
 import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
-import { normalizeMercadoPagoPaymentMethodId } from '../../customerPaymentMethods/domain/cardBrand.js';
+import { normalizeMercadoPagoPaymentMethodId } from '../domain/cardBrand.js';
 import { mercadoPagoCardExternalReference } from '../domain/mercadoPagoCardReference.js';
 import { assertFuturePaymentProviderEnabled } from '../../payments/providers/futurePaymentProviders.js';
 import type { CardCheckoutResult } from './cardCheckoutProviders.js';
