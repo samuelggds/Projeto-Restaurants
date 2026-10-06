@@ -254,6 +254,74 @@ async function payerEmail(payload: BasePayload, order: CardOrder) {
   return `guest.card.${order.restaurantId}.${order.id}@gastronexa.local`;
 }
 
+function mercadoPagoPayerName(payload: BasePayload) {
+  const raw = String(payload.customerName || payload.holderName || '')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, 120);
+  if (!raw) return {};
+  const parts = raw.split(' ');
+  const firstName = parts.shift() || '';
+  const lastName = parts.join(' ');
+  return {
+    ...(firstName ? { first_name: firstName } : {}),
+    ...(lastName ? { last_name: lastName } : {}),
+  };
+}
+
+function mercadoPagoPayerPhone(payload: BasePayload) {
+  const raw = digits(payload.customerPhone);
+  const national = raw.startsWith('55') && raw.length >= 12 ? raw.slice(2) : raw;
+  if (!/^[1-9]\d{9,10}$/u.test(national)) return undefined;
+  return {
+    area_code: national.slice(0, 2),
+    number: national.slice(2),
+  };
+}
+
+function mercadoPagoPayerAddress(payload: BasePayload) {
+  const zipCode = digits(payload.zipCode).slice(0, 8);
+  const streetName = String(payload.address || '').trim().slice(0, 255);
+  const streetNumber = String(payload.number || '').trim().slice(0, 32);
+  const neighborhood = String(payload.district || '').trim().slice(0, 255);
+  const city = String(payload.city || '').trim().slice(0, 255);
+  const state = String(payload.state || '').trim().toUpperCase().slice(0, 32);
+  const complement = String(payload.complement || '').trim().slice(0, 255);
+  if (!zipCode && !streetName && !streetNumber && !neighborhood && !city && !state && !complement) {
+    return undefined;
+  }
+  return {
+    ...(zipCode ? { zip_code: zipCode } : {}),
+    ...(streetName ? { street_name: streetName } : {}),
+    ...(streetNumber ? { street_number: streetNumber } : {}),
+    ...(neighborhood ? { neighborhood } : {}),
+    ...(city ? { city } : {}),
+    ...(state ? { state } : {}),
+    ...(complement ? { complement } : {}),
+  };
+}
+
+async function mercadoPagoNewCardPayer(payload: BasePayload, order: CardOrder) {
+  const email = await payerEmail(payload, order);
+  const taxId = digits(payload.holderTaxId);
+  const phone = mercadoPagoPayerPhone(payload);
+  const address = mercadoPagoPayerAddress(payload);
+  return {
+    email,
+    ...mercadoPagoPayerName(payload),
+    ...([11, 14].includes(taxId.length)
+      ? {
+          identification: {
+            type: taxId.length === 14 ? 'CNPJ' : 'CPF',
+            number: taxId,
+          },
+        }
+      : {}),
+    ...(phone ? { phone } : {}),
+    ...(address ? { address } : {}),
+  };
+}
+
 async function savedMethod(payload: BasePayload, order: CardOrder, provider: CardProvider) {
   const publicId = String(payload.paymentMethodId || '').trim();
   if (!publicId) return null;
@@ -436,8 +504,9 @@ async function mercadoPagoPayment(
 
   const payer = stored
     ? { customer_id: storedCustomerId }
-    : { email: await payerEmail(payload, order) };
+    : await mercadoPagoNewCardPayer(payload, order);
 
+  const shipmentAddress = stored ? undefined : mercadoPagoPayerAddress(payload);
   const body = {
     type: 'online',
     processing_mode: 'automatic',
@@ -457,6 +526,7 @@ async function mercadoPagoPayment(
     external_reference: reference,
     description: `Pedido #${order.id}`,
     payer,
+    ...(shipmentAddress ? { shipment: { address: shipmentAddress } } : {}),
     transactions: {
       payments: [
         {
