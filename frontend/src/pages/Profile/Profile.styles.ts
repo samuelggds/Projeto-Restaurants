@@ -1,18 +1,4 @@
 import styled, { keyframes } from 'styled-components';
-export {
-  PaymentMethodGrid,
-  SavedCard,
-  PaymentProtection,
-  PaymentCardPreview,
-  PaymentModalCard,
-  PaymentScreen,
-  PaymentDesktopHeader,
-  PaymentMobileHeader,
-  PaymentScreenMain,
-  PaymentHeading,
-  SavedCardDetails,
-} from './Profile.payment.styles';
-
 const progressLineReveal = keyframes`
   from { transform: scaleX(0); opacity: 0.35; }
   to { transform: scaleX(1); opacity: 1; }
