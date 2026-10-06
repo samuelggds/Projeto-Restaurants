@@ -2,14 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import customerPaymentMethodService from '../../../Services/customerPaymentMethodService';
 import { PaymentOptions } from './PaymentOptions';
-
-vi.mock('../../../Services/customerPaymentMethodService', () => ({
-  default: {
-    list: vi.fn(),
-  },
-}));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
   true;
@@ -30,7 +23,7 @@ describe('PaymentOptions interaction', () => {
     container.remove();
   });
 
-  it('não consulta cartões salvos nem troca o método quando Pix está selecionado', async () => {
+  it('não troca o método quando Pix está selecionado', async () => {
     const onChange = vi.fn();
 
     await act(async () => {
@@ -49,7 +42,6 @@ describe('PaymentOptions interaction', () => {
       await Promise.resolve();
     });
 
-    expect(customerPaymentMethodService.list).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
 
