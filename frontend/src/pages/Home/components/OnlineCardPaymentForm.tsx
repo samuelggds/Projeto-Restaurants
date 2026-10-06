@@ -407,7 +407,7 @@ export function OnlineCardPaymentForm({
             </label>
           </div>
         </>
-      ) : null}
+      )}
 
       {(config?.provider === 'MERCADO_PAGO' || config?.provider === 'PAGARME') && (
         <label className="full">
