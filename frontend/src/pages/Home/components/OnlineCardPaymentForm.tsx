@@ -188,9 +188,7 @@ export function OnlineCardPaymentForm({
             identificationNumber: holderTaxId,
           });
           const paymentMethodId = String(
-            paymentType === 'debit'
-              ? mercadoPagoPaymentMethodId
-              : token.payment_method_id || mercadoPagoPaymentMethodId || '',
+            token.payment_method_id || mercadoPagoPaymentMethodId || '',
           ).trim();
           if (!token.id || !paymentMethodId) {
             throw new Error(
