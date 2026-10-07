@@ -37,6 +37,11 @@ import { MonthlyBillingPixDialog, type MonthlyBillingPix } from './MonthlyBillin
 import { getBillingPixExpiry } from './useBillingPixExpiry';
 
 const HISTORY_BATCH_SIZE = 10;
+const PLAN_ORDER: Record<PlanCode, number> = {
+  BASICO: 1,
+  PREMIUM: 2,
+  GESTAO_TOTAL: 3,
+};
 const benefits: Record<PlanCode, string[]> = {
   BASICO: [
     'Sistema de delivery',
@@ -259,7 +264,13 @@ export function MonthlyBilling({
       setPayingInvoice(null);
     }
   };
-  const displayedPlans = useMemo(() => (plans.length ? plans : fallbackPlans), [plans]);
+  const displayedPlans = useMemo(
+    () =>
+      [...(plans.length ? plans : fallbackPlans)].sort(
+        (a, b) => PLAN_ORDER[a.plan] - PLAN_ORDER[b.plan],
+      ),
+    [plans],
+  );
   const active = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
   const currentPlan = displayedPlans.find((plan) => plan.plan === subscription?.plan);
   const scheduledPlan = displayedPlans.find((plan) => plan.plan === subscription?.scheduledPlan);
