@@ -1,21 +1,22 @@
 import api from './api';
 import { resolvePublicProductImages } from './publicMediaSource';
+import { readSessionUserRaw } from '../modules/auth/session/authSession';
 
 type ProductPayload = Record<string, unknown>;
 
 function resolveRestaurantIdFromStorage() {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    const tableSession = JSON.parse(localStorage.getItem('tableSession') || 'null');
+    const user = JSON.parse(readSessionUserRaw() || 'null');
     const fromUser = Number(
       user?.restaurantId || user?.restaurant?.id || user?.restaurant?.restaurantId || 0,
     );
-    const fromSession = Number(tableSession?.restaurantId || 0);
-    const fromMenu = Number(localStorage.getItem('menuRestaurantId') || 0);
-
     if (fromUser > 0) {
       return fromUser;
     }
+
+    const tableSession = JSON.parse(localStorage.getItem('tableSession') || 'null');
+    const fromSession = Number(tableSession?.restaurantId || 0);
+    const fromMenu = Number(localStorage.getItem('menuRestaurantId') || 0);
 
     if (fromSession > 0) {
       return fromSession;

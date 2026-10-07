@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   assertSecureRuntimeDatabaseRole,
+  TENANT_RLS_TABLES,
   withTenantDbContext,
 } from '../../database/tenantDbContext.js';
 import {
@@ -452,52 +453,17 @@ test(
         JOIN pg_catalog.pg_namespace AS namespaces
           ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN (
-            'CustomerPaymentMethod',
-            'CourierCompensationPolicy',
-            'CourierCompensationRange',
-            'CourierSettlement',
-            'CourierSettlementItem',
-            'EmployeeCompensationPolicy',
-            'EmployeeEarning',
-            'EmployeeSettlement',
-            'EmployeeSettlementItem',
-            'EmployeeSettlementPayment',
-            'EmployeeWorkEntry',
-            'KitchenPrintJob',
-            'OrderIssueThread',
-            'ProductCompositionItem',
-            'ProductConfigurationTemplate',
-            'ProductOption',
-            'ProductOptionGroup',
-            'ProductPortionConfiguration',
-            'RestaurantPrinterSettings',
-            'TableWaiterAssignment'
-          )
+          AND relations.relname = ANY(${[...TENANT_RLS_TABLES]}::text[])
         ORDER BY relations.relname
       `;
-        assert.deepEqual(tables, [
-          { table_name: 'CourierCompensationPolicy', rls_enabled: true, rls_forced: true },
-          { table_name: 'CourierCompensationRange', rls_enabled: true, rls_forced: true },
-          { table_name: 'CourierSettlement', rls_enabled: true, rls_forced: true },
-          { table_name: 'CourierSettlementItem', rls_enabled: true, rls_forced: true },
-          { table_name: 'CustomerPaymentMethod', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeCompensationPolicy', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeEarning', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeSettlement', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeSettlementItem', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeSettlementPayment', rls_enabled: true, rls_forced: true },
-          { table_name: 'EmployeeWorkEntry', rls_enabled: true, rls_forced: true },
-          { table_name: 'KitchenPrintJob', rls_enabled: true, rls_forced: true },
-          { table_name: 'OrderIssueThread', rls_enabled: true, rls_forced: true },
-          { table_name: 'ProductCompositionItem', rls_enabled: true, rls_forced: true },
-          { table_name: 'ProductConfigurationTemplate', rls_enabled: true, rls_forced: true },
-          { table_name: 'ProductOption', rls_enabled: true, rls_forced: true },
-          { table_name: 'ProductOptionGroup', rls_enabled: true, rls_forced: true },
-          { table_name: 'ProductPortionConfiguration', rls_enabled: true, rls_forced: true },
-          { table_name: 'RestaurantPrinterSettings', rls_enabled: true, rls_forced: true },
-          { table_name: 'TableWaiterAssignment', rls_enabled: true, rls_forced: true },
-        ]);
+        assert.deepEqual(
+          tables,
+          TENANT_RLS_TABLES.map((table_name) => ({
+            table_name,
+            rls_enabled: true,
+            rls_forced: true,
+          })),
+        );
 
         const policies = await runtimePrisma.$queryRaw<
           Array<{
@@ -520,31 +486,13 @@ test(
         JOIN pg_catalog.pg_class AS relations ON relations.oid = policies.polrelid
         JOIN pg_catalog.pg_namespace AS namespaces ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN (
-            'CustomerPaymentMethod',
-            'CourierCompensationPolicy',
-            'CourierCompensationRange',
-            'CourierSettlement',
-            'CourierSettlementItem',
-            'EmployeeCompensationPolicy',
-            'EmployeeEarning',
-            'EmployeeSettlement',
-            'EmployeeSettlementItem',
-            'EmployeeSettlementPayment',
-            'EmployeeWorkEntry',
-            'KitchenPrintJob',
-            'OrderIssueThread',
-            'ProductCompositionItem',
-            'ProductConfigurationTemplate',
-            'ProductOption',
-            'ProductOptionGroup',
-            'ProductPortionConfiguration',
-            'RestaurantPrinterSettings',
-            'TableWaiterAssignment'
-          )
+          AND relations.relname = ANY(${[...TENANT_RLS_TABLES]}::text[])
         ORDER BY relations.relname
       `;
-        assert.equal(policies.length, 20);
+        assert.deepEqual(
+          policies.map(({ table_name }) => table_name),
+          [...TENANT_RLS_TABLES],
+        );
         for (const policy of policies) {
           assert.equal(policy.policy_name, `${policy.table_name}_tenant_isolation`);
           assert.equal(policy.is_permissive, true);

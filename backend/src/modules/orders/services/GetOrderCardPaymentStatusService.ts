@@ -1,9 +1,4 @@
-import {
-  OrderPaymentAttemptStatus,
-  OrderStatus,
-  OrderType,
-  PaymentMethod,
-} from '@prisma/client';
+import { OrderPaymentAttemptStatus, OrderStatus, OrderType, PaymentMethod } from '@prisma/client';
 import { z } from 'zod';
 import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -14,6 +9,7 @@ import { matchesOrderPaymentEvidence } from '../utils/paymentEvidence.js';
 import { mercadoPagoCardExternalReferenceCandidates } from '../domain/mercadoPagoCardReference.js';
 import { verifyGuestOrderOwnershipTokenByPublicId } from '../utils/guestOrderOwnershipToken.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
+import recoverUnknownCardPaymentService from './RecoverUnknownCardPaymentService.js';
 import { extractPaymentDiagnostic, safePaymentCode } from '../domain/cardPaymentDiagnostic.js';
 import {
   mercadoPago3DSChallengeUrl,
@@ -73,26 +69,50 @@ class GetOrderCardPaymentStatusService {
       }
     }
 
-    const sessionId = String(order.cardCheckoutSessionId || '');
+    let sessionId = String(order.cardCheckoutSessionId || '');
     let challengeUrl: string | null = null;
     let latestAttempt = await orderPaymentAttemptRepository.latestForOrder(
       order.id,
       order.restaurantId,
     );
+    let reconciliationPending = false;
+    let recoveredRemote = null;
+    if (
+      !order.paid &&
+      !sessionId &&
+      latestAttempt?.provider === 'MERCADO_PAGO' &&
+      ['PENDING', 'PROCESSING', 'APPROVED'].includes(latestAttempt.status)
+    ) {
+      reconciliationPending = true;
+      try {
+        recoveredRemote = await recoverUnknownCardPaymentService.execute(order, latestAttempt);
+        if (recoveredRemote?.id) {
+          sessionId = `mp_order:${recoveredRemote.id}`;
+          latestAttempt = { ...latestAttempt, providerOrderId: recoveredRemote.id };
+          reconciliationPending = false;
+        }
+      } catch {
+        /* A failed/empty search never authorizes a new charge or expiration. */
+      }
+    }
 
     if (
       !order.paid &&
-      order.status !== OrderStatus.CANCELADO &&
+      (order.status !== OrderStatus.CANCELADO || recoveredRemote) &&
       sessionId.startsWith('mp_order:')
     ) {
       try {
         const providerOrderId = sessionId.slice('mp_order:'.length);
-        const remote = await (
-          await getMercadoPagoOrderApi(order.restaurantId)
-        ).get(providerOrderId);
+        const remote =
+          recoveredRemote ||
+          (await (await getMercadoPagoOrderApi(order.restaurantId)).get(providerOrderId));
         const reference = String(remote.external_reference || '').trim();
         const validReference = new Set(
-          mercadoPagoCardExternalReferenceCandidates(order.id, order.restaurantId),
+          mercadoPagoCardExternalReferenceCandidates(
+            order.id,
+            order.restaurantId,
+            latestAttempt?.publicId,
+          ),
         ).has(reference);
         const remoteDiagnostic = mercadoPagoDeclineDetails(
           remote as unknown as Record<string, unknown>,
@@ -101,13 +121,28 @@ class GetOrderCardPaymentStatusService {
           .trim()
           .toLowerCase();
         const remoteStatusDetail =
-          remoteDiagnostic.transactionStatusDetail ||
-          safePaymentCode(remote.status_detail) ||
-          null;
-        const providerDiagnostic = extractPaymentDiagnostic(remote as unknown as Record<string, unknown>);
-        if (validReference && latestAttempt &&
-          (!latestAttempt.providerOrderId || latestAttempt.providerOrderId === providerOrderId) &&
-          (latestAttempt.providerStatus !== remoteStatus || latestAttempt.providerStatusDetail !== remoteStatusDetail)) {
+          remoteDiagnostic.transactionStatusDetail || safePaymentCode(remote.status_detail) || null;
+        const providerDiagnostic = extractPaymentDiagnostic(
+          remote as unknown as Record<string, unknown>,
+        );
+        const matchesLatestAttempt = latestAttempt?.providerOrderId === providerOrderId;
+        if (
+          !validReference ||
+          (remoteStatus === 'processed' &&
+            !matchesOrderPaymentEvidence({
+              expectedAmount: order.total,
+              providerAmount: remote.total_paid_amount ?? remote.total_amount,
+              providerCurrency: remote.currency,
+            }))
+        )
+          reconciliationPending = true;
+        if (
+          validReference &&
+          latestAttempt &&
+          matchesLatestAttempt &&
+          (latestAttempt.providerStatus !== remoteStatus ||
+            latestAttempt.providerStatusDetail !== remoteStatusDetail)
+        ) {
           console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
             timestamp: new Date().toISOString(),
             paymentAttemptId: latestAttempt.publicId,
@@ -121,7 +156,7 @@ class GetOrderCardPaymentStatusService {
         }
         if (remoteStatus === 'action_required' && remoteStatusDetail === 'pending_challenge') {
           challengeUrl = mercadoPago3DSChallengeUrl(remote as unknown as Record<string, unknown>);
-          if (latestAttempt) {
+          if (latestAttempt && matchesLatestAttempt && validReference) {
             latestAttempt = await orderPaymentAttemptRepository.update(
               latestAttempt.id,
               order.restaurantId,
@@ -140,7 +175,7 @@ class GetOrderCardPaymentStatusService {
           matchesOrderPaymentEvidence({
             expectedAmount: order.total,
             providerAmount: remote.total_paid_amount ?? remote.total_amount,
-            providerCurrency: remote.currency || 'BRL',
+            providerCurrency: remote.currency,
           })
         ) {
           const confirmed = await finalizeOrderCardPaymentService.execute({
@@ -148,7 +183,7 @@ class GetOrderCardPaymentStatusService {
             restaurantId: order.restaurantId,
             checkoutSessionId: sessionId,
           });
-          if (latestAttempt) {
+          if (latestAttempt && matchesLatestAttempt) {
             latestAttempt = await orderPaymentAttemptRepository.update(
               latestAttempt.id,
               order.restaurantId,
@@ -161,7 +196,12 @@ class GetOrderCardPaymentStatusService {
             );
           }
           if (confirmed) order = { ...order, paid: confirmed.paid, status: confirmed.status };
-        } else if (['failed', 'rejected'].includes(remoteStatus) && latestAttempt) {
+        } else if (
+          ['failed', 'rejected'].includes(remoteStatus) &&
+          latestAttempt &&
+          matchesLatestAttempt &&
+          validReference
+        ) {
           latestAttempt = await orderPaymentAttemptRepository.update(
             latestAttempt.id,
             order.restaurantId,
@@ -175,7 +215,12 @@ class GetOrderCardPaymentStatusService {
               failureMessage: 'Pagamento não autorizado pelo provedor.',
             },
           );
-        } else if (['cancelled', 'canceled'].includes(remoteStatus) && latestAttempt) {
+        } else if (
+          ['cancelled', 'canceled'].includes(remoteStatus) &&
+          latestAttempt &&
+          matchesLatestAttempt &&
+          validReference
+        ) {
           latestAttempt = await orderPaymentAttemptRepository.update(
             latestAttempt.id,
             order.restaurantId,
@@ -186,7 +231,12 @@ class GetOrderCardPaymentStatusService {
               providerStatusDetail: remoteStatusDetail,
             },
           );
-        } else if (remoteStatus === 'expired' && latestAttempt) {
+        } else if (
+          remoteStatus === 'expired' &&
+          latestAttempt &&
+          matchesLatestAttempt &&
+          validReference
+        ) {
           latestAttempt = await orderPaymentAttemptRepository.update(
             latestAttempt.id,
             order.restaurantId,
@@ -197,7 +247,12 @@ class GetOrderCardPaymentStatusService {
               providerStatusDetail: remoteStatusDetail,
             },
           );
-        } else if (['refunded', 'charged_back'].includes(remoteStatus) && latestAttempt) {
+        } else if (
+          ['refunded', 'charged_back'].includes(remoteStatus) &&
+          latestAttempt &&
+          matchesLatestAttempt &&
+          validReference
+        ) {
           latestAttempt = await orderPaymentAttemptRepository.update(
             latestAttempt.id,
             order.restaurantId,
@@ -210,6 +265,7 @@ class GetOrderCardPaymentStatusService {
           );
         }
       } catch {
+        reconciliationPending = true;
         /* Falha de consulta mantém o estado pendente; o webhook também concilia. */
       }
     }
@@ -239,7 +295,6 @@ class GetOrderCardPaymentStatusService {
         /* Falha de consulta mantém o estado pendente; o webhook também concilia. */
       }
     }
-
 
     const attemptStatus = String(latestAttempt?.status || '').toUpperCase();
     const status =
@@ -279,13 +334,13 @@ class GetOrderCardPaymentStatusService {
           : null,
       status,
       paid: status === 'PAID',
+      ...(reconciliationPending ? { reconciliationPending: true } : {}),
       challengeUrl: status === 'PENDING' ? challengeUrl : null,
       paymentAttempt: latestAttempt
         ? {
             publicId: latestAttempt.publicId,
             status: latestAttempt.status,
-            cardPaymentType:
-              latestAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
+            cardPaymentType: latestAttempt.cardPaymentType === 'debit' ? 'debit' : 'credit',
             cardBrand: latestAttempt.cardBrand || 'card',
             cardLast4: latestAttempt.cardLast4 || null,
             providerStatus: safePaymentCode(latestAttempt.providerStatus),

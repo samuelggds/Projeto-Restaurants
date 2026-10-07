@@ -8,7 +8,9 @@ import cancelOrderWorkflowService from './CancelOrderWorkflowService.js';
 import refundOrderPaymentService, { AutomaticRefundError } from './RefundOrderPaymentService.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 
-beforeEach(() => mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []));
+beforeEach(() =>
+  mock.method(orderCapacityQueueService, 'drainAfterCapacityChange', async () => []),
+);
 
 const originalTransaction = prisma.$transaction;
 const originalOrderUpdateMany = prisma.order.updateMany;
@@ -91,6 +93,10 @@ function installStatefulDatabase(initialOrder) {
     Number(id) === stored.id && Number(restaurantId) === stored.restaurantId ? { ...stored } : null;
   prisma.$transaction = async (callback) =>
     callback({
+      $queryRaw: async () => [],
+      tablePaymentAllocation: {
+        findFirst: (...args) => prisma.tablePaymentAllocation.findFirst(...args),
+      },
       order: {
         updateMany,
         findFirst: async ({ select } = {}) =>
@@ -132,7 +138,7 @@ test('pedido de mesa pago pelo ledger não pode cair no cancelamento sem estorno
     assert.equal(where.tableSessionId, 77);
     assert.equal(where.tableBillItem.orderId, 501);
     assert.equal(where.tableBillItem.restaurantId, 7);
-    assert.equal(where.paymentIntent.status, 'PAID');
+    assert.deepEqual(where.paymentIntent.status.in, ['PAID', 'RESERVED', 'PROCESSING']);
     assert.equal(select.paymentIntentId, true);
     return {
       paymentIntentId: 91,
@@ -140,6 +146,7 @@ test('pedido de mesa pago pelo ledger não pode cair no cancelamento sem estorno
         publicId: '123e4567-e89b-42d3-a456-426614174091',
         method: 'PIX',
         provider: 'MERCADO_PAGO',
+        status: 'PAID',
       },
     };
   };
@@ -151,6 +158,62 @@ test('pedido de mesa pago pelo ledger não pode cair no cancelamento sem estorno
 
   assert.equal(stored.status, OrderStatus.PENDENTE);
   assert.equal(gatewayCalls, 0);
+  assert.equal(stored.billItemUpdates.length, 0);
+});
+
+for (const paymentStatus of ['PAID', 'RESERVED', 'PROCESSING']) {
+  test(`mesa parcialmente paga ou comprometida (${paymentStatus}) preserva pedido e ledger`, async () => {
+    const order = makeOrder({
+      type: 'MESA',
+      tableSessionId: 77,
+      paymentMethod: null,
+      paid: false,
+      tableFinancialStatus: 'UNPAID',
+      items: [{ productId: 8, quantity: 1 }],
+    });
+    const stored = installStatefulDatabase(order);
+    let gatewayCalls = 0;
+    refundOrderPaymentService.execute = async () => {
+      gatewayCalls += 1;
+    };
+    prisma.tablePaymentAllocation.findFirst = async ({ where }) => {
+      assert.ok(where.paymentIntent.status.in.includes(paymentStatus));
+      return { paymentIntentId: 91, paymentIntent: { status: paymentStatus } };
+    };
+    await assert.rejects(
+      () => cancelOrderWorkflowService.execute(order),
+      paymentStatus === 'PAID' ? /Estorne primeiro/ : /reservado ou em processamento/,
+    );
+    assert.equal(stored.status, OrderStatus.PENDENTE);
+    assert.equal(stored.billItemUpdates.length, 0);
+    assert.equal(gatewayCalls, 0);
+  });
+}
+
+test('cancelamento revalida alocação sob lock quando pagamento chega depois da leitura inicial', async () => {
+  const order = makeOrder({ type: 'MESA', tableSessionId: 77, paymentMethod: null, paid: false });
+  const stored = installStatefulDatabase(order);
+  const transaction = prisma.$transaction;
+  let locked = false;
+  let reads = 0;
+  prisma.$transaction = (callback) =>
+    transaction(async (tx) => {
+      tx.$queryRaw = async (query) => {
+        assert.match(query.sql, /pg_advisory_xact_lock/);
+        locked = true;
+        return [];
+      };
+      return callback(tx);
+    });
+  prisma.tablePaymentAllocation.findFirst = async () => {
+    reads += 1;
+    if (reads === 1) return null;
+    assert.equal(locked, true);
+    return { paymentIntentId: 91, paymentIntent: { status: 'PAID' } };
+  };
+  await assert.rejects(() => cancelOrderWorkflowService.execute(order), /Estorne primeiro/);
+  assert.equal(reads, 2);
+  assert.equal(stored.status, OrderStatus.PENDENTE);
   assert.equal(stored.billItemUpdates.length, 0);
 });
 

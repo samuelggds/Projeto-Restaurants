@@ -10,6 +10,8 @@ Cada ocorrência aceita está registrada em `.gitleaksignore` pelo fingerprint e
 
 ## Política de classificação
 
+Em 2026-10-07, foram revisados mais dois fingerprints do commit `51783dad61e9dc70090c7d22f65b7f9f3f8f7661`, nos testes `PrintAgentRunner.test.ts` e `LocalConfigStore.test.ts`. Ambos usam a mesma credencial artificial de pareamento, cujo sufixo é uma sequência do alfabeto e números, em testes locais com transporte simulado. As exceções registram somente esses fingerprints históricos; valores novos continuam sujeitos à varredura.
+
 - **Fixture/teste sintético:** pode receber exceção somente após confirmar que pertence a teste, E2E ou CI descartável e não corresponde a credencial emitida por um provedor.
 - **Exemplo de configuração:** pode receber exceção somente quando o valor é explicitamente demonstrativo e o arquivo não é fonte de configuração de produção.
 - **Indeterminado ou potencialmente real:** não recebe exceção. Deve ser tratado como incidente, com revogação/rotação no provedor apropriado e registro da pendência. A rotação não é feita por automação deste repositório.

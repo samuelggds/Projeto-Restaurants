@@ -19,6 +19,7 @@ import { adminMockSettings } from '../data';
 import * as S from '../Admin.styles';
 import { getRestaurantCategoryFavicon } from '../../../config/browserBranding';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
+import { readSessionUserRaw } from '../../../modules/auth/session/authSession';
 
 type Settings = typeof adminMockSettings;
 type Props = {
@@ -62,7 +63,7 @@ function readRestaurantIdentity() {
     return { id: 'default', category: 'RESTAURANTE', slug: '' };
   }
   try {
-    const user = JSON.parse(window.localStorage.getItem('user') || 'null') as Record<
+    const user = JSON.parse(readSessionUserRaw() || 'null') as Record<
       string,
       unknown
     > | null;

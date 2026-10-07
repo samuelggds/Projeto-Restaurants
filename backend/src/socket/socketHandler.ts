@@ -15,6 +15,8 @@ import { validateDeliveryLocationPayload } from './deliveryLocationPayload.js';
 import { isSocketAccountAuthorized } from './socketAccountPolicy.js';
 import { safeErrorName } from '../services/telemetrySanitizer.js';
 import { assertSocketAccess, SocketAccessDeniedError } from './socketAccessPolicy.js';
+import tableSessionRepository from '../modules/tableSession/repositories/TableSessionRepository.js';
+import { socketAccountRoom } from '../realtime/socketRevocation.js';
 
 type SocketUser = {
   id: number | string;
@@ -22,6 +24,7 @@ type SocketUser = {
   subRole?: string | null;
   restaurantId: number | string | null;
   authVersion?: number | null;
+  expiresAt?: number | null;
 };
 
 type SocketTableSession = {
@@ -53,9 +56,21 @@ function startTenantAccessRevalidation(
   socket: AppSocket,
   role: string | null,
   restaurantId: number | string | null,
+  validateSession?: () => Promise<boolean>,
 ) {
   const timer = setInterval(() => {
-    void assertSocketAccess(role, restaurantId).catch((error) => {
+    void (async () => {
+      if (validateSession && !(await validateSession())) {
+        socket.disconnect(true);
+        return;
+      }
+      await assertSocketAccess(role, restaurantId);
+    })().catch((error) => {
+      // A table authorization check must fail closed when its state cannot be read.
+      if (validateSession) {
+        socket.disconnect(true);
+        return;
+      }
       if (error instanceof SocketAccessDeniedError) {
         socket.disconnect(true);
         return;
@@ -87,9 +102,21 @@ export function socketHandler(socket: AppSocket) {
 
   if (socket.authType === 'table-session' && socket.tableSession) {
     const { id, tableId, restaurantId } = socket.tableSession;
-    const accessValidationTimer = startTenantAccessRevalidation(socket, null, restaurantId);
+    const accessValidationTimer = startTenantAccessRevalidation(
+      socket,
+      null,
+      restaurantId,
+      async () => {
+        const session = await tableSessionRepository.findById(id, restaurantId);
+        return Boolean(
+          session &&
+          Number(session.tableId) === Number(tableId) &&
+          (session.status === 'OPEN' || session.status === 'CLOSING_REQUESTED') &&
+          (!session.expiresAt || session.expiresAt.getTime() > Date.now()),
+        );
+      },
+    );
 
-    socket.join(`table:${tableId}`);
     socket.join(`table-session:${id}`);
 
     socket.on('disconnect', () => {
@@ -122,11 +149,29 @@ export function socketHandler(socket: AppSocket) {
     return;
   }
 
-  const { id, role, subRole, restaurantId, authVersion } = user;
+  const { id, role, subRole, restaurantId, authVersion, expiresAt } = user;
+  // Production handshakes always carry the verified JWT expiry. The timeout
+  // also runs when no incoming socket events or account revalidation occur.
+  let expirationTimer: NodeJS.Timeout | undefined;
+  if (expiresAt) {
+    const expire = () => {
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) {
+        socket.emit('auth:expired');
+        socket.disconnect(true);
+        return;
+      }
+      expirationTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647));
+      expirationTimer.unref();
+    };
+    expire();
+    if (expiresAt <= Date.now()) return;
+  }
   const lastLocationStoredAtByOrder = new Map<number, number>();
   let accountValidationTimer: NodeJS.Timeout | null = null;
 
   socket.join(`user:${id}`);
+  if (typeof authVersion === 'number') socket.join(socketAccountRoom(id, authVersion));
 
   if (role === 'FUNCIONARIO' && String(subRole || '').toUpperCase() === 'COZINHA') {
     socket.join(`restaurant:${restaurantId}`);
@@ -157,6 +202,11 @@ export function socketHandler(socket: AppSocket) {
 
   const revalidationMs = resolveSocketRevalidationMs();
   accountValidationTimer = setInterval(() => {
+    if (expiresAt && expiresAt <= Date.now()) {
+      socket.emit('auth:expired');
+      socket.disconnect(true);
+      return;
+    }
     void prisma.user
       .findUnique({
         where: { id: Number(id || 0) },
@@ -583,6 +633,7 @@ export function socketHandler(socket: AppSocket) {
 
   socket.on('disconnect', () => {
     if (accountValidationTimer) clearInterval(accountValidationTimer);
+    if (expirationTimer) clearTimeout(expirationTimer);
     console.log('❌ desconectado:', socket.id);
   });
 }

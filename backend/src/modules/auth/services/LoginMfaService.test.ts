@@ -7,6 +7,7 @@ import prisma from '../../../config/prisma.js';
 import { LoginMfaService } from './LoginMfaService.js';
 import authTokenService from './AuthTokenService.js';
 import userRepository from '../repositories/UserRepository.js';
+import updatePasswordService from './UpdatePasswordService.js';
 
 const loginMfaService = new LoginMfaService({
   assertRoleAllowed: async () => undefined,
@@ -16,6 +17,7 @@ const originalFindUnique = prisma.authMfaChallenge.findUnique;
 const originalUpsert = prisma.authMfaChallenge.upsert;
 const originalUpdate = prisma.authMfaChallenge.update;
 const originalDeleteMany = prisma.authMfaChallenge.deleteMany;
+const originalTransaction = prisma.$transaction;
 const originalCreateAccessToken = authTokenService.createAccessToken;
 const originalCreateRefreshToken = authTokenService.createRefreshToken;
 const originalFindByIdWithPassword = userRepository.findByIdWithPassword;
@@ -34,6 +36,7 @@ afterEach(() => {
   prisma.authMfaChallenge.upsert = originalUpsert;
   prisma.authMfaChallenge.update = originalUpdate;
   prisma.authMfaChallenge.deleteMany = originalDeleteMany;
+  prisma.$transaction = originalTransaction;
   authTokenService.createAccessToken = originalCreateAccessToken;
   authTokenService.createRefreshToken = originalCreateRefreshToken;
   userRepository.findByIdWithPassword = originalFindByIdWithPassword;
@@ -48,6 +51,19 @@ afterEach(() => {
 });
 
 function installPrismaMocks() {
+  prisma.$transaction = async (callback) =>
+    callback({
+      user: {
+        updateMany: async ({ where, data }) => {
+          const user = await userRepository.findByIdWithPassword(where.id);
+          assert.equal(data.authVersion, where.authVersion);
+          return {
+            count: user.active && Number(user.authVersion || 0) === where.authVersion ? 1 : 0,
+          };
+        },
+      },
+      authMfaChallenge: { deleteMany: (args) => prisma.authMfaChallenge.deleteMany(args) },
+    });
   process.env.SMTP_HOST = '';
   process.env.SMTP_USER = '';
   process.env.SMTP_PASS = '';
@@ -219,7 +235,8 @@ test('deve validar codigo 2FA e emitir tokens', async () => {
     completionEvents.push('access-token');
     return 'access_test_token';
   };
-  authTokenService.createRefreshToken = async () => {
+  authTokenService.createRefreshToken = async (_payload, transaction) => {
+    assert.ok(transaction.authMfaChallenge, 'refresh is persisted in the challenge transaction');
     completionEvents.push('refresh-token');
     return 'refresh_test_token';
   };
@@ -426,4 +443,108 @@ test('codigo MFA válido só pode ser consumido uma vez em concorrência', async
   ]);
   assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
   assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+});
+
+test('password change clears MFA challenge and rejects the prior token even if a challenge survives', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+  let user = {
+    id: 93,
+    role: 'ADMIN',
+    restaurantId: 7,
+    email: 'revoke@example.test',
+    name: 'Synthetic',
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+    authVersion: 3,
+    password: await bcrypt.hash('Original9!', 4),
+  };
+  userRepository.findByIdWithPassword = async () => ({ ...user });
+  let tokensIssued = 0;
+  authTokenService.createAccessToken = () => {
+    tokensIssued++;
+    return 'unexpected';
+  };
+  authTokenService.createRefreshToken = async () => {
+    tokensIssued++;
+    return 'unexpected';
+  };
+  const begin = await loginMfaService.beginIfRequired(user);
+  const priorChallenge = { ...challenges.get(user.id), codeHash: await bcrypt.hash('654321', 4) };
+  challenges.set(user.id, priorChallenge);
+  let refreshRevoked = false;
+  prisma.$transaction = async (callback) =>
+    callback({
+      user: {
+        update: async ({ data }) => {
+          user = { ...user, ...data, authVersion: user.authVersion + data.authVersion.increment };
+          return { ...user };
+        },
+      },
+      authRefreshSession: {
+        deleteMany: async () => {
+          refreshRevoked = true;
+          return { count: 1 };
+        },
+      },
+      authMfaChallenge: { deleteMany: (args) => prisma.authMfaChallenge.deleteMany(args) },
+    });
+  await updatePasswordService.execute(user.id, 'Original9!', 'Coriander8!');
+  assert.equal(user.authVersion, 4);
+  assert.equal(refreshRevoked, true);
+  assert.equal(challenges.has(user.id), false);
+  // Version binding also protects an old in-flight delivery that persists late.
+  challenges.set(user.id, priorChallenge);
+  await assert.rejects(
+    () => loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '654321' }),
+    /Verificacao expirada/,
+  );
+  await assert.rejects(() => loginMfaService.resend(begin.mfaToken), /Verificacao expirada/);
+  await assert.rejects(
+    () => loginMfaService.selectChannel(begin.mfaToken, 'EMAIL'),
+    /Verificacao expirada/,
+  );
+  assert.equal(tokensIssued, 0);
+});
+
+test('MFA completion rechecks authVersion atomically after OTP comparison', async () => {
+  installPrismaMocks();
+  process.env.MFA_REQUIRED_ROLES = 'ADMIN';
+  process.env.JWT_SECRET = 'test_jwt_secret_with_minimum_32_chars_123456';
+  process.env.JWT_MFA_SECRET = 'test_mfa_secret_with_minimum_32_chars_123456';
+  const user = {
+    id: 94,
+    role: 'ADMIN',
+    restaurantId: 7,
+    email: 'race@example.test',
+    name: 'Synthetic',
+    active: true,
+    mustChangePassword: false,
+    mfaEnabled: true,
+    authVersion: 3,
+  };
+  const begin = await loginMfaService.beginIfRequired(user);
+  const challenge = challenges.get(user.id);
+  challenge.codeHash = await bcrypt.hash('654321', 4);
+  let lookups = 0;
+  userRepository.findByIdWithPassword = async () => {
+    const snapshot = { ...user };
+    if (++lookups === 1) user.authVersion++;
+    return snapshot;
+  };
+  let issued = false;
+  authTokenService.createAccessToken = () => {
+    issued = true;
+    return 'unexpected';
+  };
+  await assert.rejects(
+    () => loginMfaService.verifyAndIssueTokens({ mfaToken: begin.mfaToken, code: '654321' }),
+    /Verificacao expirada/,
+  );
+  assert.equal(lookups, 2);
+  assert.equal(issued, false);
+  assert.equal(challenges.has(user.id), true);
 });

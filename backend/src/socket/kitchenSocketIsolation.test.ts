@@ -48,6 +48,7 @@ test('token do cozinheiro mantém subperfil e tenant no handshake', async () => 
       type: 'access',
     },
     process.env.JWT_SECRET,
+    { expiresIn: '15m' },
   );
   prisma.user.findUnique = async () => ({
     id: 44,
@@ -149,14 +150,14 @@ test('admin entra somente nas rooms do próprio tenant e nunca em sala global', 
   assert.equal(socket.rooms.includes('restaurant:8:admin'), false);
 });
 
-test('sessão de mesa entra apenas nas rooms da mesa e da própria sessão', () => {
+test('sessão de mesa entra apenas na própria sessão, sem sala física compartilhada', () => {
   const socket = socketStub(undefined);
   socket.authType = 'table-session';
   socket.tableSession = { id: 55, tableId: 91, restaurantId: 7 };
 
   socketHandler(socket);
 
-  assert.deepEqual(socket.rooms, ['table:91', 'table-session:55']);
+  assert.deepEqual(socket.rooms, ['table-session:55']);
   assert.equal(socket.rooms.includes('restaurant:7'), false);
 });
 

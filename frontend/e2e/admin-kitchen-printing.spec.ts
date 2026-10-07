@@ -108,7 +108,12 @@ async function mockAdminApi(page: Page, state: TestState) {
       '/banners': [],
       '/employees': [],
     };
-    await fulfillJson(route, orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {});
+    await fulfillJson(
+      route,
+      orderFixtureResponse(route.request().url(), responses['/orders']) ??
+        responses[pathname] ??
+        {},
+    );
   });
 
   await page.addInitScript(() => {
@@ -138,21 +143,22 @@ test('admin visualiza as comandas de delivery, mesa e retirada', async ({ page }
   await openPrintingSettings(page);
 
   const preview = page.locator('.command-preview-panel');
-  await expect(preview.getByText('DELIVERY', { exact: true })).toBeVisible();
-  await expect(preview.getByText('Rua das Flores, 120 • Centro')).toBeVisible();
+  await expect(preview.getByRole('tabpanel', { name: 'Entrega' })).toContainText('TIPO: ENTREGA');
+  await expect(preview.getByRole('tabpanel')).toContainText('Rua das Flores, 120');
+  await expect(preview.getByRole('tabpanel')).toContainText('Bairro Centro');
   await page.screenshot({ path: testInfo.outputPath('printing-delivery.png'), fullPage: true });
 
   await preview.getByRole('tab', { name: 'Mesa', exact: true }).click();
-  await expect(preview.getByText('MESA 12', { exact: true })).toBeVisible();
-  await expect(preview.getByText('Garçom Rafael', { exact: true })).toBeVisible();
+  await expect(preview.getByRole('tabpanel', { name: 'Mesa' })).toContainText('MESA 12 • Lucas');
+  await expect(preview.getByRole('tabpanel')).toContainText('TIPO: MESA');
   await page.screenshot({ path: testInfo.outputPath('printing-table.png'), fullPage: true });
 
   await preview.getByRole('tab', { name: 'Retirada', exact: true }).click();
-  await expect(preview.getByText('RETIRADA', { exact: true })).toBeVisible();
-  await expect(preview.getByText('Retirada no balcão', { exact: true })).toBeVisible();
+  await expect(preview.getByRole('tabpanel', { name: 'Retirada' })).toContainText('TIPO: RETIRADA');
+  await expect(preview.getByRole('tabpanel')).toContainText('RETIRADA NO LOCAL');
 
   await page.getByRole('radio', { name: /58 mm/ }).click();
-  await page.getByRole('spinbutton', { name: 'Número de cópias' }).fill('2');
+  await page.getByLabel('Número de cópias').fill('2');
   await expect(preview.getByText('58 mm', { exact: true })).toBeVisible();
   await expect(preview.getByText('2 vias', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Salvar configuração' }).click();
@@ -208,7 +214,7 @@ test('painéis e prévia da impressora ficam contidos no celular', async ({ page
 
   const preview = page.locator('.command-preview-panel');
   await preview.getByRole('tab', { name: 'Mesa', exact: true }).click();
-  await expect(preview.getByText('MESA 12', { exact: true })).toBeVisible();
+  await expect(preview.getByRole('tabpanel', { name: 'Mesa' })).toContainText('MESA 12 • Lucas');
   const layout = await page.locator('main').evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,

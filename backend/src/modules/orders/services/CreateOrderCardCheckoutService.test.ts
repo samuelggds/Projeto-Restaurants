@@ -112,7 +112,7 @@ beforeEach(() => {
     attemptId += 1;
     return {
       id: attemptId,
-      publicId: `attempt-public-${attemptId}`,
+      publicId: `22222222-2222-4222-8222-${String(attemptId).padStart(12, '0')}`,
       idempotencyKey: `11111111-1111-4111-8111-${String(attemptId).padStart(12, '0')}`,
       status: 'PENDING',
     } as never;
@@ -205,7 +205,6 @@ test('não cria checkout quando o restaurante desativou pagamentos com cartão',
   assert.equal(createOrderCalled, false);
 });
 
-
 test('não cria pedido quando o Mercado Pago conectado exige reconexão', async () => {
   let createOrderCalled = false;
   restaurantSettingsRepository.findByRestaurantId = async () => ({
@@ -250,7 +249,7 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
       businessHours: [],
       acceptsCard: true,
       cardGateway: 'MERCADO_PAGO',
-    ...readyMercadoPagoSettings(),
+      ...readyMercadoPagoSettings(),
     };
   };
 
@@ -287,7 +286,7 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
     attemptCardLast4 = String(input.cardLast4 || '');
     return {
       id: 660,
-      publicId: 'attempt-public-debit-660',
+      publicId: '22222222-2222-4222-8222-000000000660',
       idempotencyKey: '11111111-1111-4111-8111-000000000660',
       status: 'PENDING',
     } as never;
@@ -295,6 +294,7 @@ test('orquestra débito mantendo tipo explícito e tenant do restaurante', async
   directOrderCardPaymentService.execute = async (input) => {
     assert.equal(input.provider, 'MERCADO_PAGO');
     assert.equal(input.order.restaurantId, 9);
+    assert.equal(input.order.externalReference, 'ordercard_660_9_22222222222242228222000000000660');
     receivedPayload = input.payload as Record<string, unknown>;
     return {
       provider: 'MERCADO_PAGO',

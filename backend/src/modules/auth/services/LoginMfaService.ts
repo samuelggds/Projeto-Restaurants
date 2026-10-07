@@ -27,6 +27,7 @@ type LoginUser = {
   active: boolean;
   mustChangePassword: boolean;
   mfaEnabled?: boolean;
+  authVersion?: number;
   phone?: string | null;
   address?: string | null;
   number?: string | null;
@@ -58,11 +59,12 @@ function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
   return user.mfaEnabled === true || isMfaRequiredForRole(user.role);
 }
 
-function createMfaToken(userId: number) {
+function createMfaToken(user: LoginUser) {
   return jwt.sign(
     {
       type: 'login_mfa',
-      userId,
+      userId: Number(user.id),
+      authVersion: Number(user.authVersion || 0),
     },
     getMfaSecret(),
     {
@@ -82,11 +84,18 @@ function decodeMfaToken(mfaToken: unknown) {
 
   const tokenType = String((decoded as any).type || '').trim();
   const userId = Number((decoded as any).userId || 0);
-  if (tokenType !== 'login_mfa' || !Number.isInteger(userId) || userId <= 0) {
+  const authVersion = (decoded as jwt.JwtPayload).authVersion;
+  if (
+    tokenType !== 'login_mfa' ||
+    !Number.isInteger(userId) ||
+    userId <= 0 ||
+    !Number.isSafeInteger(authVersion) ||
+    authVersion < 0
+  ) {
     throw new Error('Token de verificacao invalido');
   }
 
-  return { userId };
+  return { userId, authVersion: authVersion as number };
 }
 
 function mapUser(user: any) {
@@ -123,10 +132,13 @@ export class LoginMfaService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
   private async loadEligibleUser(mfaToken: string) {
-    const { userId } = decodeMfaToken(mfaToken);
+    const { userId, authVersion } = decodeMfaToken(mfaToken);
     const user = await userRepository.findByIdWithPassword(userId);
     if (!user || !user.active) {
       throw new Error('Conta desativada. Reative sua conta para continuar.');
+    }
+    if (Number(user.authVersion || 0) !== authVersion) {
+      throw new Error('Verificacao expirada. Inicie o login novamente.');
     }
     if (!requiresMfa(user)) {
       throw new Error('Verificacao em duas etapas nao esta habilitada para esta conta.');
@@ -205,7 +217,7 @@ export class LoginMfaService {
 
     return {
       mfaRequired: true,
-      mfaToken: createMfaToken(userId),
+      mfaToken: createMfaToken(user),
       destination: selectedOption.destination,
       selectedChannel: requestedChannel,
       channelSelectionRequired: false,
@@ -233,7 +245,7 @@ export class LoginMfaService {
     if (isAdministrativeRole(user.role) && options.length > 1) {
       return {
         mfaRequired: true,
-        mfaToken: createMfaToken(Number(user.id)),
+        mfaToken: createMfaToken(user),
         destination: 'seu contato cadastrado',
         channelSelectionRequired: true,
         deliveryOptions: options,
@@ -273,7 +285,7 @@ export class LoginMfaService {
       throw new Error('Token e codigo de verificacao sao obrigatorios');
     }
 
-    const { userId } = decodeMfaToken(mfaToken);
+    const { userId, authVersion } = decodeMfaToken(mfaToken);
     const challenge = await prisma.authMfaChallenge.findUnique({
       where: { userId },
     });
@@ -292,6 +304,10 @@ export class LoginMfaService {
       throw new Error('Conta desativada. Reative sua conta para continuar.');
     }
 
+    if (Number(user.authVersion || 0) !== authVersion) {
+      throw new Error('Verificacao expirada. Inicie o login novamente.');
+    }
+
     await this.platformAccess.assertRoleAllowed(user.role);
 
     const validCode = await bcrypt.compare(rawCode, challenge.codeHash);
@@ -308,28 +324,37 @@ export class LoginMfaService {
       throw new Error('Codigo de verificacao invalido');
     }
 
-    const consumed = await prisma.authMfaChallenge.deleteMany({
-      where: {
-        id: challenge.id,
-        userId,
-        codeHash: challenge.codeHash,
-        expiresAt: { gt: new Date() },
-      },
-    });
-    if (consumed.count !== 1) {
-      throw new Error('Codigo de verificacao expirado ou ja utilizado');
-    }
-
     const tokenPayload = {
       id: user.id,
       role: user.role,
       subRole: user.subRole ?? null,
       restaurantId: user.restaurantId,
-      authVersion: user.authVersion,
+      authVersion,
     };
 
-    const token = authTokenService.createAccessToken(tokenPayload);
-    const refreshToken = await authTokenService.createRefreshToken(tokenPayload);
+    const { token, refreshToken } = await prisma.$transaction(async (transaction) => {
+      // Lock the same account row updated by password reset before consuming
+      // the challenge. A concurrent reset either wins this CAS or subsequently
+      // revokes the exact version and refresh session issued in this transaction.
+      const current = await transaction.user.updateMany({
+        where: { id: userId, authVersion, active: true },
+        data: { authVersion },
+      });
+      if (current.count !== 1) throw new Error('Verificacao expirada. Inicie o login novamente.');
+      const consumed = await transaction.authMfaChallenge.deleteMany({
+        where: {
+          id: challenge.id,
+          userId,
+          codeHash: challenge.codeHash,
+          expiresAt: { gt: new Date() },
+          failedAttempts: { lt: 5 },
+        },
+      });
+      if (consumed.count !== 1) throw new Error('Codigo de verificacao expirado ou ja utilizado');
+      const token = authTokenService.createAccessToken(tokenPayload);
+      const refreshToken = await authTokenService.createRefreshToken(tokenPayload, transaction);
+      return { token, refreshToken };
+    });
     await successfulLoginRecorderService.execute(user.id);
 
     return {

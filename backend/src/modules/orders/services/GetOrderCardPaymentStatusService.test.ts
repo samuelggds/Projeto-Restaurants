@@ -27,29 +27,60 @@ const orderPublicId = '123e4567-e89b-42d3-a456-426614174001';
 
 test('rastreia uma recusa posterior sem repetir evento a cada consulta', async (t) => {
   const events = [];
-  t.mock.method(console, 'info', (_tag, value) => { events.push(value); });
+  t.mock.method(console, 'info', (_tag, value) => {
+    events.push(value);
+  });
   t.mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => ({
-    mercadoPagoAccessToken: 'test-access-token', mercadoPagoRefreshToken: 'test-refresh',
+    mercadoPagoAccessToken: 'test-access-token',
+    mercadoPagoRefreshToken: 'test-refresh',
     mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
   }));
-  t.mock.method(globalThis, 'fetch', async () => Response.json({
-    id: 'ORD-ASYNC', status: 'failed', external_reference: 'ordercard_42_7',
-    transactions: { payments: [{ id: 'PAY-ASYNC', status: 'failed', status_detail: 'high_risk', token: 'secret-token' }] },
-  }));
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({
+      id: 'ORD-ASYNC',
+      status: 'failed',
+      external_reference: 'ordercard_42_7',
+      transactions: {
+        payments: [
+          { id: 'PAY-ASYNC', status: 'failed', status_detail: 'high_risk', token: 'secret-token' },
+        ],
+      },
+    }),
+  );
   orderRepository.findCardPaymentStatusByPublicId = async () => ({
-    id: 42, publicId: orderPublicId, restaurantId: 7, userId: 33, type: 'DELIVERY',
-    paymentMethod: 'CARTAO', paid: false, paidAt: null, status: 'PENDENTE', total: 10,
-    cardCheckoutSessionId: 'mp_order:ORD-ASYNC', restaurant: null, kitchenPrintJobs: [],
+    id: 42,
+    publicId: orderPublicId,
+    restaurantId: 7,
+    userId: 33,
+    type: 'DELIVERY',
+    paymentMethod: 'CARTAO',
+    paid: false,
+    paidAt: null,
+    status: 'PENDENTE',
+    total: 10,
+    cardCheckoutSessionId: 'mp_order:ORD-ASYNC',
+    restaurant: null,
+    kitchenPrintJobs: [],
   });
-  let attempt = { id: 1, publicId: '123e4567-e89b-42d3-a456-426614174002',
-    status: 'PROCESSING', providerOrderId: 'ORD-ASYNC', providerStatus: 'processing',
-    providerStatusDetail: null, providerRequestId: 'initial-request-id' };
+  let attempt = {
+    id: 1,
+    publicId: '123e4567-e89b-42d3-a456-426614174002',
+    status: 'PROCESSING',
+    providerOrderId: 'ORD-ASYNC',
+    providerStatus: 'processing',
+    providerStatusDetail: null,
+    providerRequestId: 'initial-request-id',
+  };
   orderPaymentAttemptRepository.latestForOrder = async () => attempt;
   orderPaymentAttemptRepository.update = async (_id, _tenant, status, diagnostic) => {
     attempt = { ...attempt, ...diagnostic, status };
     return attempt;
   };
-  const result = await getOrderCardPaymentStatusService.execute({ orderPublicId, restaurantId: 7, userId: 33 });
+  const result = await getOrderCardPaymentStatusService.execute({
+    orderPublicId,
+    restaurantId: 7,
+    userId: 33,
+  });
   await getOrderCardPaymentStatusService.execute({ orderPublicId, restaurantId: 7, userId: 33 });
   assert.equal(result.paid, false);
   assert.equal(result.paymentAttempt.providerStatusDetail, 'high_risk');
@@ -110,6 +141,53 @@ test('retorna pendente somente para o participante dono do pedido de mesa', asyn
     paymentAttempt: null,
   });
 });
+
+for (const newProviderOrderId of [null, 'ORD-NEW']) {
+  test(`consulta antiga não recusa tentativa nova (${newProviderOrderId || 'ainda sem referência'})`, async (t) => {
+    t.mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => ({
+      mercadoPagoAccessToken: 'test-access-token',
+      mercadoPagoRefreshToken: 'test-refresh',
+      mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
+    }));
+    t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({
+        id: 'ORD-OLD',
+        status: 'failed',
+        external_reference: 'ordercard_42_7',
+      }),
+    );
+    orderRepository.findCardPaymentStatusByPublicId = async () => ({
+      id: 42,
+      publicId: orderPublicId,
+      restaurantId: 7,
+      userId: 33,
+      type: 'DELIVERY',
+      paymentMethod: 'CARTAO',
+      paid: false,
+      paidAt: null,
+      status: 'PENDENTE',
+      total: 10,
+      cardCheckoutSessionId: 'mp_order:ORD-OLD',
+      restaurant: null,
+      kitchenPrintJobs: [],
+    });
+    orderPaymentAttemptRepository.latestForOrder = async () => ({
+      id: 2,
+      publicId: 'new-attempt',
+      status: 'PROCESSING',
+      providerOrderId: newProviderOrderId,
+    });
+    orderPaymentAttemptRepository.update = async () =>
+      assert.fail('evento antigo alterou tentativa nova');
+    const result = await getOrderCardPaymentStatusService.execute({
+      orderPublicId,
+      restaurantId: 7,
+      userId: 33,
+    });
+    assert.equal(result.status, 'PENDING');
+    assert.equal(result.paymentAttempt.status, 'PROCESSING');
+  });
+}
 
 test('expõe somente metadados seguros de exibição da tentativa do mesmo tenant', async () => {
   orderRepository.findCardPaymentStatusByPublicId = async () => ({

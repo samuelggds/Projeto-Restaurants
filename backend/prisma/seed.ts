@@ -1,7 +1,10 @@
 ﻿import bcrypt from 'bcrypt';
 import { FuncionarioSubRole, PrismaClient, UserRole } from '@prisma/client';
 import { validateStrongPassword } from '../src/modules/auth/security/passwordPolicy.js';
+import 'dotenv/config';
+import { assertDemoSeedAllowed } from '../scripts/_shared/demoSeedGuard.mjs';
 
+assertDemoSeedAllowed();
 const prisma = new PrismaClient();
 const PASSWORD = 'Demo123!';
 

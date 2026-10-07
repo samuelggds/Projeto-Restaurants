@@ -48,6 +48,9 @@ fi
 if [[ "$*" == *'compose'*'exec -T frontend'* ]] && [[ "${FAKE_READINESS_FAIL:-false}" == 'true' ]]; then
   exit 19
 fi
+if [[ "$*" == *'compose'*'exec -T worker'* ]] && [[ "${FAKE_WORKER_READINESS_FAIL:-false}" == 'true' ]]; then
+  exit 20
+fi
 if [[ "$*" == *'compose'*'ps --status running --services'* ]]; then
   if [[ "${FAKE_DATABASE_RUNNING:-false}" == true ]]; then printf 'db\nworker\n'; else printf 'worker\n'; fi
 fi
@@ -85,6 +88,7 @@ run_case() {
   export FAKE_MIGRATION_FAIL=false
   export FAKE_RECOVERABLE_MIGRATION_FAIL=false
   export FAKE_READINESS_FAIL=false
+  export FAKE_WORKER_READINESS_FAIL=false
   export FAKE_DATABASE_RUNNING=false FAKE_DUMP_FAIL=false FAKE_AGE_FAIL=false
 
   case "$mode" in
@@ -148,8 +152,12 @@ run_case() {
       test -f "$FAKE_MIGRATION_RECOVERED_FILE"
       grep -q 'Deploy concluido com sucesso' "$dir/output.log"
       ;;
-    readiness)
-      export FAKE_READINESS_FAIL=true
+    readiness|worker-readiness)
+      if [[ "$mode" == worker-readiness ]]; then
+        export FAKE_WORKER_READINESS_FAIL=true
+      else
+        export FAKE_READINESS_FAIL=true
+      fi
       if bash "$dir/scripts/deploy-production.sh" >"$dir/output.log" 2>&1; then
         echo 'Expected readiness failure, but deploy succeeded.' >&2
         exit 1
@@ -172,6 +180,7 @@ run_case() {
 run_case migration
 run_case recoverable-migration
 run_case readiness
+run_case worker-readiness
 run_case backup
 run_case backup-missing-key
 run_case backup-dump-failure

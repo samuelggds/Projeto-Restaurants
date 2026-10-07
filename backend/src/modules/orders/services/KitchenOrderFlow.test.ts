@@ -265,6 +265,7 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
     status: OrderStatus.PENDENTE,
     createdAt: new Date('2026-08-24T18:00:00.000Z'),
     table: { id: 91, number: 1, token: 'never-expose' },
+    tableSessionId: 55,
     user: {
       id: 12,
       name: 'Cliente',
@@ -290,7 +291,7 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
     [
       { room: 'restaurant:7:waiter', event: 'new-order' },
       { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
-      { room: 'table:91', event: 'new-order' },
+      { room: 'table-session:55', event: 'new-order' },
     ],
   );
   assert.equal(
@@ -305,6 +306,15 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
   assert.equal(emissions[2].payload.customer, undefined);
   assert.equal(emissions[2].payload.items, undefined);
   assert.deepEqual(emissions[2].payload.table, { id: 91, number: 1 });
+
+  for (const tableSessionId of [null, undefined, 0, -1, Number.NaN]) {
+    const countBefore = emissions.length;
+    assert.equal(
+      emitTableSessionOrderEvent(io, 'new-order', { ...tableOrder, tableSessionId }),
+      false,
+    );
+    assert.equal(emissions.length, countBefore);
+  }
 
   for (const type of [OrderType.DELIVERY, OrderType.RETIRADA]) {
     const countBefore = emissions.length;

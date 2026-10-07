@@ -12,7 +12,10 @@ export type ParticipantOrderingEvent = {
 
 export const tableParticipantStateEvents = {
   async orderingUpdated(payload: ParticipantOrderingEvent) {
-    io.to(`table:${payload.tableId}`).emit('table-participant:ordering-updated', payload);
+    io.to(`table-session:${payload.tableSessionId}`).emit('table-participant:ordering-updated', {
+      tableId: payload.tableId,
+      tableSessionId: payload.tableSessionId,
+    });
     io.to(`restaurant:${payload.restaurantId}:waiter`).emit(
       'table-participant:ordering-updated',
       payload,

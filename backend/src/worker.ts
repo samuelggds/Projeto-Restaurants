@@ -9,14 +9,20 @@ import { assertSecureRuntimeDatabaseRole } from './database/tenantDbContext.js';
 import { PostgresRealtimeTransport } from './realtime/postgresRealtimeTransport.js';
 import { registerRealtimeTransport } from './realtime/realtimePublisher.js';
 import { distributedStateEnabled } from './runtime/distributedConfig.js';
+import { createWorkerReadinessServer } from './health/workerReadiness.js';
 
 const scheduler = createJobScheduler('worker');
 const sharedRealtime = distributedStateEnabled() ? new PostgresRealtimeTransport() : null;
 let shuttingDown = false;
+let started = false;
+const readinessServer = createWorkerReadinessServer({
+  runtimeReady: () => started && !shuttingDown && (sharedRealtime?.healthy() ?? true),
+});
 
 async function shutdown(signal: 'SIGINT' | 'SIGTERM', exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
+  readinessServer.close();
   console.info('[WORKER_SHUTDOWN_STARTED]', { signal });
 
   const configuredTimeout = Number(process.env.SHUTDOWN_TIMEOUT_MS || 10_000);
@@ -75,6 +81,14 @@ async function startWorker() {
     registerRealtimeTransport(sharedRealtime);
   }
   scheduler.start();
+  await new Promise<void>((resolve, reject) => {
+    readinessServer.once('error', reject);
+    readinessServer.listen(3001, '127.0.0.1', () => {
+      readinessServer.off('error', reject);
+      resolve();
+    });
+  });
+  started = true;
   console.info('[WORKER_STARTED]');
 }
 

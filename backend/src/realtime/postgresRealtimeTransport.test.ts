@@ -1,6 +1,71 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PostgresRealtimeTransport } from './postgresRealtimeTransport.js';
+import { createSocketIoRealtimeTransport } from './socketIoRealtimeTransport.js';
+import { SOCKET_REVOKE_EVENT } from './socketRevocation.js';
+import type { Server } from 'socket.io';
+
+test('revocation relay disconnects the same room on both API replicas without leaking the command', async () => {
+  const rows: Array<{ id: bigint; room: string; event: string; payload: unknown[] }> = [];
+  const db = {
+    $queryRaw: async (sql: TemplateStringsArray, cursor: bigint) =>
+      sql.join('').includes('MAX') ? [{ id: 0n }] : rows.filter((row) => row.id > cursor),
+    $executeRaw: async (sql: TemplateStringsArray, ...values: unknown[]) => {
+      if (!sql.join('').includes('INSERT')) return 0;
+      rows.push({
+        id: BigInt(rows.length + 1),
+        room: String(values[1]),
+        event: String(values[2]),
+        payload: JSON.parse(String(values[3])),
+      });
+      return 1;
+    },
+  } as unknown as ConstructorParameters<typeof PostgresRealtimeTransport>[1];
+  const observations: string[][] = [[], []];
+  const replicas = observations.map(
+    (events) =>
+      new PostgresRealtimeTransport(
+        createSocketIoRealtimeTransport({
+          emit() {
+            assert.fail('must never broadcast globally');
+          },
+          to(room: string) {
+            return {
+              emit(event: string) {
+                events.push(`${room}:${event}`);
+              },
+            };
+          },
+          in(room: string) {
+            return {
+              disconnectSockets(close: boolean) {
+                assert.equal(close, true);
+                events.push(`${room}:disconnect`);
+              },
+            };
+          },
+        } as unknown as Server),
+        db,
+      ),
+  );
+  const publisher = new PostgresRealtimeTransport(undefined, db);
+  await Promise.all([publisher.start(), ...replicas.map((relay) => relay.start())]);
+  try {
+    await publisher.to('table-session:55').emit('table:session-closed', { sessionId: 55 });
+    await publisher.to('table-session:55').emit(SOCKET_REVOKE_EVENT);
+    await publisher.to('auth-session:41:3').emit(SOCKET_REVOKE_EVENT);
+    await Promise.all(replicas.map((relay) => relay.poll()));
+    for (const events of observations) {
+      assert.deepEqual(events, [
+        'table-session:55:table:session-closed',
+        'table-session:55:disconnect',
+        'auth-session:41:3:disconnect',
+      ]);
+    }
+  } finally {
+    await Promise.all([publisher.stop(), ...replicas.map((relay) => relay.stop())]);
+  }
+});
 
 test('evento gravado durante poll de recuperação chega no ciclo seguinte sem perder o cursor', async () => {
   let denyWrites = true;

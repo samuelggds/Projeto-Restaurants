@@ -66,7 +66,7 @@ test('real: editar cópias e limite da mesa no celular', async ({ page }) => {
   await page.goto('/admin');
 
   await page.getByRole('button', { name: 'Configurações', exact: true }).first().click();
-  await page.getByRole('button', { name: 'Impressora da cozinha ›', exact: true }).click();
+  await page.getByRole('button', { name: 'Impressora da cozinha', exact: true }).click();
   await expect(page.locator('[data-settings-section="printing"]')).toBeVisible();
   await page.getByRole('checkbox', { name: 'Usar impressora da cozinha' }).check();
 
@@ -90,7 +90,7 @@ test('real: editar cópias e limite da mesa no celular', async ({ page }) => {
   expect(printerSaves).toEqual([expect.objectContaining({ copies: 4 })]);
 
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('button', { name: 'Conta e pagamento da mesa ›', exact: true }).click();
+  await page.getByRole('button', { name: 'Conta e pagamento da mesa', exact: true }).click();
 
   const section = page.getByRole('region', {
     name: 'Quando o cliente precisa pagar na hora',

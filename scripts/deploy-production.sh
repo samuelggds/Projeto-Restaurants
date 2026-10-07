@@ -238,6 +238,7 @@ phase='readiness'
 echo '[7/8] Aguardando readiness da nova versao...'
 backend_ready=false
 frontend_ready=false
+worker_ready=false
 for _ in $(seq 1 "$READINESS_ATTEMPTS"); do
   if "${compose[@]}" exec -T backend node -e "fetch('http://127.0.0.1:3000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
     backend_ready=true
@@ -251,7 +252,13 @@ for _ in $(seq 1 "$READINESS_ATTEMPTS"); do
     frontend_ready=false
   fi
 
-  if [[ "$backend_ready" == true && "$frontend_ready" == true ]]; then
+  if "${compose[@]}" exec -T worker node -e "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+    worker_ready=true
+  else
+    worker_ready=false
+  fi
+
+  if [[ "$backend_ready" == true && "$frontend_ready" == true && "$worker_ready" == true ]]; then
     break
   fi
   sleep "$READINESS_SLEEP_SECONDS"
@@ -259,7 +266,7 @@ done
 
 test "$backend_ready" = true
 test "$frontend_ready" = true
-"${compose[@]}" ps --status running --services | grep -qx 'worker'
+test "$worker_ready" = true
 if [[ "$evolution_enabled" == true ]]; then
   "${compose[@]}" ps --status running --services | grep -qx 'evolution-api'
   "${compose[@]}" ps --status running --services | grep -qx 'evolution-db'

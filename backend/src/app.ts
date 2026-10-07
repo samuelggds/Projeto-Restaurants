@@ -10,7 +10,7 @@ import { requestIdMiddleware } from './middlewares/security/requestIdMiddleware.
 import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js';
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
 import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
-import { probeDatabaseReadiness } from './health/readiness.js';
+import { createCachedDatabaseReadiness } from './health/readiness.js';
 import {
   platformMaintenanceMiddleware,
   platformStatusHandler,
@@ -19,6 +19,14 @@ import platformPlanCatalogService from './modules/billing/services/PlatformPlanC
 import customDomainController from './modules/customDomains/controllers/CustomDomainController.js';
 
 const app = express();
+const databaseReadiness = createCachedDatabaseReadiness();
+// Health checks must remain independent of the database-backed public limiter.
+const readinessRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const authRateLimit = rateLimit({
   ...distributedRateLimitOptions('auth-global'),
@@ -51,9 +59,10 @@ app.get('/health', (_req, res) => {
   });
 });
 
-app.get('/ready', async (_req, res) => {
-  const database = await probeDatabaseReadiness();
+app.get('/ready', readinessRateLimit, async (_req, res) => {
+  const database = await databaseReadiness();
   const realtimeReady = runtimeRealtimeReady();
+  res.setHeader('Cache-Control', 'no-store');
   return res.status(database.ready && realtimeReady ? 200 : 503).json({
     status: database.ready && realtimeReady ? 'ready' : 'unavailable',
     database: database.ready ? 'ok' : 'unavailable',
@@ -101,7 +110,6 @@ app.use((_req, res, next) => {
 });
 
 app.use(platformMaintenanceMiddleware);
-
 
 app.use(express.json({ limit: process.env.MAX_JSON_BODY_SIZE || '1mb' }));
 app.use(express.urlencoded({ extended: true }));

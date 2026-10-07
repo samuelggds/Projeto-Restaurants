@@ -1,5 +1,15 @@
 import type { ClaimedPrintJob } from '../types.js';
 
+export class PrintAgentApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'PrintAgentApiError';
+  }
+}
+
 export class PrintAgentApi {
   constructor(
     private readonly apiBaseUrl: string,
@@ -19,10 +29,11 @@ export class PrintAgentApi {
     });
     const data = (await response.json().catch(() => null)) as T | { error?: string } | null;
     if (!response.ok) {
-      throw new Error(
+      throw new PrintAgentApiError(
         data && typeof data === 'object' && 'error' in data && data.error
           ? String(data.error)
           : `SaaS respondeu HTTP ${response.status}.`,
+        response.status,
       );
     }
     return data as T;

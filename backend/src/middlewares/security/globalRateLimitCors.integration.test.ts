@@ -2,10 +2,8 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import {
-  applyCorsAndGlobalRateLimit,
-  resolveGlobalRateLimitMax,
-} from './httpAccessProtection.js';
+import { errorHandlerMiddleware } from './errorHandlerMiddleware.js';
+import { applyCorsAndGlobalRateLimit, resolveGlobalRateLimitMax } from './httpAccessProtection.js';
 
 const allowedOrigin = 'http://localhost:5173';
 const originalEnv = { ...process.env };
@@ -52,6 +50,37 @@ test('mantém os cabeçalhos CORS quando o limite global responde 429', async ()
     assert.equal(limitedResponse.status, 429);
     assert.equal(limitedResponse.headers.get('access-control-allow-origin'), allowedOrigin);
     assert.equal(body.error, 'Muitas requisicoes. Tente novamente em instantes.');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('origens recusadas retornam 403 sem transformar a recusa em falha interna', async () => {
+  process.env.NODE_ENV = 'production';
+  process.env.CORS_ORIGINS = 'https://app.example';
+  process.env.FRONTEND_URL = 'https://app.example';
+  process.env.RATE_LIMIT_MAX_REQUESTS = '3000';
+  const app = express();
+  applyCorsAndGlobalRateLimit(app);
+  app.get('/status', (_req, res) => res.json({ ok: true }));
+  app.use(errorHandlerMiddleware);
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const url = `http://127.0.0.1:${server.address().port}/status`;
+  try {
+    for (const method of ['GET', 'OPTIONS']) {
+      const response = await fetch(url, {
+        method,
+        headers: { Origin: 'https://untrusted.example', 'Access-Control-Request-Method': 'GET' },
+      });
+      assert.equal(response.status, 403);
+      assert.equal(response.headers.get('access-control-allow-origin'), null);
+      assert.equal((await response.json()).error, 'Origem da requisicao nao autorizada.');
+    }
+    assert.equal((await fetch(url)).status, 200);
+    const allowed = await fetch(url, { headers: { Origin: 'https://app.example' } });
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get('access-control-allow-origin'), 'https://app.example');
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

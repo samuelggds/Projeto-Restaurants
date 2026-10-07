@@ -73,6 +73,7 @@ test('abertura e fechamento de mesa publicam somente nas salas esperadas', async
       { room: 'restaurant:7:waiter', event: 'table:session-closed' },
       { room: 'restaurant:7:admin', event: 'table:session-closed' },
       { room: 'table-session:12', event: 'table:session-closed' },
+      { room: 'table-session:12', event: '__socket:revoke-room__' },
       { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
     ],
   );
@@ -84,6 +85,7 @@ test('chamadas de garçom notificam somente as salas operacionais', async () => 
     id: 8,
     restaurantId: 7,
     tableId: 4,
+    tableSessionId: 12,
     type: 'WAITER',
     status: 'OPEN',
   };
@@ -99,7 +101,7 @@ test('chamadas de garçom notificam somente as salas operacionais', async () => 
       { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
       { room: 'restaurant:7:waiter', event: 'waiter-call:updated' },
       { room: 'restaurant:7:admin', event: 'waiter-call:updated' },
-      { room: 'table:4', event: 'waiter-call:updated' },
+      { room: 'table-session:12', event: 'waiter-call:updated' },
       { room: 'restaurant:7:attendant', event: 'attendant:workspace-invalidated' },
     ],
   );
@@ -108,4 +110,45 @@ test('chamadas de garçom notificam somente as salas operacionais', async () => 
     .filter(({ room }) => room === 'restaurant:7:attendant')
     .map(({ payload: eventPayload }) => eventPayload);
   assert.deepEqual(attendantPayloads, [{ resource: 'CALLS' }, { resource: 'CALLS' }]);
+});
+
+test('fechamento aguarda persistência do aviso antes de publicar revogação no relay', async () => {
+  const events: PublishedEvent[] = [];
+  let persistClosedNotice!: () => void;
+  const closedNoticePersisted = new Promise<void>((resolve) => {
+    persistClosedNotice = resolve;
+  });
+  unregister = registerRealtimeTransport({
+    emit() {},
+    to(room) {
+      return {
+        emit(event, payload) {
+          events.push({ room, event, payload });
+          if (room === 'table-session:12' && event === 'table:session-closed') {
+            return closedNoticePersisted;
+          }
+          return undefined;
+        },
+      };
+    },
+  });
+
+  const closing = tableSessionEvents.closed({
+    sessionId: 12,
+    tableId: 4,
+    tableNumber: 2,
+    restaurantId: 7,
+    status: 'CLOSED',
+  });
+  await Promise.resolve();
+  assert.equal(
+    events.some(({ event }) => event === '__socket:revoke-room__'),
+    false,
+  );
+  persistClosedNotice();
+  await closing;
+  assert.deepEqual(
+    events.filter(({ room }) => room === 'table-session:12').map(({ event }) => event),
+    ['table:session-closed', '__socket:revoke-room__'],
+  );
 });

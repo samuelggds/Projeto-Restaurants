@@ -5,6 +5,7 @@ import {
   TableBillItemFinancialStatus,
   TableOrderFinancialStatus,
   TablePaymentIntentStatus,
+  type Prisma,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
@@ -15,6 +16,7 @@ import refundOrderPaymentService, {
 } from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
+import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 import {
   efiOpenFinanceOrderReference,
   findEfiOpenFinancePayment,
@@ -70,10 +72,13 @@ class CancelOrderWorkflowService {
     return `order-refund-${order.restaurantId}-${order.id}`;
   }
 
-  private async ensureTableLedgerPaymentCanCancel(order: CancellationOrder) {
-    if (!order.tableSessionId || order.paid !== true) return;
+  private async ensureTableLedgerPaymentCanCancel(
+    order: CancellationOrder,
+    db: Pick<Prisma.TransactionClient, 'tablePaymentAllocation'> = prisma,
+  ) {
+    if (!order.tableSessionId) return;
 
-    const paidAllocation = await prisma.tablePaymentAllocation.findFirst({
+    const allocation = await db.tablePaymentAllocation.findFirst({
       where: {
         restaurantId: order.restaurantId,
         tableSessionId: order.tableSessionId,
@@ -83,7 +88,13 @@ class CancelOrderWorkflowService {
           tableSessionId: order.tableSessionId,
         },
         paymentIntent: {
-          status: TablePaymentIntentStatus.PAID,
+          status: {
+            in: [
+              TablePaymentIntentStatus.PAID,
+              TablePaymentIntentStatus.RESERVED,
+              TablePaymentIntentStatus.PROCESSING,
+            ],
+          },
         },
       },
       select: {
@@ -93,12 +104,19 @@ class CancelOrderWorkflowService {
             publicId: true,
             method: true,
             provider: true,
+            status: true,
           },
         },
       },
     });
 
-    if (!paidAllocation) return;
+    if (!allocation) return;
+
+    if (allocation.paymentIntent.status !== TablePaymentIntentStatus.PAID) {
+      throw new OrderCancellationError(
+        'Este pedido possui um pagamento da mesa reservado ou em processamento. Concilie ou cancele esse pagamento antes de cancelar o pedido.',
+      );
+    }
 
     // Pagamentos da conta da mesa possuem ledger próprio e podem abranger mais
     // de um item/pedido. O fluxo genérico de Order não pode cancelar o pedido
@@ -110,7 +128,10 @@ class CancelOrderWorkflowService {
   }
 
   private async ensureOpenFinanceCanCancel(order: CancellationOrder) {
-    if (order.paid === true || String(order.paymentMethod || '').toUpperCase() !== PaymentMethod.PIX) {
+    if (
+      order.paid === true ||
+      String(order.paymentMethod || '').toUpperCase() !== PaymentMethod.PIX
+    ) {
       return;
     }
 
@@ -123,7 +144,9 @@ class CancelOrderWorkflowService {
         reference: efiOpenFinanceOrderReference(order.restaurantId, order.id),
         createdAt: order.createdAt,
       });
-      const status = String(remote?.status || 'pendente').trim().toLowerCase();
+      const status = String(remote?.status || 'pendente')
+        .trim()
+        .toLowerCase();
 
       if (status === 'aceito') {
         throw new OrderCancellationError(
@@ -147,6 +170,12 @@ class CancelOrderWorkflowService {
 
     try {
       const cancelledOrder = await prisma.$transaction(async (tx) => {
+        if (order.tableSessionId) {
+          // Payments and cancellations must inspect the same ledger under the
+          // session lock. A partial payment does not set Order.paid to true.
+          await lockTablePaymentSession(tx, order.restaurantId, order.tableSessionId);
+          await this.ensureTableLedgerPaymentCanCancel(order, tx);
+        }
         if (order.type === 'RETIRADA') {
           // Serialize with pickup charge reservation and cash confirmation.
           await tx.$queryRaw`

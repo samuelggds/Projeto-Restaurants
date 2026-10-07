@@ -90,6 +90,12 @@ test('troca obrigatória aceita senha forte com oito caracteres, revoga refresh 
   };
   prisma.$transaction = async (callback) =>
     callback({
+      authMfaChallenge: {
+        deleteMany: async ({ where }) => {
+          assert.equal(where.userId, 17);
+          return { count: 1 };
+        },
+      },
       authRefreshSession: {
         deleteMany: async () => {
           refreshSessionsRevoked = true;

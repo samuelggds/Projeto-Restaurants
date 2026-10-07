@@ -314,7 +314,12 @@ services:
     environment:
       DATABASE_URL: ${DIRECT_URL:?Defina DIRECT_URL de migração}
       RUNTIME_DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL de runtime}
-    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && node scripts/provisionRuntimeRole.mjs']
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && node scripts/provisionRuntimeRole.mjs',
+      ]
     depends_on:
       db:
         condition: service_healthy
@@ -375,6 +380,18 @@ services:
     init: true
     environment: *production-backend-environment
     command: ['node', 'dist/worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     depends_on:
       backend:
         condition: service_healthy

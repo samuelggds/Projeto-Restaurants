@@ -42,7 +42,10 @@ docker compose --env-file .env.production -f docker-compose.production.yml up -d
 docker compose --env-file .env.production -f docker-compose.production.yml ps
 ```
 
-Não execute `db:seed` em produção. A rotina também exige `ALLOW_PROD_SEED=true` para reduzir acidentes.
+O seed de demonstração recusa produção e staging, sem variável de liberação.
+Em development/test, exige `OPS_DATABASE_ENV` coerente e confirmação
+`SEED_CONFIRM_DATABASE=RESET_DEMO_<identityHash>` vinculada ao banco descartável.
+Consulte o procedimento em [README.md](./README.md). O deploy nunca executa seed.
 
 Depois do bootstrap confirmado, remova a senha inicial do ambiente e os containers encerrados (`docker compose ... rm -f migrate bootstrap`); não remova volumes. Se usar `SUPER_ADMIN_BOOTSTRAP_PASSWORD_FILE`, monte o secret somente no serviço `bootstrap` por um override de implantação.
 

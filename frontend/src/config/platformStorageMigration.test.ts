@@ -2,9 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { migratePlatformStorage, normalizePlatformName } from './platformStorageMigration';
 import { getBrandIdentity } from './brandIdentity';
 import { applyRestaurantBrowserBranding } from './browserBranding';
+import { clearAuthSession, persistAuthSession } from '../modules/auth/session/authSession';
 
 describe('identidade GastroNexa e preferências existentes', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    clearAuthSession();
+  });
   it('migra preferências válidas e remove referências legadas de cartões salvos', () => {
     localStorage.setItem('@PecaJaFood:cardPaymentWallet', 'saved-card-references');
     localStorage.setItem('@GastroNexa:cardPaymentWallet', 'saved-card-references');
@@ -48,10 +52,21 @@ describe('identidade GastroNexa e preferências existentes', () => {
     );
     expect(getBrandIdentity().logoUrl).toBe('/gastronexa-logo.svg');
     localStorage.removeItem('@GastroNexa:brandIdentity');
-    localStorage.setItem(
-      'user',
-      JSON.stringify({ restaurantName: 'GastroNexa', restaurantLogo: '/gastronexa-logo.png' }),
+    persistAuthSession(
+      { id: 7, restaurantName: 'GastroNexa', restaurantLogo: '/gastronexa-logo.png' },
+      'memory-token',
     );
     expect(getBrandIdentity().logoUrl).toBe('/gastronexa-logo.svg');
+  });
+
+  it('lê a marca da sessão atual sem recuperar identidade legada persistente', () => {
+    persistAuthSession(
+      { id: 7, restaurantName: 'Current Pizza', restaurantLogo: '/current.png' },
+      'memory-token',
+    );
+    localStorage.setItem('user', JSON.stringify({ restaurantName: 'Old Pizza' }));
+
+    expect(getBrandIdentity()).toEqual({ name: 'Current Pizza', logoUrl: '/current.png' });
+    expect(localStorage.getItem('user')).toBeNull();
   });
 });

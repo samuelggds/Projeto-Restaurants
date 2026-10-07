@@ -8,6 +8,8 @@ import {
   getJwtSecret,
 } from '../../../config/auth.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
+import type { Prisma } from '@prisma/client';
+import { revokeSocketRoom, socketAccountRoom } from '../../../realtime/socketRevocation.js';
 
 type PlatformAccess = Pick<typeof platformMaintenanceAccessService, 'assertRoleAllowed'>;
 
@@ -201,11 +203,11 @@ export class AuthTokenService {
     });
   }
 
-  async createRefreshToken(payload: AuthPayload) {
+  async createRefreshToken(payload: AuthPayload, db: Prisma.TransactionClient = prisma) {
     const normalized = normalizePayload(payload);
     const signed = this.signRefreshToken(normalized);
 
-    await prisma.authRefreshSession.upsert({
+    await db.authRefreshSession.upsert({
       where: {
         userId: normalized.id,
       },
@@ -337,13 +339,24 @@ export class AuthTokenService {
     }
 
     const { userId, persistedJti } = getRefreshTokenIdentifiers(decoded);
-
-    await prisma.authRefreshSession.deleteMany({
-      where: {
-        userId,
-        jti: persistedJti,
-      },
+    const authVersion = Number(decoded.authVersion);
+    if (decoded.type !== 'refresh' || !Number.isSafeInteger(authVersion) || authVersion < 0) {
+      throw new Error('Refresh token invalido');
+    }
+    const revoked = await prisma.$transaction(async (transaction) => {
+      // Exact JTI fencing keeps a stale logout from revoking a newer login.
+      const deleted = await transaction.authRefreshSession.deleteMany({
+        where: { userId, jti: persistedJti },
+      });
+      if (deleted.count !== 1) return false;
+      const updated = await transaction.user.updateMany({
+        where: { id: userId, authVersion },
+        data: { authVersion: { increment: 1 } },
+      });
+      if (updated.count !== 1) throw new Error('Sessao expirada');
+      return true;
     });
+    if (revoked) await revokeSocketRoom(socketAccountRoom(userId, authVersion));
   }
 }
 

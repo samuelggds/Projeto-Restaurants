@@ -553,8 +553,9 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
   }, courierUser);
 }
 
-async function enableSyntheticLocation(context: BrowserContext) {
-  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4181' });
+async function enableSyntheticLocation(context: BrowserContext, baseURL: string | undefined) {
+  if (!baseURL) throw new Error('Configure a baseURL para autorizar a localização no preview.');
+  await context.grantPermissions(['geolocation'], { origin: new URL(baseURL).origin });
   await context.setGeolocation({ ...departure, accuracy: 8 });
 }
 
@@ -713,12 +714,13 @@ async function mockCustomerTrackingApi(page: Page, state: CourierE2EState) {
 }
 
 test('motoqueiro retira, compartilha a rota do próprio pedido e encerra ao entregar', async ({
+  baseURL,
   context,
   page,
 }) => {
   const state = initialState();
   await page.setViewportSize({ width: 1440, height: 960 });
-  await enableSyntheticLocation(context);
+  await enableSyntheticLocation(context, baseURL);
   await mockCourierApi(page, state);
   await page.goto('/courier');
 
@@ -1109,6 +1111,7 @@ test('cliente acompanha somente a própria entrega, rota e destino até a conclu
 });
 
 test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', async ({
+  baseURL,
   context,
   page,
 }) => {
@@ -1120,7 +1123,7 @@ test('todas as áreas do motoqueiro cabem no celular sem overflow horizontal', a
     ...Array.from({ length: 21 }, (_, index) => ({ ...completedOrder, id: 700 + index })),
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await enableSyntheticLocation(context);
+  await enableSyntheticLocation(context, baseURL);
   await mockCourierApi(page, state);
   await page.goto('/courier');
 

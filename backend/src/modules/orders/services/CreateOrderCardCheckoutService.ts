@@ -28,6 +28,7 @@ import { OrderPaymentAttemptStatus } from '@prisma/client';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
+import { mercadoPagoCardAttemptExternalReference } from '../domain/mercadoPagoCardReference.js';
 
 type CardCheckoutPayload = CreateOrderCardCheckoutPayload &
   DirectCardPaymentPayload & {
@@ -194,7 +195,14 @@ class CreateOrderCardCheckoutService {
         checkout = await directOrderCardPaymentService.execute({
           provider: resolvedCardProvider,
           payload: normalizedPayload,
-          order: orderForPayment,
+          order: {
+            ...orderForPayment,
+            externalReference: mercadoPagoCardAttemptExternalReference(
+              createdOrder.id,
+              createdOrder.restaurantId,
+              paymentAttempt.publicId,
+            ),
+          },
           successUrlBase,
           idempotencyKey: paymentAttempt.idempotencyKey,
           paymentAttemptId: paymentAttempt.publicId,

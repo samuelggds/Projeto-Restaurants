@@ -26,6 +26,51 @@ describe('api auth session', () => {
 
   afterEach(() => {
     Reflect.deleteProperty(navigator, 'locks');
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ['ADMIN', 'BILLING_BLOCKED', false, true],
+    [' admin ', 'BILLING_BLOCKED', false, true],
+    ['SUPER_ADMIN', 'BILLING_BLOCKED', false, false],
+    ['SUPER_ADMIN', 'RESTAURANT_ACCESS_BLOCKED', false, false],
+    ['ADMIN', 'RESTAURANT_ACCESS_BLOCKED', true, true],
+    ['GARCOM', 'BILLING_BLOCKED', true, true],
+    ['CLIENTE', 'BILLING_BLOCKED', true, true],
+  ])('preserva a navegação de %s ao receber %s', async (role, code, redirects, storesBlock) => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: {
+        hostname: 'localhost',
+        protocol: 'http:',
+        pathname: '/admin',
+        assign,
+      },
+      localStorage,
+      dispatchEvent: vi.fn(),
+    });
+    persistAuthSession({ id: 7, role, restaurantId: 11 }, 'memory-token');
+    localStorage.setItem('user', JSON.stringify({ id: 8, role: 'CLIENTE', restaurantId: 22 }));
+
+    await expect(
+      api.get('/orders', {
+        adapter: async (config) => {
+          throw new AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, {
+            data: { code },
+            status: 403,
+            statusText: 'Forbidden',
+            headers: {},
+            config,
+          });
+        },
+      }),
+    ).rejects.toMatchObject({ response: { status: 403 } });
+
+    expect(assign.mock.calls).toEqual(redirects ? [['/system-maintenance']] : []);
+    const block = JSON.parse(localStorage.getItem('system_block_state') || 'null');
+    expect(Boolean(block)).toBe(storesBlock);
+    if (storesBlock) expect(block.restaurantId).toBe(11);
+    expect(localStorage.getItem('user')).toBeNull();
   });
 
   it('prioriza o proxy same-origin do Vite em desenvolvimento', () => {
@@ -164,11 +209,7 @@ describe('api auth session', () => {
       return successfulResponse(config);
     };
 
-    await api.post(
-      '/orders/address-location',
-      { restaurantId: 7, type: 'DELIVERY' },
-      { adapter },
-    );
+    await api.post('/orders/address-location', { restaurantId: 7, type: 'DELIVERY' }, { adapter });
     await api.post(
       '/orders/quote',
       { restaurantId: 7, type: 'DELIVERY', items: [{ productId: 1, quantity: 1 }] },
@@ -215,5 +256,4 @@ describe('api auth session', () => {
       { url: '/table-sessions/current', tableSession: 'table-session-token' },
     ]);
   });
-
 });

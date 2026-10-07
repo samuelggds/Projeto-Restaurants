@@ -766,6 +766,7 @@ export function AdminPage({
               {group.items.map(([id, label, Icon]) => (
                 <button
                   key={id}
+                  aria-label={label}
                   className={section === id ? 'active' : ''}
                   onClick={() => void changeSettingsSection(id)}
                 >
@@ -798,12 +799,12 @@ export function AdminPage({
                   : area === 'managed-service'
                     ? 'Acompanhe sua implantação ou solicite atualizações para a equipe GastroNexa.'
                     : area === 'settings'
-                    ? 'Personalize e gerencie as informações do restaurante.'
-                    : area === 'catalog' && catalogImportOpen
-                      ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
-                      : area === 'catalog'
-                        ? 'Gerencie produtos, combos, ingredientes e categorias.'
-                        : 'Acompanhe e gerencie a operação em um só lugar.'}
+                      ? 'Personalize e gerencie as informações do restaurante.'
+                      : area === 'catalog' && catalogImportOpen
+                        ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
+                        : area === 'catalog'
+                          ? 'Gerencie produtos, combos, ingredientes e categorias.'
+                          : 'Acompanhe e gerencie a operação em um só lugar.'}
             </p>
           </div>
           <S.TopActions>
@@ -834,6 +835,7 @@ export function AdminPage({
             {settingItems.map(([id, label, Icon]) => (
               <button
                 key={id}
+                aria-label={label}
                 className={section === id ? 'active' : ''}
                 type="button"
                 aria-current={section === id ? 'page' : undefined}
@@ -916,7 +918,9 @@ export function AdminPage({
                 />
               </Suspense>
             ) : area === 'subscriptions' ? (
-              <MonthlyBilling initialView={requestedBillingView === 'plans' ? 'plans' : undefined} />
+              <MonthlyBilling
+                initialView={requestedBillingView === 'plans' ? 'plans' : undefined}
+              />
             ) : area === 'managed-service' ? (
               <ManagedServiceArea />
             ) : area === 'settings' ? (

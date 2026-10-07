@@ -5,8 +5,7 @@ import { getMercadoPagoAccessToken } from '../../restaurantSettings/services/Res
 async function getAccessToken(restaurantId?: number | null) {
   const normalizedRestaurantId = Number(restaurantId || 0);
   const allowGlobalFallback =
-    process.env.NODE_ENV !== 'production' &&
-    process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
+    process.env.NODE_ENV !== 'production' && process.env.ALLOW_GLOBAL_PAYMENT_FALLBACK === 'true';
   if (Number.isSafeInteger(normalizedRestaurantId) && normalizedRestaurantId > 0) {
     return getMercadoPagoAccessToken(normalizedRestaurantId);
   }
@@ -91,7 +90,7 @@ type LegacyPreferenceBody = {
   };
 };
 
-type MercadoPagoOrder = {
+export type MercadoPagoOrder = {
   id?: string;
   status?: string;
   status_detail?: string;
@@ -101,6 +100,7 @@ type MercadoPagoOrder = {
   checkout_url?: string;
   user_id?: string | number;
   currency?: string;
+  type?: string;
 };
 
 function normalizeAmount(value: unknown) {
@@ -119,7 +119,10 @@ function normalizeAmount(value: unknown) {
  */
 export function mercadoPagoCheckoutIdempotencyKey(value: unknown) {
   const digest = Buffer.from(
-    createHash('sha256').update(String(value || '').trim()).digest().subarray(0, 16),
+    createHash('sha256')
+      .update(String(value || '').trim())
+      .digest()
+      .subarray(0, 16),
   );
   digest[6] = (digest[6] & 0x0f) | 0x50;
   digest[8] = (digest[8] & 0x3f) | 0x80;
@@ -188,6 +191,20 @@ export async function getMercadoPagoPreferenceApi(restaurantId?: number | null) 
 
 export async function getMercadoPagoOrderApi(restaurantId?: number | null) {
   return {
+    search: (externalReference: string, beginDate: Date, endDate = new Date()) => {
+      const query = new URLSearchParams({
+        external_reference: externalReference,
+        begin_date: beginDate.toISOString(),
+        end_date: endDate.toISOString(),
+        type: 'online',
+        page: '1',
+        page_size: '2',
+      });
+      return mercadoPagoJson<{ data?: MercadoPagoOrder[]; paging?: { total?: number } }>(
+        restaurantId,
+        `/v1/orders?${query.toString()}`,
+      );
+    },
     get: (orderId: string) =>
       mercadoPagoJson<MercadoPagoOrder>(
         restaurantId,

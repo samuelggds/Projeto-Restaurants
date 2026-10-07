@@ -112,6 +112,7 @@ class ResetPasswordByCodeService {
       });
       if (claimed.count === 1) {
         await transaction.authRefreshSession.deleteMany({ where: { userId: user.id } });
+        await transaction.authMfaChallenge.deleteMany({ where: { userId: user.id } });
       }
       return claimed.count === 1;
     });

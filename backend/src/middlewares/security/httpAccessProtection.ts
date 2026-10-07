@@ -15,7 +15,12 @@ function sameOriginHost(req: { hostname?: string }, origin: string, isProduction
   try {
     const parsed = new URL(origin);
     if (isProduction && parsed.protocol !== 'https:') return false;
-    return parsed.hostname.toLowerCase() === String(req.hostname || '').trim().toLowerCase();
+    return (
+      parsed.hostname.toLowerCase() ===
+      String(req.hostname || '')
+        .trim()
+        .toLowerCase()
+    );
   } catch {
     return false;
   }
@@ -75,7 +80,7 @@ export function applyCorsAndGlobalRateLimit(app: Express) {
           return;
         }
 
-        callback(new Error('Not allowed by CORS'));
+        callback(Object.assign(new Error('Origem da requisicao nao autorizada.'), { status: 403 }));
       },
       credentials: true,
     })(req, res, next),

@@ -15,6 +15,8 @@ c4842c54fff98aa06294e8aed5f632a4e2335c8c:backend/src/modules/orders/services/ord
 df9aadffa0dfbc43daaee25be8eb0944ac513612:frontend/src/pages/digital-menu/DigitalMenuEntryPage.test.tsx:generic-api-key:202
 df9aadffa0dfbc43daaee25be8eb0944ac513612:frontend/src/pages/digital-menu/DigitalMenuEntryPage.test.tsx:generic-api-key:255
 51783dad61e9dc70090c7d22f65b7f9f3f8f7661:frontend/src/pages/admin/components/KitchenPrintingSettings.test.tsx:generic-api-key:53
+51783dad61e9dc70090c7d22f65b7f9f3f8f7661:print-agent/src/runner/PrintAgentRunner.test.ts:generic-api-key:11
+51783dad61e9dc70090c7d22f65b7f9f3f8f7661:print-agent/src/config/LocalConfigStore.test.ts:generic-api-key:10
 6900543379c5b42aac408c49093d66af01fddaf7:backend/src/config/validateEnv.test.ts:generic-api-key:11
 eedf7754ba8f23f500d943009fa97d654a4d9892:frontend/src/pages/digital-menu/DigitalMenuEntryPage.test.tsx:generic-api-key:106
 5725b1f755fcdd29d87ccc749d796c280026c629:frontend/src/pages/digital-menu/DigitalMenuEntryPage.test.tsx:generic-api-key:257
