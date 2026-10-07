@@ -375,6 +375,11 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
     'border-radius',
     '8px',
   );
+  const planCards = page.locator('article[aria-label^="Plano "]');
+  await expect(planCards).toHaveCount(3);
+  await expect(planCards.nth(0)).toHaveAttribute('aria-label', /Plano Básico/);
+  await expect(planCards.nth(1)).toHaveAttribute('aria-label', /Plano Premium/);
+  await expect(planCards.nth(2)).toHaveAttribute('aria-label', /Plano Gestão Total/);
   const managedPlan = page.locator('article[aria-label^="Plano Gestão Total"]');
   await expect(managedPlan).toBeVisible();
   await expect(managedPlan).toContainText('299,90');
