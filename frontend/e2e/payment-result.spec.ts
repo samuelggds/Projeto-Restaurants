@@ -290,7 +290,8 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
   await expect(paymentResult(page, 'PENDING')).toBeVisible();
   await pauseBeforePaymentResult(page);
   state.cardStatus = 'CANCELED';
-  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  // A consulta automática pode concluir durante o avanço do relógio.
+  await page.clock.runFor(5_000);
   const canceled = paymentResult(page, 'CANCELED');
   await expect(canceled.getByRole('heading', { name: 'Pagamento cancelado' })).toBeVisible();
   await expectResultIcon(canceled, 'failure');
@@ -321,7 +322,9 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
     }),
     contentType: 'image/png',
   });
+  await page.clock.runFor(5_000);
   await expect(canceled).toBeVisible();
+  await expect(page).toHaveURL(/cardCheckoutStatus=success/);
 });
 
 test('falha de consulta do cartão permite verificar de novo sem anunciar recusa', async ({
