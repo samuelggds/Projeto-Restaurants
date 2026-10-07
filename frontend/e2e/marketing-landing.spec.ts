@@ -170,6 +170,9 @@ test('planos preservam catálogo público e levam ao formulário', async ({ page
   await expect(plans).toContainText('15 dias de teste');
   await expect(plans).toContainText('7 dias de teste');
 
+  const planHeadings = plans.locator('article h3');
+  await expect(planHeadings).toHaveText(['Básico', 'Premium', 'Gestão Total']);
+
   const links = plans.getByRole('link', { name: /Quero o/ });
   await expect(links).toHaveCount(3);
   for (const link of await links.all()) await expect(link).toHaveAttribute('href', '#contato');

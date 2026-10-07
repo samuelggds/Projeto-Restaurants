@@ -795,12 +795,15 @@ export const Benefits = styled.ul`
   }
 
   li {
-    display: flex;
-    align-items: center;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
     gap: 9px;
     color: #595149;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   i {

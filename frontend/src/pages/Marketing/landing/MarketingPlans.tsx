@@ -4,6 +4,12 @@ import api from '../../../Services/api';
 import * as S from '../GastroNexaLandingV2.styles';
 
 type PlanInterest = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
+
+const PLAN_ORDER: Record<PlanInterest, number> = {
+  BASICO: 1,
+  PREMIUM: 2,
+  GESTAO_TOTAL: 3,
+};
 type PublicPlan = {
   code: PlanInterest;
   name: string;
@@ -121,7 +127,7 @@ export function MarketingPlans({ onSelectPlan }: { onSelectPlan: (plan: PlanInte
   }, []);
 
   const orderedPlans = useMemo(
-    () => [...plans].sort((a, b) => Number(b.featured) - Number(a.featured)),
+    () => [...plans].sort((a, b) => PLAN_ORDER[a.code] - PLAN_ORDER[b.code]),
     [plans],
   );
 
