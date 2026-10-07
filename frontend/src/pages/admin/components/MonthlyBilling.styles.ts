@@ -627,8 +627,12 @@ export const ChoiceStatus = styled.div<{ $available: boolean }>`
 
 export const Plans = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+
+  @media (max-width: 1080px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
   @media (max-width: 760px) {
     grid-template-columns: 1fr;
@@ -795,12 +799,15 @@ export const Benefits = styled.ul`
   }
 
   li {
-    display: flex;
-    align-items: center;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
     gap: 9px;
     color: #595149;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   i {
