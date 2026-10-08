@@ -12,6 +12,9 @@ import controller from '../controllers/KitchenPrintingController.js';
 
 const router = Router();
 
+router.get('/desktop-release', authMiddleware, adminMiddleware, (req, res) =>
+  controller.getDesktopRelease(req, res),
+);
 router.get('/settings', authMiddleware, adminMiddleware, (req, res) =>
   controller.getSettings(req, res),
 );
