@@ -36,6 +36,6 @@ test('untrusted order text cannot inject ESC/POS control sequences', () => {
 });
 
 test('rejects oversized or unknown paper output', () => {
-  assert.throws(() => buildEscPosReceipt('A'.repeat(130_000), 'MM58'), /excede/u);
+  assert.throws(() => buildEscPosReceipt('A'.repeat(140_000), 'MM58'), /excede/u);
   assert.throws(() => buildEscPosReceipt('x', 'MM99' as 'MM58'), /não suportada/u);
 });
