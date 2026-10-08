@@ -119,6 +119,7 @@ app.whenReady().then(async () => {
   window = new BrowserWindow({
     width: 760, height: 710, minWidth: 600, minHeight: 570,
     title: 'GastroNexa Cozinha', backgroundColor: '#f6f5f3',
+    icon: path.join(__dirname, 'assets', 'gastronexa-logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -170,7 +171,7 @@ ipcMain.handle('kitchen:test', async () => withBusy(async () => {
     version: 1, kind: 'TEST', restaurantName: 'GastroNexa',
     requestedAt: new Date().toISOString(), message: 'Teste local do GastroNexa Cozinha.',
   }, 'MM58');
-  await printer.print({ printerName: record.printerName, content });
+  await printer.print({ printerName: record.printerName, content, paperWidth: 'MM58' });
   return { ok: true };
 }));
 ipcMain.handle('kitchen:autoStart', async (_event, enabled) => withBusy(async () => {

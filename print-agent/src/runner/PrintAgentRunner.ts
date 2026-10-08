@@ -91,7 +91,7 @@ export class PrintAgentRunner {
       if (printer.offline) throw new Error('Impressora selecionada está offline.');
       const content = renderKitchenCommand(job.payload, job.paperWidth);
       for (let copy = 0; copy < job.copies; copy += 1) {
-        await this.transport.print({ printerName: this.config.printerName, content });
+        await this.transport.print({ printerName: this.config.printerName, content, paperWidth: job.paperWidth });
       }
     } catch (error: unknown) {
       const message = errorMessage(error);
