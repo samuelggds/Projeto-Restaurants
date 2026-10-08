@@ -53,6 +53,7 @@ describe('configuração da impressora da cozinha', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED', 'false');
     mocks.getConfiguration.mockResolvedValue(initialConfiguration);
     mocks.updateSettings.mockImplementation(async (settings) => {
       mocks.getConfiguration.mockResolvedValue({ ...initialConfiguration, settings });
@@ -72,6 +73,7 @@ describe('configuração da impressora da cozinha', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.unstubAllEnvs();
   });
 
   it.each([1, 2, 3, 4, 5])(
@@ -121,6 +123,35 @@ describe('configuração da impressora da cozinha', () => {
       expect(input.value).toBe('3');
     }
     expect(mocks.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it('mantém o download desativado até a publicação oficial assinada', async () => {
+    await act(async () => root.render(<KitchenPrintingSettings />));
+    await flush();
+
+    expect(container.textContent).toContain('Instale o GastroNexa Cozinha');
+    expect(container.textContent).toContain('Download disponível após a publicação');
+    const button = [...container.querySelectorAll('button')].find((element) =>
+      element.textContent?.includes('Baixar para Windows'),
+    ) as HTMLButtonElement;
+    expect(button?.disabled).toBe(true);
+    expect(container.querySelector('a[aria-label="Baixar GastroNexa Cozinha para Windows"]')).toBeNull();
+  });
+
+  it('libera download permanente ao publicar instalador assinado na configuração de produção', async () => {
+    vi.stubEnv('VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED', 'true');
+    await act(async () => root.render(<KitchenPrintingSettings />));
+    await flush();
+
+    const link = container.querySelector<HTMLAnchorElement>(
+      'a[aria-label="Baixar GastroNexa Cozinha para Windows"]',
+    );
+    expect(link?.getAttribute('href')).toBe(
+      'https://github.com/samuelggds/Projeto-Restaurants/releases/latest/download/GastroNexa-Cozinha-Setup.exe',
+    );
+    expect(link?.rel).toContain('noopener');
+    expect(link?.target).toBe('_blank');
+    expect(container.textContent).not.toContain('Download disponível após a publicação');
   });
 
   it('mantém o recurso opcional e salva somente a configuração privada escolhida', async () => {

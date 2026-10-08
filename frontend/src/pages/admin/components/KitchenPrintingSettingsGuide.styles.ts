@@ -629,6 +629,68 @@ export const Root = styled.section`
     outline-offset: 2px;
   }
 
+  .desktop-download {
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    margin-top: 17px;
+    border: 1px solid #e8e1da;
+    border-radius: 8px;
+    padding: 15px;
+    background: #faf9f7;
+  }
+
+  .desktop-download b {
+    color: #38332e;
+    font-size: 14px;
+  }
+
+  .desktop-download p {
+    margin: 5px 0 0;
+    color: #77706a;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .desktop-download-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    border-radius: 7px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 750;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .desktop-download-action:hover,
+  .desktop-download-action:focus-visible {
+    color: #fff;
+    outline: 2px solid color-mix(in srgb, var(--a) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  .download-unavailable {
+    display: grid;
+    gap: 7px;
+  }
+
+  .download-unavailable button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .download-unavailable small {
+    color: #766d64;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
   .agent-state {
     display: flex;
     align-items: center;
