@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   mercadoPagoCardExternalReference,
+  mercadoPagoCardAttemptExternalReference,
   mercadoPagoCardExternalReferenceCandidates,
   parseMercadoPagoCardExternalReference,
 } from './mercadoPagoCardReference.js';
@@ -12,6 +13,17 @@ test('gera referência de cartão Mercado Pago compatível com Orders API', () =
   assert.equal(reference, 'ordercard_901_7');
   assert.match(reference, /^[A-Za-z0-9_-]+$/);
   assert.equal(reference.includes(':'), false);
+});
+
+test('referência identifica exatamente tentativa e cabe nos 64 caracteres do provedor', () => {
+  const publicId = '123e4567-e89b-42d3-a456-426614174001';
+  const reference = mercadoPagoCardAttemptExternalReference(2147483647, 2147483647, publicId);
+  assert.equal(reference.length, 64);
+  assert.deepEqual(parseMercadoPagoCardExternalReference(reference), {
+    orderId: 2147483647,
+    restaurantId: 2147483647,
+    attemptPublicId: publicId,
+  });
 });
 
 test('mantém compatibilidade de leitura com referências históricas', () => {

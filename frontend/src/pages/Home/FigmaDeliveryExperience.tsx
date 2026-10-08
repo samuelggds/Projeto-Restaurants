@@ -549,9 +549,13 @@ export function FigmaDeliveryExperience({
           </span>
           <span className="top-meta">
             {hours ? <span>{hours}</span> : null}
-            <span className="top-status">
-              <i className={data.isOpen ? 'open' : ''} />
-              {data.isOpen ? 'Aberto agora' : 'Fechado agora'}
+            <span
+              className="top-status"
+              role="status"
+              aria-label={`${storefrontAvailability.label}. ${storefrontAvailability.detail}`}
+            >
+              <i className={storefrontAvailability.isOpen ? 'open' : ''} />
+              {storefrontAvailability.label}
             </span>
           </span>
         </div>

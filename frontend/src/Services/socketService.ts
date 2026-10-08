@@ -1,5 +1,7 @@
 import { io } from 'socket.io-client';
 import { readStorage } from '../shared/storage/safeStorage';
+import { refreshAccessToken } from './api';
+import { getAccessToken, getAuthSessionRevision } from '../modules/auth/session/authSession';
 
 let socket = null;
 let tableSessionSocket = null;
@@ -259,7 +261,44 @@ export function connectSocket(token, contextName = 'unknown') {
   socketBaseUrl = baseUrl;
   socketContextName = normalizedContext;
 
+  const authenticatedSocket = socket;
+  const authenticatedGeneration = socketGeneration;
+  const authenticatedRevision = getAuthSessionRevision();
+  let renewingToken: Promise<void> | null = null;
+  let naturalExpiration = false;
+  const isCurrentConnection = () =>
+    socket === authenticatedSocket &&
+    socketGeneration === authenticatedGeneration &&
+    getAuthSessionRevision() === authenticatedRevision;
+  const renewExpiredToken = () => {
+    if (renewingToken || !isCurrentConnection() || !getAccessToken()) return;
+    renewingToken = (async () => {
+      const currentToken = getAccessToken();
+      const renewedToken =
+        currentToken && currentToken !== socketAuthToken
+          ? currentToken
+          : await refreshAccessToken();
+      if (!isCurrentConnection() || !renewedToken) return;
+      socketAuthToken = renewedToken;
+      authenticatedSocket.auth = { token: renewedToken };
+      // Keep the same instance and listeners used by kitchen/admin consumers.
+      authenticatedSocket.disconnect();
+      authenticatedSocket.connect();
+    })()
+      .catch(() => {
+        // A revoked session must never reconnect with an old credential.
+        if (isCurrentConnection()) authenticatedSocket.disconnect();
+      })
+      .finally(() => {
+        renewingToken = null;
+      });
+  };
+  authenticatedSocket.on('auth:expired', () => {
+    naturalExpiration = true;
+  });
+
   socket.on('connect', () => {
+    naturalExpiration = false;
     debugSocket(`connected user socket (${socketContextName})`, {
       socketId: socket?.id,
       baseUrl: socketBaseUrl,
@@ -269,6 +308,11 @@ export function connectSocket(token, contextName = 'unknown') {
   });
 
   socket.on('disconnect', (reason) => {
+    const expiredBeforeDisconnect = naturalExpiration;
+    naturalExpiration = false;
+    if (reason === 'io server disconnect' && expiredBeforeDisconnect) {
+      renewExpiredToken();
+    }
     debugSocket(`disconnected user socket (${socketContextName})`, {
       socketId: socket?.id,
       reason,
@@ -276,6 +320,8 @@ export function connectSocket(token, contextName = 'unknown') {
   });
 
   socket.on('connect_error', (error) => {
+    naturalExpiration = false;
+    if (error?.data?.code === 'ACCESS_TOKEN_EXPIRED') renewExpiredToken();
     debugSocket(`connect_error user socket (${socketContextName})`, {
       message: error?.message,
       baseUrl: socketBaseUrl,
@@ -655,7 +701,6 @@ export function disconnectTableWaitingSocket({ immediate = false } = {}) {
     }
   }, SOCKET_DISCONNECT_GRACE_MS);
 }
-
 
 export function connectGuestOrdersSocket(
   proofs: Array<{ orderId: number; token: string }>,

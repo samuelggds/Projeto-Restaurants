@@ -53,6 +53,7 @@ type ClaimedItem = {
   restaurantId: number;
   actorUserId: number;
   entityId: string;
+  lockToken: string;
 };
 
 const enqueueSchema = z.object({
@@ -93,7 +94,9 @@ function serializeJob(job: JobRow, items: JobItemRow[]) {
     counts,
     progress: {
       total: items.length,
-      completed: items.filter((item) => ['COMPLETED', 'MANUAL_REQUIRED', 'SKIPPED', 'CANCELED'].includes(item.status)).length,
+      completed: items.filter((item) =>
+        ['COMPLETED', 'MANUAL_REQUIRED', 'SKIPPED', 'CANCELED'].includes(item.status),
+      ).length,
       failed: items.filter((item) => item.status === 'FAILED').length,
       pending: items.filter((item) => item.status === 'PENDING').length,
       running: items.filter((item) => item.status === 'RUNNING').length,
@@ -136,13 +139,23 @@ async function readJob(db: Prisma.TransactionClient, restaurantId: number, publi
 }
 
 async function refreshJobStatus(db: Prisma.TransactionClient, restaurantId: number, jobId: bigint) {
-  const rows = await db.$queryRaw<Array<{ total: bigint; pending: bigint; running: bigint; failed: bigint; canceled: bigint }>>(Prisma.sql`
+  const rows = await db.$queryRaw<
+    Array<{
+      total: bigint;
+      pending: bigint;
+      running: bigint;
+      failed: bigint;
+      canceled: bigint;
+      interrupted: bigint;
+    }>
+  >(Prisma.sql`
     SELECT
       COUNT(*)::bigint AS "total",
       COUNT(*) FILTER (WHERE "status" = 'PENDING')::bigint AS "pending",
       COUNT(*) FILTER (WHERE "status" = 'RUNNING')::bigint AS "running",
       COUNT(*) FILTER (WHERE "status" = 'FAILED')::bigint AS "failed",
-      COUNT(*) FILTER (WHERE "status" = 'CANCELED')::bigint AS "canceled"
+      COUNT(*) FILTER (WHERE "status" = 'CANCELED')::bigint AS "canceled",
+      COUNT(*) FILTER (WHERE "status" = 'MANUAL_REQUIRED' AND "result"->>'reason' = 'CLAIM_EXPIRED')::bigint AS "interrupted"
     FROM "RestaurantAiJobItem"
     WHERE "restaurantId" = ${restaurantId} AND "jobId" = ${jobId}
   `);
@@ -152,6 +165,7 @@ async function refreshJobStatus(db: Prisma.TransactionClient, restaurantId: numb
   const failed = Number(row?.failed || 0);
   const total = Number(row?.total || 0);
   const canceled = Number(row?.canceled || 0);
+  const interrupted = Number(row?.interrupted || 0);
   if (pending || running) {
     await db.$executeRaw(Prisma.sql`
       UPDATE "RestaurantAiJob"
@@ -161,7 +175,16 @@ async function refreshJobStatus(db: Prisma.TransactionClient, restaurantId: numb
     `);
     return;
   }
-  const finalStatus = failed > 0 ? (failed === total ? 'FAILED' : 'PARTIAL') : canceled === total ? 'CANCELED' : 'COMPLETED';
+  const finalStatus =
+    interrupted > 0
+      ? 'PARTIAL'
+      : failed > 0
+        ? failed === total
+          ? 'FAILED'
+          : 'PARTIAL'
+        : canceled === total
+          ? 'CANCELED'
+          : 'COMPLETED';
   await db.$executeRaw(Prisma.sql`
     UPDATE "RestaurantAiJob"
     SET "status" = ${finalStatus}, "completedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
@@ -199,7 +222,10 @@ export class AiImageBatchJobService {
       }
       const eligible = products.filter((product) => !String(product.image || '').trim());
       if (!eligible.length) throw new Error('Todos os produtos selecionados já possuem imagem.');
-      const dedupeKey = stableBatchKey(actor, eligible.map((product) => product.id));
+      const dedupeKey = stableBatchKey(
+        actor,
+        eligible.map((product) => product.id),
+      );
       const estimated = Number((eligible.length * ESTIMATED_IMAGE_COST_USD).toFixed(6));
       const payload = JSON.stringify({ productIds: eligible.map((product) => product.id) });
 
@@ -269,6 +295,7 @@ export class AiImageBatchJobService {
         SELECT "id" FROM "RestaurantAiJob"
         WHERE "restaurantId" = ${restaurantId} AND "publicId" = ${jobPublicId} AND "kind" = 'PRODUCT_IMAGE_BATCH'
         LIMIT 1
+        FOR UPDATE
       `);
       const jobId = jobs[0]?.id;
       if (!jobId) throw new Error('Job não encontrado.');
@@ -296,6 +323,7 @@ export class AiImageBatchJobService {
         SELECT "id" FROM "RestaurantAiJob"
         WHERE "restaurantId" = ${restaurantId} AND "publicId" = ${jobPublicId} AND "kind" = 'PRODUCT_IMAGE_BATCH'
         LIMIT 1
+        FOR UPDATE
       `);
       const jobId = jobs[0]?.id;
       if (!jobId) throw new Error('Job não encontrado.');
@@ -317,10 +345,46 @@ export class AiImageBatchJobService {
   }
 }
 
-async function claimNextItem(restaurantId: number): Promise<ClaimedItem | null> {
+async function recoverExpiredClaims(db: Prisma.TransactionClient, restaurantId: number) {
+  // A provider may already have billed or generated an image before the worker
+  // stopped. Preserve reservations and require reconciliation instead of a retry.
+  const recoveredJobs = await db.$queryRaw<Array<{ id: bigint }>>(Prisma.sql`
+    WITH expired_jobs AS (
+      SELECT job."id"
+      FROM "RestaurantAiJob" job
+      WHERE job."restaurantId" = ${restaurantId}
+        AND job."kind" = 'PRODUCT_IMAGE_BATCH'
+        AND (job."lockedUntil" IS NULL OR job."lockedUntil" <= clock_timestamp())
+        AND EXISTS (
+          SELECT 1 FROM "RestaurantAiJobItem" item
+          WHERE item."jobId" = job."id" AND item."restaurantId" = ${restaurantId}
+            AND item."status" = 'RUNNING'
+        )
+      FOR UPDATE OF job SKIP LOCKED
+    ), recovered_items AS (
+      UPDATE "RestaurantAiJobItem" item
+      SET "status" = 'MANUAL_REQUIRED',
+          "result" = '{"status":"MANUAL_REQUIRED","reason":"CLAIM_EXPIRED"}'::jsonb,
+          "error" = 'Processamento interrompido. Confira a imagem e o consumo de créditos com o suporte antes de gerar novamente.',
+          "completedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+      FROM expired_jobs
+      WHERE item."jobId" = expired_jobs."id" AND item."restaurantId" = ${restaurantId}
+        AND item."status" = 'RUNNING'
+      RETURNING item."jobId"
+    )
+    UPDATE "RestaurantAiJob" job
+    SET "lockedUntil" = NULL, "lockToken" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+    WHERE job."restaurantId" = ${restaurantId}
+      AND job."id" IN (SELECT "jobId" FROM recovered_items)
+    RETURNING job."id"
+  `);
+  for (const job of recoveredJobs) await refreshJobStatus(db, restaurantId, job.id);
+}
+
+export async function claimNextItem(restaurantId: number): Promise<ClaimedItem | null> {
   return withTenantDbContext(restaurantId, async (db) => {
+    await recoverExpiredClaims(db, restaurantId);
     const lockToken = crypto.randomUUID();
-    const lockedUntil = new Date(Date.now() + LOCK_MS);
     const rows = await db.$queryRaw<ClaimedItem[]>(Prisma.sql`
       WITH candidate AS (
         SELECT item."id", item."jobId"
@@ -331,24 +395,24 @@ async function claimNextItem(restaurantId: number): Promise<ClaimedItem | null> 
           AND job."kind" = 'PRODUCT_IMAGE_BATCH'
           AND job."cancelRequested" = false
           AND item."status" = 'PENDING'
-          AND (job."lockedUntil" IS NULL OR job."lockedUntil" < CURRENT_TIMESTAMP)
+          AND (job."lockedUntil" IS NULL OR job."lockedUntil" <= clock_timestamp())
         ORDER BY item."id" ASC
         LIMIT 1
-        FOR UPDATE OF item SKIP LOCKED
+        FOR UPDATE OF job, item SKIP LOCKED
       ), updated_item AS (
         UPDATE "RestaurantAiJobItem" item
         SET "status" = 'RUNNING', "attempts" = item."attempts" + 1,
             "startedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
         FROM candidate
-        WHERE item."id" = candidate."id"
+        WHERE item."id" = candidate."id" AND item."restaurantId" = ${restaurantId}
         RETURNING item."id", item."publicId", item."jobId", item."restaurantId", item."entityId"
       ), updated_job AS (
         UPDATE "RestaurantAiJob" job
-        SET "status" = 'RUNNING', "lockedUntil" = ${lockedUntil}, "lockToken" = ${lockToken}::uuid,
+        SET "status" = 'RUNNING', "lockedUntil" = clock_timestamp() + (${LOCK_MS} * INTERVAL '1 millisecond'), "lockToken" = ${lockToken}::uuid,
             "attempts" = job."attempts" + 1, "updatedAt" = CURRENT_TIMESTAMP
         FROM updated_item
-        WHERE job."id" = updated_item."jobId"
-        RETURNING job."id", job."publicId", job."actorUserId"
+        WHERE job."id" = updated_item."jobId" AND job."restaurantId" = ${restaurantId}
+        RETURNING job."id", job."publicId", job."actorUserId", job."lockToken"
       )
       SELECT
         updated_job."id" AS "jobId",
@@ -357,7 +421,8 @@ async function claimNextItem(restaurantId: number): Promise<ClaimedItem | null> 
         updated_item."publicId" AS "itemPublicId",
         updated_item."restaurantId" AS "restaurantId",
         updated_job."actorUserId" AS "actorUserId",
-        updated_item."entityId" AS "entityId"
+        updated_item."entityId" AS "entityId",
+        updated_job."lockToken" AS "lockToken"
       FROM updated_item
       JOIN updated_job ON updated_job."id" = updated_item."jobId"
     `);
@@ -365,9 +430,24 @@ async function claimNextItem(restaurantId: number): Promise<ClaimedItem | null> 
   });
 }
 
-async function finishClaim(claim: ClaimedItem, result: unknown, error?: unknown) {
+export async function finishClaim(
+  claim: ClaimedItem,
+  result: unknown,
+  error?: unknown,
+  costUsd = 0,
+) {
   const restaurantId = claim.restaurantId;
-  await withTenantDbContext(restaurantId, async (db) => {
+  return withTenantDbContext(restaurantId, async (db) => {
+    // Lock the parent before the item, as claim/recovery do. A stale worker must
+    // not finish another claim, increment its cost, or release its lease.
+    const owned = await db.$queryRaw<Array<{ id: bigint }>>(Prisma.sql`
+      SELECT "id" FROM "RestaurantAiJob"
+      WHERE "restaurantId" = ${restaurantId} AND "id" = ${claim.jobId}
+        AND "kind" = 'PRODUCT_IMAGE_BATCH' AND "lockToken" = ${claim.lockToken}::uuid
+        AND "lockedUntil" > clock_timestamp()
+      FOR UPDATE
+    `);
+    if (!owned.length) return false;
     const normalizedStatus = error
       ? 'FAILED'
       : (result as { status?: string })?.status === 'MANUAL_REQUIRED'
@@ -377,23 +457,33 @@ async function finishClaim(claim: ClaimedItem, result: unknown, error?: unknown)
           : 'COMPLETED';
     const resultJson = JSON.stringify(result ?? {});
     const errorMessage = error ? publicAiFailure(error) : null;
-    await db.$executeRaw(Prisma.sql`
+    const completed = await db.$executeRaw(Prisma.sql`
       UPDATE "RestaurantAiJobItem"
       SET "status" = ${normalizedStatus}, "result" = ${resultJson}::jsonb, "error" = ${errorMessage},
           "completedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
-      WHERE "restaurantId" = ${restaurantId} AND "id" = ${claim.itemId} AND "status" = 'RUNNING'
+      WHERE "restaurantId" = ${restaurantId} AND "id" = ${claim.itemId}
+        AND "jobId" = ${claim.jobId} AND "status" = 'RUNNING'
     `);
+    if (completed !== 1) return false;
+    const recordedCost = !error && Number.isFinite(costUsd) && costUsd > 0 ? costUsd : 0;
     await db.$executeRaw(Prisma.sql`
       UPDATE "RestaurantAiJob"
-      SET "lockedUntil" = NULL, "lockToken" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+      SET "actualCreditUsd" = "actualCreditUsd" + ${recordedCost},
+          "lockedUntil" = NULL, "lockToken" = NULL, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "restaurantId" = ${restaurantId} AND "id" = ${claim.jobId}
+        AND "lockToken" = ${claim.lockToken}::uuid
     `);
     await refreshJobStatus(db, restaurantId, claim.jobId);
+    return true;
   });
 }
 
 export async function drainAiImageJobs() {
-  const restaurants = await prisma.restaurant.findMany({ select: { id: true }, orderBy: { id: 'asc' }, take: 5000 });
+  const restaurants = await prisma.restaurant.findMany({
+    select: { id: true },
+    orderBy: { id: 'asc' },
+    take: 5000,
+  });
   let processed = 0;
   for (const restaurant of restaurants) {
     const claim = await claimNextItem(restaurant.id);
@@ -402,23 +492,34 @@ export async function drainAiImageJobs() {
     try {
       const actor = await withTenantDbContext(claim.restaurantId, (db) =>
         db.user.findFirst({
-          where: { id: claim.actorUserId, restaurantId: claim.restaurantId, role: 'ADMIN', active: true },
+          where: {
+            id: claim.actorUserId,
+            restaurantId: claim.restaurantId,
+            role: 'ADMIN',
+            active: true,
+          },
           select: { id: true, email: true, role: true },
         }),
       );
       if (!actor) throw new Error('ADMIN responsável pelo job não está mais ativo.');
-      const result = await generateImportedProductImageService.execute(Number(claim.entityId), claim.restaurantId, { userId: actor.id, restaurantId: claim.restaurantId });
-      const usage = (result as { aiUsage?: { model?: string; costUsd?: number; usage?: unknown } }).aiUsage;
+      const result = await generateImportedProductImageService.execute(
+        Number(claim.entityId),
+        claim.restaurantId,
+        { userId: actor.id, restaurantId: claim.restaurantId },
+      );
+      const usage = (result as { aiUsage?: { model?: string; costUsd?: number; usage?: unknown } })
+        .aiUsage;
       if (usage?.costUsd && usage.model) {
-        const balance = await aiCreditService.getBalance({ userId: actor.id, restaurantId: claim.restaurantId });
-        await withTenantDbContext(claim.restaurantId, async (db) => {
-          await db.$executeRaw(Prisma.sql`
-            UPDATE "RestaurantAiJob"
-            SET "actualCreditUsd" = "actualCreditUsd" + ${usage.costUsd}, "updatedAt" = CURRENT_TIMESTAMP
-            WHERE "restaurantId" = ${claim.restaurantId} AND "id" = ${claim.jobId}
-          `);
+        const balance = await aiCreditService.getBalance({
+          userId: actor.id,
+          restaurantId: claim.restaurantId,
         });
-        await finishClaim(claim, { ...result, credits: { remainingUsd: balance.remainingUsd } });
+        await finishClaim(
+          claim,
+          { ...result, credits: { remainingUsd: balance.remainingUsd } },
+          undefined,
+          usage.costUsd,
+        );
       } else {
         await finishClaim(claim, result);
       }

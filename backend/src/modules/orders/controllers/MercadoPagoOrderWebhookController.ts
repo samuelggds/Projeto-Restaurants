@@ -44,7 +44,9 @@ export function parseMercadoPagoOrderReference(externalReference: string) {
 }
 
 function isMercadoPagoOrderEvent(req: Request, resourceId: string) {
-  const eventType = String(req.body?.type || req.body?.topic || '').trim().toLowerCase();
+  const eventType = String(req.body?.type || req.body?.topic || '')
+    .trim()
+    .toLowerCase();
   return eventType === 'order' || /^ord[a-z0-9_-]+$/i.test(resourceId);
 }
 
@@ -73,8 +75,7 @@ async function findOrderByMercadoPagoOrderId(providerOrderId: string) {
 async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
   const localOrder = await findOrderByMercadoPagoOrderId(providerOrderId);
   if (!localOrder) {
-    const reconciledTablePayment =
-      await reconcileTableOrderWebhookService.execute(providerOrderId);
+    const reconciledTablePayment = await reconcileTableOrderWebhookService.execute(providerOrderId);
     if (reconciledTablePayment) return res.sendStatus(200);
 
     // Não revelar existência de outros tenants nem provocar retries infinitos para
@@ -84,7 +85,9 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
 
   const orderApi = await getMercadoPagoOrderApi(localOrder.restaurantId);
   const remoteOrder = await orderApi.get(providerOrderId);
-  const status = String(remoteOrder.status || '').trim().toLowerCase();
+  const status = String(remoteOrder.status || '')
+    .trim()
+    .toLowerCase();
   const externalReference = String(remoteOrder.external_reference || '').trim();
   const parsedReference = parseMercadoPagoOrderReference(externalReference);
 
@@ -105,15 +108,19 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
       localOrder.id,
       localOrder.restaurantId,
     );
-    if (attempt) {
-      if ((!attempt.providerOrderId || attempt.providerOrderId === providerOrderId) &&
-        (attempt.providerStatus !== status || attempt.providerStatusDetail !== diagnostic.statusDetail)) {
+    if (attempt?.providerOrderId === providerOrderId) {
+      if (
+        attempt.providerStatus !== status ||
+        attempt.providerStatusDetail !== diagnostic.statusDetail
+      ) {
         console.info('[CARD_PAYMENT_DIAGNOSTIC]', {
           timestamp: new Date().toISOString(),
           paymentAttemptId: attempt.publicId,
           orderId: localOrder.id,
           restaurantId: localOrder.restaurantId,
-          stage: 'webhook', outcome: 'status_changed', ...diagnostic,
+          stage: 'webhook',
+          outcome: 'status_changed',
+          ...diagnostic,
         });
       }
       const nextStatus =
@@ -124,19 +131,14 @@ async function handleOrdersApiWebhook(providerOrderId: string, res: Response) {
             : status === 'cancelled'
               ? OrderPaymentAttemptStatus.CANCELED
               : OrderPaymentAttemptStatus.DECLINED;
-      await orderPaymentAttemptRepository.update(
-        attempt.id,
-        localOrder.restaurantId,
-        nextStatus,
-        {
-          providerOrderId,
-          providerStatus: status,
-          providerStatusDetail: diagnostic.statusDetail,
-          providerPaymentId: diagnostic.providerPaymentId,
-          failureCode: diagnostic.statusDetail || status,
-          failureMessage: 'Pagamento com cartão não concluído no Mercado Pago.',
-        },
-      );
+      await orderPaymentAttemptRepository.update(attempt.id, localOrder.restaurantId, nextStatus, {
+        providerOrderId,
+        providerStatus: status,
+        providerStatusDetail: diagnostic.statusDetail,
+        providerPaymentId: diagnostic.providerPaymentId,
+        failureCode: diagnostic.statusDetail || status,
+        failureMessage: 'Pagamento com cartão não concluído no Mercado Pago.',
+      });
     }
     return res.sendStatus(200);
   }
@@ -247,7 +249,10 @@ class MercadoPagoOrderWebhookController {
             referenceOrderId,
             referenceRestaurantId,
           );
-          if (attempt) {
+          if (
+            attempt?.providerPaymentId &&
+            [String(paymentId), `mp_pay:${paymentId}`].includes(attempt.providerPaymentId)
+          ) {
             const nextStatus =
               status === 'refunded' || status === 'charged_back'
                 ? OrderPaymentAttemptStatus.REFUNDED

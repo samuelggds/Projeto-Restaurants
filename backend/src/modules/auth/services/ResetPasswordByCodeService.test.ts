@@ -32,10 +32,17 @@ async function installResetState() {
   userRepository.findByEmail = async () => ({ ...state });
 
   const transaction = {
+    authMfaChallenge: {
+      deleteMany: async ({ where }) => {
+        assert.equal(where.userId, state.id);
+        return { count: 1 };
+      },
+    },
     user: {
       updateMany: async ({ where, data }) => {
         if (where.resetPasswordCodeHash !== state.resetPasswordCodeHash) return { count: 0 };
-        if (where.authVersion !== undefined && where.authVersion !== state.authVersion) return { count: 0 };
+        if (where.authVersion !== undefined && where.authVersion !== state.authVersion)
+          return { count: 0 };
         if (where.active !== undefined && where.active !== state.active) return { count: 0 };
         if (where.role !== undefined && where.role !== state.role) return { count: 0 };
         if (data.resetPasswordFailedAttempts?.increment) {

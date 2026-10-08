@@ -4,14 +4,39 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminMockSettings } from '../data';
 import { WhatsAppSettings } from './WhatsAppSettings';
+import { clearAuthSession, persistAuthSession } from '../../../modules/auth/session/authSession';
+
+vi.mock('../../../Services/restaurantSettingsService', () => ({
+  default: {
+    getMySettings: vi.fn(async () => ({ restaurant: {} })),
+    getWhatsappConnection: vi.fn(async () => ({ configured: false, status: 'NOT_CONFIGURED' })),
+  },
+}));
 
 describe('WhatsAppSettings', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    clearAuthSession();
+    persistAuthSession({ id: 7, restaurantId: 42, restaurantCategory: 'PIZZARIA' }, 'memory-token');
+  });
+
+  it('exibe a foto do restaurante da sessão mesmo após visitar outro cardápio', () => {
+    window.localStorage.setItem('menuRestaurantId', '99');
     window.localStorage.setItem(
-      'user',
-      JSON.stringify({ restaurantId: 42, restaurantCategory: 'PIZZARIA' }),
+      'gastronexa:whatsapp-profile-image:42',
+      'https://example.test/current.png',
     );
+    window.localStorage.setItem(
+      'gastronexa:whatsapp-profile-image:99',
+      'https://example.test/stale.png',
+    );
+
+    const markup = renderToStaticMarkup(
+      <WhatsAppSettings settings={adminMockSettings} update={() => undefined} />,
+    );
+
+    expect(markup).toContain('https://example.test/current.png');
+    expect(markup).not.toContain('https://example.test/stale.png');
   });
 
   it('organiza somente o conteúdo do WhatsApp em três passos e prévia do fluxo real', () => {

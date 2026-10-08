@@ -6,6 +6,7 @@ import {
   getAuthSessionRevision,
   getAuthSessionUserId,
   invalidateAuthSessionMemory,
+  readSessionUserRaw,
 } from '../modules/auth/session/authSession';
 import { setSystemBlockState } from './systemBlock';
 import { setPlatformMaintenanceState } from './platformMaintenance';
@@ -202,7 +203,8 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
       const accessToken = String(response?.data?.accessToken || '').trim();
       if (!accessToken) throw new Error('Não foi possível renovar seu acesso. Entre novamente.');
       const refreshedUserId = normalizeUserId(response?.data?.userId);
-      if (!refreshedUserId) throw new Error('Não foi possível confirmar sua sessão. Entre novamente.');
+      if (!refreshedUserId)
+        throw new Error('Não foi possível confirmar sua sessão. Entre novamente.');
       if (expectedSessionUserId && refreshedUserId !== expectedSessionUserId) {
         throw new AuthSessionIdentityChangedError();
       }
@@ -210,9 +212,13 @@ export function refreshAccessToken(expectedUserId: unknown = getAuthSessionUserI
         throw new AuthSessionChangedError();
       }
       return accessToken;
-    }).catch((error) => { throw publicApiError(error); }).finally(() => {
-      refreshRequest = null;
-    });
+    })
+      .catch((error) => {
+        throw publicApiError(error);
+      })
+      .finally(() => {
+        refreshRequest = null;
+      });
   }
   return refreshRequest;
 }
@@ -224,7 +230,9 @@ api.interceptors.request.use(
       typeof window !== 'undefined' && !import.meta.env.DEV && !LOCAL_HOSTS.includes(runtimeHost);
     if (isProductionBrowser && !normalizeBaseUrl(config.baseURL || api.defaults.baseURL)) {
       return Promise.reject(
-        new Error('A API do sistema não está configurada corretamente. Atualize a página e tente novamente.'),
+        new Error(
+          'A API do sistema não está configurada corretamente. Atualize a página e tente novamente.',
+        ),
       );
     }
 
@@ -305,12 +313,14 @@ api.interceptors.response.use(
 
     const currentUser = (() => {
       try {
-        return JSON.parse(localStorage.getItem('user') || 'null');
+        return JSON.parse(readSessionUserRaw() || 'null');
       } catch {
         return null;
       }
     })();
-    const role = currentUser?.role || null;
+    const role = String(currentUser?.role || '')
+      .trim()
+      .toUpperCase();
     const platformMaintenance =
       status === 503 &&
       (rawData?.code === 'PLATFORM_MAINTENANCE' || rawData?.maintenanceMode === true);
@@ -348,7 +358,10 @@ api.interceptors.response.use(
           invoiceId: rawData?.invoiceId || null,
           dueDate: rawData?.dueDate || null,
           restaurantId:
-            rawData?.restaurantId || currentUser?.restaurantId || currentUser?.restaurant?.id || null,
+            rawData?.restaurantId ||
+            currentUser?.restaurantId ||
+            currentUser?.restaurant?.id ||
+            null,
         });
 
         const currentPath = window.location.pathname;

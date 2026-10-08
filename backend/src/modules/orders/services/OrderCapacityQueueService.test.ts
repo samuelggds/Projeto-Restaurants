@@ -247,7 +247,9 @@ test('admissão de mesa atualiza restaurante, garçom e sessão sem vazar para o
     db.events.some(({ room, event }) => room === 'restaurant:7:waiter' && event === 'new-order'),
   );
   assert.ok(
-    db.events.some(({ room, event }) => room === 'table:70' && event === 'order:status-changed'),
+    db.events.some(
+      ({ room, event }) => room === 'table-session:12' && event === 'order:status-changed',
+    ),
   );
 });
 

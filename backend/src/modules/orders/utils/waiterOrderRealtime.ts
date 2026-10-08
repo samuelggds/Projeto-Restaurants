@@ -55,9 +55,10 @@ export function emitTableSessionOrderEvent(
   order: AnyOrder | null | undefined,
 ) {
   const payload = buildWaiterOrderRealtimePayload(order);
-  if (!payload) return false;
+  const tableSessionId = Number(order?.tableSessionId || 0);
+  if (!payload || !Number.isSafeInteger(tableSessionId) || tableSessionId <= 0) return false;
 
-  io.to(`table:${payload.table.id}`).emit(event, {
+  io.to(`table-session:${tableSessionId}`).emit(event, {
     id: payload.id,
     restaurantId: payload.restaurantId,
     type: payload.type,

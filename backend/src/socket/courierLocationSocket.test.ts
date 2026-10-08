@@ -157,6 +157,7 @@ test('handshake do motoqueiro confirma conta ativa e tenant no banco', async () 
   const token = jwt.sign(
     { id: 31, role: 'MOTOQUEIRO', restaurantId: 7, authVersion: 0, type: 'access' },
     process.env.JWT_SECRET,
+    { expiresIn: '15m' },
   );
   let query;
   prisma.user.findUnique = async (args) => {
@@ -196,6 +197,7 @@ test('handshake do admin confirma conta ativa e tenant antes de liberar a sala p
   const token = jwt.sign(
     { id: 9, role: 'ADMIN', restaurantId: 7, authVersion: 0, type: 'access' },
     process.env.JWT_SECRET,
+    { expiresIn: '15m' },
   );
   let query;
   prisma.user.findUnique = async (args) => {

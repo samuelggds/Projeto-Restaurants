@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ioMock = vi.fn();
+const refreshMock = vi.fn();
+
+vi.mock('./api', () => ({ refreshAccessToken: refreshMock }));
 
 vi.mock('socket.io-client', () => ({
   io: ioMock,
@@ -11,6 +14,7 @@ function socketDouble() {
     connected: false,
     active: true,
     id: undefined,
+    auth: {},
     io: { engine: { transport: { name: 'websocket' } } },
     on: vi.fn(),
     once: vi.fn(),
@@ -24,11 +28,135 @@ describe('socketService', () => {
   beforeEach(async () => {
     vi.resetModules();
     ioMock.mockReset();
+    refreshMock.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
+  });
+
+  it('renova token expirado mantendo a instância e seus consumidores', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    let resolveRefresh: (token: string) => void;
+    refreshMock.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+    );
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    const expired = client.on.mock.calls.find(([event]) => event === 'auth:expired')![1];
+    expired();
+    expired();
+    expect(refreshMock).not.toHaveBeenCalled();
+    client.on.mock.calls.find(([event]) => event === 'disconnect')![1]('io server disconnect');
+    expect(refreshMock).toHaveBeenCalledOnce();
+    resolveRefresh('new-token');
+    await vi.waitFor(() => expect(client.connect).toHaveBeenCalledOnce());
+    expect(client.auth).toEqual({ token: 'new-token' });
+    expect(service.getSocket()).toBe(client);
+    expect(ioMock).toHaveBeenCalledOnce();
+    service.disconnectSocket({ immediate: true });
+  });
+
+  it('não reconecta se logout ou troca de conta ocorre durante a renovação', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    let resolveRefresh: (token: string) => void;
+    refreshMock.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+    );
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    client.on.mock.calls.find(([event]) => event === 'auth:expired')![1]();
+    client.on.mock.calls.find(([event]) => event === 'disconnect')![1]('io server disconnect');
+    auth.clearAuthSession();
+    service.disconnectSocket({ immediate: true });
+    resolveRefresh('stale-token');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(service.getSocket()).toBeNull();
+  });
+
+  it('renova expiração no handshake, mas não erros de revogação nem logout remoto', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    refreshMock.mockResolvedValue('new-token');
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    const failed = client.on.mock.calls.find(([event]) => event === 'connect_error')![1];
+    failed({ data: { code: 'ACCESS_REVOKED' } });
+    client.on.mock.calls.find(([event]) => event === 'disconnect')![1]('io server disconnect');
+    expect(refreshMock).not.toHaveBeenCalled();
+    failed({ data: { code: 'ACCESS_TOKEN_EXPIRED' } });
+    await vi.waitFor(() => expect(client.connect).toHaveBeenCalledOnce());
+    service.disconnectSocket({ immediate: true });
+  });
+
+  it('descarta aviso antigo de expiração após perda de transporte e não renova revogação', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    const expired = client.on.mock.calls.find(([event]) => event === 'auth:expired')![1];
+    const disconnected = client.on.mock.calls.find(([event]) => event === 'disconnect')![1];
+    const connected = client.on.mock.calls.find(([event]) => event === 'connect')![1];
+    expired();
+    disconnected('transport close');
+    connected();
+    disconnected('io server disconnect');
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(client.connect).not.toHaveBeenCalled();
+    service.disconnectSocket({ immediate: true });
+  });
+
+  it('reutiliza credencial renovada pela API sem repetir refresh nem perder listeners', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    auth.applyRefreshedAccessToken('already-refreshed', auth.getAuthSessionRevision(), 1);
+    client.on.mock.calls.find(([event]) => event === 'connect_error')![1]({
+      data: { code: 'ACCESS_TOKEN_EXPIRED' },
+    });
+    await vi.waitFor(() => expect(client.connect).toHaveBeenCalledOnce());
+    expect(refreshMock).not.toHaveBeenCalled();
+    expect(client.auth).toEqual({ token: 'already-refreshed' });
+    expect(client.off).not.toHaveBeenCalled();
+    expect(service.getSocket()).toBe(client);
+    service.disconnectSocket({ immediate: true });
+  });
+
+  it('mantém socket desconectado quando refresh é recusado', async () => {
+    const client = socketDouble();
+    ioMock.mockReturnValue(client);
+    const auth = await import('../modules/auth/session/authSession');
+    auth.persistAuthSession({ id: 1 }, 'old-token');
+    refreshMock.mockRejectedValue(new Error('Sessão revogada'));
+    const service = await import('./socketService');
+    service.connectSocket('old-token');
+    client.on.mock.calls.find(([event]) => event === 'connect_error')![1]({
+      data: { code: 'ACCESS_TOKEN_EXPIRED' },
+    });
+    await vi.waitFor(() => expect(client.disconnect).toHaveBeenCalledOnce());
+    expect(client.connect).not.toHaveBeenCalled();
+    expect(client.auth).toEqual({});
+    service.disconnectSocket({ immediate: true });
   });
 
   it('prioriza o proxy same-origin do Vite em desenvolvimento', async () => {

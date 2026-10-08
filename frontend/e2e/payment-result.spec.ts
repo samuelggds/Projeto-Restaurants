@@ -186,13 +186,11 @@ async function startPixCheckout(page: Page) {
   await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
 
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
-  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: /^Continuar(?: para Pagamento)?$/ }).click();
   await checkout.getByRole('button', { name: 'Retirada', exact: true }).click();
-  await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await checkout.getByRole('button', { name: /^Continuar(?: para Pagamento)?$/ }).click();
   await checkout.getByRole('button', { name: 'Pix QR Code' }).click();
-  await checkout
-    .getByRole('button', { name: /Confirmar Pagamento|Finalizar Pedido/ })
-    .click();
+  await checkout.getByRole('button', { name: /Confirmar Pagamento|Finalizar Pedido/ }).click();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -239,9 +237,7 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
   state.cardPaid = true;
   await page.getByRole('button', { name: 'Verificar pagamento' }).click();
   const paid = paymentResult(page, 'PAID');
-  await expect(
-    paid.getByRole('heading', { name: 'Pagamento Aprovado!', level: 1 }),
-  ).toBeVisible();
+  await expect(paid.getByRole('heading', { name: 'Pagamento Aprovado!', level: 1 })).toBeVisible();
   await expect(paid.getByRole('heading')).toBeFocused();
   await expectResultIcon(paid, 'success');
   await expect(paid).not.toContainText(/backend|canônica|gateway|cardCheckoutStatus/i);
@@ -249,7 +245,9 @@ test('cartão só mostra o check verde após confirmação canônica, com tela r
   for (const width of [1280, 360, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await expectNoHorizontalOverflow(page);
-    await expect(paid.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ })).toBeInViewport();
+    await expect(
+      paid.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ }),
+    ).toBeInViewport();
     if (width !== 320) {
       await page.screenshot({
         path: testInfo.outputPath(
@@ -278,7 +276,9 @@ test('retorno cancel do provedor respeita o pagamento aprovado pelo pedido', asy
   await expect(paymentResult(page, 'PAID')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Pagamento Aprovado!' })).toBeVisible();
   await expect(paymentResult(page, 'CANCELED')).toHaveCount(0);
-  await page.getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ }).click();
+  await page
+    .getByRole('button', { name: /Acompanhar Entrega|Continuar para Rastreamento/ })
+    .click();
   await expect(page).toHaveURL(/\/orders\/501\/tracking$/);
 });
 
@@ -290,7 +290,8 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
   await expect(paymentResult(page, 'PENDING')).toBeVisible();
   await pauseBeforePaymentResult(page);
   state.cardStatus = 'CANCELED';
-  await page.getByRole('button', { name: 'Verificar pagamento' }).click();
+  // A consulta automática pode concluir durante o avanço do relógio.
+  await page.clock.runFor(5_000);
   const canceled = paymentResult(page, 'CANCELED');
   await expect(canceled.getByRole('heading', { name: 'Pagamento cancelado' })).toBeVisible();
   await expectResultIcon(canceled, 'failure');
@@ -321,7 +322,9 @@ test('cartão cancelado mostra X vermelho sem atribuir uma recusa ao banco', asy
     }),
     contentType: 'image/png',
   });
+  await page.clock.runFor(5_000);
   await expect(canceled).toBeVisible();
+  await expect(page).toHaveURL(/cardCheckoutStatus=success/);
 });
 
 test('falha de consulta do cartão permite verificar de novo sem anunciar recusa', async ({
@@ -330,7 +333,9 @@ test('falha de consulta do cartão permite verificar de novo sem anunciar recusa
   const state = await mockPaymentApi(page, { cardUnavailable: true });
   await openCardReturn(page);
   const unavailable = paymentResult(page, 'ERROR');
-  await expect(unavailable).toContainText('Não conseguimos concluir o pagamento neste momento');
+  await expect(unavailable).toContainText(
+    'Não foi possível se comunicar com o sistema. Verifique sua conexão e tente novamente.',
+  );
   await expect(unavailable.getByRole('heading', { name: 'Pagamento cancelado' })).toHaveCount(0);
   await expect(unavailable.getByRole('status')).toHaveCount(0);
   await expect(unavailable).not.toContainText('Internal provider trace');
@@ -343,7 +348,7 @@ test('falha de consulta do cartão permite verificar de novo sem anunciar recusa
   state.cardUnavailable = false;
   state.cardStatus = 'PAID';
   state.cardPaid = true;
-  await unavailable.getByRole('button', { name: 'Verificar pagamento' }).click();
+  await unavailable.getByRole('button', { name: 'Verificar pagamento', exact: true }).click();
   await expect(paymentResult(page, 'PAID')).toBeVisible();
 });
 
@@ -358,6 +363,7 @@ test('Pix aguarda aprovação e pedido pago antes do sucesso, que remove QR Code
   await pauseBeforePaymentResult(page);
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toBeVisible();
   await expect(page.getByText(PIX_CODE, { exact: true })).toBeVisible();
+  await expect(page.locator('main[data-payment-method="pix"]')).toContainText('R$ 36,00');
   await expect(page.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
@@ -371,7 +377,7 @@ test('Pix aguarda aprovação e pedido pago antes do sucesso, que remove QR Code
   const paid = paymentResult(page, 'PAID');
   await expect(paid.getByRole('heading', { name: 'Pagamento PIX Confirmado!' })).toBeVisible();
   await expectResultIcon(paid, 'success');
-  await expect(paid).toContainText('R$ 36,00');
+  await expect(paid).toContainText('#501');
   await expect(page.getByRole('button', { name: 'Copiar código Pix' })).toHaveCount(0);
   await expect(page.getByText(PIX_CODE, { exact: true })).toHaveCount(0);
   await expect(page.getByLabel('QR Code PIX')).toHaveCount(0);
@@ -384,7 +390,10 @@ test('Pix aguarda aprovação e pedido pago antes do sucesso, que remove QR Code
     }),
     contentType: 'image/png',
   });
-  await expectAutomaticReturnAfterFiveSeconds(page, paid);
+  await page.clock.runFor(5_000);
+  await expect(paid).toBeVisible();
+  await paid.getByRole('button', { name: 'Acompanhar Pedido', exact: true }).click();
+  await expect(page).toHaveURL(/\/orders\/501\/tracking$/);
 });
 
 test('Pix recusado pelo provedor encerra a cobrança com X vermelho e remove o código', async ({

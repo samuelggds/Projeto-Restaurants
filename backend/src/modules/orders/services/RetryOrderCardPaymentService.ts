@@ -14,6 +14,7 @@ import orderRepository from '../repositories/OrderRepository.js';
 import orderPaymentAttemptRepository from '../repositories/OrderPaymentAttemptRepository.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { resolveSafeOrderReturnUrl } from '../utils/paymentReturnUrl.js';
+import { mercadoPagoCardAttemptExternalReference } from '../domain/mercadoPagoCardReference.js';
 
 type Actor = {
   userId: number | null;
@@ -38,10 +39,7 @@ type RetryPayload = DirectCardPaymentPayload & {
   successUrl?: string | null;
 };
 
-export function resolveRetryCardPaymentType(
-  requested: unknown,
-  previous: unknown,
-) {
+export function resolveRetryCardPaymentType(requested: unknown, previous: unknown) {
   if (requested !== undefined && requested !== null && String(requested).trim()) {
     return normalizeCardPaymentType(requested);
   }
@@ -128,7 +126,7 @@ class RetryOrderCardPaymentService {
       '/',
     );
 
-    const attempt = await orderPaymentAttemptRepository.createCardAttempt({
+    const claim = await orderPaymentAttemptRepository.claimCardRetry({
       orderId: recovery.orderId,
       restaurantId: recovery.restaurantId,
       provider,
@@ -137,6 +135,26 @@ class RetryOrderCardPaymentService {
       cardBrand: payload.cardPaymentMethodId || payload.cardBrand,
       cardLast4: payload.cardLast4,
     });
+    if (claim.kind === 'PAID') {
+      return {
+        orderId: recovery.orderId,
+        orderPublicId: recovery.orderPublicId,
+        paid: true,
+        status: 'PAID' as const,
+      };
+    }
+    if (claim.kind === 'UNAVAILABLE') {
+      throw new OrderRequestError('Este pedido não aceita uma nova tentativa de pagamento.', 409);
+    }
+    if (claim.kind === 'PROCESSING') {
+      throw new OrderRequestError(
+        'A tentativa anterior ainda está sendo processada. Aguarde a confirmação antes de tentar novamente.',
+        409,
+        'CARD_ATTEMPT_PROCESSING',
+        { orderId: recovery.orderId, orderPublicId: recovery.orderPublicId },
+      );
+    }
+    const attempt = claim.attempt;
 
     try {
       const checkout = await directOrderCardPaymentService.execute({
@@ -150,7 +168,12 @@ class RetryOrderCardPaymentService {
           id: recovery.orderId,
           publicId: recovery.orderPublicId,
           restaurantId: recovery.restaurantId,
-          total: recovery.totalAmount,
+          total: attempt.amount,
+          externalReference: mercadoPagoCardAttemptExternalReference(
+            recovery.orderId,
+            recovery.restaurantId,
+            attempt.publicId,
+          ),
           restaurant: { name: recovery.restaurantName },
         },
         successUrlBase,
@@ -168,7 +191,8 @@ class RetryOrderCardPaymentService {
           providerOrderId: String(checkout.sessionId || '').trim() || null,
           providerPaymentId: checkout.providerPaymentId || null,
           providerRequestId: checkout.providerRequestId || null,
-          providerStatus: checkout.providerStatus || (checkout.paymentApproved ? 'processed' : 'pending'),
+          providerStatus:
+            checkout.providerStatus || (checkout.paymentApproved ? 'processed' : 'pending'),
           providerStatusDetail: checkout.providerStatusDetail || null,
         },
       );

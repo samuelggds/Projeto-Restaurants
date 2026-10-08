@@ -1,5 +1,6 @@
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { attendantWorkspaceEvents } from '../../attendant/realtime/attendantWorkspaceEvents.js';
+import { revokeSocketRoom } from '../../../realtime/socketRevocation.js';
 
 type TableSessionEvent = {
   sessionId: number;
@@ -23,10 +24,11 @@ export const tableSessionEvents = {
   async closed(payload: TableSessionEvent) {
     io.to(`restaurant:${payload.restaurantId}:waiter`).emit('table:session-closed', payload);
     io.to(`restaurant:${payload.restaurantId}:admin`).emit('table:session-closed', payload);
-    io.to(`table-session:${payload.sessionId}`).emit('table:session-closed', {
+    await io.to(`table-session:${payload.sessionId}`).emit('table:session-closed', {
       ...payload,
       reason: payload.reason || 'closed-by-staff',
     });
+    await revokeSocketRoom(`table-session:${payload.sessionId}`);
     attendantWorkspaceEvents.invalidated(payload.restaurantId, 'TABLES');
   },
 };

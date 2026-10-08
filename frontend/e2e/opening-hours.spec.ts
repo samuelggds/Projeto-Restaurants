@@ -133,7 +133,11 @@ async function mockAdminApi(page: Page, state: AdminApiState) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(orderFixtureResponse(route.request().url(), responses['/orders']) ?? responses[pathname] ?? {}),
+      body: JSON.stringify(
+        orderFixtureResponse(route.request().url(), responses['/orders']) ??
+          responses[pathname] ??
+          {},
+      ),
     });
   });
 
@@ -153,7 +157,9 @@ test('Home respeita a agenda fechada sem mostrar estado aberto contraditório', 
 
   const closedStatus = page.getByRole('status', { name: /^Fechado agora(?:\.|$)/i });
   await expect(closedStatus).toBeVisible();
-  await expect(page.getByText('Fechado agora', { exact: true })).toHaveCount(1);
+  await expect(
+    page.getByText('Fechado agora', { exact: true }).filter({ visible: true }),
+  ).toHaveCount(1);
   await expect(page.getByRole('status', { name: /^Aberto/i })).toHaveCount(0);
   await expect(page.getByText('Aberto agora', { exact: true })).toHaveCount(0);
 });

@@ -23,7 +23,9 @@ function usedRuntimeKeys(directory) {
       if (entry.name === 'e2e') continue;
       for (const key of usedRuntimeKeys(entryPath)) keys.add(key);
     } else if (entry.name.endsWith('.ts') && !/\.(test|e2e)\.ts$/u.test(entry.name)) {
-      for (const match of readFileSync(entryPath, 'utf8').matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/gu)) {
+      for (const match of readFileSync(entryPath, 'utf8').matchAll(
+        /process\.env\.([A-Z][A-Z0-9_]*)/gu,
+      )) {
         if (!forbiddenRuntimeKeys.has(match[1]) && !match[1].startsWith('TENANT_E2E_')) {
           keys.add(match[1]);
         }
@@ -40,7 +42,9 @@ const passthroughKeys = [...composeSource.matchAll(/^  ([A-Z][A-Z0-9_]*): \$\{\1
   .map((match) => match[1])
   .filter((key) => !forbiddenRuntimeKeys.has(key));
 const markers = Object.fromEntries(passthroughKeys.map((key) => [key, `compose-test-${key}`]));
-const variableNames = [...composeSource.matchAll(/\$\{([A-Z][A-Z0-9_]*)/gu)].map((match) => match[1]);
+const variableNames = [...composeSource.matchAll(/\$\{([A-Z][A-Z0-9_]*)/gu)].map(
+  (match) => match[1],
+);
 const cleanEnvironment = { ...process.env };
 for (const key of variableNames) delete cleanEnvironment[key];
 delete cleanEnvironment.COMPOSE_FILE;
@@ -49,17 +53,31 @@ delete cleanEnvironment.COMPOSE_ENV_FILES;
 function run(profile = '', overrides = {}) {
   let result;
   try {
-    result = execFileSync('docker', [
-      'compose', '--env-file', '.env.production.example',
-      ...(profile ? ['--profile', profile] : []),
-      '-f', composePath, 'config', '--format', 'json',
-    ], {
-      encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...cleanEnvironment, COMPOSE_PROFILES: profile, ...overrides },
-    });
+    result = execFileSync(
+      'docker',
+      [
+        'compose',
+        '--env-file',
+        '.env.production.example',
+        ...(profile ? ['--profile', profile] : []),
+        '-f',
+        composePath,
+        'config',
+        '--format',
+        'json',
+      ],
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...cleanEnvironment, COMPOSE_PROFILES: profile, ...overrides },
+      },
+    );
   } catch {
     // Não mostrar stdout/stderr do subprocesso: Compose resolvido contém credenciais.
-    throw new Error('Não foi possível validar o Compose. Verifique Docker Compose e os arquivos de exemplo.');
+    throw new Error(
+      'Não foi possível validar o Compose. Verifique Docker Compose e os arquivos de exemplo.',
+    );
   }
   return JSON.parse(result);
 }
@@ -83,9 +101,22 @@ function verifyRuntime(services, expectedMarkers = {}) {
 
 const configured = run();
 verifyRuntime(configured.services);
+assert.ok(
+  configured.services.worker.healthcheck.test.some((value) => value.includes('3001/ready')),
+);
+assert.ok(
+  !configured.services.worker.ports?.length,
+  'Worker readiness must not expose a host port',
+);
 assert.ok(/pizza_owner/u.test(configured.services.migrate.environment.DATABASE_URL));
-assert.equal(configured.services.backend.depends_on.bootstrap.condition, 'service_completed_successfully');
-assert.equal(configured.services.bootstrap.depends_on.migrate.condition, 'service_completed_successfully');
+assert.equal(
+  configured.services.backend.depends_on.bootstrap.condition,
+  'service_completed_successfully',
+);
+assert.equal(
+  configured.services.bootstrap.depends_on.migrate.condition,
+  'service_completed_successfully',
+);
 assert.equal(configured.services.backend.environment.ROUTING_PROVIDER, 'google');
 assert.ok(!configured.services.osrm && !configured.services.nominatim);
 
@@ -95,4 +126,6 @@ const selfhost = run('selfhost-routing', { ROUTING_PROVIDER: 'osrm' });
 assert.ok(selfhost.services.osrm && selfhost.services.nominatim);
 assert.equal(selfhost.services.backend.environment.ROUTING_PROVIDER, 'osrm');
 assert.equal(selfhost.services.worker.environment.ROUTING_PROVIDER, 'osrm');
-console.info('Compose validado: opções runtime preservadas, segredos isolados e roteamento gerenciado/próprio.');
+console.info(
+  'Compose validado: opções runtime preservadas, segredos isolados e roteamento gerenciado/próprio.',
+);

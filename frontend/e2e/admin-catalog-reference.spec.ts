@@ -120,6 +120,7 @@ const ingredients = [
 ];
 
 async function mockCatalog(page: Page) {
+  let catalogProducts = [...products];
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
@@ -153,6 +154,11 @@ async function mockCatalog(page: Page) {
     }
 
     if (pathname === '/menu-import/ifood' && request.method() === 'POST') {
+      catalogProducts = [
+        ...catalogProducts,
+        { ...products[0], id: '30', name: 'Pizza Portuguesa', optionGroups: [] },
+        { ...products[3], id: '31', name: 'Suco de laranja' },
+      ];
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -176,7 +182,7 @@ async function mockCatalog(page: Page) {
 
     const responses: Record<string, unknown> = {
       '/platform/status': { available: true, maintenanceMode: false, maintenanceMessage: '' },
-      '/products': { products },
+      '/products': { products: catalogProducts },
       '/ingredients': {
         ingredients,
         count: ingredients.length,
@@ -198,6 +204,11 @@ async function mockCatalog(page: Page) {
       '/table-account/settings': {},
       '/banners': [],
       '/employees': [],
+      '/ai-support/restaurant/image-batches/estimate': {
+        productCount: 2,
+        estimatedCreditUsd: 0.08,
+        note: 'O valor final depende das imagens geradas.',
+      },
     };
 
     await route.fulfill({
@@ -227,7 +238,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importar cardápio' })).toBeVisible();
@@ -259,7 +270,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(categoryCards.filter({ hasText: 'Pizzas' }).locator('img')).toHaveCount(1);
   const emptyCategory = categoryCards.filter({ hasText: 'Entradas' });
   await expect(emptyCategory.locator('img')).toHaveCount(0);
-  await expect(emptyCategory.getByText('Sem produtos')).toBeVisible();
+  await expect(emptyCategory.getByText('0 produtos', { exact: true })).toBeVisible();
   const firstCategoryBox = await categoryCards.first().boundingBox();
   const thirdCategoryBox = await categoryCards.nth(2).boundingBox();
   expect(firstCategoryBox).not.toBeNull();
@@ -437,9 +448,18 @@ test('Cardápio e importação seguem a composição visual de referência no de
     .getByRole('textbox', { name: 'Link público do restaurante no iFood' })
     .fill('https://www.ifood.com.br/delivery/north-pizza');
   await page.getByRole('button', { name: 'Analisar e importar' }).click();
-  await expect(page.getByText('Cardápio importado com sucesso')).toBeVisible();
-  await expect(page.getByText('Pizza Portuguesa')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Importação concluída' })).toBeVisible();
+  await expect(
+    page.getByRole('article').filter({ hasText: 'Produtos novos' }).locator('strong'),
+  ).toHaveText('2');
+  await expect(page.getByText('Confirme antes de consumir créditos')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirmar geração' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('catalog-import.png'), fullPage: true });
+
+  await page.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await expect(productCards).toHaveCount(7);
+  await expect(productCards.filter({ hasText: 'Pizza Portuguesa' })).toBeVisible();
+  await expect(productCards.filter({ hasText: 'Suco de laranja' })).toBeVisible();
 
   const documentWidth = await page.locator('body').evaluate((body) => ({
     clientWidth: body.clientWidth,
@@ -452,7 +472,7 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: 'Categorias', exact: true }).click();
 
   const cards = page.locator('[data-category-card]');
@@ -462,12 +482,14 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
 
   const requestPromise = page.waitForRequest(
     (request) =>
-      request.method() === 'PUT' &&
-      new URL(request.url()).pathname === '/categories/reorder',
+      request.method() === 'PUT' && new URL(request.url()).pathname === '/categories/reorder',
   );
 
   const source = cards.filter({ hasText: 'Bebidas' }).first();
   const target = cards.filter({ hasText: 'Pizzas' }).first();
+  await source.scrollIntoViewIfNeeded();
+  await expect(source).toBeInViewport();
+  await expect(target).toBeInViewport();
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) throw new Error('Cards de categorias não encontrados.');
@@ -500,8 +522,7 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
   await pizzasCard.focus();
   const keyboardRequest = page.waitForRequest(
     (request) =>
-      request.method() === 'PUT' &&
-      new URL(request.url()).pathname === '/categories/reorder',
+      request.method() === 'PUT' && new URL(request.url()).pathname === '/categories/reorder',
   );
   await page.keyboard.press('ArrowUp');
   expect((await keyboardRequest).postDataJSON()).toEqual({ categoryIds: [1, 4, 2, 3, 5, 6] });
@@ -510,7 +531,7 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
 test('trocar de aba com produto alterado exige salvar ou descartar', async ({ page }) => {
   await mockCatalog(page);
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   const openProductAndChangeName = async (name: string) => {
     const productCard = page
@@ -540,7 +561,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
   await expect(editor).toHaveCount(0, { timeout: 7000 });
   await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
 
-  await page.getByRole('button', { name: 'Cardápio' }).click();
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   editor = await openProductAndChangeName('Macarrão salvo antes de navegar');
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
   navigationDialog = page.getByRole('dialog', {
@@ -567,7 +588,7 @@ test('Cardápio, ingredientes e importação permanecem contidos em 320 px', asy
   await page.goto('/admin');
   await page
     .getByRole('navigation', { name: 'Navegação administrativa móvel' })
-    .getByRole('button', { name: 'Cardápio' })
+    .getByRole('button', { name: 'Cardápio', exact: true })
     .click();
 
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();

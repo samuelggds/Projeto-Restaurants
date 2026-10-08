@@ -15,6 +15,7 @@ export type ResolvedAccessUser = {
 export type ResolvedAccessToken = {
   user: ResolvedAccessUser;
   legacy: boolean;
+  expiresAt: number | null;
 };
 
 function invalidToken(): never {
@@ -41,11 +42,17 @@ function allowsLegacyAccessTokens() {
  * uma migração, eles podem ser habilitados explicitamente fora de produção com
  * `ALLOW_LEGACY_ACCESS_TOKENS=true`. A flag nunca tem efeito em produção.
  */
-export async function resolveAccessToken(rawToken: string): Promise<ResolvedAccessToken> {
+export async function resolveAccessToken(
+  rawToken: string,
+  { checkAccountBeforeExpiry = false }: { checkAccountBeforeExpiry?: boolean } = {},
+): Promise<ResolvedAccessToken> {
   const token = String(rawToken || '').trim();
   if (!token) invalidToken();
 
-  const decoded = jwt.verify(token, getJwtSecret());
+  // Socket clients renew only naturally expired credentials. Checking the
+  // current account first distinguishes expired-and-revoked tokens, while the
+  // expiration check below still rejects every expired credential.
+  const decoded = jwt.verify(token, getJwtSecret(), { ignoreExpiration: checkAccountBeforeExpiry });
   if (!decoded || typeof decoded === 'string') invalidToken();
 
   const payload = decoded as JwtPayload;
@@ -80,8 +87,17 @@ export async function resolveAccessToken(rawToken: string): Promise<ResolvedAcce
     throw new Error('Sessão expirada');
   }
 
+  if (
+    checkAccountBeforeExpiry &&
+    typeof payload.exp === 'number' &&
+    payload.exp * 1000 <= Date.now()
+  ) {
+    throw new jwt.TokenExpiredError('jwt expired', new Date(payload.exp * 1000));
+  }
+
   return {
     legacy: isLegacy,
+    expiresAt: typeof payload.exp === 'number' ? payload.exp * 1000 : null,
     user: {
       id: account.id,
       role: account.role,

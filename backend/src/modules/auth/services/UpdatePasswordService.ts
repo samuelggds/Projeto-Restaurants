@@ -41,6 +41,7 @@ class UpdatePasswordService {
     return prisma.$transaction(async (transaction) => {
       const updated = await userRepository.updatePassword(userId, hashPassword, transaction);
       await transaction.authRefreshSession.deleteMany({ where: { userId: Number(userId) } });
+      await transaction.authMfaChallenge.deleteMany({ where: { userId: Number(userId) } });
       return updated;
     });
   }

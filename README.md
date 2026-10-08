@@ -532,7 +532,14 @@ Esse comando cobre validação arquitetural, Prisma, lint, typecheck, testes, au
 
     npm --prefix backend run db:validate
     npm --prefix backend run db:migrate:dev
-    npm --prefix backend run db:seed
+
+O seed apaga dados e cria contas de demonstração. Ele recusa produção e staging.
+Use apenas um banco descartável, com `NODE_ENV=development` (ou `test`) e
+`OPS_DATABASE_ENV` igual ao ambiente escolhido. Consulte a identidade sanitizada
+com `npm --prefix backend run db:fingerprint`, revise o destino e defina
+`SEED_CONFIRM_DATABASE=RESET_DEMO_<identityHash>` antes de executar
+`npm --prefix backend run db:seed`. A confirmação fica vinculada ao banco exato;
+não coloque essa variável na configuração de produção.
 
 ## Desenvolvimento
 

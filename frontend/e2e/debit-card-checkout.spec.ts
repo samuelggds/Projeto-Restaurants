@@ -13,12 +13,16 @@ function json(route: Route, body: unknown, status = 200) {
   });
 }
 
-async function mockDebitCheckout(page: Page) {
+async function mockDebitCheckout(page: Page, deviceAvailable = true) {
   let submitted: Record<string, unknown> | null = null;
 
-  // A blocked optional device collector must not prevent a valid card checkout.
   await page.route('https://www.mercadopago.com/v2/security.js', (route) =>
-    route.abort('blockedbyclient'),
+    deviceAvailable
+      ? route.fulfill({
+          contentType: 'application/javascript',
+          body: 'window.MP_DEVICE_SESSION_ID = "e2e-device-session";',
+        })
+      : route.abort('blockedbyclient'),
   );
 
   await page.addInitScript(() => {
@@ -188,11 +192,7 @@ async function mockDebitCheckout(page: Page) {
   };
 }
 
-test('cliente paga no débito sem converter para crédito e sem enviar dados brutos do cartão', async ({
-  page,
-}) => {
-  const state = await mockDebitCheckout(page);
-
+async function fillDebitCheckout(page: Page) {
   await page.goto(`/${RESTAURANT_SLUG}`);
   await page.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional', { exact: true }).click();
@@ -208,7 +208,9 @@ test('cliente paga no débito sem converter para crédito e sem enviar dados bru
   await expect(debit).toBeEnabled();
   await debit.click();
 
-  await expect(checkout.getByRole('region', { name: 'Dados do cartão', exact: true })).toBeVisible();
+  await expect(
+    checkout.getByRole('region', { name: 'Dados do cartão', exact: true }),
+  ).toBeVisible();
   await checkout.getByLabel('Nome impresso no cartão').fill('Cliente Teste');
   await checkout.getByLabel('E-mail do comprador').fill('cliente@example.com');
   await checkout.getByLabel('CPF/CNPJ do titular').fill('12345678901');
@@ -217,6 +219,13 @@ test('cliente paga no débito sem converter para crédito e sem enviar dados bru
     .getByRole('button', { name: /Finalizar Pedido|Confirmar Pagamento/ })
     .first()
     .click();
+}
+
+test('cliente paga no débito sem converter para crédito e sem enviar dados brutos do cartão', async ({
+  page,
+}) => {
+  const state = await mockDebitCheckout(page);
+  await fillDebitCheckout(page);
 
   await expect.poll(() => state.submitted()).not.toBeNull();
   expect(state.submitted()).toMatchObject({
@@ -226,10 +235,25 @@ test('cliente paga no débito sem converter para crédito e sem enviar dados bru
     cardPaymentType: 'debit',
     cardToken: 'e2e-debit-token',
     cardPaymentMethodId: 'visa',
+    mercadoPagoDeviceId: 'e2e-device-session',
   });
 
   const body = state.submitted()!;
   expect(body).not.toHaveProperty('cardData.number');
   expect(JSON.stringify(body)).not.toContain('4111111111111111');
   expect(JSON.stringify(body)).not.toContain('"securityCode"');
+});
+
+test('não cria cobrança de débito quando a proteção antifraude não inicializa', async ({
+  page,
+}) => {
+  const state = await mockDebitCheckout(page, false);
+  await fillDebitCheckout(page);
+
+  await expect(page.getByRole('region', { name: 'Dados do cartão' })).toContainText(
+    'Não foi possível iniciar a proteção antifraude do Mercado Pago',
+    { timeout: 10_000 },
+  );
+  expect(state.submitted()).toBeNull();
+  await expect(page.locator('main[data-status="PAID"]')).toHaveCount(0);
 });

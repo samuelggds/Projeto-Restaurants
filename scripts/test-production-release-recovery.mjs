@@ -3,8 +3,9 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const resolver = path.join(root, 'scripts', 'resolveProductionReleaseState.mjs');
 const sha = 'a'.repeat(40);
 const newer = 'b'.repeat(40);
@@ -67,7 +68,10 @@ assert.deepEqual([duplicate.action, duplicate.reason], ['skip', 'deploy-in-fligh
 const interruptedRelease = decide({
   releases: [release({ status: 'in_progress', conclusion: null })],
 });
-assert.deepEqual([interruptedRelease.action, interruptedRelease.reason], ['skip', 'release-in-flight']);
+assert.deepEqual(
+  [interruptedRelease.action, interruptedRelease.reason],
+  ['skip', 'release-in-flight'],
+);
 
 const stale = decide({ mainSha: newer, releases: [release()] });
 assert.deepEqual([stale.action, stale.reason], ['skip', 'stale-main']);

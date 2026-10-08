@@ -95,7 +95,9 @@ test('interpreta referencias novas e legadas do Mercado Pago sem quebrar Pix', (
 test('webhook preserva motivo da transação e registra referência sem corpo bruto', async (t) => {
   process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
   const events: Record<string, unknown>[] = [];
-  t.mock.method(console, 'info', (_tag, value) => { events.push(value); });
+  t.mock.method(console, 'info', (_tag, value) => {
+    events.push(value);
+  });
   const orderDelegate = prisma.order as unknown as {
     findFirst: (args: unknown) => Promise<unknown>;
   };
@@ -104,24 +106,50 @@ test('webhook preserva motivo da transação e registra referência sem corpo br
   t.after(() => {
     orderDelegate.findFirst = originalFindOrder;
   });
-  t.mock.method(restaurantSettingsRepository, 'findByRestaurantId', async () => ({
-    mercadoPagoAccessToken: 'test-access', mercadoPagoRefreshToken: 'test-refresh',
-    mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
-  }) as never);
-  t.mock.method(globalThis, 'fetch', async () => Response.json({
-    id: 'ORD-ASYNC', status: 'failed', status_detail: 'failed', external_reference: 'ordercard_321_7',
-    transactions: { payments: [{ id: 'PAY-ASYNC', status: 'failed', status_detail: 'high_risk', token: 'private-token' }] },
-  }));
-  let attempt: Record<string, unknown> = { id: 2, publicId: '123e4567-e89b-42d3-a456-426614174002',
-    providerOrderId: 'ORD-ASYNC', providerStatus: 'processing', providerStatusDetail: null };
+  t.mock.method(
+    restaurantSettingsRepository,
+    'findByRestaurantId',
+    async () =>
+      ({
+        mercadoPagoAccessToken: 'test-access',
+        mercadoPagoRefreshToken: 'test-refresh',
+        mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
+      }) as never,
+  );
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({
+      id: 'ORD-ASYNC',
+      status: 'failed',
+      status_detail: 'failed',
+      external_reference: 'ordercard_321_7',
+      transactions: {
+        payments: [
+          { id: 'PAY-ASYNC', status: 'failed', status_detail: 'high_risk', token: 'private-token' },
+        ],
+      },
+    }),
+  );
+  let attempt: Record<string, unknown> = {
+    id: 2,
+    publicId: '123e4567-e89b-42d3-a456-426614174002',
+    providerOrderId: 'ORD-ASYNC',
+    providerStatus: 'processing',
+    providerStatusDetail: null,
+  };
   t.mock.method(orderPaymentAttemptRepository, 'latestForOrder', async () => attempt as never);
-  t.mock.method(orderPaymentAttemptRepository, 'update', async (_id, _tenant, status, diagnostic) => {
-    attempt = { ...attempt, ...diagnostic, status };
-    return attempt as never;
-  });
+  t.mock.method(
+    orderPaymentAttemptRepository,
+    'update',
+    async (_id, _tenant, status, diagnostic) => {
+      attempt = { ...attempt, ...diagnostic, status };
+      return attempt as never;
+    },
+  );
   const signature = createHmac('sha256', 'test-webhook-secret')
-    .update('id:ord-async;request-id:request-1;ts:1742505638;').digest('hex');
-  const req = { body: { type: 'order', data: { id: 'ORD-ASYNC' } },
+    .update('id:ord-async;request-id:request-1;ts:1742505638;')
+    .digest('hex');
+  const req = {
+    body: { type: 'order', data: { id: 'ORD-ASYNC' } },
     query: { 'data.id': 'ORD-ASYNC' },
     headers: { 'x-request-id': 'request-1', 'x-signature': `ts=1742505638,v1=${signature}` },
   } as any;
@@ -136,3 +164,108 @@ test('webhook preserva motivo da transação e registra referência sem corpo br
   assert.equal(events[0].paymentAttemptId, attempt.publicId);
   assert.doesNotMatch(JSON.stringify(events), /private-token|test-access/);
 });
+
+for (const currentProviderOrderId of [null, 'ORD-NEW']) {
+  test(`webhook antigo não modifica tentativa nova (${currentProviderOrderId || 'sem referência'})`, async (t) => {
+    process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
+    const delegate = prisma.order as unknown as { findFirst: (args: unknown) => Promise<unknown> };
+    const original = delegate.findFirst;
+    // The webhook can load the old order reference just before a retry claims it.
+    delegate.findFirst = async () => ({ id: 321, restaurantId: 7 });
+    t.after(() => {
+      delegate.findFirst = original;
+    });
+    t.mock.method(
+      restaurantSettingsRepository,
+      'findByRestaurantId',
+      async () =>
+        ({
+          mercadoPagoAccessToken: 'test-access',
+          mercadoPagoRefreshToken: 'test-refresh',
+          mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
+        }) as never,
+    );
+    t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({
+        id: 'ORD-OLD',
+        status: 'failed',
+        external_reference: 'ordercard_321_7',
+      }),
+    );
+    t.mock.method(
+      orderPaymentAttemptRepository,
+      'latestForOrder',
+      async () =>
+        ({
+          id: 2,
+          publicId: 'new-attempt',
+          status: 'PROCESSING',
+          providerOrderId: currentProviderOrderId,
+        }) as never,
+    );
+    t.mock.method(orderPaymentAttemptRepository, 'update', async () =>
+      assert.fail('webhook antigo alterou tentativa nova'),
+    );
+    const signature = createHmac('sha256', 'test-webhook-secret')
+      .update('id:ord-old;request-id:request-1;ts:1742505638;')
+      .digest('hex');
+    const req = {
+      body: { type: 'order', data: { id: 'ORD-OLD' } },
+      query: { 'data.id': 'ORD-OLD' },
+      headers: { 'x-request-id': 'request-1', 'x-signature': `ts=1742505638,v1=${signature}` },
+    } as any;
+    const res = createMockResponse();
+    await MercadoPagoOrderWebhookController.handle(req, res as any);
+    assert.equal(res.statusCode, 200);
+  });
+}
+
+for (const currentPaymentId of [null, '90002', '90001']) {
+  test(`webhook Payment só atualiza a tentativa com a mesma cobrança (${currentPaymentId || 'sem referência'})`, async (t) => {
+    process.env.MP_WEBHOOK_SECRET = 'test-webhook-secret';
+    t.mock.method(
+      restaurantSettingsRepository,
+      'findByRestaurantId',
+      async () =>
+        ({
+          mercadoPagoAccessToken: 'test-access',
+          mercadoPagoRefreshToken: 'test-refresh',
+          mercadoPagoTokenExpiresAt: new Date(Date.now() + 3600000),
+        }) as never,
+    );
+    t.mock.method(globalThis, 'fetch', async () =>
+      Response.json({
+        id: 90001,
+        status: 'rejected',
+        external_reference: 'ordercard_321_7',
+      }),
+    );
+    t.mock.method(
+      orderPaymentAttemptRepository,
+      'latestForOrder',
+      async () =>
+        ({
+          id: 2,
+          status: 'PROCESSING',
+          providerPaymentId: currentPaymentId,
+        }) as never,
+    );
+    const updates: string[] = [];
+    t.mock.method(orderPaymentAttemptRepository, 'update', async (_id, _restaurant, status) => {
+      updates.push(status);
+      return {} as never;
+    });
+    const signature = createHmac('sha256', 'test-webhook-secret')
+      .update('id:90001;request-id:request-1;ts:1742505638;')
+      .digest('hex');
+    const req = {
+      body: { type: 'payment', data: { id: '90001' } },
+      query: { 'data.id': '90001', restaurantId: '7' },
+      headers: { 'x-request-id': 'request-1', 'x-signature': `ts=1742505638,v1=${signature}` },
+    } as any;
+    const res = createMockResponse();
+    await MercadoPagoOrderWebhookController.handle(req, res as any);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(updates, currentPaymentId === '90001' ? ['DECLINED'] : []);
+  });
+}

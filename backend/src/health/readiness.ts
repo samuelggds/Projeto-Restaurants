@@ -2,6 +2,34 @@ import prisma from '../config/prisma.js';
 
 export type ReadinessProbe = () => Promise<unknown>;
 
+// Public probes share a short snapshot instead of opening one database query
+// per caller. Realtime readiness is still checked on each HTTP request.
+export function createCachedDatabaseReadiness(
+  probe: () => Promise<{ ready: boolean }> = probeDatabaseReadiness,
+  cacheMs = 1000,
+  now: () => number = Date.now,
+) {
+  let cached: { ready: boolean } | undefined;
+  let validUntil = 0;
+  let pending: Promise<{ ready: boolean }> | undefined;
+  return () => {
+    if (cached && now() < validUntil) return Promise.resolve(cached);
+    if (pending) return pending;
+    pending = Promise.resolve()
+      .then(probe)
+      .catch(() => ({ ready: false }))
+      .then((result) => {
+        cached = result;
+        validUntil = now() + cacheMs;
+        return result;
+      })
+      .finally(() => {
+        pending = undefined;
+      });
+    return pending;
+  };
+}
+
 function readinessTimeoutMs() {
   const parsed = Number(process.env.READINESS_TIMEOUT_MS || 3000);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 3000;

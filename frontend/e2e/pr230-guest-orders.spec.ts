@@ -1,11 +1,19 @@
 import { expect, test } from '@playwright/test';
 
-test('visitante vê apenas seus pedidos e o rodapé usa a identidade real do restaurante', async ({ page }) => {
+test('visitante vê apenas seus pedidos e o rodapé usa a identidade real do restaurante', async ({
+  page,
+}) => {
   const guestProof = ['guest', 'proof', '501'].join('-');
-  await page.addInitScript(() => {
+  await page.addInitScript((proof) => {
     localStorage.setItem('guest-order-owned-order-ids', JSON.stringify([501]));
-    localStorage.setItem('guest-order-ownership-token:501', guestProof);
-  });
+    localStorage.setItem('guest-order-ownership-token:501', proof);
+  }, guestProof);
+  await page.route('https://cdn.example.test/**', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="orange"/></svg>',
+    }),
+  );
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const url = new URL(route.request().url());

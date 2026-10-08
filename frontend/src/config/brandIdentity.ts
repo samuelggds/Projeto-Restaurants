@@ -1,4 +1,5 @@
 import { normalizePlatformName } from './platformStorageMigration';
+import { readSessionUserRaw } from '../modules/auth/session/authSession';
 export const BRAND_IDENTITY_STORAGE_KEY = '@GastroNexa:brandIdentity';
 export const BRAND_IDENTITY_UPDATED_EVENT = 'gastronexa:brand-identity-updated';
 
@@ -31,7 +32,7 @@ function parseJson(raw: string | null) {
 }
 
 function extractFromUserStorage(): BrandIdentity {
-  const parsedUser = parseJson(localStorage.getItem('user')) as Record<string, unknown> | null;
+  const parsedUser = parseJson(readSessionUserRaw()) as Record<string, unknown> | null;
   const restaurant =
     parsedUser && typeof parsedUser.restaurant === 'object'
       ? (parsedUser.restaurant as Record<string, unknown>)

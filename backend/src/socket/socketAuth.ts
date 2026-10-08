@@ -7,6 +7,7 @@ import prisma from '../config/prisma.js';
 import { resolveAccessToken } from '../modules/auth/security/accessToken.js';
 import { assertSocketAccess, SocketAccessDeniedError } from './socketAccessPolicy.js';
 import { verifyGuestOrderOwnershipToken } from '../modules/orders/utils/guestOrderOwnershipToken.js';
+import jwt from 'jsonwebtoken';
 
 type SocketAuthNext = (err?: Error) => void;
 type SocketAccessCheck = (
@@ -21,6 +22,7 @@ type SocketUser = JwtPayload & {
   restaurantId?: number | null;
   authVersion?: number | null;
   mustChangePassword?: boolean;
+  expiresAt?: number | null;
 };
 
 type SocketTableSession = {
@@ -55,8 +57,11 @@ export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAc
         : [];
 
       if (token) {
-        const resolved = await resolveAccessToken(String(token));
-        const decoded = { ...resolved.user } as SocketUser;
+        const resolved = await resolveAccessToken(String(token), {
+          checkAccountBeforeExpiry: true,
+        });
+        if (!resolved.expiresAt) return next(new Error('Token de acesso sem validade'));
+        const decoded = { ...resolved.user, expiresAt: resolved.expiresAt } as SocketUser;
 
         if (decoded.mustChangePassword) {
           return next(new Error('Troca de senha obrigatória'));
@@ -115,7 +120,6 @@ export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAc
 
         return next();
       }
-
 
       if (guestOrderProofs.length) {
         const verifiedOrderIds = guestOrderProofs.flatMap((proof: unknown) => {
@@ -190,6 +194,13 @@ export function createSocketAuth(checkAccess: SocketAccessCheck = assertSocketAc
 
       return next(new Error('Token não enviado'));
     } catch (error: unknown) {
+      if (error instanceof jwt.TokenExpiredError) {
+        return next(
+          Object.assign(new Error('Token de acesso expirado'), {
+            data: { code: 'ACCESS_TOKEN_EXPIRED' },
+          }),
+        );
+      }
       if (error instanceof SocketAccessDeniedError) {
         return next(new Error(error.code));
       }

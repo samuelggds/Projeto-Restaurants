@@ -244,7 +244,7 @@ test('preserva o perfil COZINHA ao rotacionar os tokens', async () => {
 });
 
 test('logout deve revogar refresh token atual', async () => {
-  installSessionPrismaMocks({
+  const state = installSessionPrismaMocks({
     id: 88,
     active: true,
     role: 'CLIENTE',
@@ -257,11 +257,41 @@ test('logout deve revogar refresh token atual', async () => {
   const refreshToken = await authTokenService.createRefreshToken(payload);
 
   await authTokenService.revokeRefreshToken(refreshToken);
+  assert.equal(state.user.authVersion, 1, 'logout also revokes access tokens and sockets');
 
   await assert.rejects(
     () => authTokenService.rotateRefreshToken(refreshToken),
     /Refresh token expirado|Refresh token invalido/,
   );
+});
+
+test('logout with an older refresh cannot revoke a newer login', async () => {
+  const state = installSessionPrismaMocks();
+  const payload = { id: 77, role: 'ADMIN', restaurantId: 1, authVersion: 0 };
+  const previous = await authTokenService.createRefreshToken(payload);
+  const current = await authTokenService.createRefreshToken(payload);
+  const currentJti = state.sessions.get(77).jti;
+  await authTokenService.revokeRefreshToken(previous);
+  assert.equal(state.user.authVersion, 0);
+  assert.equal(state.sessions.get(77).jti, currentJti);
+  assert.ok((await authTokenService.rotateRefreshToken(current)).accessToken);
+});
+
+test('logout cannot consume signed tokens with a different purpose', async () => {
+  const state = installSessionPrismaMocks();
+  const refresh = await authTokenService.createRefreshToken({
+    id: 77,
+    role: 'ADMIN',
+    restaurantId: 1,
+  });
+  const decoded = jwt.verify(refresh, getSafeRefreshSecret());
+  const invalid = jwt.sign({ ...decoded, type: 'access' }, getSafeRefreshSecret());
+  await assert.rejects(
+    () => authTokenService.revokeRefreshToken(invalid),
+    /Refresh token invalido/,
+  );
+  assert.equal(state.sessions.has(77), true);
+  assert.equal(state.user.authVersion, 0);
 });
 
 test('deve rejeitar token que nao seja refresh', async () => {

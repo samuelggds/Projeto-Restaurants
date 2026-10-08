@@ -6,6 +6,46 @@ export type TenantDbClient = Prisma.TransactionClient;
 
 type TenantCallback<T> = (db: TenantDbClient) => Promise<T>;
 
+// All tables whose migrations enable and force tenant RLS. Shared with the
+// catalog integration test so runtime ownership checks cannot lag its scope.
+export const TENANT_RLS_TABLES = [
+  'AiCreditLedgerEntry',
+  'AiCreditReservation',
+  'AiCreditWallet',
+  'CourierCompensationPolicy',
+  'CourierCompensationRange',
+  'CourierSettlement',
+  'CourierSettlementItem',
+  'CustomerPaymentMethod',
+  'EmployeeCompensationPolicy',
+  'EmployeeEarning',
+  'EmployeeSettlement',
+  'EmployeeSettlementItem',
+  'EmployeeSettlementPayment',
+  'EmployeeWorkEntry',
+  'KitchenPrintJob',
+  'MenuImportDraft',
+  'MenuImportDraftItem',
+  'OrderIssueThread',
+  'OrderPaymentAttempt',
+  'ProductComboGroup',
+  'ProductComboOption',
+  'ProductCompositionItem',
+  'ProductConfigurationTemplate',
+  'ProductOption',
+  'ProductOptionGroup',
+  'ProductPortionConfiguration',
+  'RestaurantAiAction',
+  'RestaurantAiAssistantSettings',
+  'RestaurantAiJob',
+  'RestaurantAiJobItem',
+  'RestaurantAiSnapshot',
+  'RestaurantPrinterSettings',
+  'TableAccessRequest',
+  'TableParticipantState',
+  'TableWaiterAssignment',
+] as const;
+
 function normalizeRestaurantId(restaurantId: number) {
   const normalized = Number(restaurantId);
   if (!Number.isSafeInteger(normalized) || normalized <= 0) {
@@ -78,33 +118,7 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
         JOIN pg_catalog.pg_namespace AS namespaces
           ON namespaces.oid = relations.relnamespace
         WHERE namespaces.nspname = 'public'
-          AND relations.relname IN (
-            'CustomerPaymentMethod',
-            'AiCreditWallet',
-            'AiCreditLedgerEntry',
-            'AiCreditReservation',
-            'OrderIssueThread',
-            'RestaurantPrinterSettings',
-            'KitchenPrintJob',
-            'CourierCompensationPolicy',
-            'CourierCompensationRange',
-            'CourierSettlement',
-            'CourierSettlementItem',
-            'EmployeeCompensationPolicy',
-            'EmployeeWorkEntry',
-            'EmployeeEarning',
-            'TableWaiterAssignment',
-            'EmployeeSettlement',
-            'EmployeeSettlementItem',
-            'EmployeeSettlementPayment',
-            'ProductCompositionItem',
-            'ProductOption',
-            'ProductOptionGroup',
-            'ProductPortionConfiguration',
-            'ProductConfigurationTemplate',
-            'ProductComboGroup',
-            'ProductComboOption'
-          )
+          AND relations.relname = ANY(${[...TENANT_RLS_TABLES]}::text[])
           AND relations.relowner = roles.oid
       ) AS owns_pilot_tables
     FROM pg_catalog.pg_roles AS roles
@@ -117,7 +131,7 @@ export async function assertSecureRuntimeDatabaseRole(): Promise<RuntimeDatabase
 
   if (role.is_superuser || role.bypasses_rls || role.owns_pilot_tables) {
     throw new Error(
-      'A role PostgreSQL de runtime é insegura para RLS: use NOSUPERUSER, NOBYPASSRLS e uma role que não seja owner das tabelas piloto.',
+      'A role PostgreSQL de runtime é insegura para RLS: use NOSUPERUSER, NOBYPASSRLS e uma role que não seja owner das tabelas protegidas.',
     );
   }
 

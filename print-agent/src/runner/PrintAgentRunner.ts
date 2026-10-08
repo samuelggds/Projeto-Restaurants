@@ -1,4 +1,4 @@
-import type { PrintAgentApi } from '../api/PrintAgentApi.js';
+import { PrintAgentApiError, type PrintAgentApi } from '../api/PrintAgentApi.js';
 import type { AgentLogger } from '../logger.js';
 import { renderKitchenCommand } from '../rendering/renderKitchenCommand.js';
 import type { PrinterTransport } from '../transports/PrinterTransport.js';
@@ -13,15 +13,13 @@ function errorMessage(error: unknown) {
 function wait(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve) => {
     if (signal?.aborted) return resolve();
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      { once: true },
-    );
+    const finish = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    signal?.addEventListener('abort', finish, { once: true });
   });
 }
 
@@ -34,6 +32,21 @@ export class PrintAgentRunner {
     private readonly transport: PrinterTransport,
     private readonly logger: AgentLogger,
   ) {}
+
+  private isTerminalPrintedAck(error: unknown, publicId: string) {
+    if (!(error instanceof PrintAgentApiError) || ![404, 409].includes(error.status)) {
+      return false;
+    }
+    // The spooler already accepted this job. A lost server lease cannot be
+    // recovered by retrying its ACK or reporting FAILED (which could reprint it).
+    this.pendingPrintedAck = null;
+    this.logger.error('PRINT_ACK_REJECTED', {
+      jobPublicId: publicId,
+      status: error.status,
+      reason: errorMessage(error),
+    });
+    return true;
+  }
 
   async heartbeat() {
     const printer = this.config.printerName
@@ -61,6 +74,7 @@ export class PrintAgentRunner {
         });
         return 'printed';
       } catch (error: unknown) {
+        if (this.isTerminalPrintedAck(error, pending.publicId)) return 'failed';
         this.logger.error('PRINT_ACK_PENDING', {
           jobPublicId: pending.publicId,
           reason: errorMessage(error),
@@ -110,6 +124,7 @@ export class PrintAgentRunner {
       });
       return 'printed';
     } catch (error: unknown) {
+      if (this.isTerminalPrintedAck(error, job.publicId)) return 'failed';
       this.pendingPrintedAck = {
         publicId: job.publicId,
         copies: job.copies,

@@ -16,7 +16,11 @@ const SAFE_SMS_MESSAGE =
 type PhonePurpose = 'ENROLLMENT' | 'PASSWORD_RESET';
 
 function enabled() {
-  return String(process.env.GOOGLE_PHONE_AUTH_ENABLED || 'false').trim().toLowerCase() === 'true';
+  return (
+    String(process.env.GOOGLE_PHONE_AUTH_ENABLED || 'false')
+      .trim()
+      .toLowerCase() === 'true'
+  );
 }
 
 function apiKey() {
@@ -97,7 +101,10 @@ function googleEndpoint(method: 'sendVerificationCode' | 'signInWithPhoneNumber'
   )}`;
 }
 
-async function googleRequest<T>(method: 'sendVerificationCode' | 'signInWithPhoneNumber', body: object) {
+async function googleRequest<T>(
+  method: 'sendVerificationCode' | 'signInWithPhoneNumber',
+  body: object,
+) {
   if (!isGooglePhoneAuthConfigured()) {
     throw new Error('Recuperação por SMS ainda não está configurada.');
   }
@@ -118,7 +125,11 @@ async function googleRequest<T>(method: 'sendVerificationCode' | 'signInWithPhon
     const payload = (await response.json().catch(() => ({}))) as Record<string, any>;
     if (!response.ok) {
       const providerCode = String(payload?.error?.message || '').trim();
-      throw new Error(providerCode ? `Google recusou a verificação (${providerCode}).` : 'Google recusou a verificação.');
+      throw new Error(
+        providerCode
+          ? `Google recusou a verificação (${providerCode}).`
+          : 'Google recusou a verificação.',
+      );
     }
     return payload as T;
   } catch (error) {
@@ -161,7 +172,12 @@ async function verifyCode(sessionInfo: string, code: unknown) {
   return phoneE164;
 }
 
-async function createChallenge(userId: number, purpose: PhonePurpose, phoneE164: string, sessionInfo: string) {
+async function createChallenge(
+  userId: number,
+  purpose: PhonePurpose,
+  phoneE164: string,
+  sessionInfo: string,
+) {
   const id = crypto.randomUUID();
   await prisma.phoneVerificationChallenge.deleteMany({
     where: { userId, purpose },
@@ -217,11 +233,11 @@ async function recordFailure(id: string) {
   }
 }
 
-async function verifyChallenge(record: NonNullable<Awaited<ReturnType<typeof readChallenge>>>, code: unknown) {
-  const sessionInfo = decryptCredential(
-    record.sessionInfoCiphertext,
-    challengeContext(record.id),
-  );
+async function verifyChallenge(
+  record: NonNullable<Awaited<ReturnType<typeof readChallenge>>>,
+  code: unknown,
+) {
+  const sessionInfo = decryptCredential(record.sessionInfoCiphertext, challengeContext(record.id));
   if (!sessionInfo) throw new Error('Código inválido ou expirado.');
 
   try {
@@ -249,7 +265,8 @@ export class GooglePhoneVerificationService {
     if (!passwordOk) throw new Error('Senha atual incorreta.');
 
     const phoneE164 = normalizePhoneE164Br(user.phone);
-    if (!phoneE164) throw new Error('Cadastre um telefone válido antes de ativar a recuperação por SMS.');
+    if (!phoneE164)
+      throw new Error('Cadastre um telefone válido antes de ativar a recuperação por SMS.');
 
     const sessionInfo = await sendVerificationCode(phoneE164, captchaResponse);
     const challengeId = await createChallenge(user.id, 'ENROLLMENT', phoneE164, sessionInfo);
@@ -343,7 +360,8 @@ export class GooglePhoneVerificationService {
     await verifyChallenge(record, code);
 
     const requiresStrongPassword =
-      record.user.mustChangePassword || String(record.user.role || '').toUpperCase() === 'SUPER_ADMIN';
+      record.user.mustChangePassword ||
+      String(record.user.role || '').toUpperCase() === 'SUPER_ADMIN';
     if (requiresStrongPassword) validateStrongPassword(newPassword);
     else validatePassword(newPassword, 'A nova senha');
 
@@ -369,6 +387,7 @@ export class GooglePhoneVerificationService {
       });
       if (updated.count !== 1) return false;
       await tx.authRefreshSession.deleteMany({ where: { userId: record.userId } });
+      await tx.authMfaChallenge.deleteMany({ where: { userId: record.userId } });
       await tx.phoneVerificationChallenge.update({
         where: { id: record.id },
         data: { consumedAt: now },

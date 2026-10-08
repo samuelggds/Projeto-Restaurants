@@ -556,16 +556,15 @@ export const StarButton = styled.button<{
 }>`
   width: 40px;
   height: 40px;
-  border: 1px solid ({ $active }) => ($active ? '#f1c37c' : '#f2dfce');
+  border: 1px solid ${({ $active }) => ($active ? '#f1c37c' : '#f2dfce')};
   border-radius: 10px;
-  background: ({ $active }) => ($active ? '#fff4df' : '#fff9f4');
-  color: ({ $active }) => ($active ? '#f39a18' : '#c5b49d');
+  background: ${({ $active }) => ($active ? '#fff4df' : '#fff9f4')};
+  color: ${({ $active }) => ($active ? '#f39a18' : '#c5b49d')};
   display: grid;
   place-items: center;
   cursor: pointer;
-  transform: ({ $selected }) => ($selected ? 'translateY(-2px)' : 'translateY(0)');
-  box-shadow: ({ $selected }) =>
-    $selected ? '0 7px 16px rgba(243, 154, 24, 0.16)' : 'none';
+  transform: ${({ $selected }) => ($selected ? 'translateY(-2px)' : 'translateY(0)')};
+  box-shadow: ${({ $selected }) => ($selected ? '0 7px 16px rgba(243, 154, 24, 0.16)' : 'none')};
   transition:
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
     color 160ms ease,
@@ -586,7 +585,7 @@ export const StarButton = styled.button<{
 
   &[aria-pressed='true'] svg {
     animation: ${starPop} 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: ({ $delay }) => $delayms;
+    animation-delay: ${({ $delay }) => $delay}ms;
   }
 
   &:disabled {

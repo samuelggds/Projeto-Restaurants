@@ -1,6 +1,7 @@
 import api from './api';
 import { notifyRestaurantBrowserBrandingUpdated } from '../config/browserBranding';
 import { resolvePublicMediaSource } from './publicMediaSource';
+import { readSessionUserRaw } from '../modules/auth/session/authSession';
 
 function normalizePublicSettingsMedia(settings, baseUrl) {
   const restaurant = settings?.restaurant;
@@ -32,7 +33,7 @@ function publicSettingsFromResponse(response) {
 function currentRestaurantId() {
   if (typeof window === 'undefined') return '';
   try {
-    const user = JSON.parse(window.localStorage.getItem('user') || 'null');
+    const user = JSON.parse(readSessionUserRaw() || 'null');
     return String(
       user?.restaurantId ||
         user?.restaurant?.id ||
@@ -129,7 +130,6 @@ class RestaurantSettingsService {
     const response = await api.post('/settings/mercado-pago/disconnect');
     return response.data;
   }
-
 
   async getPublicSettings(restaurantId, revision = '') {
     const response = await api.get(`/settings/public/${restaurantId}`, {
