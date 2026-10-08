@@ -115,7 +115,7 @@ async function main() {
       },
       'MM80',
     );
-    await transport.print({ printerName: config.printerName, content });
+    await transport.print({ printerName: config.printerName, content, paperWidth: 'MM80' });
     console.log('Teste local enviado ao spooler.');
     return;
   }
