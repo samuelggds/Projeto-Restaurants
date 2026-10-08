@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronLeft,
   Copy,
+  Download,
   KeyRound,
   MonitorCheck,
   Power,
@@ -26,6 +27,9 @@ import * as S from './KitchenPrintingSettingsGuide.styles';
 
 const STATUS_REFRESH_MS = 30_000;
 const PRINT_JOB_BATCH_SIZE = 10;
+// The release workflow uploads this exact asset; never link to expiring Actions artifacts.
+const WINDOWS_INSTALLER_URL =
+  'https://github.com/samuelggds/Projeto-Restaurants/releases/latest/download/GastroNexa-Cozinha-Setup.exe';
 
 function errorMessage(error: unknown, fallback: string) {
   const typed = error as {
@@ -287,6 +291,7 @@ export function KitchenPrintingSettings() {
   const { agent, queue } = configuration;
   const pendingJobs = (queue.PENDING || 0) + (queue.PROCESSING || 0);
   const canConfigureAgent = draft.enabled && !dirty;
+  const installerPublished = import.meta.env.VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED === 'true';
   const setupComplete = Boolean(draft.enabled && !dirty && agent?.online && agent.printerName);
   const nextAction = !draft.enabled
     ? 'Ative a impressão no passo 1 para começar.'
@@ -567,6 +572,36 @@ export function KitchenPrintingSettings() {
               >
                 <RefreshCw size={16} />
               </button>
+            )}
+          </div>
+
+          <div className="desktop-download" aria-label="Programa de impressão para Windows">
+            <div>
+              <b>Instale o GastroNexa Cozinha</b>
+              <p>
+                Programa para Windows 10 ou 11 (64 bits). Instale no computador conectado
+                à impressora e utilize o código gerado neste painel.
+              </p>
+            </div>
+            {installerPublished ? (
+              <a
+                className="primary desktop-download-action"
+                href={WINDOWS_INSTALLER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Baixar GastroNexa Cozinha para Windows"
+              >
+                <Download size={16} aria-hidden="true" />
+                Baixar para Windows
+              </a>
+            ) : (
+              <div className="download-unavailable">
+                <button type="button" className="primary" disabled aria-disabled="true">
+                  <Download size={16} aria-hidden="true" />
+                  Baixar para Windows
+                </button>
+                <small>Download disponível após a publicação da versão assinada e verificada.</small>
+              </div>
             )}
           </div>
 
