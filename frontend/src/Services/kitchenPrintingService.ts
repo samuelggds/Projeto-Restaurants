@@ -27,6 +27,12 @@ export type KitchenPrintingConfiguration = {
   onlineWindowSeconds: number;
 };
 
+export type KitchenDesktopRelease = {
+  version: string;
+  channel: 'official' | 'test';
+  downloadUrl: string;
+};
+
 export type PrinterAgentCredential = {
   device: { publicId: string; name: string };
   credential: string;
@@ -48,6 +54,13 @@ export type KitchenPrintJobSummary = {
 };
 
 class KitchenPrintingService {
+  async getDesktopRelease() {
+    const response = await api.get<{ release: KitchenDesktopRelease | null }>(
+      '/kitchen-printing/desktop-release',
+    );
+    return response.data.release;
+  }
+
   async getConfiguration() {
     const response = await api.get<KitchenPrintingConfiguration>('/kitchen-printing/settings');
     return response.data;
