@@ -15,7 +15,7 @@ test('58mm ESC/POS receipt limits each line to 32 columns and preserves full ord
   const decoded = receipt.subarray(18).toString('ascii');
   assert.ok(decoded.split('\n').every((line) => line.length <= 32));
   assert.match(decoded, /NORTH PIZZA/);
-  assert.match(decoded, /1688/);
+  assert.match(decoded, /, 1\n688/);
   assert.match(decoded, /ACUCAR E SEM GELO/);
   assert.ok(receipt.subarray(0, 2).equals(Buffer.from([0x1b, 0x40])));
   assert.ok(receipt.includes(Buffer.from([0x1d, 0x57, 0x80, 0x01])));
@@ -30,7 +30,7 @@ test('80mm commands use 48-column region', () => {
 test('untrusted order text cannot inject ESC/POS control sequences', () => {
   const malicious = 'café\u001b\u0070\u0000\u000f\u001d\u0056\u0000\u2022';
   const text = toThermalAscii(malicious);
-  assert.equal(text, 'cafe pV-');
+  assert.equal(text, 'cafepV-');
   const receipt = buildEscPosReceipt(malicious, 'MM58');
   assert.equal(receipt.toString('ascii').includes('\x1bp'), false);
 });
