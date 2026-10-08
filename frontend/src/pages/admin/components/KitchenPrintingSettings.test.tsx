@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getConfiguration: vi.fn(),
+  getDesktopRelease: vi.fn(),
   updateSettings: vi.fn(),
   issueCredential: vi.fn(),
   revokeCredential: vi.fn(),
@@ -53,7 +54,7 @@ describe('configuração da impressora da cozinha', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED', 'false');
+    mocks.getDesktopRelease.mockResolvedValue(null);
     mocks.getConfiguration.mockResolvedValue(initialConfiguration);
     mocks.updateSettings.mockImplementation(async (settings) => {
       mocks.getConfiguration.mockResolvedValue({ ...initialConfiguration, settings });
@@ -125,12 +126,10 @@ describe('configuração da impressora da cozinha', () => {
     expect(mocks.updateSettings).not.toHaveBeenCalled();
   });
 
-  it('mantém o download desativado até a publicação oficial assinada', async () => {
+  it('não habilita download quando não existe instalador publicado', async () => {
     await act(async () => root.render(<KitchenPrintingSettings />));
     await flush();
-
-    expect(container.textContent).toContain('Instale o GastroNexa Cozinha');
-    expect(container.textContent).toContain('Download disponível após a publicação');
+    expect(container.textContent).toContain('Nenhuma versão publicada foi encontrada');
     const button = [...container.querySelectorAll('button')].find((element) =>
       element.textContent?.includes('Baixar para Windows'),
     ) as HTMLButtonElement;
@@ -138,20 +137,39 @@ describe('configuração da impressora da cozinha', () => {
     expect(container.querySelector('a[aria-label="Baixar GastroNexa Cozinha para Windows"]')).toBeNull();
   });
 
-  it('libera download permanente ao publicar instalador assinado na configuração de produção', async () => {
-    vi.stubEnv('VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED', 'true');
+  it('libera download manual da versão oficialmente publicada', async () => {
+    mocks.getDesktopRelease.mockResolvedValue({
+      version: '1.0.0',
+      channel: 'official',
+      downloadUrl: 'https://github.com/samuelggds/Projeto-Restaurants/releases/download/kitchen-v1.0.0/GastroNexa-Cozinha-Setup.exe',
+    });
     await act(async () => root.render(<KitchenPrintingSettings />));
     await flush();
-
     const link = container.querySelector<HTMLAnchorElement>(
       'a[aria-label="Baixar GastroNexa Cozinha para Windows"]',
     );
-    expect(link?.getAttribute('href')).toBe(
-      'https://github.com/samuelggds/Projeto-Restaurants/releases/latest/download/GastroNexa-Cozinha-Setup.exe',
-    );
+    expect(link?.getAttribute('href')).toContain('/releases/download/kitchen-v1.0.0/');
     expect(link?.rel).toContain('noopener');
-    expect(link?.target).toBe('_blank');
-    expect(container.textContent).not.toContain('Download disponível após a publicação');
+    expect(container.textContent).toContain('Versão disponível: 1.0.0');
+    expect(container.textContent).not.toContain('Nova versão disponível');
+  });
+
+  it('avisa de versão mais recente e exige download manual, sem autoatualização', async () => {
+    mocks.getConfiguration.mockResolvedValue({
+      ...initialConfiguration,
+      agent: { publicId: 'abc', name: 'Cozinha', printerName: 'Atomo', online: true, lastSeenAt: null, appVersion: '1.0.0' },
+    });
+    mocks.getDesktopRelease.mockResolvedValue({
+      version: '1.0.1',
+      channel: 'test',
+      downloadUrl: 'https://github.com/samuelggds/Projeto-Restaurants/releases/download/kitchen-test-v1.0.1/GastroNexa-Cozinha-Setup.exe',
+    });
+    await act(async () => root.render(<KitchenPrintingSettings />));
+    await flush();
+    expect(container.textContent).toContain('Nova versão disponível');
+    expect(container.textContent).toContain('Versão instalada: 1.0.0');
+    expect(container.textContent).toContain('Baixar atualização');
+    expect(container.textContent).toContain('sem assinatura digital');
   });
 
   it('mantém o recurso opcional e salva somente a configuração privada escolhida', async () => {

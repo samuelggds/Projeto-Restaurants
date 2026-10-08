@@ -21,15 +21,29 @@ import kitchenPrintingService, {
   type KitchenPrinterSettings,
   type KitchenPrintJobSummary,
   type KitchenPrintingConfiguration,
+  type KitchenDesktopRelease,
 } from '../../../Services/kitchenPrintingService';
 import { KitchenPrintPreview } from './KitchenPrintPreview';
 import * as S from './KitchenPrintingSettingsGuide.styles';
 
 const STATUS_REFRESH_MS = 30_000;
 const PRINT_JOB_BATCH_SIZE = 10;
-// The release workflow uploads this exact asset; never link to expiring Actions artifacts.
-const WINDOWS_INSTALLER_URL =
-  'https://github.com/samuelggds/Projeto-Restaurants/releases/latest/download/GastroNexa-Cozinha-Setup.exe';
+const RELEASE_REFRESH_MS = 10 * 60_000;
+
+function isNewerRelease(published: string, installed: string | null | undefined) {
+  if (!installed) return false;
+  const parse = (value: string) =>
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)
+      ? value.split('.').map(Number)
+      : null;
+  const available = parse(published);
+  const current = parse(installed);
+  if (!available || !current) return false;
+  for (let index = 0; index < 3; index += 1) {
+    if (available[index] !== current[index]) return available[index] > current[index];
+  }
+  return false;
+}
 
 function errorMessage(error: unknown, fallback: string) {
   const typed = error as {
@@ -57,6 +71,8 @@ export function KitchenPrintingSettings() {
   const [draft, setDraft] = useState<KitchenPrinterSettings | null>(null);
   const [copiesInput, setCopiesInput] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [desktopRelease, setDesktopRelease] = useState<KitchenDesktopRelease | null>(null);
+  const [releaseLoading, setReleaseLoading] = useState(true);
   const [busy, setBusy] = useState<'save' | 'credential' | 'test' | 'revoke' | null>(null);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(
     null,
@@ -105,6 +121,26 @@ export function KitchenPrintingSettings() {
       window.clearInterval(interval);
     };
   }, [loadConfiguration]);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const release = await kitchenPrintingService.getDesktopRelease();
+        if (active) setDesktopRelease(release);
+      } catch {
+        if (active) setDesktopRelease(null);
+      } finally {
+        if (active) setReleaseLoading(false);
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), RELEASE_REFRESH_MS);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const copiesValue = copiesInput ?? String(draft?.copies ?? 1);
   const copiesInvalid = !/^[1-5]$/.test(copiesValue);
@@ -291,7 +327,9 @@ export function KitchenPrintingSettings() {
   const { agent, queue } = configuration;
   const pendingJobs = (queue.PENDING || 0) + (queue.PROCESSING || 0);
   const canConfigureAgent = draft.enabled && !dirty;
-  const installerPublished = import.meta.env.VITE_KITCHEN_WINDOWS_DOWNLOAD_ENABLED === 'true';
+  const newerReleaseAvailable = Boolean(
+    desktopRelease && isNewerRelease(desktopRelease.version, agent?.appVersion),
+  );
   const setupComplete = Boolean(draft.enabled && !dirty && agent?.online && agent.printerName);
   const nextAction = !draft.enabled
     ? 'Ative a impressão no passo 1 para começar.'
@@ -583,24 +621,46 @@ export function KitchenPrintingSettings() {
                 à impressora e utilize o código gerado neste painel.
               </p>
             </div>
-            {installerPublished ? (
-              <a
-                className="primary desktop-download-action"
-                href={WINDOWS_INSTALLER_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Baixar GastroNexa Cozinha para Windows"
-              >
-                <Download size={16} aria-hidden="true" />
-                Baixar para Windows
-              </a>
+            {desktopRelease ? (
+              <div className="download-unavailable">
+                <small>Versão disponível: {desktopRelease.version}</small>
+                {agent?.appVersion ? <small>Versão instalada: {agent.appVersion}</small> : null}
+                {newerReleaseAvailable ? (
+                  <div className="activation-note active" role="status">
+                    <b>Nova versão disponível</b>
+                    <span>
+                      Atualize quando desejar. Feche o GastroNexa Cozinha antes de instalar.
+                    </span>
+                  </div>
+                ) : null}
+                <a
+                  className="primary desktop-download-action"
+                  href={desktopRelease.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Baixar GastroNexa Cozinha para Windows"
+                >
+                  <Download size={16} aria-hidden="true" />
+                  {newerReleaseAvailable ? 'Baixar atualização' : 'Baixar para Windows'}
+                </a>
+                {desktopRelease.channel === 'test' ? (
+                  <small>
+                    Versão de homologação sem assinatura digital. O Windows pode alertar ou
+                    bloquear a instalação. Não desative as proteções do Windows.
+                  </small>
+                ) : null}
+              </div>
             ) : (
               <div className="download-unavailable">
                 <button type="button" className="primary" disabled aria-disabled="true">
                   <Download size={16} aria-hidden="true" />
                   Baixar para Windows
                 </button>
-                <small>Download disponível após a publicação da versão assinada e verificada.</small>
+                <small>
+                  {releaseLoading
+                    ? 'Consultando a versão disponível…'
+                    : 'Download indisponível. Nenhuma versão publicada foi encontrada.'}
+                </small>
               </div>
             )}
           </div>

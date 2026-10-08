@@ -8,6 +8,7 @@ import {
   updatePrinterSettingsSchema,
 } from '../domain/kitchenPrintingSchemas.js';
 import kitchenPrintingAdminService from '../services/KitchenPrintingAdminService.js';
+import { getLatestKitchenDesktopRelease } from '../services/KitchenDesktopReleaseService.js';
 import printerAgentJobService from '../services/PrinterAgentJobService.js';
 
 const uuidSchema = z.string().uuid();
@@ -44,6 +45,16 @@ function sendError(res: Response, error: unknown) {
 }
 
 class KitchenPrintingController {
+  async getDesktopRelease(_req: Request, res: Response) {
+    try {
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      return res.json({ release: await getLatestKitchenDesktopRelease() });
+    } catch {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({ error: 'Não foi possível consultar a versão do aplicativo.' });
+    }
+  }
+
   async getSettings(req: Request, res: Response) {
     try {
       return res.json(await kitchenPrintingAdminService.getConfiguration(req.user?.restaurantId));
