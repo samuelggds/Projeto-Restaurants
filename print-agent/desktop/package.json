@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "prepare:agent": "node scripts/prepare-agent.cjs",
-    "package:win": "npm run prepare:agent && electron-builder --win nsis --x64 --publish never"
+    "package:win": "npm run prepare:icon && npm run prepare:agent && electron-builder --win nsis --x64 --publish never",
+    "prepare:icon": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/prepare-icon.ps1"
   },
   "devDependencies": {
     "electron": "40.0.0",
@@ -42,7 +43,7 @@
           ]
         }
       ],
-      "icon": "assets/gastronexa-logo.png"
+      "icon": "assets/gastronexa-icon-512.png"
     },
     "nsis": {
       "oneClick": false,
