@@ -18,6 +18,17 @@ export default tseslint.config(
     },
   },
   {
+    // Electron preload/main/build tools use CommonJS by design. Keep the
+    // TypeScript import restriction for application sources unchanged.
+    files: ['desktop/**/*.cjs'],
+    languageOptions: { globals: globals.node },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    files: ['desktop/renderer/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['scripts/**/*.{cjs,mjs,js}'],
     languageOptions: { globals: globals.node },
     rules: { '@typescript-eslint/no-require-imports': 'off' },

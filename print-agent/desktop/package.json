@@ -1,0 +1,55 @@
+{
+  "name": "gastronexa-kitchen-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplicativo Windows para conectar a impressora da cozinha ao GastroNexa",
+  "main": "main.cjs",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "prepare:agent": "node scripts/prepare-agent.cjs",
+    "package:win": "npm run prepare:agent && electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "40.0.0",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "br.com.gastronexa.cozinha",
+    "productName": "GastroNexa Cozinha",
+    "executableName": "GastroNexaCozinha",
+    "asar": true,
+    "asarUnpack": [
+      "agent/**"
+    ],
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "shared/**/*",
+      "renderer/**/*",
+      "agent/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "GastroNexa-Cozinha-Setup-${version}.${ext}"
+    },
+    "publish": null
+  }
+}
