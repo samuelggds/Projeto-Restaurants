@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>GastroNexa Cozinha</title>
+  <link rel="stylesheet" href="./style.css"/>
+  <script src="./renderer.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div class="logo">G<span>Nexa</span></div><span class="hint">PROGRAMA DA COZINHA • WINDOWS</span></header>
+    <h1>Comandas sem complicação</h1>
+    <p class="intro">Conecte o restaurante, escolha sua impressora e receba pedidos automaticamente.</p>
+    <section class="status"><span id="indicator"></span><strong id="status">Verificando conexão...</strong><span id="printer-status"></span></section>
+    <section class="panel" id="pair-section">
+      <div class="heading"><span class="num">1</span><div><h2>Conectar restaurante</h2><p>Gere o código em Configurações → Impressora da cozinha no painel GastroNexa.</p></div></div>
+      <label for="code">Código de conexão</label>
+      <input id="code" type="password" autocomplete="off" spellcheck="false" placeholder="Cole o código de conexão"/>
+      <div class="actions"><button type="button" id="pair">Conectar</button><button class="light" type="button" id="website">Abrir painel</button></div>
+    </section>
+    <section class="panel" id="printer-section">
+      <div class="heading"><span class="num">2</span><div><h2>Selecionar impressora</h2><p>A impressora precisa estar instalada e funcionando no Windows.</p></div></div>
+      <label for="printers">Impressoras disponíveis</label>
+      <select id="printers"><option value="">Selecione uma impressora</option></select>
+      <div class="actions"><button type="button" id="select">Usar esta impressora</button><button class="light" type="button" id="refresh">Atualizar lista</button><button class="light" type="button" id="test">Imprimir teste local</button></div>
+    </section>
+    <section class="panel">
+      <div class="heading"><span class="num">3</span><div><h2>Manter funcionando</h2><p>Com o programa aberto, os pedidos chegam à fila de impressão. Ative a inicialização automática para abrir com o Windows.</p></div></div>
+      <label class="checkbox"><input id="startup" type="checkbox"/> Iniciar automaticamente com o Windows</label>
+      <div class="actions"><button class="light danger" type="button" id="disconnect">Desconectar este computador</button></div>
+    </section>
+    <p class="message" id="message" role="status" aria-live="polite"></p>
+    <footer>GastroNexa • Conexão HTTPS segura • Não compartilhe seu código de conexão.</footer>
+  </main>
+</body>
+</html>

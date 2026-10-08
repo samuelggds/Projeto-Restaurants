@@ -1,0 +1,53 @@
+name: GastroNexa Kitchen Windows Installer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'print-agent/**'
+      - '.github/workflows/kitchen-desktop-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    name: Build and test Kitchen Windows app
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: print-agent/package-lock.json
+      - name: Install Print Agent dependencies
+        run: npm --prefix print-agent ci
+      - name: Build and test Print Agent
+        run: |
+          npm --prefix print-agent run lint
+          npm --prefix print-agent run typecheck
+          npm --prefix print-agent test
+          npm --prefix print-agent run build
+      - name: Run desktop validation tests
+        run: node --test print-agent/desktop/tests/*.test.cjs
+      - name: Install desktop packaging dependencies (build-only)
+        working-directory: print-agent/desktop
+        run: npm install --no-save --package-lock=false --ignore-scripts
+      - name: Package Windows installer
+        working-directory: print-agent/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'false'
+        run: npm run package:win
+      - name: Upload Windows test installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gastronexa-kitchen-windows-test
+          path: print-agent/desktop/dist/GastroNexa-Cozinha-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
