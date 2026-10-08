@@ -170,7 +170,7 @@ ipcMain.handle('kitchen:test', async () => withBusy(async () => {
     version: 1, kind: 'TEST', restaurantName: 'GastroNexa',
     requestedAt: new Date().toISOString(), message: 'Teste local do GastroNexa Cozinha.',
   }, 'MM58');
-  await printer.print({ printerName: record.printerName, content });
+  await printer.print({ printerName: record.printerName, content, paperWidth: 'MM58' });
   return { ok: true };
 }));
 ipcMain.handle('kitchen:autoStart', async (_event, enabled) => withBusy(async () => {
