@@ -119,6 +119,7 @@ app.whenReady().then(async () => {
   window = new BrowserWindow({
     width: 760, height: 710, minWidth: 600, minHeight: 570,
     title: 'GastroNexa Cozinha', backgroundColor: '#f6f5f3',
+    icon: path.join(__dirname, 'assets', 'gastronexa-logo.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, nodeIntegration: false, sandbox: true,
