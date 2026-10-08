@@ -1,0 +1,104 @@
+name: Publish Signed GastroNexa Cozinha Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Desktop version (for example 1.0.0)'
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  attestations: write
+  id-token: write
+
+concurrency:
+  group: gastronexa-signed-kitchen-release
+  cancel-in-progress: false
+
+jobs:
+  signed-windows-installer:
+    name: Verify, sign and release Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Validate source and release identity
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ('$env:GITHUB_REF' -ne 'refs/heads/main') { throw 'Only main may publish desktop installers' }
+          if ($env:RELEASE_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release version' }
+          $current = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha'
+          if ($env:GITHUB_SHA -ne $current) { throw 'Release must run from current main' }
+          gh release view "kitchen-v$env:RELEASE_VERSION" --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'Version already published; refusing to overwrite' }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: print-agent/package-lock.json
+      - name: Require configured code signing certificate
+        shell: pwsh
+        env:
+          CERTIFICATE: ${{ secrets.KITCHEN_WINDOWS_CSC_LINK }}
+          CERTIFICATE_PASSWORD: ${{ secrets.KITCHEN_WINDOWS_CSC_KEY_PASSWORD }}
+        run: |
+          if (-not $env:CERTIFICATE -or -not $env:CERTIFICATE_PASSWORD) {
+            throw 'Configure KITCHEN_WINDOWS_CSC_LINK (base64 PFX) and KITCHEN_WINDOWS_CSC_KEY_PASSWORD before publication.'
+          }
+          if ($env:CERTIFICATE -notmatch '^[A-Za-z0-9+/]+={0,2}$') {
+            throw 'Signing certificate must be base64-encoded.'
+          }
+      - run: npm --prefix print-agent ci
+      - name: Enforce agent lint, typecheck, tests and build
+        shell: pwsh
+        run: |
+          npm --prefix print-agent run lint
+          if ($LASTEXITCODE -ne 0) { throw 'lint failed' }
+          npm --prefix print-agent run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'typecheck failed' }
+          npm --prefix print-agent test
+          if ($LASTEXITCODE -ne 0) { throw 'agent tests failed' }
+          npm --prefix print-agent run build
+          if ($LASTEXITCODE -ne 0) { throw 'agent build failed' }
+          node --test print-agent/desktop/tests/*.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'desktop tests failed' }
+      - name: Install locked Windows desktop dependencies
+        working-directory: print-agent/desktop
+        run: npm ci --ignore-scripts
+      - name: Build signed Windows installer
+        working-directory: print-agent/desktop
+        env:
+          CSC_LINK: ${{ secrets.KITCHEN_WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.KITCHEN_WINDOWS_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        shell: pwsh
+        run: |
+          npm run package:win
+          if ($LASTEXITCODE -ne 0) { throw 'Windows installer build failed' }
+      - name: Verify digital signature and prepare immutable download
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $installer = "print-agent/desktop/dist/GastroNexa-Cozinha-Setup-$env:RELEASE_VERSION.exe"
+          if (-not (Test-Path -LiteralPath $installer)) { throw 'Installer missing' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid') { throw 'Installer code signature not valid' }
+          if (-not $signature.SignerCertificate) { throw 'Installer has no signer certificate' }
+          Copy-Item -LiteralPath $installer -Destination 'GastroNexa-Cozinha-Setup.exe'
+          Get-FileHash -Algorithm SHA256 'GastroNexa-Cozinha-Setup.exe' | Format-List
+      - name: Publish official immutable GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "kitchen-v$env:RELEASE_VERSION" "GastroNexa-Cozinha-Setup.exe" --repo $env:GITHUB_REPOSITORY --title "GastroNexa Cozinha v$env:RELEASE_VERSION" --notes "Instalador Windows assinado para impressão automática de comandas. Homologue com sua impressora antes de habilitar em operação."
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
