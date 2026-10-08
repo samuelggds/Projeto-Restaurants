@@ -68,8 +68,15 @@ jobs:
           }
 
           $tag = "kitchen-test-v$env:RELEASE_VERSION"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw 'Version already published; refusing to overwrite.' }
+          # A missing release is expected before first publication. Do not leave
+          # a native gh 404 exit code behind: GitHub's PowerShell wrapper treats
+          # the last nonzero native exit code as a failing step.
+          $releasesJson = gh release list --repo $env:GITHUB_REPOSITORY --limit 1000 --json tagName
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify existing releases.' }
+          $existingReleases = @($releasesJson | ConvertFrom-Json)
+          if (@($existingReleases | Where-Object { $_.tagName -eq $tag }).Count -gt 0) {
+            throw 'Version already published; refusing to overwrite.'
+          }
           Write-Host "Verified Windows workflow $env:SOURCE_RUN_ID and Print Agent tree $mainAgentTree."
 
       - name: Download installer from approved workflow run
