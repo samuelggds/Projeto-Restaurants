@@ -27,7 +27,8 @@
       "shared/**/*",
       "renderer/**/*",
       "agent/**/*",
-      "package.json"
+      "package.json",
+      "assets/**/*"
     ],
     "directories": {
       "output": "dist"
@@ -40,7 +41,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "assets/gastronexa-logo.png"
     },
     "nsis": {
       "oneClick": false,
