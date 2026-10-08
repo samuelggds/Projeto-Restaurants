@@ -7,6 +7,7 @@ export type PrinterDescriptor = {
 export type PrintRequest = {
   printerName: string;
   content: string;
+  paperWidth: 'MM58' | 'MM80';
 };
 
 export interface PrinterTransport {
