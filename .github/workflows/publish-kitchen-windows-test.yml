@@ -1,0 +1,146 @@
+name: Publish GastroNexa Cozinha Test Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Desktop version, matching print-agent/desktop/package.json'
+        required: true
+        type: string
+        default: '1.0.0'
+      source_run_id:
+        description: 'Approved GastroNexa Kitchen Windows Installer workflow run ID'
+        required: true
+        type: string
+        default: '37844074469'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: gastronexa-kitchen-test-release
+  cancel-in-progress: false
+
+jobs:
+  publish-test:
+    name: Verify and publish unsigned Windows test release
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Verify main, version and successful Windows build provenance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Test releases must run from main.' }
+          if ($env:RELEASE_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid version.' }
+          if ($env:SOURCE_RUN_ID -notmatch '^[1-9][0-9]{0,17}$') { throw 'Invalid source workflow run ID.' }
+          $desktop = Get-Content -LiteralPath 'print-agent/desktop/package.json' -Raw | ConvertFrom-Json
+          if ($desktop.version -ne $env:RELEASE_VERSION) { throw 'Version does not match desktop package.' }
+
+          $mainSha = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha'
+          if ($LASTEXITCODE -ne 0 -or $env:GITHUB_SHA -ne $mainSha) {
+            throw 'Release must run from the current main commit.'
+          }
+          $source = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:SOURCE_RUN_ID" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify source workflow run.' }
+          if ($source.name -ne 'GastroNexa Kitchen Windows Installer' -or
+              $source.status -ne 'completed' -or $source.conclusion -ne 'success' -or
+              $source.repository.full_name -ne $env:GITHUB_REPOSITORY) {
+            throw 'Source artifact is not from a successful GastroNexa Windows build.'
+          }
+
+          # PR-built binaries may be reused only when the ENTIRE Print Agent tree
+          # is byte-for-byte identical to the deployed main tree.
+          $mainAgentTree = gh api "repos/$env:GITHUB_REPOSITORY/git/trees/$env:GITHUB_SHA" --jq '.tree[] | select(.path == "print-agent") | .sha'
+          if ($LASTEXITCODE -ne 0 -or -not $mainAgentTree) { throw 'Could not resolve main Print Agent tree.' }
+          $sourceAgentTree = gh api "repos/$env:GITHUB_REPOSITORY/git/trees/$($source.head_sha)" --jq '.tree[] | select(.path == "print-agent") | .sha'
+          if ($LASTEXITCODE -ne 0 -or -not $sourceAgentTree -or $sourceAgentTree -ne $mainAgentTree) {
+            throw 'Print Agent source differs from main. Build a fresh Windows installer first.'
+          }
+
+          $tag = "kitchen-test-v$env:RELEASE_VERSION"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Version already published; refusing to overwrite.' }
+          Write-Host "Verified Windows workflow $env:SOURCE_RUN_ID and Print Agent tree $mainAgentTree."
+
+      - name: Download installer from approved workflow run
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          gh run download $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY --name gastronexa-kitchen-windows-test --dir "$env:RUNNER_TEMP\kitchen-artifact"
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to download approved Windows build artifact.' }
+
+      - name: Verify unsigned installer and record SHA256
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP\kitchen-artifact" -Recurse -File -Filter 'GastroNexa-Cozinha-Setup-*.exe')
+          if ($files.Count -ne 1) { throw 'Expected exactly one Windows installer.' }
+          if ($files[0].Name -ne "GastroNexa-Cozinha-Setup-$env:RELEASE_VERSION.exe") {
+            throw 'Installer version does not match release version.'
+          }
+          if ($files[0].Length -lt 20000000) { throw 'Installer is unexpectedly small.' }
+          $signature = Get-AuthenticodeSignature -LiteralPath $files[0].FullName
+          if ($signature.Status -ne 'NotSigned') {
+            throw "This test channel expects an unsigned installer; got $($signature.Status)."
+          }
+          $releaseDir = Join-Path $env:RUNNER_TEMP 'kitchen-release'
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          $target = Join-Path $releaseDir 'GastroNexa-Cozinha-Setup.exe'
+          Copy-Item -LiteralPath $files[0].FullName -Destination $target
+          $hash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
+          [System.IO.File]::WriteAllText(
+            (Join-Path $releaseDir 'SHA256SUMS.txt'),
+            ("$hash  GastroNexa-Cozinha-Setup.exe" + [Environment]::NewLine),
+            [System.Text.UTF8Encoding]::new($false)
+          )
+          Write-Host "Unsigned test executable verified; SHA256 $hash"
+
+      - name: Publish immutable pre-release for supervised tests
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "kitchen-test-v$env:RELEASE_VERSION"
+          $releaseDir = Join-Path $env:RUNNER_TEMP 'kitchen-release'
+          $notesPath = Join-Path $releaseDir 'NOTES.md'
+          @'
+          ## VERSAO DE TESTES - SEM ASSINATURA DIGITAL
+          Este instalador do GastroNexa Cozinha e destinado a homologacao supervisionada,
+          antes de sua distribuicao comercial a restaurantes.
+
+          - Windows pode mostrar alertas de seguranca ou bloquear a instalacao.
+          - Nao desative SmartScreen, antivirus ou protecoes do Windows para instalar.
+          - Nao compartilhe credenciais ou codigos de conexao.
+          - Homologue em impressoras termicas de 58 mm e 80 mm antes da producao.
+          - SHA256SUMS.txt permite verificar a integridade do instalador.
+          - A versao comercial assinada continua com fluxo separado.
+          '@ | Set-Content -LiteralPath $notesPath -Encoding utf8
+          $args = @(
+            'release', 'create', $tag,
+            (Join-Path $releaseDir 'GastroNexa-Cozinha-Setup.exe'),
+            (Join-Path $releaseDir 'SHA256SUMS.txt'),
+            '--repo', $env:GITHUB_REPOSITORY,
+            '--target', $env:GITHUB_SHA,
+            '--title', "GastroNexa Cozinha v$env:RELEASE_VERSION (TESTE SEM ASSINATURA)",
+            '--notes-file', $notesPath,
+            '--prerelease', '--latest=false'
+          )
+          & gh @args
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub test release publication failed.' }
+          Write-Host "Published immutable test installer: $tag"
