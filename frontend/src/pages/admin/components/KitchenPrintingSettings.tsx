@@ -33,7 +33,7 @@ const RELEASE_REFRESH_MS = 10 * 60_000;
 function isNewerRelease(published: string, installed: string | null | undefined) {
   if (!installed) return false;
   const parse = (value: string) =>
-    /^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$/.test(value)
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value)
       ? value.split('.').map(Number)
       : null;
   const available = parse(published);
