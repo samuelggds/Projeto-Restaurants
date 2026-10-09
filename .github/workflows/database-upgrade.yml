@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: upgrade_owner
           POSTGRES_PASSWORD: upgrade-owner-password
