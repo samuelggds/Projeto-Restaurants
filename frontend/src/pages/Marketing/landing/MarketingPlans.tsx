@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, Check, Clock3, Sparkles, Store } from 'lucide-react';
+import { ArrowUpRight, Check, Clock3, Gift, Globe2, Headphones, Hourglass, Settings2, Sparkles, Store, Wrench } from 'lucide-react';
 import api from '../../../Services/api';
 import * as S from '../GastroNexaLandingV2.styles';
+import { presentPlanBenefits, type PlanBenefitCategory } from './planBenefitPresentation';
 
 type PlanInterest = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
 
@@ -75,6 +76,14 @@ const fallbackPlans: PublicPlan[] = [
   },
 ];
 
+const benefitIcons: Record<PlanBenefitCategory, typeof Store> = {
+  operation: Store,
+  setup: Settings2,
+  management: Wrench,
+  presence: Globe2,
+  support: Headphones,
+};
+
 function formatPrice(value: number) {
   return new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
@@ -133,7 +142,9 @@ export function MarketingPlans({ onSelectPlan }: { onSelectPlan: (plan: PlanInte
 
   return (
     <S.PlanGrid>
-      {orderedPlans.map((plan) => (
+      {orderedPlans.map((plan) => {
+        const presentation = presentPlanBenefits(plan.features);
+        return (
         <S.Plan key={plan.code} $featured={plan.featured}>
           <div className="plan-top">
             <span className="plan-icon">
@@ -161,16 +172,53 @@ export function MarketingPlans({ onSelectPlan }: { onSelectPlan: (plan: PlanInte
           >
             Quero o {plan.name} <ArrowUpRight size={17} />
           </a>
-          <ul>
-            {plan.features.map((feature) => (
-              <li key={feature}>
-                <Check size={16} />
-                {feature}
-              </li>
+          <div className="plan-benefits">
+            {presentation.includesPremium ? (
+              <p className="plan-includes-premium">
+                <Sparkles size={17} aria-hidden="true" /> Inclui tudo do Plano Premium
+              </p>
+            ) : null}
+            {presentation.sections.map((section) => {
+              const SectionIcon = benefitIcons[section.category];
+              return (
+                <section className="benefit-section" key={section.category} aria-label={section.label}>
+                  <h4><SectionIcon size={16} aria-hidden="true" /> {section.label}</h4>
+                  <ul>
+                    {section.items.map((benefit) => (
+                      <li key={benefit.original} title={benefit.original}>
+                        <Check size={16} aria-hidden="true" />
+                        <span><strong>{benefit.title}</strong>{benefit.detail ? <small>{benefit.detail}</small> : null}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
+            {presentation.bonuses.map((benefit) => (
+              <div className="plan-gift" key={benefit.original}>
+                <Gift size={19} aria-hidden="true" />
+                <div>
+                  <span className="plan-gift-label">Bônus do plano</span>
+                  <strong>{benefit.title}</strong>
+                  {benefit.detail ? <small>{benefit.detail}</small> : null}
+                </div>
+              </div>
             ))}
-          </ul>
+            {presentation.upcoming.length ? (
+              <section className="benefit-coming" aria-label="Em breve">
+                <h4><Hourglass size={15} aria-hidden="true" /> Em breve</h4>
+                {presentation.upcoming.map((benefit) => (
+                  <p key={benefit.original}>
+                    <span>{benefit.title}</span>
+                    {benefit.detail ? <small>{benefit.detail}</small> : null}
+                  </p>
+                ))}
+              </section>
+            ) : null}
+          </div>
         </S.Plan>
-      ))}
+        );
+      })}
     </S.PlanGrid>
   );
 }
