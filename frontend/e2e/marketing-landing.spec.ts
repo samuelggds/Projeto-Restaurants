@@ -180,7 +180,7 @@ test('planos preservam catálogo público e levam ao formulário', async ({ page
   await expect(basicCard.getByRole('region', { name: 'Implantação' })).toContainText('50 produtos');
   await expect(basicCard).toContainText('Bônus do plano');
   await expect(basicCard).toContainText('Impressora térmica de 58 mm grátis');
-  await expect(basicCard.getByRole('region', { name: 'Em breve' })).toContainText('Motoboys parceiros');
+  await expect(basicCard.getByRole('region', { name: 'Em breve' })).toContainText('motoboys parceiros');
   await expect(plans.locator('article').last()).toContainText('Inclui tudo do Plano Premium');
 
   const planHeadings = plans.locator('article h3');
