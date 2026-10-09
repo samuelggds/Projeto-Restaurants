@@ -45,8 +45,8 @@ jobs:
       - name: Check production CSP and embedded preview isolation
         shell: bash
         run: |
-          docker pull caddy:2.11.4-alpine
-          caddy_container=$(docker create caddy:2.11.4-alpine)
+          docker pull public.ecr.aws/docker/library/caddy:2.11.4-alpine
+          caddy_container=$(docker create public.ecr.aws/docker/library/caddy:2.11.4-alpine)
           trap 'docker rm "$caddy_container" >/dev/null' EXIT
           docker cp "$caddy_container:/usr/bin/caddy" "$RUNNER_TEMP/caddy"
           CADDY_BIN="$RUNNER_TEMP/caddy" node scripts/verifyFrontendHeaders.mjs
@@ -92,7 +92,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -198,7 +198,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: tenant_e2e_owner
           POSTGRES_PASSWORD: tenant-e2e-owner-password
@@ -233,7 +233,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: tenant_e2e_owner
           POSTGRES_PASSWORD: tenant-e2e-owner-password
@@ -269,7 +269,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: tenant_e2e_owner
           POSTGRES_PASSWORD: tenant-e2e-owner-password
