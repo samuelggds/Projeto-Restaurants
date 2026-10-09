@@ -136,6 +136,26 @@ class SuperAdminService {
     return response.data;
   }
 
+  async listLalamoveOnboarding(cursor?: number, signal?: AbortSignal) {
+    const response = await api.get('/super-admin/delivery-partners/lalamove/requests', {
+      params: cursor != null ? { cursor } : {},
+      signal,
+    });
+    return response.data;
+  }
+
+  async reviewLalamoveOnboarding(restaurantId: number, input: {
+    status: string;
+    expectedStatus: string;
+    expectedUpdatedAt: string;
+    reasonCode: string | null;
+  }) {
+    const response = await api.patch(
+      '/super-admin/delivery-partners/lalamove/requests/' + restaurantId, input,
+    );
+    return response.data;
+  }
+
   async getManagedServiceQueue() {
     const response = await api.get('/super-admin/managed-service');
     return response.data;

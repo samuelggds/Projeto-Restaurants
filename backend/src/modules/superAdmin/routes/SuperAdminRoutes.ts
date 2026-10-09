@@ -2,12 +2,20 @@ import { Router } from 'express';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { superAdminMiddleware } from '../../../middlewares/superAdminMiddleware.js';
 import SuperAdminController from '../controllers/SuperAdminController.js';
+import LalamoveReviewController from '../../externalDelivery/controllers/LalamoveReviewController.js';
 
 const router = Router();
 
 router.use(authMiddleware, superAdminMiddleware);
 
 router.get('/dashboard', (req, res, next) => SuperAdminController.dashboard(req, res, next));
+
+router.get('/delivery-partners/lalamove/requests', (req, res, next) =>
+  LalamoveReviewController.queue(req, res, next),
+);
+router.patch('/delivery-partners/lalamove/requests/:restaurantId', (req, res, next) =>
+  LalamoveReviewController.update(req, res, next),
+);
 router.get('/restaurants/:id', (req, res, next) =>
   SuperAdminController.restaurant(req, res, next),
 );

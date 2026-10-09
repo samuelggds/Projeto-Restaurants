@@ -408,6 +408,9 @@ model RestaurantExternalDeliveryOnboarding {
   requestedByUserId Int
   requestedAt       DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+  reviewReasonCode  String?    @db.VarChar(48)
+  reviewedAt        DateTime?  @db.Timestamptz(3)
+  reviewedByUserId  Int?
   restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   requestedBy       User       @relation("ExternalDeliveryOnboardingRequester", fields: [requestedByUserId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
