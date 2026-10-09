@@ -23,6 +23,20 @@ test('conexão assistida permanece separada por tenant, idempotente e indisponí
         assert.equal(tenant, String(currentTenant));
         return [];
       },
+      user: {
+        findFirst: async ({ where }: { where: { id: number; restaurantId: number; role: string; active: boolean } }) => {
+          if (where.restaurantId !== currentTenant || where.role !== 'ADMIN' || !where.active) return null;
+          return { id: where.id, name: 'Admin de teste', role: 'ADMIN' };
+        },
+      },
+      auditLog: {
+        create: async ({ data }: { data: { restaurantId: number; action: string; userId: number } }) => {
+          assert.equal(data.restaurantId, currentTenant);
+          assert.equal(data.action, 'LALAMOVE_ONBOARDING_REQUESTED');
+          assert.ok(data.userId > 0);
+          return { id: 1 };
+        },
+      },
       restaurantExternalDeliveryOnboarding: {
         findUnique: async (args: Where) => stored.get(keyFor(args)) ?? null,
         findUniqueOrThrow: async (args: Where) => {

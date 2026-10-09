@@ -150,7 +150,11 @@ export class LalamoveReviewService {
       );
     }
     const change = parsed.data;
-    assertLalamoveReviewTransition(change.expectedStatus, change.status);
+    try {
+      assertLalamoveReviewTransition(change.expectedStatus, change.status);
+    } catch {
+      throw new LalamoveReviewError('Transição de status não permitida.', 400);
+    }
 
     return this.deps.tenant(restaurantId, async (db) => {
       const previous = await db.restaurantExternalDeliveryOnboarding.findUnique({

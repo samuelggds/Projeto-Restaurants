@@ -15,6 +15,12 @@ type Entry = {
   connected: false;
   canDispatch: false;
 };
+const availableTransitions: Record<Status, Status[]> = {
+  REQUESTED: ['IN_REVIEW', 'ACTION_REQUIRED', 'SUSPENDED'],
+  IN_REVIEW: ['ACTION_REQUIRED', 'SUSPENDED'],
+  ACTION_REQUIRED: ['IN_REVIEW', 'SUSPENDED'],
+  SUSPENDED: ['IN_REVIEW'],
+};
 const statuses: Record<Status, string> = {
   REQUESTED: 'Solicitação recebida',
   IN_REVIEW: 'Em análise',
@@ -100,7 +106,7 @@ export function LalamoveReviewPage() {
         <label>Status
           <select aria-label={'Novo status Lalamove restaurante ' + item.restaurantId} value={status[item.restaurantId] || ''} onChange={event => setStatus(old => ({...old, [item.restaurantId]: event.target.value as Status}))}>
             <option value="">Selecionar</option>
-            {(['IN_REVIEW', 'ACTION_REQUIRED', 'SUSPENDED'] as const).filter(value => value !== item.status).map(value => <option key={value} value={value}>{statuses[value]}</option>)}
+            {availableTransitions[item.status].map(value => <option key={value} value={value}>{statuses[value]}</option>)}
           </select>
         </label>
         {['ACTION_REQUIRED', 'SUSPENDED'].includes(status[item.restaurantId]) && <label>Motivo
