@@ -81,6 +81,16 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getLalamoveConnection() {
+    const response = await api.get('/settings/delivery-partners/lalamove');
+    return response.data;
+  }
+
+  async requestLalamoveConnection() {
+    const response = await api.post('/settings/delivery-partners/lalamove/request', {});
+    return response.data;
+  }
+
   async getWhatsappConnection() {
     const response = await api.get('/settings/whatsapp/connection');
     return response.data;

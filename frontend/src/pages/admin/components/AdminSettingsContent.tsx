@@ -16,6 +16,7 @@ import { AddressSettings } from './AddressSettings';
 import { OpeningHoursSettings } from './OpeningHoursSettings';
 import { OrderFlowSettings } from './OrderFlowSettings';
 import { DeliverySettings } from './DeliverySettings';
+import { LalamoveConnection } from './LalamoveConnection';
 import { TableMenuSettings } from './TableMenuSettings';
 import { WhatsAppSettings } from './WhatsAppSettings';
 import { PaymentSettings } from './PaymentSettings';
@@ -95,7 +96,14 @@ export function AdminSettingsContent(props: Props) {
           onReload={props.onReloadPromotions}
         />
       );
-    if (section === 'delivery') return <DeliverySettings settings={settings} update={update} />;
+    if (section === 'delivery') {
+      return (
+        <>
+          <DeliverySettings settings={settings} update={update} />
+          <LalamoveConnection />
+        </>
+      );
+    }
     if (section === 'table')
       return (
         <PremiumTableFeatureGate>

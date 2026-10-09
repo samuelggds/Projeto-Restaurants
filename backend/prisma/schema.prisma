@@ -75,6 +75,7 @@ model User {
   employeeSettlementPayments    EmployeeSettlementPayment[]  @relation("EmployeeSettlementPaymentEmployee")
   tableWaiterAssignments        TableWaiterAssignment[]      @relation("TableWaiterAssignmentWaiter")
   tableAccessRequestsDecided    TableAccessRequest[]          @relation("TableAccessRequestDecidedBy")
+  requestedExternalDeliveryOnboardings RestaurantExternalDeliveryOnboarding[] @relation("ExternalDeliveryOnboardingRequester")
   managedUpdateRequestsRequested RestaurantManagedUpdateRequest[] @relation("ManagedUpdateRequester")
   managedUpdateRequestsHandled   RestaurantManagedUpdateRequest[] @relation("ManagedUpdateHandler")
 
@@ -360,6 +361,7 @@ model Restaurant {
   productConfigurationTemplates ProductConfigurationTemplate[]
   ratings                       ProductRating[]
   settings                      RestaurantSettings?
+  externalDeliveryOnboardings  RestaurantExternalDeliveryOnboarding[]
   supportChatMessages           SupportChatMessage[]
   implementation                RestaurantImplementation?
   customDomain                  RestaurantCustomDomain?
@@ -395,6 +397,22 @@ model Restaurant {
   employeeSettlementItems       EmployeeSettlementItem[]
   employeeSettlementPayments    EmployeeSettlementPayment[]
   tableWaiterAssignments        TableWaiterAssignment[]
+}
+
+
+model RestaurantExternalDeliveryOnboarding {
+  id                String     @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  provider          String     @db.VarChar(24)
+  status            String     @default("REQUESTED") @db.VarChar(24)
+  requestedByUserId Int
+  requestedAt       DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  requestedBy       User       @relation("ExternalDeliveryOnboardingRequester", fields: [requestedByUserId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([restaurantId, provider])
+  @@index([status, requestedAt])
 }
 
 model RestaurantPrinterSettings {

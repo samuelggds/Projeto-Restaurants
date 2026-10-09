@@ -40,6 +40,7 @@ export const TENANT_RLS_TABLES = [
   'RestaurantAiJob',
   'RestaurantAiJobItem',
   'RestaurantAiSnapshot',
+  'RestaurantExternalDeliveryOnboarding',
   'RestaurantPrinterSettings',
   'TableAccessRequest',
   'TableParticipantState',
