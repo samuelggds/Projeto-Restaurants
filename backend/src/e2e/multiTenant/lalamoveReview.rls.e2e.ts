@@ -7,6 +7,7 @@ import {
 } from '../../database/tenantDbContext.js';
 import onboarding from '../../modules/externalDelivery/services/LalamoveOnboardingService.js';
 import review, { LalamoveReviewError } from '../../modules/externalDelivery/services/LalamoveReviewService.js';
+import { LalamoveCredentialService } from '../../modules/externalDelivery/services/LalamoveCredentialService.js';
 import {
   assertDisposableTenantDatabase,
   prisma,
@@ -200,5 +201,93 @@ test('Lalamove onboarding and review enforce real PostgreSQL tenant isolation', 
     assert.deepEqual(await prisma.order.findMany({ orderBy: { id: 'asc' } }), ordersBefore);
     assert.deepEqual(await prisma.user.findMany({ where: { role: 'MOTOQUEIRO' }, orderBy: { id: 'asc' } }), couriersBefore);
     assert.deepEqual(await prisma.restaurantSettings.findMany({ orderBy: { restaurantId: 'asc' } }), paymentSettingsBefore);
+  });
+
+
+  await t.test('credential vault enforces real PostgreSQL RLS, encryption, versioning and revocation', async () => {
+    const originalKey = process.env.CREDENTIAL_ENCRYPTION_KEY;
+    const originalIdentityKey = process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY;
+    process.env.CREDENTIAL_ENCRYPTION_KEY = Buffer.from('gastro-lalamove-e2e-32-byte-key!').toString('base64');
+    process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY = Buffer.from('lalamove-identity-key-32-bytes!!').toString('base64');
+    await prisma.user.update({ where: { id: actor.id }, data: { active: true } });
+    const vault = new LalamoveCredentialService({
+      database: runtimePrisma,
+      tenant: withTenantDbContext,
+      verify: async () => undefined,
+    });
+    const sandbox = {
+      environment: 'sandbox' as const, apiKey: 'pk_' + 'test_TenantAlphaEncrypted001',
+      apiSecret: 'sk_' + 'test_TenantAlphaEncrypted001', expectedVersion: 0,
+    };
+    try {
+      const tenantARecord = await prisma.restaurantExternalDeliveryOnboarding.findUniqueOrThrow({ where: lookup(tenantA) });
+      if (tenantARecord.status !== 'IN_REVIEW') {
+        await prisma.restaurantExternalDeliveryOnboarding.update({ where: lookup(tenantA), data: { status: 'IN_REVIEW' } });
+      }
+      const saved = await vault.configure(actor.id, tenantA, sandbox);
+      assert.equal(saved.status, 'STORED');
+      assert.equal(saved.connected, false);
+      assert.equal(saved.canDispatch, false);
+      assert.equal(saved.version, 1);
+      assert.equal(JSON.stringify(saved).includes('Encrypted001'), false);
+      const rows = await prisma.restaurantExternalDeliveryCredential.findMany();
+      assert.equal(rows.length, 1);
+      assert.ok(rows[0].apiKeyEncrypted?.startsWith('enc:v1:'));
+      assert.ok(rows[0].apiSecretEncrypted?.startsWith('enc:v1:'));
+      assert.equal(JSON.stringify(rows).includes('pk_test_TenantAlphaEncrypted001'), false);
+      assert.deepEqual(await runtimePrisma.restaurantExternalDeliveryCredential.findMany(), []);
+      await withTenantDbContext(tenantB, async db => {
+        assert.deepEqual(await db.restaurantExternalDeliveryCredential.findMany(), []);
+        assert.equal((await db.restaurantExternalDeliveryCredential.deleteMany({
+          where: { restaurantId: tenantA },
+        })).count, 0);
+      });
+      await withTenantDbContext(tenantA, async db => {
+        const own = await db.restaurantExternalDeliveryCredential.findMany();
+        assert.equal(own.length, 1);
+        assert.equal(own[0].restaurantId, tenantA);
+      });
+      await assert.rejects(() => vault.configure(fixture.users.adminA.id, tenantA, sandbox), statusIs(403));
+      await assert.rejects(() => vault.configure(actor.id, tenantB, sandbox), statusIs(409));
+      await assert.rejects(() => vault.configure(actor.id, tenantA, sandbox), statusIs(409));
+      await prisma.restaurantExternalDeliveryOnboarding.update({
+        where: lookup(tenantB), data: { status: 'IN_REVIEW' },
+      });
+      await assert.rejects(() => vault.configure(actor.id, tenantB, sandbox), statusIs(409));
+      const other = await vault.configure(actor.id, tenantB, {
+        ...sandbox, apiKey: 'pk_' + 'test_TenantBetaIndependent002',
+        apiSecret: 'sk_' + 'test_TenantBetaIndependent002',
+      });
+      assert.equal(other.version, 1);
+      assert.deepEqual((await withTenantDbContext(tenantB, db =>
+        db.restaurantExternalDeliveryCredential.findMany()
+      )).map(row => row.restaurantId), [tenantB]);
+      const validated = await vault.verifySandbox(actor.id, tenantA, { expectedVersion: saved.version });
+      assert.equal(validated.status, 'VERIFIED_SANDBOX');
+      assert.equal(validated.version, 2);
+      await assert.rejects(() => vault.verifySandbox(actor.id, tenantA, { expectedVersion: 1 }), statusIs(409));
+      const revoked = await vault.revoke(actor.id, tenantA, 'sandbox', { expectedVersion: 2 });
+      assert.equal(revoked.status, 'REVOKED');
+      assert.equal(revoked.configured, false);
+      const after = await prisma.restaurantExternalDeliveryCredential.findFirstOrThrow({
+        where: { restaurantId: tenantA },
+      });
+      assert.equal(after.apiKeyEncrypted, null);
+      assert.equal(after.apiSecretEncrypted, null);
+      assert.equal(after.apiKeyDigest, null);
+      const preservedB = await prisma.restaurantExternalDeliveryCredential.findFirstOrThrow({
+        where: { restaurantId: tenantB },
+      });
+      assert.equal(preservedB.status, 'STORED');
+      assert.ok(preservedB.apiKeyEncrypted?.startsWith('enc:v1:'));
+      assert.equal((await prisma.auditLog.count({ where: { restaurantId: tenantA, action: { startsWith: 'LALAMOVE_CREDENTIAL_' } } })), 3);
+      await assert.rejects(() => vault.verifySandbox(actor.id, tenantA, { expectedVersion: 3 }), statusIs(409));
+    } finally {
+      if (originalKey === undefined) delete process.env.CREDENTIAL_ENCRYPTION_KEY;
+      else process.env.CREDENTIAL_ENCRYPTION_KEY = originalKey;
+      if (originalIdentityKey === undefined) delete process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY;
+      else process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY = originalIdentityKey;
+      await prisma.user.update({ where: { id: actor.id }, data: { active: false } });
+    }
   });
 });
