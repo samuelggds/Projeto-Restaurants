@@ -18,6 +18,7 @@ import DisconnectMercadoPagoController from '../controllers/DisconnectMercadoPag
 import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthCallbackController.js';
 import UpdateWhatsappProfilePhotoController from '../controllers/UpdateWhatsappProfilePhotoController.js';
 import EvolutionWhatsappConnectionController from '../controllers/EvolutionWhatsappConnectionController.js';
+import LalamoveOnboardingController from '../../externalDelivery/controllers/LalamoveOnboardingController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
@@ -61,6 +62,14 @@ router.get('/', authMiddleware, adminMiddleware, (req, res) =>
 
 router.get('/payment-connections', authMiddleware, adminMiddleware, (req, res) =>
   GetPaymentConnectionsController.handle(req, res),
+);
+
+router.get('/delivery-partners/lalamove', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveOnboardingController.status(req, res),
+);
+
+router.post('/delivery-partners/lalamove/request', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveOnboardingController.request(req, res),
 );
 
 router.post('/mercado-pago/oauth/start', authMiddleware, adminMiddleware, (req, res) =>
