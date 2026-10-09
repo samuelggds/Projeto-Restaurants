@@ -130,13 +130,13 @@ export function validateCriticalEnv() {
   if (lalamoveHmac) {
     try {
       const parsedHmac = parseCredentialEncryptionKey(lalamoveHmac);
-      if (parsedHmac?.equals(parsedCredentialEncryptionKey)) {
+      if (parsedHmac && parsedCredentialEncryptionKey && parsedHmac.equals(parsedCredentialEncryptionKey)) {
         errors.push('LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente de CREDENTIAL_ENCRYPTION_KEY.');
       }
       const previous = previousCredentialEncryptionKey
         ? parseCredentialEncryptionKey(previousCredentialEncryptionKey)
         : null;
-      if (parsedHmac?.equals(previous)) {
+      if (parsedHmac && previous && parsedHmac.equals(previous)) {
         errors.push('LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente da chave AES anterior.');
       }
     } catch {
