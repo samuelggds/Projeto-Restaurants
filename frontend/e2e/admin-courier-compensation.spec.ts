@@ -261,6 +261,9 @@ test('admin configura ganhos e fecha acerto com cálculo conferido', async ({ pa
     });
 
   const overrideRule = page.locator('.override-panel');
+  // A successful request can precede reloading the form state; wait until the
+  // full save-and-refresh cycle finishes before editing the next policy.
+  await expect(overrideRule.getByRole('radio', { name: /Valor fixo/ })).toBeEnabled();
   await expect(overrideRule.getByText('Usando a regra padrão')).toBeVisible();
   await overrideRule.getByRole('radio', { name: /Valor fixo/ }).click();
   await overrideRule.getByLabel('Valor por entrega').fill('11.50');

@@ -92,10 +92,12 @@ function PolicyEditor({
   policy,
   onChange,
   idPrefix,
+  disabled,
 }: {
   policy: CompensationPolicy;
   onChange: (value: CompensationPolicy) => void;
   idPrefix: string;
+  disabled: boolean;
 }) {
   const number = (key: keyof CompensationPolicy, value: string) =>
     onChange({ ...policy, [key]: Math.max(0, Number(value || 0)) });
@@ -111,6 +113,7 @@ function PolicyEditor({
               <button
                 aria-checked={selected}
                 className={selected ? 'selected' : ''}
+                disabled={disabled}
                 key={model.value}
                 onClick={() => onChange({ ...policy, model: model.value })}
                 role="radio"
@@ -137,6 +140,7 @@ function PolicyEditor({
             <div className="money-input">
               <span>R$</span>
               <input
+                disabled={disabled}
                 id={`${idPrefix}-fixed-amount`}
                 type="number"
                 min="0"
@@ -154,6 +158,7 @@ function PolicyEditor({
               <div className="money-input">
                 <span>R$</span>
                 <input
+                  disabled={disabled}
                   id={`${idPrefix}-base-amount`}
                   type="number"
                   min="0"
@@ -166,6 +171,7 @@ function PolicyEditor({
             <div className="field">
               <label htmlFor={`${idPrefix}-included-distance`}>Distância incluída</label>
               <input
+                disabled={disabled}
                 id={`${idPrefix}-included-distance`}
                 type="number"
                 min="0"
@@ -179,6 +185,7 @@ function PolicyEditor({
               <div className="money-input">
                 <span>R$</span>
                 <input
+                  disabled={disabled}
                   id={`${idPrefix}-extra-per-km`}
                   type="number"
                   min="0"
@@ -202,6 +209,7 @@ function PolicyEditor({
                 <div className="field">
                   <label htmlFor={`${idPrefix}-range-distance-${index}`}>Até (metros)</label>
                   <input
+                    disabled={disabled}
                     id={`${idPrefix}-range-distance-${index}`}
                     type="number"
                     min="1"
@@ -227,6 +235,7 @@ function PolicyEditor({
                   <div className="money-input">
                     <span>R$</span>
                     <input
+                      disabled={disabled}
                       id={`${idPrefix}-range-amount-${index}`}
                       type="number"
                       min="0"
@@ -249,7 +258,7 @@ function PolicyEditor({
                   className="secondary"
                   type="button"
                   aria-label={`Remover faixa ${index + 1}`}
-                  disabled={policy.ranges.length === 1}
+                  disabled={disabled || policy.ranges.length === 1}
                   onClick={() =>
                     onChange({
                       ...policy,
@@ -263,6 +272,7 @@ function PolicyEditor({
             ))}
             <button
               className="secondary"
+              disabled={disabled}
               type="button"
               onClick={() =>
                 onChange({
@@ -521,7 +531,7 @@ export function CourierCompensationSettings() {
               </div>
               <span className="rule-badge">Padrão</span>
             </header>
-            <PolicyEditor idPrefix="default-policy" policy={policy} onChange={setPolicy} />
+            <PolicyEditor idPrefix="default-policy" policy={policy} onChange={setPolicy} disabled={busy} />
             <footer className="panel-actions">
               <span>Alterações afetam novas entregas.</span>
               <button
@@ -551,6 +561,7 @@ export function CourierCompensationSettings() {
               <label htmlFor="override-courier">Motoqueiro</label>
               <select
                 id="override-courier"
+                disabled={busy}
                 value={courierId}
                 onChange={(event) => {
                   const id = Number(event.target.value);
@@ -585,7 +596,7 @@ export function CourierCompensationSettings() {
                     </small>
                   </span>
                 </div>
-                <PolicyEditor idPrefix="override-policy" policy={override} onChange={setOverride} />
+                <PolicyEditor idPrefix="override-policy" policy={override} onChange={setOverride} disabled={busy} />
                 <footer className="panel-actions override-actions">
                   {selectedCourier?.override ? (
                     <button
