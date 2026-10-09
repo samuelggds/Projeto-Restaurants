@@ -8,6 +8,8 @@ type OnboardingRow = {
   status: string;
   requestedAt: Date;
   updatedAt: Date;
+  reviewReasonCode?: string | null;
+  reviewedAt?: Date | null;
 };
 
 function positiveId(value: unknown, label: string): number {
@@ -36,6 +38,8 @@ function overview(row: OnboardingRow | null) {
     canDispatch: false,
     requestedAt: row?.requestedAt.toISOString() ?? null,
     updatedAt: row?.updatedAt.toISOString() ?? null,
+    reviewReasonCode: row?.reviewReasonCode ?? null,
+    reviewedAt: row?.reviewedAt?.toISOString() ?? null,
   };
 }
 
@@ -45,7 +49,7 @@ class LalamoveOnboardingService {
     return withTenantDbContext(restaurantId, async (tx) => {
       const row = await tx.restaurantExternalDeliveryOnboarding.findUnique({
         where: { restaurantId_provider: { restaurantId, provider: PROVIDER } },
-        select: { status: true, requestedAt: true, updatedAt: true },
+        select: { status: true, requestedAt: true, updatedAt: true, reviewReasonCode: true, reviewedAt: true },
       });
       return overview(row);
     });
@@ -55,9 +59,15 @@ class LalamoveOnboardingService {
     const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
     const requestedByUserId = positiveId(requestedByInput, 'Administrador');
     return withTenantDbContext(restaurantId, async (tx) => {
+      const requester = await tx.user.findFirst({
+        where: { id: requestedByUserId, restaurantId, role: 'ADMIN', active: true },
+        select: { id: true, name: true, role: true },
+      });
+      if (!requester) throw new Error('Administrador deste restaurante não autorizado.');
+
       // ON CONFLICT DO NOTHING makes repeated and concurrent requests idempotent.
       // Neither the restaurant nor the endpoint may set connection status.
-      await tx.restaurantExternalDeliveryOnboarding.createMany({
+      const created = await tx.restaurantExternalDeliveryOnboarding.createMany({
         data: [{
           restaurantId,
           provider: PROVIDER,
@@ -66,9 +76,22 @@ class LalamoveOnboardingService {
         }],
         skipDuplicates: true,
       });
+      if (created.count === 1) {
+        await tx.auditLog.create({
+          data: {
+            userId: requester.id,
+            userName: requester.name,
+            userRole: requester.role,
+            restaurantId,
+            action: 'LALAMOVE_ONBOARDING_REQUESTED',
+            resource: `RestaurantExternalDeliveryOnboarding:${restaurantId}`,
+            metadata: { provider: PROVIDER, status: 'REQUESTED' },
+          },
+        });
+      }
       const row = await tx.restaurantExternalDeliveryOnboarding.findUniqueOrThrow({
         where: { restaurantId_provider: { restaurantId, provider: PROVIDER } },
-        select: { status: true, requestedAt: true, updatedAt: true },
+        select: { status: true, requestedAt: true, updatedAt: true, reviewReasonCode: true, reviewedAt: true },
       });
       return overview(row);
     });
