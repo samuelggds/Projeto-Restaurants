@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import reviewService, { LalamoveReviewError } from '../services/LalamoveReviewService.js';
+import reviewService from '../services/LalamoveReviewService.js';
 
 function context(req: Request) {
   return {
@@ -7,13 +7,6 @@ function context(req: Request) {
     requestId: String(req.requestId || '').trim().slice(0, 191) || null,
     userAgent: String(req.headers['user-agent'] || '').trim().slice(0, 1000) || null,
   };
-}
-
-function handleError(error: unknown, next: NextFunction) {
-  if (error instanceof LalamoveReviewError) {
-    return next(error);
-  }
-  return next(error);
 }
 
 class LalamoveReviewController {
@@ -24,7 +17,7 @@ class LalamoveReviewController {
         await reviewService.listRequests(req.user?.id, req.query.cursor),
       );
     } catch (error) {
-      return handleError(error, next);
+      return next(error);
     }
   }
 
@@ -40,7 +33,7 @@ class LalamoveReviewController {
         ),
       );
     } catch (error) {
-      return handleError(error, next);
+      return next(error);
     }
   }
 }

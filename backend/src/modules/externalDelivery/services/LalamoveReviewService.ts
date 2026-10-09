@@ -16,13 +16,21 @@ type ReviewDependencies = {
 };
 
 export class LalamoveReviewError extends Error {
-  constructor(message: string, public readonly httpStatus: number) {
+  // Match the shared error handler without weakening its safe 5xx responses.
+  constructor(message: string, public readonly statusCode: number) {
     super(message);
     this.name = 'LalamoveReviewError';
   }
 }
 
 function safeInteger(value: unknown, label: string): number {
+  // Reject coercible objects, arrays, booleans and ambiguous query encodings.
+  if (
+    typeof value !== 'number' &&
+    (typeof value !== 'string' || !/^[1-9]\d*$/.test(value))
+  ) {
+    throw new LalamoveReviewError(label + ' inválido.', 400);
+  }
   const id = Number(value);
   if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) {
     throw new LalamoveReviewError(label + ' inválido.', 400);

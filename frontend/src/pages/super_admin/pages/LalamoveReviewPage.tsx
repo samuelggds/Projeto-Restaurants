@@ -65,21 +65,25 @@ export function LalamoveReviewPage() {
   const [reason, setReason] = useState<Record<number, Reason | ''>>({});
   const activeRequest = useRef<AbortController | null>(null);
 
-  const fetchEntries = useCallback(async (controller: AbortController, cursor?: number) => {
-    try {
-      const data = await superAdminService.listLalamoveOnboarding(cursor, controller.signal);
-      if (controller.signal.aborted) return;
-      if (!Array.isArray(data.requests)) throw new Error('Resposta inválida');
-      setEntries((old) => cursor != null ? [...old, ...data.requests] : data.requests);
-      setNext(data.nextCursor ?? null);
-    } catch (e) {
-      if (!controller.signal.aborted) setError(errorMessage(e));
-    } finally {
-      if (!controller.signal.aborted) {
-        activeRequest.current = null;
-        setBusy(false);
-      }
-    }
+  const fetchEntries = useCallback((controller: AbortController, cursor?: number) => {
+    // Subscribe to the API result. State changes happen only in response callbacks,
+    // never in the synchronous effect path (including error/finalization paths).
+    return superAdminService.listLalamoveOnboarding(cursor, controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(data.requests)) throw new Error('Resposta inválida');
+        setEntries((old) => cursor != null ? [...old, ...data.requests] : data.requests);
+        setNext(data.nextCursor ?? null);
+      })
+      .catch((e: unknown) => {
+        if (!controller.signal.aborted) setError(errorMessage(e));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          activeRequest.current = null;
+          setBusy(false);
+        }
+      });
   }, []);
 
   useEffect(() => {
