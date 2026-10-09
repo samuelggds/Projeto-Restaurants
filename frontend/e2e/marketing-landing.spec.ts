@@ -29,7 +29,13 @@ const test = base.extend<{ apiIsolation: void }>({
                     description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
                     monthlyFee: 99.9,
                     trialDays: 7,
-                    features: ['Sistema de delivery', 'Suporte padrão'],
+                    features: [
+                      'Sistema de delivery',
+                      'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
+                      'Suporte padrão',
+                      'Ganhe de graça uma máquina térmica de 58mm após o pagamento da primeira mensalidade',
+                      'Entregas com motoboys parceiros - Em breve',
+                    ],
                     featured: false,
                   },
                   {
@@ -169,6 +175,13 @@ test('planos preservam catálogo público e levam ao formulário', async ({ page
   await expect(plans).toContainText('99,90');
   await expect(plans).toContainText('15 dias de teste');
   await expect(plans).toContainText('7 dias de teste');
+
+  const basicCard = plans.locator('article').filter({ has: page.getByRole('heading', { name: 'Básico', exact: true }) });
+  await expect(basicCard.getByRole('region', { name: 'Implantação' })).toContainText('50 produtos');
+  await expect(basicCard).toContainText('Bônus do plano');
+  await expect(basicCard).toContainText('Impressora térmica de 58 mm grátis');
+  await expect(basicCard.getByRole('region', { name: 'Em breve' })).toContainText('Motoboys parceiros');
+  await expect(plans.locator('article').last()).toContainText('Inclui tudo do Plano Premium');
 
   const planHeadings = plans.locator('article h3');
   await expect(planHeadings).toHaveText(['Básico', 'Premium', 'Gestão Total']);
