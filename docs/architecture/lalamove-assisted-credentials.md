@@ -34,3 +34,7 @@
 - `backend/src/e2e/multiTenant/lalamoveReview.rls.e2e.ts` testa persistência de credenciais criptografadas usando PostgreSQL real descartável, RLS sem contexto, leitura e escrita cross-tenant, autorização, versionamento, verificação com provedor simulado, revogação e auditoria.
 - Não usar chaves reais nos testes. A suíte não contrata motoqueiros.
 - Antes de merge, rodar Prisma validate, TypeCheck, lint, CI geral, RLS E2E, security hardening, migration compatibility e revisão do fluxo de credenciais.
+
+## Chave HMAC e contingência CI
+
+Defina `LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY` com 32 bytes aleatórios em base64 ou hex, separados da chave AES atual e anterior. Mantenha-a estável ou realize migração de digest antes da rotação. A chave é opcional para iniciar serviços que ainda não usam Lalamove, mas obrigatória para cadastrar/verificar credenciais Lalamove. Os Dockerfiles mantêm imagens padrão de produção; testes de CI usam imagens oficiais no ECR Public para evitar rate-limit anônimo do Docker Hub, sem suprimir testes ou Trivy.
