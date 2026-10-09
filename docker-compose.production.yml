@@ -9,6 +9,7 @@ x-runtime-environment: &production-backend-environment
   DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL em .env.production}
   CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-}
   CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: ${CREDENTIAL_ENCRYPTION_KEY_PREVIOUS:-}
+  LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY: ${LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY:-}
   JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
   JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
   JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}

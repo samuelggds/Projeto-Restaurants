@@ -203,6 +203,19 @@ test('exige chave AES de 32 bytes para credenciais dos gateways', () => {
   assert.throws(() => validateCriticalEnv(), /exatamente 32 bytes/i);
 });
 
+test('Lalamove HMAC opcional mas estritamente validado e independente da chave AES', () => {
+  delete process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY;
+  assert.doesNotThrow(() => validateCriticalEnv());
+  process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY = 'short';
+  assert.throws(() => validateCriticalEnv(), /LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve representar exatamente 32 bytes/u);
+  process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY;
+  assert.throws(() => validateCriticalEnv(), /LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente de CREDENTIAL_ENCRYPTION_KEY/u);
+  process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY = Buffer.alloc(32, 0x3a).toString('base64');
+  assert.doesNotThrow(() => validateCriticalEnv());
+  process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY;
+  assert.throws(() => validateCriticalEnv(), /LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente da chave AES anterior/u);
+});
+
 test('valida a chave anterior usada durante rotação de credenciais', () => {
   process.env.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS = process.env.CREDENTIAL_ENCRYPTION_KEY;
   assert.throws(() => validateCriticalEnv(), /PREVIOUS deve ser diferente/u);

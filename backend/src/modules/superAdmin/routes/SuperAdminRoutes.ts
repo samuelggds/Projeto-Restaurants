@@ -3,6 +3,7 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { superAdminMiddleware } from '../../../middlewares/superAdminMiddleware.js';
 import SuperAdminController from '../controllers/SuperAdminController.js';
 import LalamoveReviewController from '../../externalDelivery/controllers/LalamoveReviewController.js';
+import LalamoveCredentialController from '../../externalDelivery/controllers/LalamoveCredentialController.js';
 
 const router = Router();
 
@@ -15,6 +16,18 @@ router.get('/delivery-partners/lalamove/requests', (req, res, next) =>
 );
 router.patch('/delivery-partners/lalamove/requests/:restaurantId', (req, res, next) =>
   LalamoveReviewController.update(req, res, next),
+);
+router.get('/delivery-partners/lalamove/credentials/:restaurantId', (req, res, next) =>
+  LalamoveCredentialController.status(req, res, next),
+);
+router.put('/delivery-partners/lalamove/credentials/:restaurantId', (req, res, next) =>
+  LalamoveCredentialController.configure(req, res, next),
+);
+router.post('/delivery-partners/lalamove/credentials/:restaurantId/verify-sandbox', (req, res, next) =>
+  LalamoveCredentialController.verifySandbox(req, res, next),
+);
+router.post('/delivery-partners/lalamove/credentials/:restaurantId/:environment/revoke', (req, res, next) =>
+  LalamoveCredentialController.revoke(req, res, next),
 );
 router.get('/restaurants/:id', (req, res, next) =>
   SuperAdminController.restaurant(req, res, next),

@@ -156,6 +156,34 @@ class SuperAdminService {
     return response.data;
   }
 
+  async getLalamoveCredentials(restaurantId: number) {
+    const response = await api.get('/super-admin/delivery-partners/lalamove/credentials/' + restaurantId);
+    return response.data;
+  }
+
+  async saveLalamoveCredentials(restaurantId: number, input: {
+    environment: 'sandbox' | 'production'; apiKey: string; apiSecret: string; expectedVersion: number;
+  }) {
+    const response = await api.put('/super-admin/delivery-partners/lalamove/credentials/' + restaurantId, input);
+    return response.data;
+  }
+
+  async verifyLalamoveSandboxCredentials(restaurantId: number, expectedVersion: number) {
+    const response = await api.post(
+      '/super-admin/delivery-partners/lalamove/credentials/' + restaurantId + '/verify-sandbox',
+      { expectedVersion },
+    );
+    return response.data;
+  }
+
+  async revokeLalamoveCredentials(restaurantId: number, environment: 'sandbox' | 'production', expectedVersion: number) {
+    const response = await api.post(
+      '/super-admin/delivery-partners/lalamove/credentials/' + restaurantId + '/' + environment + '/revoke',
+      { expectedVersion },
+    );
+    return response.data;
+  }
+
   async getManagedServiceQueue() {
     const response = await api.get('/super-admin/managed-service');
     return response.data;

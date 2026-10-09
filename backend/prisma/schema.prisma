@@ -362,6 +362,7 @@ model Restaurant {
   ratings                       ProductRating[]
   settings                      RestaurantSettings?
   externalDeliveryOnboardings  RestaurantExternalDeliveryOnboarding[]
+  externalDeliveryCredentials  RestaurantExternalDeliveryCredential[]
   supportChatMessages           SupportChatMessage[]
   implementation                RestaurantImplementation?
   customDomain                  RestaurantCustomDomain?
@@ -416,6 +417,28 @@ model RestaurantExternalDeliveryOnboarding {
 
   @@unique([restaurantId, provider])
   @@index([status, requestedAt])
+}
+
+
+model RestaurantExternalDeliveryCredential {
+  id                String     @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  provider          String     @db.VarChar(24)
+  environment       String     @db.VarChar(16)
+  apiKeyEncrypted   String?    @db.Text
+  apiSecretEncrypted String?   @db.Text
+  apiKeyDigest      String?    @db.VarChar(64)
+  status            String     @default("STORED") @db.VarChar(24)
+  version           Int        @default(1)
+  verifiedAt        DateTime?  @db.Timestamptz(3)
+  revokedAt         DateTime?  @db.Timestamptz(3)
+  updatedByUserId   Int
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, provider, environment])
+  @@unique([environment, apiKeyDigest])
 }
 
 model RestaurantPrinterSettings {

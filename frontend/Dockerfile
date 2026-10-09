@@ -1,4 +1,6 @@
-FROM node:22-alpine AS build
+ARG NODE_BASE_IMAGE=node:22-alpine
+ARG NGINX_BASE_IMAGE=nginx:1.30.4-alpine
+FROM ${NODE_BASE_IMAGE} AS build
 
 WORKDIR /app
 
@@ -36,7 +38,7 @@ ENV VITE_SENTRY_TRACES_SAMPLE_RATE=${VITE_SENTRY_TRACES_SAMPLE_RATE}
 
 RUN node scripts/validateBuildEnv.mjs && npm run build
 
-FROM nginx:1.30.4-alpine
+FROM ${NGINX_BASE_IMAGE}
 
 # Keep the small runtime image patched against fixed Alpine CVEs reported by Trivy.
 RUN apk upgrade --no-cache

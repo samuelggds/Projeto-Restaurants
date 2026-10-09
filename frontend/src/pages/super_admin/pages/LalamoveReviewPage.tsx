@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import superAdminService from '../../../Services/superAdminService';
+import { LalamoveCredentialEditor } from './LalamoveCredentialEditor';
 
 type Status = 'REQUESTED' | 'IN_REVIEW' | 'ACTION_REQUIRED' | 'SUSPENDED';
 type Reason = 'PROVIDER_APPROVAL' | 'MERCHANT_ACCOUNT' | 'WALLET_BALANCE' | 'SERVICE_COVERAGE' | 'THERMAL_BAG' | 'OTHER';
@@ -172,6 +173,7 @@ export function LalamoveReviewPage() {
         </label>}
         <button type="button" className="primary" disabled={busy || !status[item.restaurantId]} onClick={() => void review(item)}>Salvar revisão</button>
       </div>
+      <LalamoveCredentialEditor restaurantId={item.restaurantId} onboardingStatus={item.status}/>
     </article>)}
     {next != null && <button type="button" disabled={busy} onClick={() => load(next)}>Carregar mais</button>}
   </Layout>;

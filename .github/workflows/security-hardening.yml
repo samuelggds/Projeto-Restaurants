@@ -122,10 +122,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Build backend image from this commit
-        run: docker build --pull --tag gastronexa-backend:${{ github.sha }} ./backend
+        run: docker build --pull --build-arg NODE_BASE_IMAGE=public.ecr.aws/docker/library/node:22-alpine --tag gastronexa-backend:${{ github.sha }} ./backend
       - name: Build frontend image from this commit
         run: >-
           docker build --pull
+          --build-arg NODE_BASE_IMAGE=public.ecr.aws/docker/library/node:22-alpine
+          --build-arg NGINX_BASE_IMAGE=public.ecr.aws/docker/library/nginx:1.30.4-alpine
           --build-arg VITE_API_URL=http://127.0.0.1:3000
           --build-arg VITE_APP_URL=http://127.0.0.1:8080
           --build-arg VITE_SOCKET_URL=http://127.0.0.1:3000

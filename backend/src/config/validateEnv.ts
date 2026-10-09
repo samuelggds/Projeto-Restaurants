@@ -126,6 +126,24 @@ export function validateCriticalEnv() {
     }
   }
 
+  const lalamoveHmac = String(process.env.LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY || '').trim();
+  if (lalamoveHmac) {
+    try {
+      const parsedHmac = parseCredentialEncryptionKey(lalamoveHmac);
+      if (parsedHmac && parsedCredentialEncryptionKey && parsedHmac.equals(parsedCredentialEncryptionKey)) {
+        errors.push('LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente de CREDENTIAL_ENCRYPTION_KEY.');
+      }
+      const previous = previousCredentialEncryptionKey
+        ? parseCredentialEncryptionKey(previousCredentialEncryptionKey)
+        : null;
+      if (parsedHmac && previous && parsedHmac.equals(previous)) {
+        errors.push('LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve ser diferente da chave AES anterior.');
+      }
+    } catch {
+      errors.push('LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY deve representar exatamente 32 bytes.');
+    }
+  }
+
   const frontendUrl = requireValue('FRONTEND_URL', errors);
   if (frontendUrl) parsePublicUrl('FRONTEND_URL', frontendUrl, errors);
 
