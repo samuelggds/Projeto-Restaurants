@@ -136,9 +136,10 @@ class SuperAdminService {
     return response.data;
   }
 
-  async listLalamoveOnboarding(cursor?: number) {
+  async listLalamoveOnboarding(cursor?: number, signal?: AbortSignal) {
     const response = await api.get('/super-admin/delivery-partners/lalamove/requests', {
-      params: cursor ? { cursor } : {},
+      params: cursor != null ? { cursor } : {},
+      signal,
     });
     return response.data;
   }
