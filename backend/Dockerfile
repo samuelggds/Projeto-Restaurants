@@ -1,4 +1,5 @@
-FROM node:22-alpine AS build
+ARG NODE_BASE_IMAGE=node:22-alpine
+FROM ${NODE_BASE_IMAGE} AS build
 
 WORKDIR /app
 
@@ -9,7 +10,7 @@ RUN npm ci && npx prisma generate --schema=/app/prisma/schema.prisma
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM ${NODE_BASE_IMAGE} AS runtime
 
 ENV NODE_ENV=production
 WORKDIR /app
