@@ -4,6 +4,7 @@ export const SUPER_ADMIN_VIEWS = [
   'restaurants',
   'domains',
   'managed-service',
+  'delivery-partners',
   'subscriptions',
   'plans',
   'billing',

@@ -5,6 +5,7 @@ import {
   FileSearch,
   Headphones,
   Handshake,
+  Truck,
   Globe2,
   Inbox,
   Layers3,
@@ -52,6 +53,7 @@ import {
 } from './pages';
 import type { SuperAdminModuleProps, SuperAdminView } from './types';
 import { SalesLeadsPage } from './pages/SalesLeadsPage';
+import { LalamoveReviewPage } from './pages/LalamoveReviewPage';
 import * as S from './SuperAdmin.styles';
 import { QuickSearch } from './components/QuickSearch';
 import type { QuickSearchTarget } from './domain/quickSearch';
@@ -62,6 +64,7 @@ const navigation = [
   ['restaurants', 'Restaurantes', Building2],
   ['domains', 'Domínios', Globe2],
   ['managed-service', 'Implantações e atualizações', Handshake],
+  ['delivery-partners', 'Entregadores parceiros', Truck],
   ['subscriptions', 'Assinaturas', CreditCard],
   ['plans', 'Planos', Layers3],
   ['billing', 'Faturamento', WalletCards],
@@ -76,6 +79,7 @@ const navigationSections: Partial<Record<SuperAdminView, string>> = {
   restaurants: 'Gestão',
   domains: 'Gestão',
   'managed-service': 'Gestão',
+  'delivery-partners': 'Gestão',
   support: 'Administração',
 };
 
@@ -100,6 +104,7 @@ const titles: Record<SuperAdminView, [title: string, description: string]> = {
     'Implantações e atualizações',
     'Acompanhe a implantação Premium e execute solicitações contínuas dos restaurantes Gestão Total.',
   ],
+  'delivery-partners': ['Entregadores parceiros', 'Acompanhe solicitações Lalamove, sem liberar cobranças.'],
   subscriptions: [
     'Assinaturas',
     'Gerencie ciclos, trials, renovações, atrasos e bloqueios de acesso.',
@@ -280,6 +285,8 @@ export function SuperAdminModule({
         return <DomainsPage data={data} />;
       case 'managed-service':
         return <ManagedServicePage />;
+      case 'delivery-partners':
+        return <LalamoveReviewPage />;
       case 'subscriptions':
         return (
           <SubscriptionsPage data={data} onSelect={(item) => setSelectedRestaurantId(item.id)} />
