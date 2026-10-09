@@ -25,9 +25,30 @@
   motivo obrigatório, seleção do restaurante e ausência de opções de ativação.
 - Testes do serviço cobrem RBAC, contexto do tenant, paginação limitada, atualização
   atômica, auditoria, DTO e rejeição de credenciais/ativação/transições inválidas.
-- O teste com transação simulada verifica propagação de falha de auditoria; não
-  substitui as suítes de PostgreSQL/RLS e a homologação ponta a ponta.
+- O teste unitário com transação simulada verifica propagação de falha de auditoria;
+  a suíte específica de PostgreSQL descrita abaixo verifica o rollback real.
 - A existência destes testes não implica aprovação: conferir o CI do SHA atual.
+
+## Suíte específica de PostgreSQL/RLS
+`backend/src/e2e/multiTenant/lalamoveReview.rls.e2e.ts` é descoberta pelo comando
+existente `npm --prefix backend run test:e2e:rls`, sem mudanças no workflow.
+
+Usa banco descartável loopback com nome ci/e2e/test e roles owner/runtime distintas.
+Verifica solicitações simultâneas idempotentes, uma auditoria por solicitação,
+leituras ORM/SQL sem filtro restritas ao tenant e bloqueio sem contexto. Exercita
+escritas adulteradas, troca indevida de tenant e FK composta do solicitante.
+
+Também testa duas revisões concorrentes reais (um sucesso e um conflito), acesso
+exclusivo do SUPER_ADMIN ativo, rejeição de ativação, auditoria transacional e
+preservação dos pedidos, motoboys próprios e configurações de pagamentos.
+
+O cenário de falha de auditoria acrescenta temporariamente uma constraint restritiva
+somente no banco descartável, protegida pela verificação de segurança do harness,
+e a remove em `finally`. Isso permite observar o rollback PostgreSQL real sem mock
+do serviço, sem afrouxar RLS e sem alteração em migrações ou bancos de produção.
+
+Esta suíte não chama a API Lalamove e não substitui homologação do fornecedor ou
+validação de futuras rotas de contratação, credenciais, webhooks e cobrança.
 
 ## Próximos marcos antes de contratar motoboys
 1. Confirmar com a Lalamove o onboarding assistido autorizado e a titularidade da
