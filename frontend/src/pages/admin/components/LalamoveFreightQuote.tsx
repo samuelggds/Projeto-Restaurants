@@ -48,7 +48,6 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    setNow(Date.now());
     void restaurantSettingsService.getLalamoveDeliveryQuote(orderId)
       .then(data => { if (active) { setQuote(data as Quote | null); setError(''); } })
       .catch((reason: unknown) => { if (active) setError(safeQuoteError(reason)); })
