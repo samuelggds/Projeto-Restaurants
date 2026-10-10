@@ -31,6 +31,9 @@ function addressLabel(a: Address) {
 async function resolveStop(a: Address): Promise<LalamoveStop> {
   // Do not trust client coordinates. If geocoding is ambiguous, refuse the quotation.
   addressLabel(a);
+  if (!googleGeocoder.isConfigured()) {
+    throw new LalamoveQuoteError('Geocodificação não configurada no servidor. Contate o suporte.', 503);
+  }
   const exact = await googleGeocoder.execute(a);
   if (!exact || exact.partialMatch || !['ROOFTOP', 'RANGE_INTERPOLATED'].includes(exact.locationType)) {
     throw new LalamoveQuoteError('Confirme os endereços no mapa antes de consultar o frete.', 422);
@@ -119,6 +122,9 @@ export class LalamoveQuotationService {
     const ctx = await this.authorized(input);
     const { restaurantId, orderId, credential, digest } = ctx;
     const quoteKey = parsed.data.requestKey;
+    if (!this.deps.geocode && !googleGeocoder.isConfigured()) {
+      throw new LalamoveQuoteError('Geocodificação não configurada no servidor. Contate o suporte.', 503);
+    }
     const initial = await withTenantDbContext(restaurantId, async tx => {
       const previous = await tx.restaurantExternalDeliveryQuote.findUnique({
         where: { restaurantId_orderId: { restaurantId, orderId } },
@@ -171,13 +177,14 @@ export class LalamoveQuotationService {
         !/^[0-9]+(?:\.[0-9]{1,2})?$/.test(quote.total) ||
         !Number.isFinite(Number(quote.total)) || Number(quote.total) <= 0 ||
         quote.expiresAt.getTime() <= Date.now()) throw new Error('Invalid provider quotation');
-    } catch {
+    } catch (error) {
       await withTenantDbContext(restaurantId, async tx => {
         await tx.restaurantExternalDeliveryQuote.updateMany({
           where: { id: initial.row.id, restaurantId, version: initial.row.version, status: 'REQUESTING' },
           data: { status: 'FAILED', version: { increment: 1 } },
         });
       });
+      if (error instanceof LalamoveQuoteError) throw error;
       throw new LalamoveQuoteError('Cotação térmica indisponível. Verifique o endereço e a cobertura.', 422);
     }
     return withTenantDbContext(restaurantId, async tx => {
