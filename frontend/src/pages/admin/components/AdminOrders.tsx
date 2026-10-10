@@ -26,6 +26,7 @@ import { toast } from 'react-toastify';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import * as S from './AdminOrders.styles';
 import type { AdminOrder } from '../types';
+import { LalamoveFreightQuote } from './LalamoveFreightQuote';
 import ordersService, { type RestaurantOrdersQueue } from '../../../Services/ordersService';
 import tableAccountService from '../../../Services/tableAccountService';
 import {
@@ -710,6 +711,10 @@ export function AdminOrders({
                       </Suspense>
                     )
                   ) : null}
+
+                  {order.type === 'DELIVERY' && order.paid &&
+                  !order.payOnDelivery && ['PENDENTE','PREPARANDO','PRONTO'].includes(order.status) &&
+                  <LalamoveFreightQuote orderId={order.numericId} />}
 
                   <footer className="order-actions">
                     {order.refundStatus === 'SUCCEEDED' ? (
