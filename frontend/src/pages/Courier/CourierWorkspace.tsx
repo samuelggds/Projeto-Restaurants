@@ -293,7 +293,12 @@ export default function CourierWorkspace() {
       .then((data) => {
         if (requestId !== routeRequestRef.current) return;
         const tracking = (data || {}) as TrackingResult;
-        setRoutePoints(mergeCourierRoutePoints([], tracking.locations || []));
+        // Keep a fresh, already verified GPS fix while the server tracking snapshot loads.
+        // A response with no historical points must not erase the live courier location.
+        setRoutePoints(mergeCourierRoutePoints(
+          mergeCourierRoutePoints([], tracking.locations || []),
+          latestPositionRef.current ? [latestPositionRef.current] : [],
+        ));
         setRoutePath(
           mergeCourierRoutePoints([], tracking.order?.routeEstimate?.routeCoordinates || []),
         );
@@ -624,7 +629,8 @@ export default function CourierWorkspace() {
   const isDedicatedView = view === 'map' || view === 'overview' || view === 'help';
   const go = (next: CourierView) => {
     if (next === 'map') {
-      setRoutePoints([]);
+      // Re-opening the route must not discard a valid in-memory GPS fix.
+      setRoutePoints(latestPositionRef.current ? [latestPositionRef.current] : []);
       setRoutePath([]);
       setRouteDestination(null);
       setRouteError('');
@@ -641,6 +647,9 @@ export default function CourierWorkspace() {
     try {
       const point = await requestInitialPosition();
       latestPositionRef.current = point;
+      // getCurrentPosition is already confirmed. Render without waiting for a
+      // later watchPosition event, which mobile browsers can delay indefinitely.
+      setRoutePoints((current) => mergeCourierRoutePoints(current, [point]));
       localStorage.setItem(trackingPreferenceKey, 'enabled');
       setLocationTrackingRequested(true);
       setTrackingAttempt((value) => value + 1);
