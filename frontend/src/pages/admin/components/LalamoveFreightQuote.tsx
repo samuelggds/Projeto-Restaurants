@@ -20,7 +20,7 @@ const SAFE_ERRORS = new Set([
   'Pedido ou conta alterados durante a cotação.',
   'Valor, validade ou versão da cotação divergente. Consulte novamente.',
 ]);
-function safeQuoteError(error: unknown): string {
+export function safeQuoteError(error: unknown): string {
   if (error && typeof error === 'object' && 'response' in error) {
     const response = (error as { response?: { data?: { error?: unknown } } }).response;
     const message = response?.data?.error;
