@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeQuoteError } from './LalamoveFreightQuote';
+import { safeQuoteError } from './lalamoveQuoteError';
 
 describe('Lalamove quote error safety', () => {
   it('shows an actionable message when the sandbox connection is missing', () => {
