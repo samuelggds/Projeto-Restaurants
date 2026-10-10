@@ -6,6 +6,28 @@ type Quote = {
   expiresAt: string; serviceType: string | null; thermalBagRequired: boolean;
   canDispatch: false; environment: 'sandbox';
 };
+const SAFE_ERRORS = new Set([
+  'Somente o ADMIN do restaurante pode consultar fretes.',
+  'Pedido indisponível para cotação de frete parceiro.',
+  'Restaurante indisponível.',
+  'Endereço incompleto para cotação.',
+  'Conexão sandbox Lalamove não validada.',
+  'Geocodificação não configurada no servidor. Contate o suporte.',
+  'Confirme os endereços no mapa antes de consultar o frete.',
+  'Cotação térmica indisponível. Verifique o endereço e a cobertura.',
+  'Cotação concorrente. Atualize.',
+  'Endereço ou conta modificados. Aguarde a cotação expirar.',
+  'Pedido ou conta alterados durante a cotação.',
+  'Valor, validade ou versão da cotação divergente. Consulte novamente.',
+]);
+function safeQuoteError(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = (error as { response?: { data?: { error?: unknown } } }).response;
+    const message = response?.data?.error;
+    if (typeof message === 'string' && SAFE_ERRORS.has(message)) return message;
+  }
+  return 'Não foi possível consultar a cotação Lalamove. Tente novamente ou contate o suporte.';
+}
 export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +40,7 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
     let active = true;
     void restaurantSettingsService.getLalamoveDeliveryQuote(orderId)
       .then(data => { if (active) { setQuote(data as Quote | null); setError(''); } })
-      .catch(() => { if (active) setError('Não foi possível consultar o frete Lalamove.'); })
+      .catch((reason: unknown) => { if (active) setError(safeQuoteError(reason)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [orderId, open]);
@@ -42,8 +64,8 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
       setQuote(result);
       setNotice(action === 'quote' ? 'Cotação sandbox registrada com bolsa térmica.' :
         'Valor sandbox aprovado. Nenhuma entrega foi contratada.');
-    } catch {
-      setError('Não foi possível concluir. Verifique o pedido, a conexão sandbox e a validade do valor.');
+    } catch (reason: unknown) {
+      setError(safeQuoteError(reason));
     } finally {
       pending.current = false;
       setLoading(false);
