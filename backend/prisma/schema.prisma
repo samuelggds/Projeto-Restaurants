@@ -363,6 +363,7 @@ model Restaurant {
   settings                      RestaurantSettings?
   externalDeliveryOnboardings  RestaurantExternalDeliveryOnboarding[]
   externalDeliveryCredentials  RestaurantExternalDeliveryCredential[]
+  externalDeliveryQuotes       RestaurantExternalDeliveryQuote[]
   supportChatMessages           SupportChatMessage[]
   implementation                RestaurantImplementation?
   customDomain                  RestaurantCustomDomain?
@@ -436,9 +437,43 @@ model RestaurantExternalDeliveryCredential {
   createdAt         DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
   restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  quotations        RestaurantExternalDeliveryQuote[]
 
+  @@unique([id, restaurantId])
   @@unique([restaurantId, provider, environment])
   @@unique([environment, apiKeyDigest])
+}
+
+model RestaurantExternalDeliveryQuote {
+  id                  String    @id @default(uuid()) @db.Uuid
+  restaurantId        Int
+  orderId             Int
+  credentialId        String    @db.Uuid
+  credentialVersion   Int
+  requestKey          String    @db.Uuid
+  version             Int       @default(1)
+  status              String    @default("REQUESTING") @db.VarChar(24)
+  quotationId         String?   @db.VarChar(40)
+  serviceType         String?   @db.VarChar(24)
+  thermalBagRequest   String    @default("THERMAL_BAG_1") @db.VarChar(40)
+  total               Decimal?  @db.Decimal(10, 2)
+  currency            String?   @db.VarChar(3)
+  pickupStopId        String?   @db.VarChar(40)
+  dropoffStopId       String?   @db.VarChar(40)
+  addressDigest       String    @db.VarChar(64)
+  expiresAt           DateTime  @db.Timestamptz(3)
+  requestedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  approvedAt          DateTime? @db.Timestamptz(3)
+  approvedByUserId    Int?
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+  restaurant          Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order               Order @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  credential          RestaurantExternalDeliveryCredential @relation(fields: [credentialId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([restaurantId, orderId])
+  @@unique([restaurantId, requestKey])
+  @@index([restaurantId, status, expiresAt])
 }
 
 model RestaurantPrinterSettings {
@@ -1105,6 +1140,7 @@ model Order {
   kitchenPrintJobs                KitchenPrintJob[]
   courierSettlementItems          CourierSettlementItem[]
   paymentAttempts                 OrderPaymentAttempt[]
+  externalDeliveryQuotes          RestaurantExternalDeliveryQuote[]
 
   @@unique([id, restaurantId])
   @@unique([id, restaurantId, tableSessionId, participantId])

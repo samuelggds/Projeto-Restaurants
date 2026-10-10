@@ -19,6 +19,7 @@ import MercadoPagoOAuthCallbackController from '../controllers/MercadoPagoOAuthC
 import UpdateWhatsappProfilePhotoController from '../controllers/UpdateWhatsappProfilePhotoController.js';
 import EvolutionWhatsappConnectionController from '../controllers/EvolutionWhatsappConnectionController.js';
 import LalamoveOnboardingController from '../../externalDelivery/controllers/LalamoveOnboardingController.js';
+import LalamoveQuotationController from '../../externalDelivery/controllers/LalamoveQuotationController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
@@ -70,6 +71,16 @@ router.get('/delivery-partners/lalamove', authMiddleware, adminMiddleware, (req,
 
 router.post('/delivery-partners/lalamove/request', authMiddleware, adminMiddleware, (req, res) =>
   LalamoveOnboardingController.request(req, res),
+);
+
+router.get('/delivery-partners/lalamove/quotes/:orderId', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveQuotationController.current(req, res),
+);
+router.post('/delivery-partners/lalamove/quotes/:orderId', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveQuotationController.request(req, res),
+);
+router.post('/delivery-partners/lalamove/quotes/:orderId/approve', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveQuotationController.approve(req, res),
 );
 
 router.post('/mercado-pago/oauth/start', authMiddleware, adminMiddleware, (req, res) =>

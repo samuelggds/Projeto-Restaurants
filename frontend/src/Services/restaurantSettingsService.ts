@@ -91,6 +91,23 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getLalamoveDeliveryQuote(orderId: number) {
+    const response = await api.get('/settings/delivery-partners/lalamove/quotes/' + orderId);
+    return response.data?.quote;
+  }
+
+  async requestLalamoveDeliveryQuote(orderId: number, requestKey: string) {
+    const response = await api.post('/settings/delivery-partners/lalamove/quotes/' + orderId, { requestKey });
+    return response.data?.quote;
+  }
+
+  async approveLalamoveDeliveryQuote(orderId: number, expectedVersion: number, expectedTotal: string) {
+    const response = await api.post('/settings/delivery-partners/lalamove/quotes/' + orderId + '/approve', {
+      expectedVersion, expectedTotal,
+    });
+    return response.data?.quote;
+  }
+
   async getWhatsappConnection() {
     const response = await api.get('/settings/whatsapp/connection');
     return response.data;
