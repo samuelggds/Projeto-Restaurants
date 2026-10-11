@@ -3,7 +3,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type ClipboardEvent,
   type FormEvent,
 } from 'react';
 import {
@@ -13,7 +12,6 @@ import {
   PackagePlus,
   RefreshCw,
   Save,
-  Upload,
   Settings2,
   Tags,
   X,
@@ -21,6 +19,8 @@ import {
 import superAdminService from '../../../Services/superAdminService';
 import { ProductDrawer } from '../../admin/components/ProductDrawer';
 import { ManagedCustomProductWizard } from './ManagedCustomProductWizard';
+import { ManagedImageEditor } from './ManagedImageEditor';
+import type { ManagedImagePurpose } from '../../../Services/managedImageEnhancementService';
 import { isManagedSimpleCustomProduct } from '../domain/managedCustomProductConfiguration';
 import type {
   AdminCategory,
@@ -30,7 +30,6 @@ import type {
   AdminProductCompositionItem,
   AdminProductPortionConfiguration,
 } from '../../admin/types';
-import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import * as S from './ManagedRestaurantWorkspace.styles';
 
 type Product = {
@@ -106,21 +105,27 @@ function requestError(error: unknown) {
 
 const toNumber = (value: unknown) => Number(value || 0);
 
-type ManagedImageTarget = 'product' | 'combo' | 'banner';
+type ManagedImageTarget = 'product' | 'combo' | 'banner' | 'logo' | 'cover';
 
 const managedImageLabels: Record<ManagedImageTarget, string> = {
-  product: 'produto',
-  combo: 'combo',
-  banner: 'banner',
+  product: 'Foto do produto',
+  combo: 'Foto do combo',
+  banner: 'Imagem do banner',
+  logo: 'Logo do restaurante',
+  cover: 'Capa do restaurante',
+};
+const managedImagePurposes: Record<ManagedImageTarget, ManagedImagePurpose> = {
+  product: 'PRODUCT', combo: 'COMBO', banner: 'BANNER', logo: 'LOGO', cover: 'COVER',
 };
 
-export function ManagedRestaurantWorkspace({
-  restaurantId,
-  onClose,
-}: {
-  restaurantId: number;
-  onClose: () => void;
-}) {
+type WorkspaceProps = { restaurantId: number; onClose: () => void };
+
+export function ManagedRestaurantWorkspace(props: WorkspaceProps) {
+  // A tenant change must discard every draft and pending image preview.
+  return <ManagedRestaurantWorkspaceContent key={props.restaurantId} {...props} />;
+}
+
+function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceProps) {
   const [data, setData] = useState<Workspace | null>(null);
   const [tab, setTab] = useState<Tab>('products');
   const [loading, setLoading] = useState(true);
@@ -163,6 +168,8 @@ export function ManagedRestaurantWorkspace({
   });
   const [settings, setSettings] = useState({
     restaurantName: '',
+    restaurantLogo: '',
+    restaurantCoverImage: '',
     restaurantDescription: '',
     restaurantAddress: '',
     restaurantAddressNumber: '',
@@ -191,6 +198,8 @@ export function ManagedRestaurantWorkspace({
       const raw = workspace.settings || {};
       setSettings({
         restaurantName: String(raw.restaurantName || workspace.restaurant.name || ''),
+        restaurantLogo: String(raw.restaurantLogo || ''),
+        restaurantCoverImage: String(raw.restaurantCoverImage || ''),
         restaurantDescription: String(raw.restaurantDescription || ''),
         restaurantAddress: String(raw.restaurantAddress || ''),
         restaurantAddressNumber: String(raw.restaurantAddressNumber || ''),
@@ -301,50 +310,13 @@ export function ManagedRestaurantWorkspace({
       setCombo((current) => ({ ...current, image: value }));
       return;
     }
-    setBanner((current) => ({ ...current, image: value }));
+    if (target === 'banner') {
+      setBanner((current) => ({ ...current, image: value }));
+      return;
+    }
+    const field = target === 'logo' ? 'restaurantLogo' : 'restaurantCoverImage';
+    setSettings((current) => ({ ...current, [field]: value }));
   }, []);
-
-  const processManagedImageFile = useCallback(
-    async (target: ManagedImageTarget, file?: File | null) => {
-      if (!file) return;
-      setError('');
-      setSuccess('');
-      try {
-        const image = await createPersistentImageDataUrl(
-          file,
-          target === 'banner' ? 1600 : 1024,
-        );
-        setManagedImage(target, image);
-        setSuccess(`Imagem do ${managedImageLabels[target]} adicionada.`);
-      } catch (imageError) {
-        setError(requestError(imageError));
-      }
-    },
-    [setManagedImage],
-  );
-
-  const pasteManagedImage = useCallback(
-    async (target: ManagedImageTarget, event: ClipboardEvent<HTMLElement>) => {
-      const imageItem = Array.from(event.clipboardData.items).find(
-        (item) => item.kind === 'file' && item.type.startsWith('image/'),
-      );
-      const imageFile = imageItem?.getAsFile();
-      if (imageFile) {
-        event.preventDefault();
-        await processManagedImageFile(target, imageFile);
-        return;
-      }
-
-      const pastedText = event.clipboardData.getData('text/plain').trim();
-      if (/^https:\/\//iu.test(pastedText)) {
-        event.preventDefault();
-        setManagedImage(target, pastedText);
-        setError('');
-        setSuccess(`Link da imagem do ${managedImageLabels[target]} adicionado.`);
-      }
-    },
-    [processManagedImageFile, setManagedImage],
-  );
 
   function editProduct(item: Product) {
     if (item.saleMode === 'BUILDABLE') {
@@ -559,6 +531,9 @@ export function ManagedRestaurantWorkspace({
       instagram: settings.instagram.trim() || null,
       primaryColor: settings.primaryColor.trim(),
     };
+    // Do not resend unchanged large images or overwrite them on unrelated saves.
+    if (settings.restaurantLogo !== String(data?.settings?.restaurantLogo || '')) payload.restaurantLogo = settings.restaurantLogo.trim() || null;
+    if (settings.restaurantCoverImage !== String(data?.settings?.restaurantCoverImage || '')) payload.restaurantCoverImage = settings.restaurantCoverImage.trim() || null;
     const deliveryTimeMin = numeric(settings.deliveryTimeMin);
     const deliveryTimeMax = numeric(settings.deliveryTimeMax);
     const deliveryFee = numeric(settings.deliveryFee);
@@ -575,84 +550,17 @@ export function ManagedRestaurantWorkspace({
     );
   }
 
-  const renderImageInput = (
-    target: ManagedImageTarget,
-    value: string,
-    required = false,
-  ) => (
-    <div>
-      <label>
-        Link da imagem
-        <input
-          required={required && !value}
-          type="url"
-          inputMode="url"
-          placeholder="https://exemplo.com/imagem.jpg"
-          value={value.startsWith('data:image/') ? '' : value}
-          onChange={(event) => setManagedImage(target, event.target.value)}
-          onPaste={(event) => void pasteManagedImage(target, event)}
-        />
-      </label>
-
-      <div
-        role="button"
-        tabIndex={0}
-        aria-label={`Colar imagem do ${managedImageLabels[target]}`}
-        onPaste={(event) => void pasteManagedImage(target, event)}
-        style={{
-          marginTop: 8,
-          padding: 14,
-          border: '1px dashed #cfc7c3',
-          borderRadius: 10,
-          background: '#fffaf8',
-          textAlign: 'center',
-          cursor: 'text',
-        }}
-      >
-        <strong>Cole uma imagem aqui com Ctrl+V</strong>
-        <div>
-          <small>Ex.: botão direito na imagem → Copiar imagem → volte aqui → Ctrl+V.</small>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        <label style={{ cursor: 'pointer' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '9px 12px',
-              border: '1px solid #d8d8d8',
-              borderRadius: 8,
-              fontWeight: 700,
-            }}
-          >
-            <Upload size={16} /> Escolher arquivo
-          </span>
-          <input
-            hidden
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.currentTarget.value = '';
-              void processManagedImageFile(target, file);
-            }}
-          />
-        </label>
-        {value ? (
-          <button type="button" onClick={() => setManagedImage(target, '')}>
-            Remover imagem
-          </button>
-        ) : null}
-      </div>
-
-      <small>JPG, PNG ou WebP, máximo 5 MB. Links devem usar HTTPS.</small>
-      {value.startsWith('data:image/') ? (
-        <small style={{ display: 'block' }}>Imagem copiada/enviada pronta para salvar.</small>
-      ) : null}
-    </div>
+  const renderImageInput = (target: ManagedImageTarget, value: string, required = false) => (
+    <ManagedImageEditor
+      key={`${restaurantId}:${target}:${target === 'product' ? product.id : target === 'combo' ? combo.id : target === 'banner' ? banner.id : 'settings'}`}
+      restaurantId={restaurantId}
+      purpose={managedImagePurposes[target]}
+      label={managedImageLabels[target]}
+      value={value}
+      required={required}
+      disabled={saving || loading}
+      onChange={(image) => setManagedImage(target, image)}
+    />
   );
 
   return (
@@ -790,6 +698,8 @@ export function ManagedRestaurantWorkspace({
                   <label>Nome do restaurante<input required value={settings.restaurantName} onChange={(e) => setSettings((x) => ({ ...x, restaurantName: e.target.value }))} /></label>
                   <label>WhatsApp comercial<input value={settings.whatsapp} onChange={(e) => setSettings((x) => ({ ...x, whatsapp: e.target.value }))} /></label>
                 </S.Two>
+                {renderImageInput('logo', settings.restaurantLogo)}
+                {renderImageInput('cover', settings.restaurantCoverImage)}
                 <label>Descrição<textarea rows={3} value={settings.restaurantDescription} onChange={(e) => setSettings((x) => ({ ...x, restaurantDescription: e.target.value }))} /></label>
                 <S.Two>
                   <label>Endereço<input value={settings.restaurantAddress} onChange={(e) => setSettings((x) => ({ ...x, restaurantAddress: e.target.value }))} /></label>
