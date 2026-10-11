@@ -37,7 +37,11 @@ export const managedImageEnhancementStore = {
   async begin(attempt: ManagedImageAttempt) {
     await withTenantDbContext(attempt.restaurantId, async (db) => {
       // Serializes the check/insert across replicas; never held during the provider call.
-      await db.$queryRaw`SELECT pg_advisory_xact_lock(7622, ${attempt.restaurantId}::int)`;
+      // Project a supported scalar: Prisma cannot deserialize the lock's void return type.
+      await db.$queryRaw<Array<{ lockAcquired: number }>>`
+        SELECT 1::int AS "lockAcquired"
+        FROM pg_advisory_xact_lock(7622, ${attempt.restaurantId}::int)
+      `;
       const prior = await db.auditLog.findFirst({
         where: { restaurantId: attempt.restaurantId, userId: attempt.actor.userId, requestId: attempt.operationId, action: 'MANAGED_IMAGE_AI_REQUESTED' },
         select: { id: true },

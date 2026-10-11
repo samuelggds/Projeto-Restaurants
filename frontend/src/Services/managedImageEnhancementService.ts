@@ -42,9 +42,9 @@ export async function enhanceManagedRestaurantImage(input: {
   } catch (error) {
     if (!axios.isAxiosError(error)) throw error;
     const code = String(error.response?.data?.code || '');
-    if (messages[code]) throw new Error(messages[code]);
-    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') throw new Error(messages.IMAGE_AI_TIMEOUT);
-    if (error.response?.status === 403 || error.response?.status === 401) throw new Error('A sessão não está autorizada para esta operação.');
-    throw new Error('Não foi possível obter a melhoria. A imagem original foi mantida; uma nova tentativa pode gerar novo consumo da plataforma.');
+    if (messages[code]) throw new Error(messages[code], { cause: error });
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') throw new Error(messages.IMAGE_AI_TIMEOUT, { cause: error });
+    if (error.response?.status === 403 || error.response?.status === 401) throw new Error('A sessão não está autorizada para esta operação.', { cause: error });
+    throw new Error('Não foi possível obter a melhoria. A imagem original foi mantida; uma nova tentativa pode gerar novo consumo da plataforma.', { cause: error });
   }
 }

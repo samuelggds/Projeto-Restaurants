@@ -6,6 +6,7 @@ import authTokenService from '../../modules/auth/services/AuthTokenService.js';
 import aiCreditService from '../../modules/aiSupport/services/AiCreditService.js';
 import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import { managedImageProvider } from '../../modules/managedService/services/ManagedImageProvider.js';
+import { managedImageEnhancementStore } from '../../modules/managedService/services/ManagedImageEnhancementStore.js';
 import { apiRequest, prisma, resetTenantE2EDatabase, seedTenantE2EFixture, startTenantTestApplication } from './tenantE2EHarness.js';
 
 const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8mQAAAAASUVORK5CYII=';
@@ -51,6 +52,28 @@ test('imagens assistidas: plataforma paga, autorização e auditoria isoladas po
   });
   const app = await startTenantTestApplication();
   t.after(async () => app.close());
+
+  await t.test('registro durável aceita o retorno do lock e mantém idempotência por tenant', async () => {
+    const attempt = {
+      restaurantId: a,
+      restaurantName: fixture.restaurants.a.name,
+      actor: { userId: operator.id, userRole: operator.role },
+      purpose: 'PRODUCT' as const,
+      operationId: randomUUID(),
+      inputDigest: '0'.repeat(64),
+    };
+    // Exercise the real Prisma transaction directly so raw-query failures remain visible.
+    await managedImageEnhancementStore.begin(attempt);
+    await assert.rejects(managedImageEnhancementStore.begin(attempt), { code: 'MANAGED_IMAGE_ALREADY_REQUESTED' });
+    await managedImageEnhancementStore.begin({ ...attempt, restaurantId: b, restaurantName: fixture.restaurants.b.name });
+    const records = await prisma.auditLog.findMany({
+      where: { requestId: attempt.operationId, action: 'MANAGED_IMAGE_AI_REQUESTED' },
+      orderBy: { restaurantId: 'asc' },
+    });
+    assert.deepEqual(records.map((entry) => entry.restaurantId), [a, b]);
+    assert.ok(records.every((entry) => entry.userId === operator.id));
+    assert.equal(provider.mock.callCount(), 0);
+  });
 
   await t.test('preview não debita ADMIN, não publica e audita somente o restaurante alvo', async () => {
     await clearTestRateCounters();

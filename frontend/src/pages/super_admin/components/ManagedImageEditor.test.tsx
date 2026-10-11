@@ -14,13 +14,12 @@ const improved = 'data:image/png;base64,aW1wcm92ZWQ=';
 describe('ManagedImageEditor', () => {
   let container: HTMLDivElement;
   let root: Root;
-  let onChange: ReturnType<typeof vi.fn>;
+  const onChange = vi.fn<(value: string) => void>();
   beforeEach(() => {
     vi.resetAllMocks();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
-    onChange = vi.fn();
     mocks.enhance.mockResolvedValue(improved);
     mocks.optimize.mockResolvedValue(improved);
   });
