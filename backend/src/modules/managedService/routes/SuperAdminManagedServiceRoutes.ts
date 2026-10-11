@@ -3,6 +3,7 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { superAdminMiddleware } from '../../../middlewares/superAdminMiddleware.js';
 import ManagedServiceController from '../controllers/ManagedServiceController.js';
 import SuperAdminManagedRestaurantController from '../controllers/SuperAdminManagedRestaurantController.js';
+import { enhanceManagedImage, managedImageRateLimits } from '../controllers/ManagedImageEnhancementController.js';
 
 const router = Router();
 router.use(authMiddleware, superAdminMiddleware);
@@ -11,6 +12,7 @@ router.get('/', (req, res, next) => ManagedServiceController.superQueue(req, res
 router.get('/restaurants/:restaurantId/workspace', (req, res, next) =>
   SuperAdminManagedRestaurantController.workspace(req, res, next),
 );
+router.post('/restaurants/:restaurantId/images/enhance', ...managedImageRateLimits, enhanceManagedImage);
 router.post('/restaurants/:restaurantId/products', (req, res, next) =>
   SuperAdminManagedRestaurantController.createProduct(req, res, next),
 );
