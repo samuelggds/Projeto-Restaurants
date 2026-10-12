@@ -30,8 +30,8 @@ export class TransferTableSessionService {
         if(!session) throw new TableTransferError('Sessão não encontrada, expirada ou fechada.',404);
         if(session.tableId===destinationTableId) throw new TableTransferError('Selecione outra mesa.',422);
         const tableIds=[session.tableId,destinationTableId].sort((a,b)=>a-b);
-        const locked=await tx.$queryRaw<Array<{id:number;number:number;active:boolean;token:string}>>(
-          Prisma.sql`SELECT "id","number","active","token" FROM "Table" WHERE "restaurantId"=${restaurantId}
+        const locked=await tx.$queryRaw<Array<{id:number;number:number;active:boolean}>>(
+          Prisma.sql`SELECT "id","number","active" FROM "Table" WHERE "restaurantId"=${restaurantId}
             AND "id" IN (${Prisma.join(tableIds)}) ORDER BY "id" FOR UPDATE`);
         const source=locked.find(t=>t.id===session.tableId);
         const destination=locked.find(t=>t.id===destinationTableId);
@@ -56,17 +56,12 @@ export class TransferTableSessionService {
         await tx.tableServiceCall.updateMany({where:{restaurantId,tableSessionId:sessionId,tableId:source.id},data:{tableId:destination.id}});
         await tx.tableAccessRequest.updateMany({where:{restaurantId,tableSessionId:sessionId,tableId:source.id},data:{tableId:destination.id}});
         await tx.tableSessionTransfer.create({data:{restaurantId,tableSessionId:sessionId,fromTableId:source.id,toTableId:destination.id,transferredById:actorId}});
-        const restaurant=await tx.restaurant.findUnique({where:{id:restaurantId},select:{slug:true}});
-        if(!restaurant) throw new TableTransferError('Restaurante não encontrado.',404);
         return {restaurantId,sessionId,sessionPublicId:session.publicId,fromTableId:source.id,
-          fromTableNumber:source.number,tableId:destination.id,tableNumber:destination.number,
-          destinationTableToken:destination.token,restaurantSlug:restaurant.slug};
+          fromTableNumber:source.number,tableId:destination.id,tableNumber:destination.number};
       },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
       tableSessionEvents.transferred(result).catch(error=>
         console.error('[TABLE_TRANSFER_REALTIME_ERROR]',error instanceof Error?error.message:String(error)));
-      const {destinationTableToken: _token, restaurantSlug: _slug,...safe}=result;
-      void _token;void _slug;
-      return safe;
+      return result;
     } catch(error) {
       if(error instanceof TableTransferError) throw error;
       if(error&&typeof error==='object'&&'code' in error&&['P2002','P2034','P2003'].includes(String(error.code)))
