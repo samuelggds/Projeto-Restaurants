@@ -195,7 +195,7 @@ test('visão geral administrativa mantém leitura e ações em desktop e mobile'
   await page.goto('/admin');
 
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Sua operação, em um só olhar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tudo pronto para os próximos pedidos.' })).toBeVisible();
   await expect(page.getByText('Resumo de hoje')).toBeVisible();
   await expect(page.getByText('Saúde do cardápio')).toBeVisible();
   await expect(page.getByRole('button', { name: /Acompanhar pedidos/i })).toBeVisible();
@@ -210,7 +210,7 @@ test('visão geral administrativa mantém leitura e ações em desktop e mobile'
 
   await assertNoHorizontalOverflow();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('heading', { name: 'Sua operação, em um só olhar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tudo pronto para os próximos pedidos.' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Gerenciar cardápio/i })).toBeVisible();
   await assertNoHorizontalOverflow();
 

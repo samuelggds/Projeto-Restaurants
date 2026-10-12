@@ -1,8 +1,8 @@
 -- Keep reservations and session/payment history intact while linking check-ins exactly.
 ALTER TABLE "TableReservation" ADD COLUMN "tableSessionId" INTEGER;
 
-CREATE UNIQUE INDEX "TableReservation_restaurantId_tableSessionId_key"
-  ON "TableReservation"("restaurantId", "tableSessionId");
+CREATE UNIQUE INDEX "TableReservation_tableSessionId_restaurantId_key"
+  ON "TableReservation"("tableSessionId", "restaurantId");
 
 ALTER TABLE "TableReservation"
   ADD CONSTRAINT "TableReservation_session_tenant_fkey"

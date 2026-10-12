@@ -964,7 +964,7 @@ model TableReservation {
   tableSession    TableSession? @relation("ReservationAttendanceSession", fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
   @@unique([id, restaurantId])
-  @@unique([restaurantId, tableSessionId])
+  @@unique([tableSessionId, restaurantId])
   @@index([restaurantId, startsAt, status])
   @@index([restaurantId, tableId, startsAt])
 }
