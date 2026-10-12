@@ -15,6 +15,7 @@ import {
   Search as SearchIcon,
   Settings2,
   ShoppingBag,
+  Store,
   UtensilsCrossed,
   Upload,
   Users,
@@ -53,7 +54,8 @@ import type {
 } from './types';
 import { validateBusinessSettings } from './domain/businessSettingsValidation';
 import { validateEstablishmentAddress } from './domain/establishmentAddress';
-import { validateBusinessHours } from './domain/businessHours';
+import { getRestaurantAvailability, validateBusinessHours } from './domain/businessHours';
+import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
@@ -234,6 +236,12 @@ export function AdminPage({
     paymentOAuthStatus ? 'payments' : initialSettingsSection,
   );
   const [settings, setSettings] = useState(initialSettings);
+  const availabilityClock = useRestaurantAvailabilityClock();
+  const operationAvailability = getRestaurantAvailability(
+    settings.businessHoursConfigured ? settings.businessHours : undefined,
+    settings.isOpenForOrders,
+    availabilityClock,
+  );
   const [settingsSource, setSettingsSource] = useState(initialSettings);
   const [lastSavedSettings, setLastSavedSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
@@ -787,17 +795,19 @@ export function AdminPage({
         </S.SettingsNav>
       </S.SettingsSidebar>
       <S.Main>
-        <S.Top>
+        <S.Top data-area={area}>
           <div>
             <small>
               PAINEL &nbsp;/&nbsp;{' '}
-              {area === 'customers' || area === 'employees'
+              {area === 'overview' ? 'OVERVIEW' : area === 'customers' || area === 'employees'
                 ? title.toLocaleUpperCase('pt-BR')
                 : area.toUpperCase()}
             </small>
             <h1>{title}</h1>
             <p>
-              {area === 'employees'
+              {area === 'overview'
+                ? `Acompanhe e gerencie a operação do ${settings.restaurantName} em um só lugar.`
+                : area === 'employees'
                 ? 'Somente o administrador cria e edita funcionários.'
                 : area === 'subscriptions'
                   ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
@@ -813,6 +823,17 @@ export function AdminPage({
             </p>
           </div>
           <S.TopActions>
+            {area === 'overview' && (
+              <div className="overview-context" aria-label="Situação do restaurante">
+                <span className={`operation-chip ${operationAvailability.isOpen ? 'open' : 'closed'}`}
+                  role="status" title={operationAvailability.detail}>
+                  <i aria-hidden="true" /> {operationAvailability.label}
+                </span>
+                <span className="overview-unit" title="Restaurante atual">
+                  <Store aria-hidden="true" /> {settings.restaurantName}
+                </span>
+              </div>
+            )}
             {area === 'catalog' && !catalogImportOpen && (
               <>
                 <button
@@ -1018,6 +1039,7 @@ export function AdminPage({
                 categories={categories}
                 ingredients={ingredients}
                 restaurantName={settings.restaurantName}
+                operationalSettings={settings}
                 onNavigate={(destination) => void changeArea(destination)}
                 onUpdateOrderStatus={async (id, status) => {
                   await onUpdateOrderStatus?.(id, status);

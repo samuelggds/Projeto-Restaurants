@@ -17,7 +17,9 @@ import {
   Undo2,
 } from 'lucide-react';
 import * as S from './AdminOverview.styles';
-import type { AdminOrder, AdminProduct } from '../types';
+import type { AdminOrder, AdminProduct, AdminSettings } from '../types';
+import { getRestaurantAvailability } from '../domain/businessHours';
+import { useRestaurantAvailabilityClock } from '../../Home/hooks/useHomePageRuntime';
 import ordersService, { type OrderOverview } from '../../../Services/ordersService';
 import { useAdminOrdersPage, type LoadAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 import { useAdminOrderCancellation } from '../hooks/useAdminOrderCancellation';
@@ -29,6 +31,7 @@ type AdminOverviewProps = {
   orders: AdminOrder[];
   products: AdminProduct[];
   restaurantName: string;
+  operationalSettings?: Pick<AdminSettings, 'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'>;
   money: (value: number) => string;
   onNavigate: (destination: OverviewDestination) => void;
   onCancelOrder?: (id: number) => Promise<void>;
@@ -87,12 +90,22 @@ export function AdminOverview({
   orders,
   products,
   restaurantName,
+  operationalSettings,
   money,
   onNavigate,
   onCancelOrder,
   loadOrdersPage,
   loadOverview = loadLiveOverview,
 }: AdminOverviewProps) {
+  const availabilityClock = useRestaurantAvailabilityClock();
+  const availability = operationalSettings
+    ? getRestaurantAvailability(
+        operationalSettings.businessHoursConfigured ? operationalSettings.businessHours : undefined,
+        operationalSettings.isOpenForOrders,
+        availabilityClock,
+      )
+    : null;
+  const [metricsStatus, setMetricsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [metrics, setMetrics] = useState<OrderOverview>({
     todayOrders: 0,
     sales: 0,
@@ -109,11 +122,14 @@ export function AdminOverview({
         if (active) {
           setMetrics(result);
           setMetricsError('');
+          setMetricsStatus('ready');
         }
       })
       .catch(() => {
-        if (active)
+        if (active) {
+          setMetricsStatus('error');
           setMetricsError('Indicadores indisponíveis. Atualize a página para tentar novamente.');
+        }
       });
     return () => {
       active = false;
@@ -160,7 +176,8 @@ export function AdminOverview({
   }, [products, productSearch, productStatus]);
   const visibleOrders = orderPage.orders;
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
-  const hasActiveOperation = metrics.todayOrders > 0 || metrics.preparingOrders > 0;
+  const hasActiveOperation = availability?.isOpen ?? false;
+  const metricText = (value: number | string) => metricsStatus === 'ready' ? value : '—';
 
   const clearOrderFilters = () => {
     setOrderSearch('');
