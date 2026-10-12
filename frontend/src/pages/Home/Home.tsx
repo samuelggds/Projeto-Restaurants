@@ -155,7 +155,7 @@ export default function Home() {
     defaultRestaurantId,
   });
   const activeTableId =
-    routeTableId || (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || null;
+    (mesaSessionIsActive ? Number(tableSession?.tableId || 0) : 0) || routeTableId || null;
 
   const { tableOrder, refreshTableOrder } = useTableOrderNotice({
     enabled: mesaMode && mesaSessionIsActive,

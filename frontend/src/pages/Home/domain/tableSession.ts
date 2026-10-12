@@ -6,6 +6,7 @@ export type StoredTableSession = {
   sessionPublicId?: string | null;
   tableId?: number | null;
   tableNumber?: number | null;
+  originalTableNumber?: number | null;
   restaurantId?: number | null;
   expiresAt?: string | null;
   sessionStatus?: 'OPEN' | 'CLOSING_REQUESTED';
@@ -37,7 +38,7 @@ export function isTableSessionActive(
   if (!mesaMode) return true;
   const expiresAt = session?.expiresAt ? new Date(session.expiresAt).getTime() : null;
   const belongsToTable = tableNumber
-    ? Number(session?.tableNumber) === tableNumber
+    ? Number(session?.tableNumber) === tableNumber || Number(session?.originalTableNumber) === tableNumber
     : Boolean(tableId && Number(session?.tableId) === tableId);
   return Boolean(
     session?.sessionToken &&
@@ -54,7 +55,7 @@ export function belongsToTableRoute(
   tableNumber: number | null = null,
 ): boolean {
   const belongsToTable = tableNumber
-    ? Number(session.tableNumber) === tableNumber
+    ? Number(session.tableNumber) === tableNumber || Number(session.originalTableNumber) === tableNumber
     : Boolean(tableId && Number(session.tableId) === tableId);
   return belongsToTable && (!restaurantId || Number(session.restaurantId) === Number(restaurantId));
 }
