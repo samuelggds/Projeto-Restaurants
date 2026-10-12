@@ -1,5 +1,6 @@
 import { ChangeEvent, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -39,6 +40,7 @@ const HelpCenter = lazy(() =>
 );
 const ManagedServiceArea = lazy(() => import('./components/ManagedServiceArea'));
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
+import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import * as S from './Admin.styles';
 import type {
   AdminPageProps,
@@ -109,6 +111,7 @@ const operationNavigationItems: AdminNavigationItem[] = [
 ];
 
 const managementNavigationItems: AdminNavigationItem[] = [
+  { area: 'reservations', label: 'Reservas', mobileLabel: 'Reservas', icon: CalendarDays },
   {
     area: 'employees',
     label: 'Funcionários',
@@ -300,6 +303,7 @@ export function AdminPage({
     subscriptions: 'Cobranças e assinaturas',
     'managed-service': 'Gestão assistida',
     employees: 'Funcionários',
+    reservations: 'Reservas',
   };
   const title =
     area === 'settings'
@@ -874,6 +878,8 @@ export function AdminPage({
                   await onReportSupport(payload);
                 }}
               />
+            ) : area === 'reservations' ? (
+              <TableReservationsPanel admin />
             ) : area === 'employees' ? (
               <Suspense
                 fallback={
