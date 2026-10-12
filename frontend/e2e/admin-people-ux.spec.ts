@@ -231,7 +231,7 @@ test('admin: navegação e configurações conservam a largura ao recolher o men
   ]) {
     await page.getByRole('button', { name: label, exact: true }).first().click();
     const settings = label === 'Configurações';
-    await expectWorkspaceWidth(main, settings ? 556 : 236);
+    await expectWorkspaceWidth(main, settings ? 568 : 248);
     await page.getByRole('button', { name: 'Recolher menu lateral', exact: true }).click();
     await expect(nav).toBeHidden();
     await expectWorkspaceWidth(main, settings ? 320 : 0);
@@ -244,6 +244,6 @@ test('admin: navegação e configurações conservam a largura ao recolher o men
     }
     await page.getByRole('button', { name: 'Expandir menu lateral', exact: true }).click();
     await expect(nav).toBeVisible();
-    await expectWorkspaceWidth(main, settings ? 556 : 236);
+    await expectWorkspaceWidth(main, settings ? 568 : 248);
   }
 });
