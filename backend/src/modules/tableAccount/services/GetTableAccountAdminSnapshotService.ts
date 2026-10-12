@@ -44,7 +44,7 @@ export class GetTableAccountAdminSnapshotService {
     }
 
     const now = this.now();
-    const { data, expiredCount } = await prisma.$transaction(
+    const { data, expiredCount, orders } = await prisma.$transaction(
       async (tx) => {
         await lockTablePaymentSession(tx, restaurantId, initial.id);
         const expiredCount = await expireTablePaymentReservations(
@@ -66,7 +66,10 @@ export class GetTableAccountAdminSnapshotService {
             'TABLE_ACCOUNT_NOT_FOUND',
           );
         }
-        return { data: refreshed, expiredCount };
+        const orders = await tableAccountRepository.listSessionOrdersForRestaurant(
+          refreshed.id, restaurantId, tx,
+        );
+        return { data: refreshed, expiredCount, orders };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -86,6 +89,15 @@ export class GetTableAccountAdminSnapshotService {
       paymentIntents: data.paymentIntents.map((payment) =>
         serializeTablePaymentIntentForAdmin(payment, data.publicId),
       ),
+      orders: orders.slice(0, 50).map((order) => ({
+        id: order.id,
+        status: order.status,
+        createdAt: order.createdAt.toISOString(),
+        totalCents: Math.round(Number(order.total) * 100),
+        itemsCount: order.items.reduce((count, item) => count + item.quantity, 0),
+        items: order.items.map((item) => `${item.quantity}× ${item.product.name}`),
+      })),
+      hasMoreOrders: orders.length > 50,
     };
   }
 }
