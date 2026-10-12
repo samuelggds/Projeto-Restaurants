@@ -155,11 +155,21 @@ export interface WaiterWorkspaceState {
 export interface OpenTableResult {
   sessionId: string;
 }
+export interface WaiterReservation {
+  tableId: string;
+  startsAt: string;
+  endsAt: string;
+  guestCount: number;
+}
+export type WaiterReservationAvailability = 'ready' | 'disabled' | 'unavailable';
 export interface EmployeeWorkspaceData {
   orders: Order[];
   tables: RestaurantTable[];
   calls: ServiceCall[];
   accounts: WaiterAccountSession[];
+  /** Minimal operational projection: no customer names, phones, or private notes. */
+  reservations?: WaiterReservation[];
+  reservationAvailability?: WaiterReservationAvailability;
 }
 export interface EmployeeWorkspaceProps {
   tableAccountClient?: {

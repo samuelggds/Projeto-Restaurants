@@ -7,6 +7,7 @@ import { acquireSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import tableAccountService from '../../Services/tableAccountService';
+import tableReservationsService from '../../Services/tableReservationsService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { WaiterModule } from './WaiterModule';
 import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
@@ -47,6 +48,8 @@ export default function WaiterPage() {
     tables: [],
     calls: [],
     accounts: [],
+    reservations: [],
+    reservationAvailability: 'unavailable',
   });
   const [restaurant, setRestaurant] = useState<RestaurantBrand>({
     restaurantName: 'Restaurante',
@@ -87,6 +90,10 @@ export default function WaiterPage() {
       tablesService.listTables(),
       waiterCallsService.listCalls(),
       tableAccountService.listWaiterSessions(),
+      tableReservationsService.settings().then(async (settings) => {
+        if (!settings.enabled) return { enabled: false as const, rows: [] };
+        return { enabled: true as const, rows: await tableReservationsService.list() };
+      }),
     ]);
     inFlightRef.current = false;
     if (!mountedRef.current) return;
@@ -116,6 +123,19 @@ export default function WaiterPage() {
               Array.isArray(results[3].value.sessions) ? results[3].value.sessions : [],
             )
           : current.accounts,
+      reservationAvailability: results[4].status === 'rejected'
+        ? 'unavailable'
+        : results[4].value.enabled ? 'ready' : 'disabled',
+      reservations: results[4].status === 'fulfilled' && results[4].value.enabled
+        ? results[4].value.rows
+          .filter((row) => row.status === 'CONFIRMED')
+          .map((row) => ({
+            tableId: String(row.tableId),
+            startsAt: row.startsAt,
+            endsAt: row.endsAt,
+            guestCount: row.guestCount,
+          }))
+        : [],
     }));
     setWorkspaceState({
       loading: false,
