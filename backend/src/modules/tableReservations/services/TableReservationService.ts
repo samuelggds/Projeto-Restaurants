@@ -215,17 +215,10 @@ export class TableReservationService {
       return row;
     });
     // Opening is transactional and concurrency protected by the existing unique index.
-    const opened = await openTableSessionService.execute({
+    return openTableSessionService.execute({
       restaurantId: id, tableId: record.tableId, openedById: actor,
+      reservationId: record.id,
     });
-    await prisma.$transaction(async tx => {
-      await setTenantDbContext(tx, id);
-      await tx.tableReservation.updateMany({
-        where: { id: record.id, restaurantId: id, status: 'CONFIRMED' },
-        data: { status: 'SEATED', checkedInAt: new Date() },
-      });
-    });
-    return opened;
   }
 }
 export default new TableReservationService();

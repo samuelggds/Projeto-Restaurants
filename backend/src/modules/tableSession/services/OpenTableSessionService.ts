@@ -25,13 +25,15 @@ type OpenTableSessionPayload = {
   tableId: number | string;
   restaurantId: number;
   openedById: number | string | null;
+  reservationId?: number;
 };
 
 class OpenTableSessionService {
-  async execute({ tableId, restaurantId, openedById }: OpenTableSessionPayload) {
+  async execute({ tableId, restaurantId, openedById, reservationId }: OpenTableSessionPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedTableId = Number(tableId);
     const normalizedOpenedById = Number(openedById);
+    const normalizedReservationId = reservationId ? Number(reservationId) : null;
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante inválido para abrir a mesa.');
     }
@@ -148,8 +150,22 @@ class OpenTableSessionService {
               endsAt: { gt: now },
             },
           });
-          if (upcomingReservation) {
+          if (upcomingReservation && upcomingReservation.id !== normalizedReservationId) {
             throw new Error('Mesa reservada. Escolha outra mesa ou realize o check-in autorizado.');
+          }
+          if (normalizedReservationId) {
+            const ownReservation = await tx.tableReservation.findFirst({
+              where: {
+                id: normalizedReservationId, restaurantId: normalizedRestaurantId,
+                tableId: normalizedTableId, status: 'CONFIRMED',
+              },
+              select: { id: true, startsAt: true, endsAt: true },
+            });
+            if (!ownReservation ||
+              ownReservation.startsAt.getTime() - 30 * 60_000 > now.getTime() ||
+              ownReservation.endsAt <= now) {
+              throw new Error('Reserva inválida ou fora da janela de check-in.');
+            }
           }
           const created = await tableSessionRepository.create(
             {
@@ -163,6 +179,12 @@ class OpenTableSessionService {
             },
             tx,
           );
+          if (normalizedReservationId) {
+            await tx.tableReservation.update({
+              where: { id: normalizedReservationId, restaurantId: normalizedRestaurantId },
+              data: { status: 'SEATED', checkedInAt: now },
+            });
+          }
           await tableWaiterAssignmentService.autoAssignOpenedByWaiter({
             db: tx,
             restaurantId: normalizedRestaurantId,
