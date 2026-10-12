@@ -31,7 +31,24 @@ const originalAutoAssign = tableWaiterAssignmentService.autoAssignOpenedByWaiter
 beforeEach(() => {
   prisma.$transaction = async (callback) => callback({
     $queryRaw: async () => [],
-    tableReservation: { findFirst: async () => null },
+    restaurantSettings: {
+      findUnique: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        return { tableReservationToleranceMinutes: 30 };
+      },
+    },
+    tableReservation: {
+      findFirst: async () => null,
+      updateMany: async ({ where, data }) => {
+        assert.equal(where.restaurantId, 7);
+        assert.equal(where.tableId, 91);
+        assert.equal(where.status, 'CONFIRMED');
+        assert.equal(where.checkedInAt, null);
+        assert.equal(where.tableSessionId, null);
+        assert.equal(data.status, 'NO_SHOW');
+        return { count: 0 };
+      },
+    },
   });
   tableWaiterAssignmentService.autoAssignOpenedByWaiter = async () => null;
 });
@@ -58,7 +75,24 @@ test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessã
   const transaction = {
     kind: 'open-table-transaction',
     $queryRaw: async () => [],
-    tableReservation: { findFirst: async () => null },
+    restaurantSettings: {
+      findUnique: async ({ where }) => {
+        assert.equal(where.restaurantId, 7);
+        return { tableReservationToleranceMinutes: 30 };
+      },
+    },
+    tableReservation: {
+      findFirst: async () => null,
+      updateMany: async ({ where, data }) => {
+        assert.equal(where.restaurantId, 7);
+        assert.equal(where.tableId, 91);
+        assert.equal(where.status, 'CONFIRMED');
+        assert.equal(where.checkedInAt, null);
+        assert.equal(where.tableSessionId, null);
+        assert.equal(data.status, 'NO_SHOW');
+        return { count: 0 };
+      },
+    },
   };
   prisma.$transaction = async (callback) => callback(transaction);
   const table = {

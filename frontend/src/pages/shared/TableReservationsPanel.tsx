@@ -106,24 +106,33 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
   },[refresh]);
   useEffect(()=>{
     let cancelled=false;
-    if(!settings?.enabled) { setHistoryRows([]); setHistoryTotal(0); return; }
-    setHistoryLoading(true);
-    setHistoryError('');
-    void reservationsService.history(historyFilter,0)
-      .then(async first=>{
-        const initial=first.rows;
-        // Cursorless offset pages are requested sequentially for a stable bounded UI.
-        // Server totals are authoritative; a refresh invalidates this snapshot.
-        let accumulated=[...initial];
-        while(accumulated.length<historyLimit && accumulated.length<first.total) {
+    // Schedule state transitions after the effect, preserving React's no-cascading-render rule.
+    void Promise.resolve().then(async()=>{
+      if(cancelled)return;
+      if(!settings?.enabled) {
+        setHistoryRows([]);
+        setHistoryTotal(0);
+        setHistoryLoading(false);
+        return;
+      }
+      setHistoryLoading(true);
+      setHistoryError('');
+      try {
+        const first=await reservationsService.history(historyFilter,0);
+        // Request real tenant-scoped pages from the server in increments of ten.
+        let accumulated=[...first.rows];
+        while(!cancelled && accumulated.length<historyLimit && accumulated.length<first.total) {
           const next=await reservationsService.history(historyFilter,accumulated.length);
-          if(!next.rows.length) break;
+          if(!next.rows.length)break;
           accumulated=[...accumulated,...next.rows];
         }
         if(!cancelled){setHistoryRows(accumulated);setHistoryTotal(first.total);}
-      })
-      .catch(err=>{if(!cancelled)setHistoryError(message(err));})
-      .finally(()=>{if(!cancelled)setHistoryLoading(false);});
+      } catch(err) {
+        if(!cancelled)setHistoryError(message(err));
+      } finally {
+        if(!cancelled)setHistoryLoading(false);
+      }
+    });
     return()=>{cancelled=true;};
   },[historyFilter,historyLimit,historyRevision,settings?.enabled]);
   useEffect(()=>{

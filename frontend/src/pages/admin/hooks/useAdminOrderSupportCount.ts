@@ -30,25 +30,26 @@ export function useAdminOrderSupportCount() {
       return;
     }
     inFlight.current = true;
-    const revision = getAuthSessionRevision();
     try {
-      const page = await ordersService.listRestaurantOrdersPage({
-        issueState: 'OPEN',
-        limit: 1,
-      });
-      if (mounted.current && revision === getAuthSessionRevision()) {
-        setCount(page.total);
-        setSyncError(false);
-      }
-    } catch {
-      // Preserve the last confirmed count rather than silently claiming zero.
-      if (mounted.current && revision === getAuthSessionRevision()) setSyncError(true);
+      do {
+        queued.current = false;
+        const revision = getAuthSessionRevision();
+        try {
+          const page = await ordersService.listRestaurantOrdersPage({
+            issueState: 'OPEN',
+            limit: 1,
+          });
+          if (mounted.current && revision === getAuthSessionRevision()) {
+            setCount(page.total);
+            setSyncError(false);
+          }
+        } catch {
+          // Preserve the last confirmed count rather than silently claiming zero.
+          if (mounted.current && revision === getAuthSessionRevision()) setSyncError(true);
+        }
+      } while (queued.current && mounted.current);
     } finally {
       inFlight.current = false;
-      if (queued.current && mounted.current) {
-        queued.current = false;
-        void refresh();
-      }
     }
   }, []);
 

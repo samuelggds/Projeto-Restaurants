@@ -80,7 +80,10 @@ export default function WaiterPage() {
       return;
     }
     inFlightRef.current = true;
-    if (mountedRef.current) {
+    try {
+      do {
+        refreshQueuedRef.current = false;
+        if (mountedRef.current) {
       setWorkspaceState((current) => ({
         ...current,
         loading: current.lastUpdatedAt === null,
@@ -95,7 +98,6 @@ export default function WaiterPage() {
       waiterCallsService.listCalls(),
       tableAccountService.listWaiterSessions(),
     ]);
-    inFlightRef.current = false;
     if (!mountedRef.current) return;
 
     const failures: string[] = [];
@@ -136,11 +138,11 @@ export default function WaiterPage() {
         : null,
       lastUpdatedAt: failures.length === 4 ? null : new Date().toISOString(),
     });
-    if (refreshQueuedRef.current) {
-      refreshQueuedRef.current = false;
-      queueMicrotask(() => {
-        if (mountedRef.current) void loadWorkspace(true);
-      });
+        // Repeat until all invalidations received during the request are processed.
+        refreshing = true;
+      } while (refreshQueuedRef.current && mountedRef.current);
+    } finally {
+      inFlightRef.current = false;
     }
   }, []);
 

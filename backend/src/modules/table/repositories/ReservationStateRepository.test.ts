@@ -14,6 +14,16 @@ test('consulta reserva somente com RLS tenant-local, sem carregar PII ou outro r
         setTenant = true;
         return [];
       },
+      restaurantSettings: {
+        findUnique: async ({ where, select }: {
+          where: {restaurantId:number}; select:{tableReservationToleranceMinutes:boolean};
+        }) => {
+          assert.equal(setTenant, true);
+          assert.deepEqual(where, {restaurantId:7});
+          assert.deepEqual(select, {tableReservationToleranceMinutes:true});
+          return { tableReservationToleranceMinutes: 30 };
+        },
+      },
       tableReservation: {
         findMany: async (args: NonNullable<typeof seenQuery>) => {
           assert.equal(setTenant, true);
@@ -29,6 +39,8 @@ test('consulta reserva somente com RLS tenant-local, sem carregar PII ou outro r
   assert.equal(seenQuery.where.restaurantId, 7);
   assert.equal(seenQuery.where.status, 'CONFIRMED');
   assert.ok(seenQuery.where.endsAt.gt instanceof Date);
+  assert.deepEqual((seenQuery.where as typeof seenQuery.where & {NOT:{restaurantId:number;status:string;checkedInAt:null;tableSessionId:null}}).NOT.restaurantId, 7);
+  assert.equal((seenQuery.where as typeof seenQuery.where & {NOT:{restaurantId:number;status:string;checkedInAt:null;tableSessionId:null}}).NOT.status, 'CONFIRMED');
   assert.deepEqual(seenQuery.select, { tableId: true });
   assert.deepEqual(seenQuery.distinct, ['tableId']);
 });

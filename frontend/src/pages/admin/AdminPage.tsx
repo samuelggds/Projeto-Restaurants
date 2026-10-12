@@ -1,26 +1,17 @@
 import { ChangeEvent, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   HelpCircle,
-  Headphones,
-  Handshake,
-  LayoutGrid,
   LogOut,
   Menu,
   MoreHorizontal,
   Plus,
-  ReceiptText,
   Search as SearchIcon,
-  Settings2,
-  ShoppingBag,
   Store,
   UtensilsCrossed,
   Upload,
-  Users,
-  type LucideIcon,
 } from 'lucide-react';
 import { adminMockEmployees, adminMockSettings } from './data';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -43,6 +34,7 @@ const HelpCenter = lazy(() =>
 );
 const ManagedServiceArea = lazy(() => import('./components/ManagedServiceArea'));
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
+import { operationNavigationItems, managementNavigationItems, mobilePrimaryNavigationItems, mobileMoreNavigationItems } from './config/adminSidebarItems';
 import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import * as S from './Admin.styles';
 import type {
@@ -81,82 +73,6 @@ type PendingNavigation =
   { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
 type PendingChangesSource = 'settings' | 'product';
 
-type AdminNavigationItem = {
-  area: AdminSection;
-  label: string;
-  mobileLabel: string;
-  icon: LucideIcon;
-};
-
-const operationNavigationItems: AdminNavigationItem[] = [
-  {
-    area: 'overview',
-    label: 'Visão geral',
-    mobileLabel: 'Início',
-    icon: LayoutGrid,
-  },
-  {
-    area: 'orders',
-    label: 'Pedidos',
-    mobileLabel: 'Pedidos',
-    icon: ShoppingBag,
-  },
-  {
-    area: 'support',
-    label: 'Suporte dos pedidos',
-    mobileLabel: 'Suporte',
-    icon: Headphones,
-  },
-  {
-    area: 'catalog',
-    label: 'Cardápio',
-    mobileLabel: 'Cardápio',
-    icon: Menu,
-  },
-  {
-    area: 'customers',
-    label: 'Clientes',
-    mobileLabel: 'Clientes',
-    icon: Users,
-  },
-];
-
-const managementNavigationItems: AdminNavigationItem[] = [
-  { area: 'reservations', label: 'Reservas', mobileLabel: 'Reservas', icon: CalendarDays },
-  {
-    area: 'employees',
-    label: 'Funcionários',
-    mobileLabel: 'Equipe',
-    icon: Users,
-  },
-  {
-    area: 'subscriptions',
-    label: 'Cobranças e assinaturas',
-    mobileLabel: 'Cobranças',
-    icon: ReceiptText,
-  },
-  {
-    area: 'managed-service',
-    label: 'Gestão assistida',
-    mobileLabel: 'Assistida',
-    icon: Handshake,
-  },
-  {
-    area: 'settings',
-    label: 'Configurações',
-    mobileLabel: 'Ajustes',
-    icon: Settings2,
-  },
-];
-
-// The mobile bar keeps support visible; Customers is reachable through "Mais".
-const mobilePrimaryNavigationItems = operationNavigationItems.filter(
-  (item) => item.area !== 'customers',
-);
-const mobileMoreNavigationItems = [
-  ...operationNavigationItems.filter((item) => item.area === 'customers'),
-  ...managementNavigationItems,
-];
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => {
