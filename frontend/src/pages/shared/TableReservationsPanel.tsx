@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { CalendarDays, Check, Clock3, Phone, Plus, RefreshCw, Users, X } from 'lucide-react';
+import { CalendarDays, Check, Clock3, History, Phone, Plus, RefreshCw, Users, X } from 'lucide-react';
 import styled from 'styled-components';
 import reservationsService, {
   type ReservationSettings, type TableReservation,
 } from '../../Services/tableReservationsService';
 import tablesService from '../../Services/tablesService';
+import { acquireSocket } from '../../Services/socketService';
+import { getAccessToken } from '../../modules/auth/session/authSession';
 
 const Shell = styled.section`
   display: grid;
@@ -30,6 +32,12 @@ const Shell = styled.section`
   .status { border-radius:999px; padding:4px 9px; background:#f3f4f6; font-size:12px; font-weight:700; }
   .status.CONFIRMED { background:#dbeafe; color:#1d4ed8; }
   .status.SEATED { background:#dcfce7; color:#166534; }
+  .status.COMPLETED { background:#dcfce7; color:#166534; }
+  .status.CANCELED, .status.NO_SHOW { background:#f1f5f9; color:#475569; }
+  .history-filters { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  .history-filters button[aria-pressed="true"] { background:#f0f6ff; color:#1d4ed8; border-color:#93b4f7; }
+  .history-count { margin-top:12px; font-size:13px; color:#64748b; }
+  .history-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:16px; }
   .error { color:#b91c1c; font-size:13px; }
   .success { color:#166534; font-size:13px; }
   @media(max-width:600px){.fields{grid-template-columns:1fr;} .panel{padding:15px;} }
@@ -39,6 +47,13 @@ const labels: Record<TableReservation['status'], string> = {
   NO_SHOW: 'Não compareceu', COMPLETED: 'Concluída',
 };
 type Table = { id: number; number: number; active: boolean; tableSessions?: Array<{ status: string }> };
+type HistoryFilter = 'ALL' | 'SEATED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
+const historyFilters: Array<{value:HistoryFilter;label:string}> = [
+  {value:'ALL',label:'Todas'}, {value:'SEATED',label:'Em andamento'},
+  {value:'COMPLETED',label:'Concluídas'}, {value:'CANCELED',label:'Canceladas'},
+  {value:'NO_SHOW',label:'Não compareceu'},
+];
+const HISTORY_PAGE_SIZE = 10;
 function isoLocal(d: Date) {
   const offset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime()-offset).toISOString().slice(0,16);
@@ -50,6 +65,13 @@ function message(error: unknown) {
 export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
   const [settings,setSettings]=useState<ReservationSettings|null>(null);
   const [rows,setRows]=useState<TableReservation[]>([]);
+  const [historyFilter,setHistoryFilter]=useState<HistoryFilter>('ALL');
+  const [historyRows,setHistoryRows]=useState<TableReservation[]>([]);
+  const [historyTotal,setHistoryTotal]=useState(0);
+  const [historyLimit,setHistoryLimit]=useState(HISTORY_PAGE_SIZE);
+  const [historyLoading,setHistoryLoading]=useState(false);
+  const [historyError,setHistoryError]=useState('');
+  const [historyRevision,setHistoryRevision]=useState(0);
   const [tables,setTables]=useState<Table[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
@@ -63,12 +85,18 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
   const [start,setStart]=useState(()=>isoLocal(new Date(Date.now()+60*60_000)));
   const [end,setEnd]=useState(()=>isoLocal(new Date(Date.now()+150*60_000)));
   const [note,setNote]=useState('');
+  const invalidateHistory=useCallback(()=>{
+    setHistoryRows([]);
+    setHistoryLimit(HISTORY_PAGE_SIZE);
+    setHistoryRevision(current=>current+1);
+  },[]);
   const refresh=useCallback(async()=>{
     const [config,allTables]=await Promise.all([reservationsService.settings(),tablesService.listTables()]);
     setSettings(config);
     setTables((Array.isArray(allTables)?allTables:[]) as Table[]);
-    setRows(config.enabled ? await reservationsService.list() : []);
-  },[]);
+    setRows(config.enabled ? (await reservationsService.list()).filter(row => row.status === 'CONFIRMED') : []);
+    invalidateHistory();
+  },[invalidateHistory]);
   useEffect(()=>{
     let cancelled=false;
     void Promise.resolve().then(() => cancelled ? undefined : refresh())
@@ -76,6 +104,42 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
       .finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;};
   },[refresh]);
+  useEffect(()=>{
+    let cancelled=false;
+    if(!settings?.enabled) { setHistoryRows([]); setHistoryTotal(0); return; }
+    setHistoryLoading(true);
+    setHistoryError('');
+    void reservationsService.history(historyFilter,0)
+      .then(async first=>{
+        const initial=first.rows;
+        // Cursorless offset pages are requested sequentially for a stable bounded UI.
+        // Server totals are authoritative; a refresh invalidates this snapshot.
+        let accumulated=[...initial];
+        while(accumulated.length<historyLimit && accumulated.length<first.total) {
+          const next=await reservationsService.history(historyFilter,accumulated.length);
+          if(!next.rows.length) break;
+          accumulated=[...accumulated,...next.rows];
+        }
+        if(!cancelled){setHistoryRows(accumulated);setHistoryTotal(first.total);}
+      })
+      .catch(err=>{if(!cancelled)setHistoryError(message(err));})
+      .finally(()=>{if(!cancelled)setHistoryLoading(false);});
+    return()=>{cancelled=true;};
+  },[historyFilter,historyLimit,historyRevision,settings?.enabled]);
+  useEffect(()=>{
+    const token=getAccessToken();
+    if(!token)return;
+    const {socket,release}=acquireSocket(token,'table-reservation-history');
+    const onChanged=()=>void refresh().catch(err=>setError(message(err)));
+    socket.on('table:reservations-changed',onChanged);
+    socket.on('table:session-closed',onChanged);
+    return()=>{socket.off('table:reservations-changed',onChanged);socket.off('table:session-closed',onChanged);release();};
+  },[refresh]);
+  const changeHistoryFilter=(next:HistoryFilter)=>{
+    setHistoryFilter(next);
+    setHistoryLimit(HISTORY_PAGE_SIZE);
+    setHistoryRows([]);
+  };
   const run=async (operation:()=>Promise<unknown>, notice:string)=>{
     if(busy)return;
     setBusy(true);setError('');setSuccess('');
@@ -143,6 +207,35 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
         </div>
       </div>)}
       {!loading && !rows.length && <p>Nenhuma reserva encontrada no período.</p>}
+      </div>
+    </div>}
+    {settings?.enabled && <div className="panel" aria-label="Histórico de reservas">
+      <h2><History size={20} aria-hidden="true"/> Histórico de reservas</h2>
+      <p>Reservas em atendimento, concluídas, canceladas e ausências. Os registros são preservados para consulta.</p>
+      <div className="history-filters" role="group" aria-label="Filtrar histórico de reservas">
+        {historyFilters.map(filter=><button type="button" key={filter.value}
+          aria-pressed={historyFilter===filter.value} onClick={()=>changeHistoryFilter(filter.value)}>
+          {filter.label}
+        </button>)}
+      </div>
+      {historyError && <p className="error" role="alert">{historyError}</p>}
+      <div className="list">
+        {historyRows.map(row=><div className="item" key={row.publicId}>
+          <div className="details">
+            <strong>{row.guestName} <span className={`status ${row.status}`}>{labels[row.status]}</span></strong>
+            <small><Clock3 size={13} aria-hidden="true"/> {new Date(row.startsAt).toLocaleString('pt-BR')} · Mesa {row.tableNumber ?? row.tableId}</small>
+            <small><Users size={13} aria-hidden="true"/> {row.guestCount} pessoa(s) · <Phone size={13} aria-hidden="true"/> {row.guestPhone}</small>
+            {row.note && <small>{row.note}</small>}
+          </div>
+        </div>)}
+        {!historyLoading&&!historyRows.length&&!historyError&&<p>Nenhuma reserva neste histórico.</p>}
+      </div>
+      <p className="history-count" role="status">{historyLoading?'Carregando histórico...':`Exibindo ${historyRows.length} de ${historyTotal} reservas`}</p>
+      <div className="history-controls">
+        {historyRows.length<historyTotal && <button type="button" disabled={historyLoading}
+          onClick={()=>setHistoryLimit(count=>count+HISTORY_PAGE_SIZE)}>Mostrar mais 10</button>}
+        {historyLimit>HISTORY_PAGE_SIZE && <button type="button" disabled={historyLoading}
+          onClick={()=>setHistoryLimit(HISTORY_PAGE_SIZE)}>Voltar para 10</button>}
       </div>
     </div>}
   </Shell>;
