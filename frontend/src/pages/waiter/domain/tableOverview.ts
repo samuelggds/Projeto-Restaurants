@@ -41,7 +41,7 @@ export function tableOverview(
   const reservedTables = tables.filter((table) => tableOperationalState(table, upcoming) === 'RESERVED');
   const free = tables.filter((table) => tableOperationalState(table, upcoming) === 'FREE');
   const verified = tables.every((table) => table.reservationStatusVerified === true);
-  const hasAvailability = availability !== 'unavailable' && Boolean(availability) || verified;
+  const hasAvailability = availability === 'ready' || availability === 'disabled' || verified;
   const nextReservation = upcoming.find((reservation) =>
     tables.some((table) => table.id === reservation.tableId && table.status !== 'OCCUPIED'),
   );
@@ -50,7 +50,7 @@ export function tableOverview(
     guests: occupied.reduce((sum, table) => sum + Math.max(0, table.guests), 0),
     freeCount: free.length,
     reservedCount: hasAvailability ? reservedTables.length : null,
-    reservationStatus: hasAvailability ? 'ready' : 'unavailable',
+    reservationStatus: availability === 'disabled' ? 'disabled' : hasAvailability ? 'ready' : 'unavailable',
     nextReservation,
     upcoming,
   };
