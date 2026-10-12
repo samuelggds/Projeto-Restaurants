@@ -31,6 +31,8 @@ import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCen
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
+import { getWaiterOperatingStatus } from './domain/restaurantOperatingStatus';
+import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 
 export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments' | 'reservations';
 export interface WaiterModuleProps extends BaseProps {
@@ -81,6 +83,8 @@ function WaiterShell({
     accounts,
   } = useWaiterWorkspace();
   const [view, setView] = useState<WaiterView | 'help'>(initialView);
+  const clock = useRestaurantAvailabilityClock();
+  const operation = getWaiterOperatingStatus(restaurant.businessHours, restaurant.isOpenForOrders, clock);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const clearFocusedOrder = useCallback(() => setFocusedOrderId(null), []);
   const [open, setOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth > 820);
@@ -150,10 +154,11 @@ function WaiterShell({
             <ChevronLeft />
           </N.CollapseButton>
           <N.Brand>
-            <span>{restaurant.monogram}</span>
-            <b>{restaurant.restaurantName}</b>
-            <small>Área do garçom</small>
+            <img src="/gastronexa-logo.svg" alt="" />
+            <b>Gastro<span>Nexa</span></b>
           </N.Brand>
+          <N.RestaurantIdentity><b>{restaurant.restaurantName}</b><small>Console de atendimento</small></N.RestaurantIdentity>
+          <N.SectionLabel>OPERAÇÃO DO SALÃO</N.SectionLabel>
           <N.Nav aria-label="Navegação do garçom">
             {nav.map(([id, label, , Icon, count]) => (
               <button
@@ -170,6 +175,7 @@ function WaiterShell({
               </button>
             ))}
           </N.Nav>
+          <N.ShiftStatus $tone={operation.tone} aria-label="Funcionamento do restaurante"><small>Seu turno</small><b>{operation.hoursLabel}</b><span>{operation.label}</span></N.ShiftStatus>
           <N.SupportNav>
             <button
               type="button"
@@ -344,7 +350,7 @@ function WaiterShell({
               onFocusComplete={clearFocusedOrder}
             />
           ) : (
-            Page && <Page />
+            Page && (view === 'tables' ? <WaiterTablesPage onNavigate={navigate} /> : <Page />)
           )}
         </S.Content>
       </S.Main>

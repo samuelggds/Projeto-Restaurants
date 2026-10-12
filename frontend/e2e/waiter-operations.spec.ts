@@ -772,7 +772,8 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
 
   const card = tableCard(page, '07');
   await expect(card.getByText('LIVRE', { exact: true })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
+  await card.getByRole('button', { name: 'Selecionar Mesa 7' }).click();
+  await expect(page.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: /visualizar qr code|imprimir qr/i })).toHaveCount(
     0,
   );
@@ -785,9 +786,10 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await restoreWaiterSession(page);
   await page.goto('/waiter');
   await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
-  await tableCard(page, '07').getByRole('button', { name: 'Abrir mesa' }).click();
+  await tableCard(page, '07').getByRole('button', { name: 'Selecionar Mesa 7' }).click();
+  await page.getByRole('button', { name: 'Abrir mesa' }).click();
   await expect.poll(() => state.openRequests).toBe(1);
-  await expect(tableCard(page, '07').getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
 
   await clearEmployeeSession(page);
   await page.goto(
@@ -817,16 +819,17 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   await page.goto('/waiter');
   await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
   const occupiedCard = tableCard(page, '07');
-  await occupiedCard.getByRole('button', { name: 'Fechar mesa' }).click();
-  await expect(occupiedCard.getByRole('alert')).toContainText(
+  await occupiedCard.getByRole('button', { name: 'Selecionar Mesa 7' }).click();
+  await page.getByRole('button', { name: 'Fechar mesa' }).click();
+  await expect(page.getByRole('alert')).toContainText(
     'existem pedidos ou pagamentos pendentes',
   );
   expect(state.tableOpen).toBe(true);
 
   state.outstandingOrder = false;
-  await occupiedCard.getByRole('button', { name: 'Fechar mesa' }).click();
+  await page.getByRole('button', { name: 'Fechar mesa' }).click();
   await expect.poll(() => state.tableOpen).toBe(false);
-  await expect(occupiedCard.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
 
   await clearEmployeeSession(page);
   await page.goto(
@@ -891,7 +894,10 @@ test('todas as abas do garçom permanecem acessíveis e sem overflow em celular'
   await mobileNavigation.getByRole('button', { name: 'Mesas e QR Codes' }).click();
   await page.getByRole('searchbox', { name: 'Buscar mesa' }).fill('07');
   const mobileTable = tableCard(page, '07');
-  await expect(mobileTable.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
+  await mobileTable.getByRole('button', { name: 'Selecionar Mesa 7' }).click();
+  await expect(page.getByRole('dialog', { name: 'Atendimento da Mesa 7' })
+    .getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
+  await page.getByRole('button', { name: 'Fechar detalhes da mesa' }).click();
   await expect(tableCard(page, '12')).toHaveCount(0);
   await page.getByRole('searchbox', { name: 'Buscar mesa' }).fill('99');
   await expect(mobileTable).toHaveCount(0);

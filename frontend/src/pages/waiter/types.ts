@@ -2,7 +2,7 @@ export type EmployeeRole = 'WAITER' | 'KITCHEN';
 export type OrderChannel = 'TABLE' | 'PICKUP' | 'DELIVERY';
 export type OrderStatus =
   'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO';
-export type TableStatus = 'FREE' | 'OCCUPIED';
+export type TableStatus = 'FREE' | 'OCCUPIED' | 'RESERVED';
 export type TableSessionStatus = 'OPEN' | 'CLOSING_REQUESTED';
 export type CallType = 'WAITER' | 'BILL';
 export type CallStatus = 'WAITING' | 'IN_PROGRESS' | 'RESOLVED';
@@ -13,6 +13,8 @@ export interface RestaurantBrand {
   primaryColor: string;
   restaurantId?: number;
   slug?: string;
+  businessHours?: import('../admin/types').BusinessHour[];
+  isOpenForOrders?: boolean;
 }
 export interface Employee {
   id: string;
@@ -80,6 +82,8 @@ export interface WaiterTableAccountSnapshot {
     financialStatus: 'UNPAID' | 'RESERVED' | 'PROCESSING' | 'PAID' | 'REFUNDED';
     orderedByDisplayName: string;
   }>;
+  orders?: Array<{ id: number; status: string; createdAt: string; totalCents: number; itemsCount: number; items: string[] }>;
+  hasMoreOrders?: boolean;
   paymentIntents: Array<{
     publicId: string;
     method: 'PIX' | 'CARD' | 'CASH' | 'CARD_MACHINE';
@@ -151,11 +155,21 @@ export interface WaiterWorkspaceState {
 export interface OpenTableResult {
   sessionId: string;
 }
+export interface WaiterReservation {
+  tableId: string;
+  startsAt: string;
+  endsAt: string;
+  guestCount: number;
+}
+export type WaiterReservationAvailability = 'ready' | 'disabled' | 'unavailable';
 export interface EmployeeWorkspaceData {
   orders: Order[];
   tables: RestaurantTable[];
   calls: ServiceCall[];
   accounts: WaiterAccountSession[];
+  /** Minimal operational projection: no customer names, phones, or private notes. */
+  reservations?: WaiterReservation[];
+  reservationAvailability?: WaiterReservationAvailability;
 }
 export interface EmployeeWorkspaceProps {
   tableAccountClient?: {

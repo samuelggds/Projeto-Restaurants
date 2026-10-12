@@ -244,4 +244,14 @@ export interface TableAccountSnapshotDto extends TableAccountBaseSnapshotDto {
 export interface TableAccountAdminSnapshotDto extends TableAccountBaseSnapshotDto {
   participantAccounts: TableParticipantAccountSummaryDto[];
   paymentIntents: TablePaymentIntentAdminDto[];
+  /** Operational history of this exact tenant-owned session; excludes customer and payment secrets. */
+  orders: Array<{
+    id: number;
+    status: string;
+    createdAt: IsoDateTimeString;
+    totalCents: MoneyCents;
+    itemsCount: number;
+    items: string[];
+  }>;
+  hasMoreOrders: boolean;
 }

@@ -1,4 +1,5 @@
 import {
+  OrderType,
   Prisma,
   TableParticipantStatus,
   TablePaymentEventType,
@@ -125,6 +126,32 @@ export class TableAccountRepository {
         },
       },
       select: tableAccountSnapshotSelect,
+    });
+  }
+
+  // Operator-only projection, scoped to both the restaurant AND the table session.
+  // Return at most 51 orders so the UI can announce if further history exists.
+  async listSessionOrdersForRestaurant(
+    tableSessionId: number,
+    restaurantId: number,
+    db: PrismaClientLike = prisma,
+  ) {
+    return db.order.findMany({
+      where: { restaurantId, tableSessionId, type: OrderType.MESA },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        total: true,
+        items: {
+          select: {
+            quantity: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 51,
     });
   }
 

@@ -13,7 +13,7 @@ export const Sidebar = styled.aside`
   display: flex;
   flex-direction: column;
   color: #f4f8f5;
-  background: linear-gradient(180deg, #20332d 0%, #111d19 100%);
+  background: #1c1c1c;
   border-right: 1px solid rgba(255, 255, 255, 0.07);
 
   @media (max-width: 820px) {
@@ -40,44 +40,17 @@ export const CollapseButton = styled.button`
 
 export const Brand = styled.div`
   min-width: 0;
-  padding: 5px 8px 18px;
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  padding: 5px 4px 18px;
+  display: flex;
+  min-height: 66px;
   align-items: center;
   gap: 11px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 
-  > span {
-    grid-row: 1 / span 2;
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    display: grid;
-    place-items: center;
-    color: #fff;
-    background: var(--brand);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
-    font-family: 'Sora', sans-serif;
-    font-size: 15px;
-    font-weight: 800;
-  }
+  > img { width:36px;height:36px;object-fit:contain;flex-shrink:0; }
+  b {font-size:19px;color:#fff;font-weight:800;white-space:nowrap;}
+  b span {color:#ff4d24;}
 
-  b {
-    align-self: end;
-    overflow: hidden;
-    color: #f6faf7;
-    font-size: 13px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  small {
-    align-self: start;
-    color: #8fa299;
-    font-size: 8px;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
 `;
 
 export const Nav = styled.nav`
@@ -95,7 +68,7 @@ export const Nav = styled.nav`
     display: flex;
     align-items: center;
     gap: 11px;
-    color: #aab9b2;
+    color: #a5aaa7;
     background: transparent;
     font: inherit;
     font-size: 12px;
@@ -111,8 +84,8 @@ export const Nav = styled.nav`
 
   button.active {
     color: #fff;
-    background: var(--brand);
-    box-shadow: 0 7px 18px color-mix(in srgb, var(--brand) 28%, transparent);
+    background: rgba(255,255,255,.09);
+    box-shadow: inset 3px 0 0 #ff4b4b;
   }
 
   svg {
@@ -127,7 +100,7 @@ export const NavBadge = styled.span`
   padding: 2px 6px;
   border-radius: 999px;
   color: #fff;
-  background: rgba(255, 255, 255, 0.22);
+  background: #ff4b4b;
   font-size: 9px;
   font-weight: 800;
   text-align: center;
@@ -418,4 +391,22 @@ export const MoreSheet = styled.section`
       width: 18px;
     }
   }
+`;
+
+export const RestaurantIdentity = styled.div`
+  display:grid;gap:5px;background:#292929;padding:12px;border-radius:10px;margin:7px 2px 18px;
+  b{color:#fff;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  small{color:#a5aaa7;font-size:11px}
+`;
+export const SectionLabel = styled.p`
+  font-size:10px;font-weight:800;color:#8c918e;margin:0 10px 5px;letter-spacing:.04em;
+`;
+export const ShiftStatus = styled.div<{ $tone:'open'|'closed'|'unknown' }>`
+  border:1px solid rgba(255,255,255,.1);border-radius:10px;
+  display:grid;gap:7px;padding:13px 12px;margin:20px 2px 8px;
+  small{color:#a5aaa7;font-size:11px;}
+  b{color:#fff;font-size:13px;}
+  span{color:${p=>p.$tone==='open'?'#a8c8b7':p.$tone==='closed'?'#ff6b66':'#a5aaa7'};font-size:11px;}
+  span:before{content:'';display:inline-block;background:currentColor;border-radius:50%;
+    width:7px;height:7px;margin-right:8px;}
 `;

@@ -114,6 +114,7 @@ describe('waiter operational pages', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(tableAccountService.getAdminSnapshot).mockResolvedValue({summary:{consumedCents:5800,netPaidCents:0,processingCents:0,remainingCents:5800},participants:[],items:[],paymentIntents:[]});
     dialogMocks.confirmDialog.mockResolvedValue(true);
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -217,6 +218,7 @@ describe('waiter operational pages', () => {
         </WaiterProvider>,
       ),
     );
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const open = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Abrir mesa',
     );
@@ -238,6 +240,7 @@ describe('waiter operational pages', () => {
         </WaiterProvider>,
       ),
     );
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const close = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Fechar mesa',
     );
@@ -248,6 +251,7 @@ describe('waiter operational pages', () => {
 
   it('não simula abertura quando o endpoint não foi conectado', async () => {
     renderPage(<WaiterTablesPage />, { tables: [freeTable] });
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const open = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Abrir mesa',
     );
@@ -278,11 +282,13 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Fechar mesa');
   });
 
-  it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', () => {
+  it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', async () => {
     renderPage(<WaiterTablesPage />);
     expect(container.textContent).toContain('Abra a mesa para iniciar o atendimento.');
     expect(container.textContent).toContain('Ao fechar a mesa, os acessos dos clientes são encerrados.');
     expect(container.textContent).toContain('ABERTA');
+    expect(container.textContent).not.toContain('Fechar mesa');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     expect(container.textContent).toContain('Fechar mesa');
     expect(container.textContent).not.toContain('Visualizar QR Code');
     expect(container.textContent).not.toContain('Imprimir QR');
@@ -308,6 +314,7 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('novos pedidos estão bloqueados');
     expect(container.textContent).not.toContain('Abra a mesa antes');
 
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const finalize = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Finalizar mesa',
     );
@@ -334,14 +341,14 @@ describe('waiter operational pages', () => {
       ),
     );
 
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const finalize = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Finalizar mesa',
     );
     await act(async () => finalize?.click());
 
-    expect(container.textContent).toContain('Ver conta e pagamentos');
-    expect(container.textContent).toContain('Para entregar');
-    expect(container.textContent).toContain('Entregue à mesa');
+    expect(container.textContent).toContain('Consultar pedidos e pagamentos');
+    expect(container.textContent).toContain('Pedidos para entregar');
   });
 
   it('mostra a conta por cliente e permite ao garçom apenas registrar dinheiro recebido', async () => {
@@ -408,8 +415,9 @@ describe('waiter operational pages', () => {
     vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
 
     renderPage(<WaiterTablesPage />);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const openAccount = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Ver conta e pagamentos'),
+      button.textContent?.includes('Consultar pedidos e pagamentos'),
     );
     await act(async () => openAccount?.click());
 
@@ -431,7 +439,7 @@ describe('waiter operational pages', () => {
     );
     expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('manual-payment');
     expect(tableAccountService.confirmManualPayment).not.toHaveBeenCalledWith('online-payment');
-    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(2);
+    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(3);
   });
 
   it('organiza dinheiro em fila e registra recebimento sem ação administrativa de PAID', async () => {
