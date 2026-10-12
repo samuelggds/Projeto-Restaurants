@@ -3,6 +3,7 @@ import {
   OrderStatus,
   PaymentMethod,
   TableOrderSettlementMode,
+  TableParticipantStatus,
   TableSessionStatus,
 } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
@@ -97,6 +98,14 @@ class TableRepository {
   }
 
   async findAllByRestaurant(restaurantId: number, db: PrismaClientLike = prisma) {
+    // A lista do salão deve considerar somente atendimentos abertos e não expirados.
+    // Pedidos de sessões encerradas continuam no banco, mas não entram nos indicadores.
+    const activeSessionWhere = {
+      restaurantId,
+      status: { in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED] },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    } satisfies Prisma.TableSessionWhereInput;
+
     return db.table.findMany({
       where: {
         restaurantId,
@@ -108,12 +117,7 @@ class TableRepository {
           },
         },
         tableSessions: {
-          where: {
-            status: {
-              in: [TableSessionStatus.OPEN, TableSessionStatus.CLOSING_REQUESTED],
-            },
-            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-          },
+          where: activeSessionWhere,
           orderBy: { openedAt: 'desc' },
           take: 1,
           select: {
@@ -123,10 +127,23 @@ class TableRepository {
             openedAt: true,
             expiresAt: true,
             openedBy: { select: { id: true, name: true } },
+            _count: {
+              select: {
+                participants: {
+                  where: {
+                    restaurantId,
+                    status: TableParticipantStatus.ACTIVE,
+                    revokedAt: null,
+                  },
+                },
+              },
+            },
           },
         },
         orders: {
           where: {
+            // Evita buscar pedidos históricos ou sem sessão vinculada à mesa.
+            tableSession: { is: activeSessionWhere },
             status: { in: [OrderStatus.PENDENTE, OrderStatus.PREPARANDO, OrderStatus.PRONTO] },
             // Pedidos lançados na conta não possuem paymentMethod. O filtro anterior
             // os eliminava por causa da semântica de NULL do banco e fazia o garçom
@@ -141,10 +158,8 @@ class TableRepository {
           },
           select: {
             id: true,
-            userId: true,
+            tableSessionId: true,
             total: true,
-            status: true,
-            createdAt: true,
           },
         },
         _count: {

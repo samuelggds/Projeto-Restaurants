@@ -23,8 +23,14 @@ class ListTableService {
     return tables.map((table) => {
       const { orders, token, restaurant, ...safeTableData } = table;
       const openSession = table.tableSessions[0] || null;
-      const activeTotal = orders.reduce((total, order) => total + Number(order.total || 0), 0);
-      const guests = new Set(orders.map((order) => order.userId)).size;
+      // Filtra também pelo ID da sessão: evita misturar uma comanda anterior
+      // caso dados antigos ou uma leitura concorrente ainda apareçam na consulta.
+      const activeOrders = openSession
+        ? orders.filter((order) => order.tableSessionId === openSession.id)
+        : [];
+      const activeTotal = activeOrders.reduce((total, order) => total + Number(order.total || 0), 0);
+      // Usuários de pedidos podem ser null e não representam clientes presentes.
+      const guests = openSession?._count.participants ?? 0;
       const operationalStatus = openSession
         ? 'OCCUPIED'
         : reservedTableIds.has(table.id) ? 'RESERVED' : 'FREE';
@@ -43,7 +49,7 @@ class ListTableService {
         operational: {
           status: operationalStatus,
           openSession,
-          activeOrdersCount: orders.length,
+          activeOrdersCount: activeOrders.length,
           guests,
           total: Number(activeTotal.toFixed(2)),
         },

@@ -39,6 +39,33 @@ describe('waiterAdapter', () => {
     expect(table.openedAt).toMatch(/^\d{2}:\d{2}$/);
   });
 
+  it('zera dados antigos de clientes e consumo em mesas livres ou reservadas', () => {
+    const tables = mapWaiterTables([
+      {
+        id: 91,
+        number: 1,
+        active: true,
+        status: 'FREE',
+        guests: 1,
+        total: 8.6,
+        openedAt: '2026-08-24T15:00:00.000Z',
+        operational: { status: 'FREE', guests: 1, total: 8.6 },
+      },
+      {
+        id: 92,
+        number: 2,
+        active: true,
+        status: 'RESERVED',
+        operational: { status: 'RESERVED', guests: 2, total: 19.9 },
+      },
+    ]);
+
+    expect(tables).toMatchObject([
+      { status: 'FREE', guests: 0, total: 0, openedAt: undefined },
+      { status: 'RESERVED', guests: 0, total: 0, openedAt: undefined },
+    ]);
+  });
+
   it('mantém como ocupada a mesa cuja conta foi solicitada', () => {
     const [table] = mapWaiterTables([
       {

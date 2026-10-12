@@ -633,10 +633,17 @@ export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|
       <S.TableLayout $selected={Boolean(selectedTable)}>
         <S.TableGrid>
         {visible.slice(0, visibleCount).map((table) => {
-          const account = accounts.find(
-            (item) =>
-              item.sessionPublicId === table.sessionPublicId || item.tableNumber === table.number,
-          );
+          // A conta pertence à sessão aberta, nunca somente ao número da mesa.
+          // Evita mostrar saldos antigos em mesas livres ou após troca de sessão.
+          const account = table.status === 'OCCUPIED'
+            ? accounts.find((item) =>
+                table.sessionPublicId
+                  ? item.sessionPublicId === table.sessionPublicId
+                  : table.sessionId
+                    ? item.tableSessionId === table.sessionId
+                    : item.tableId === table.id,
+              )
+            : undefined;
           return (
             <S.TableCard
               key={table.id}

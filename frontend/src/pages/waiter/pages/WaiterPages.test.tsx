@@ -264,6 +264,36 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('LIVRE');
   });
 
+  it('não vincula conta de sessão anterior ao card de mesa livre', () => {
+    renderPage(<WaiterTablesPage />, {
+      tables: [freeTable],
+      accounts: [{
+        tableSessionId: '30',
+        sessionPublicId: 'session-anterior',
+        tableId: '91',
+        tableNumber: 12,
+        openedAt: '2026-08-24T15:00:00.000Z',
+        status: 'OPEN',
+        openedByName: 'Equipe',
+        summary: {
+          consumedCents: 860,
+          netPaidCents: 0,
+          reservedCents: 0,
+          processingCents: 0,
+          remainingCents: 860,
+          participantsCount: 1,
+        },
+        itemsCount: 1,
+        paymentCounts: { reserved: 0, processing: 0, online: 0, inPerson: 0 },
+        pendingManualPayments: [],
+      }],
+    });
+    expect(container.textContent).toContain('0 cliente(s)');
+    expect(container.textContent).toContain('R$ 0,00');
+    expect(container.textContent).not.toContain('Saldo em aberto');
+    expect(container.textContent).not.toContain('R$ 8,60');
+  });
+
   it('mantém mesa reservada visível quando agenda detalhada está indisponível', async () => {
     renderPage(<WaiterTablesPage />, {
       tables: [{ ...freeTable, status: 'RESERVED' }],
