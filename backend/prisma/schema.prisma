@@ -375,7 +375,9 @@ model Restaurant {
   couponRedemptions             CouponRedemption[]
   tableServiceCalls             TableServiceCall[]
   tableReservations             TableReservation[]
+  tableSessionTransfers         TableSessionTransfer[]
   tableSessions                 TableSession[]
+  tableTransfersPerformed       TableSessionTransfer[] @relation("TableTransferActor")
   tableParticipants             TableParticipant[]
   tableAccessRequests           TableAccessRequest[]
   tableBillItems                TableBillItem[]
@@ -928,6 +930,8 @@ model Table {
   orders        Order[]
   restaurant    Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   reservations  TableReservation[]
+  transfersFrom TableSessionTransfer[] @relation("TransferOrigin")
+  transfersTo TableSessionTransfer[] @relation("TransferDestination")
   tableSessions TableSession[]
   accessRequests       TableAccessRequest[]
   serviceCalls  TableServiceCall[]
@@ -996,11 +1000,29 @@ model TableSession {
   paymentAllocations   TablePaymentAllocation[]
   paymentEvents        TablePaymentEvent[]
   waiterAssignments    TableWaiterAssignment[]
+  transfers            TableSessionTransfer[]
   employeeEarnings     EmployeeEarning[]
 
   @@unique([id, restaurantId])
   @@index([restaurantId, status, openedAt])
   @@index([tableId, status])
+}
+
+model TableSessionTransfer {
+  id Int @id @default(autoincrement())
+  restaurantId Int
+  tableSessionId Int
+  fromTableId Int
+  toTableId Int
+  transferredById Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  restaurant Restaurant @relation(fields:[restaurantId],references:[id],onDelete:Cascade)
+  tableSession TableSession @relation(fields:[tableSessionId,restaurantId],references:[id,restaurantId],onDelete:Restrict)
+  fromTable Table @relation("TransferOrigin",fields:[fromTableId,restaurantId],references:[id,restaurantId],onDelete:Restrict)
+  toTable Table @relation("TransferDestination",fields:[toTableId,restaurantId],references:[id,restaurantId],onDelete:Restrict)
+  transferredBy User @relation("TableTransferActor",fields:[transferredById,restaurantId],references:[id,restaurantId],onDelete:Restrict)
+  @@index([restaurantId,tableSessionId,createdAt])
+  @@index([restaurantId,toTableId,createdAt])
 }
 
 model TableAccessRequest {

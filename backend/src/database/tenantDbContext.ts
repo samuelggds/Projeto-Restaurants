@@ -47,6 +47,7 @@ export const TENANT_RLS_TABLES = [
   'TableAccessRequest',
   'TableParticipantState',
   'TableReservation',
+  'TableSessionTransfer',
   'TableWaiterAssignment',
 ] as const;
 
