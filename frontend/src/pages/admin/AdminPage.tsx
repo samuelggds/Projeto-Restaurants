@@ -15,6 +15,7 @@ import {
   Search as SearchIcon,
   Settings2,
   ShoppingBag,
+  UtensilsCrossed,
   Upload,
   Users,
   type LucideIcon,
@@ -693,9 +694,9 @@ export function AdminPage({
             <ChevronLeft />
           </S.CollapseButton>
           <S.Brand>
-            <span>{createRestaurantMonogram(settings.restaurantName)}</span>
-            <b>{settings.restaurantName}</b>
-            <small>Painel administrativo</small>
+            <span><UtensilsCrossed aria-hidden="true" /></span>
+            <b>GastroNexa</b>
+            <small>ADMIN</small>
           </S.Brand>
           <S.MainNav aria-label="Navegação principal do painel">
             {[...operationNavigationItems, ...managementNavigationItems].map((item) => {

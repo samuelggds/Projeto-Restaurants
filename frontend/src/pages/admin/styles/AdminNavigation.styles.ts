@@ -7,10 +7,10 @@ export const MainSidebar = styled.aside`
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: linear-gradient(180deg, #282320 0%, #17191a 100%);
+  background: #1c1c1c;
   border-right: 1px solid rgba(255, 255, 255, 0.07);
   color: #f7f3ef;
-  padding: 16px 12px;
+  padding: 18px 14px;
   display: flex;
   flex-direction: column;
   z-index: 80;
@@ -22,29 +22,29 @@ export const Brand = styled.div`
   min-width: 0;
   padding: 5px 8px 18px;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 11px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   > span {
     grid-row: 1 / span 2;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     border-radius: 8px;
     display: grid;
     place-items: center;
     color: #fff;
-    background: var(--brand);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--brand) 24%, rgba(0, 0, 0, 0.22));
+    background: #ff4b4b;
     font-family: 'Sora', sans-serif;
     font-size: 15px;
     font-weight: 800;
   }
+  > span svg { width: 19px; height: 19px; stroke-width: 2.4; }
   > b {
     align-self: end;
     overflow: hidden;
     color: #fff;
-    font-size: 13px;
+    font-size: 17px;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -60,13 +60,13 @@ export const Brand = styled.div`
 export const MainNav = styled.nav`
   min-height: 0;
   display: grid;
-  gap: 5px;
-  margin-top: 17px;
+  gap: 2px;
+  margin-top: 20px;
   overflow-y: auto;
   button {
     width: 100%;
     min-width: 0;
-    min-height: 46px;
+    min-height: 44px;
     padding: 0 12px;
     border: 0;
     border-radius: 7px;
@@ -89,9 +89,11 @@ export const MainNav = styled.nav`
   }
   button.active {
     color: #fff;
-    background: var(--brand);
-    box-shadow: 0 7px 18px color-mix(in srgb, var(--brand) 28%, transparent);
+    font-weight: 800;
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: inset 3px 0 #ff4b4b;
   }
+  button:focus-visible { outline: 2px solid #ff7777; outline-offset: -2px; }
   svg {
     width: 19px;
     flex: 0 0 auto;

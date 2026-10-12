@@ -2,7 +2,8 @@ import styled from 'styled-components';
 
 export const OrdersWorkspace = styled.div`
   display: grid;
-  gap: 20px;
+  gap: 12px;
+  min-width: 0;
 `;
 
 export { HeroCopy, OrdersHero, PriorityCard } from './AdminOrders.hero.styles';
@@ -10,19 +11,19 @@ export { HeroCopy, OrdersHero, PriorityCard } from './AdminOrders.hero.styles';
 export const OrdersSummary = styled.section`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 9px;
 
   .summary-card {
     position: relative;
     min-width: 0;
-    min-height: 126px;
+    min-height: 86px;
     overflow: hidden;
     border: 1px solid #e5dfd8;
     border-radius: 8px;
     padding: 18px;
     color: inherit;
     background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
+    box-shadow: 0 3px 12px rgba(48, 35, 25, 0.035);
     display: flex;
     align-items: flex-start;
     gap: 13px;
@@ -52,9 +53,9 @@ export const OrdersSummary = styled.section`
   }
 
   .summary-icon {
-    flex: 0 0 42px;
-    width: 42px;
-    height: 42px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
     display: grid;
     place-items: center;
@@ -102,7 +103,7 @@ export const OrdersSummary = styled.section`
 
   .summary-copy strong {
     color: #211f1c;
-    font-size: 27px;
+    font-size: 22px;
     line-height: 1.05;
     letter-spacing: -0.035em;
   }

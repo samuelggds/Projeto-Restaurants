@@ -11,7 +11,7 @@ export const Root = styled.div<{
   --muted: #716d68;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #f6f7f4;
+  background-color: #f7f6f2;
   background-image:
     linear-gradient(rgba(60, 48, 40, 0.026) 1px, transparent 1px),
     linear-gradient(90deg, rgba(60, 48, 40, 0.026) 1px, transparent 1px);
@@ -21,7 +21,7 @@ export const Root = styled.div<{
   letter-spacing: 0;
   display: grid;
   grid-template-columns: ${({ $settings, $sidebarOpen }) => {
-    const sidebar = $sidebarOpen === false ? '0px' : '236px';
+    const sidebar = $sidebarOpen === false ? '0px' : '248px';
     return $settings ? `${sidebar} 320px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
   }};
   transition: grid-template-columns 250ms ease;

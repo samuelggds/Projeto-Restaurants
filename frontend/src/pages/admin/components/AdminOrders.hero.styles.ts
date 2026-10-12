@@ -2,22 +2,16 @@ import styled from 'styled-components';
 
 export const OrdersHero = styled.section`
   position: relative;
-  min-height: 226px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
-  padding: 30px;
-  color: #fff;
-  background:
-    radial-gradient(
-      circle at 91% 12%,
-      color-mix(in srgb, var(--a) 42%, transparent),
-      transparent 31%
-    ),
-    linear-gradient(118deg, #142722 0%, #17342c 52%, #54362b 100%);
-  box-shadow: 0 24px 58px rgba(27, 38, 33, 0.16);
+  padding: 16px 20px;
+  color: #1d2823;
+  background: transparent;
+  box-shadow: none;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
   align-items: stretch;
   gap: 28px;
   isolation: isolate;
@@ -63,7 +57,7 @@ export const HeroCopy = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    color: #ff9a68;
+    color: #c25130;
     font-size: 10px;
     font-weight: 850;
     letter-spacing: 0.13em;
@@ -78,7 +72,7 @@ export const HeroCopy = styled.div`
   h2 {
     max-width: 680px;
     margin: 12px 0 0;
-    font-size: clamp(28px, 3vw, 40px);
+    font-size: clamp(20px, 2.1vw, 27px);
     line-height: 1.04;
     letter-spacing: 0;
   }
@@ -86,7 +80,7 @@ export const HeroCopy = styled.div`
   p {
     max-width: 650px;
     margin: 12px 0 0;
-    color: rgba(255, 255, 255, 0.7);
+    color: #718079;
     font-size: 14px;
     line-height: 1.55;
   }
