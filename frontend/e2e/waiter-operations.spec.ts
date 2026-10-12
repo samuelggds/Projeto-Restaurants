@@ -876,14 +876,14 @@ test('reserva impede abertura e estado muda após consulta autorizada', async ({
   await expect(panel.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
 });
 
-test('navegação inferior mantém seis destinos em uma linha, inclusive em telas estreitas', async ({ page }) => {
+test('navegação inferior mantém os cinco destinos do garçom em uma linha', async ({ page }) => {
   await mockWaiterAndTableApi(page, initialState());
   for (const width of [320, 360, 390]) {
     await page.setViewportSize({ width, height: 780 });
     await page.goto('/waiter');
     const nav = page.getByRole('navigation', { name: 'Navegação móvel do garçom' });
     const items = nav.locator('button');
-    await expect(items).toHaveCount(6);
+    await expect(items).toHaveCount(5);
     const layout = await nav.evaluate((element) => {
       const navRect = element.getBoundingClientRect();
       const buttons = [...element.querySelectorAll('button')];
@@ -906,8 +906,9 @@ test('navegação inferior mantém seis destinos em uma linha, inclusive em tela
     expect(layout.maxRight).toBeLessThanOrEqual(layout.viewport + 1);
     await nav.getByRole('button', { name: 'Pagamentos' }).click();
     await expect(page.getByRole('heading', { name: 'Pagamentos', exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'Reservas' }).click();
-    await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Reservas' })).toHaveCount(0);
+    await nav.getByRole('button', { name: 'Chamados' }).click();
+    await expect(page.getByRole('heading', { name: 'Chamados', exact: true })).toBeVisible();
   }
 });
 

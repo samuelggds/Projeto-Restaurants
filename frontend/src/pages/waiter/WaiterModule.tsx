@@ -1,6 +1,5 @@
 import {
   BellRing,
-  CalendarDays,
   AlertTriangle,
   CircleHelp,
   ChevronLeft,
@@ -17,7 +16,6 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { WaiterProvider, type WaiterModuleProps as BaseProps } from './WaiterContext';
 import { useWaiterWorkspace } from './useWaiterWorkspace';
-import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import {
   WaiterCallsPage,
   WaiterDeliveriesPage,
@@ -35,7 +33,7 @@ import { getWaiterOperatingStatus } from './domain/restaurantOperatingStatus';
 import { badgeDisplayCount, waiterNavigationCounters } from './domain/waiterNavigationCounters';
 import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 
-export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments' | 'reservations';
+export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments';
 export interface WaiterModuleProps extends BaseProps {
   initialView?: WaiterView;
   onViewChange?: (view: WaiterView) => void;
@@ -117,10 +115,9 @@ function WaiterShell({
     pendingPayments: pendingPaymentCount,
   } = waiterNavigationCounters({ orders, calls, accounts });
   const nav = [
-    ['overview', 'Visão geral', 'Início', LayoutGrid, 0],
-    ['deliveries', 'Para entregar', 'Entregas', ShoppingBag, readyCount],
+    ['overview', 'Visão geral', 'Visão geral', LayoutGrid, 0],
+    ['deliveries', 'Para entregar', 'Para entregar', ShoppingBag, readyCount],
     ['tables', 'Mesas e QR Codes', 'Mesas', QrCode, 0],
-    ['reservations', 'Reservas', 'Reservas', CalendarDays, 0],
     ['calls', 'Chamados', 'Chamados', BellRing, activeCallCount],
     ['payments', 'Pagamentos', 'Pagamentos', CreditCard, pendingPaymentCount],
   ] as const;
@@ -128,7 +125,6 @@ function WaiterShell({
     overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
     deliveries: ['Pedidos para entregar', 'Veja os pedidos prontos e leve-os até a mesa'],
     tables: ['Mesas e QR Codes', 'Abra e feche as mesas cadastradas pelo administrador'],
-    reservations: ['Reservas', 'Controle reservas feitas por telefone ou WhatsApp'],
     calls: ['Chamados', 'Atenda rapidamente as solicitações do salão'],
     payments: ['Pagamentos', 'Confira contas e confirme recebimentos presenciais'],
     help: ['Central de ajuda', 'Manual visual da operação do garçom'],
@@ -315,9 +311,7 @@ function WaiterShell({
               )}
             </S.WorkspaceNotice>
           )}
-          {view === 'reservations' ? (
-            <TableReservationsPanel />
-          ) : view === 'help' ? (
+          {view === 'help' ? (
             <EmployeeHelpCenter
               role="waiter"
               onReport={employeeHelp?.onReport ?? reportEmployeeIssue}

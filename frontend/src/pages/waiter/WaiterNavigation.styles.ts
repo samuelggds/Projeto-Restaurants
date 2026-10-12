@@ -212,8 +212,8 @@ export const MobileNav = styled.nav`
       max(6px, env(safe-area-inset-bottom, 0px))
       max(5px, env(safe-area-inset-left, 0px));
     display: grid;
-    /* Six destinations: each must remain on the same row, including Pagamentos. */
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    /* Cinco destinos oficiais do garçom, sem Reservas ou uma aba genérica Pedidos. */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     grid-template-rows: minmax(0, 1fr);
     align-items: stretch;
     box-sizing: border-box;
