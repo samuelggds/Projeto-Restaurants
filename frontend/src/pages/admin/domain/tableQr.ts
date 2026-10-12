@@ -47,8 +47,15 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
   return {
     id,
     number,
-    seatCapacity: Number.isInteger(Number(table.seatCapacity)) && Number(table.seatCapacity) >= 1 ? Number(table.seatCapacity) : null,
-    restaurantId:
+    seatCapacity:
+      table.seatCapacity !== null &&
+      table.seatCapacity !== undefined &&
+      Number.isInteger(Number(table.seatCapacity)) &&
+      Number(table.seatCapacity) >= 1 &&
+      Number(table.seatCapacity) <= 50
+        ? Number(table.seatCapacity)
+        : null,
+    restaurantId,
     restaurantSlug,
     menuBaseUrl,
     token,
