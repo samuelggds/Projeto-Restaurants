@@ -47,7 +47,7 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
     const status: TableStatus =
       operational.status === 'OCCUPIED' || table.status === 'OCCUPIED' || Boolean(sessionStatus)
         ? 'OCCUPIED'
-        : 'FREE';
+        : operational.status === 'RESERVED' || table.status === 'RESERVED' ? 'RESERVED' : 'FREE';
     const id = String(table.id || '').trim();
     const number = Number(table.number);
     if (!id || !Number.isInteger(number) || number <= 0) return [];
@@ -58,6 +58,7 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
         number,
         seatCapacity: Number.isInteger(Number(table.seatCapacity)) && Number(table.seatCapacity) > 0 ? Number(table.seatCapacity) : null,
         status,
+        reservationStatusVerified: table.reservationStatusVerified === true,
         sessionStatus: status === 'OCCUPIED' ? sessionStatus || 'OPEN' : undefined,
         sessionId:
           status === 'OCCUPIED'

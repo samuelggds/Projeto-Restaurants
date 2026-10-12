@@ -36,3 +36,8 @@ describe('indicadores isolados por mesas disponíveis no restaurante', () => {
     expect(tableOverview(tables,newReservations,'ready',now)).toMatchObject({occupiedCount:1,reservedCount:0});
   });
 });
+
+it('mantém status de reserva quando agenda está indisponível mas lista foi verificada', () => {
+  const verified = tables.map((table,index) => ({...table, status: index === 1 ? 'RESERVED' as const : table.status, reservationStatusVerified: true}));
+  expect(tableOverview(verified,[],'unavailable',now)).toMatchObject({reservedCount:1,freeCount:1,occupiedCount:1,reservationStatus:'ready'});
+});
