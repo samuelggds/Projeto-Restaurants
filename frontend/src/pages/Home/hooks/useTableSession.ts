@@ -243,7 +243,7 @@ export function useTableSession(options: Options) {
       socket?.off('table-participant:ordering-updated', handleParticipantOrderingUpdate);
       disconnectTableSessionSocket();
     };
-  }, [activeSession, endSession, notify, route.mesaMode]);
+  }, [activeSession, endSession, notify, route.mesaMode, route.routeTableNumber]);
 
   return {
     ...route,

@@ -9,6 +9,7 @@ import {
   disconnectTableWaitingSocket,
 } from '../../Services/socketService';
 import type { StoredTableSession } from '../Home/domain/tableSession';
+import { resumeExistingTableSession, TemporaryTableResumeError } from './resumeExistingTableSession';
 import Home from '../Home/Home';
 import { TableAccessGate } from '../Home/components/TableAccessGate';
 
@@ -140,6 +141,12 @@ async function resolveAndJoinTable(input: {
   tableToken: string;
   participantIdentity: TableParticipantIdentity | null;
 }): Promise<JoinResolution> {
+  const resumed = await resumeExistingTableSession({
+    routeTableNumber: input.routeTableNumber,
+    restaurantId: input.queryRestaurantId,
+    restaurantSlug: input.normalizedSlug,
+  });
+  if (resumed) return resumed;
   const raw = (await tablesService.resolvePublicTable({
     tableNumber: input.routeTableNumber,
     tableToken: input.tableToken,
@@ -286,7 +293,8 @@ export default function DigitalMenuEntryPage({
         const completed = completedJoinRef.current;
         const completedMatchesRoute = Boolean(
           completed?.key === joinKey &&
-            completed.value.table.number === routeTableNumber &&
+            (completed.value.table.number === routeTableNumber ||
+              Number(completed.value.session.originalTableNumber) === routeTableNumber) &&
             (!queryRestaurantId ||
               completed.value.table.restaurantId === queryRestaurantId) &&
             (!normalizedSlug || completed.value.table.restaurantSlug === normalizedSlug),
@@ -349,8 +357,10 @@ export default function DigitalMenuEntryPage({
         if (error instanceof TableJoinFailure) {
           resolvedTable = error.resolvedTable;
         }
-        localStorage.removeItem('tableSession');
-        localStorage.removeItem('tableSessionToken');
+        if (!(error instanceof TemporaryTableResumeError)) {
+          localStorage.removeItem('tableSession');
+          localStorage.removeItem('tableSessionToken');
+        }
         const failure = apiError(error);
         if (
           error instanceof TableJoinFailure &&
