@@ -1046,6 +1046,11 @@ export const TableGrid = styled.div`
   }
 `;
 export const TableCard = styled.article`
+  &.selected {border-color:#315a4c;box-shadow:inset 0 0 0 1px #315a4c;}
+  .select-table {padding:2px;border:0;background:transparent;display:flex;justify-content:center;
+    cursor:pointer;min-height:58px;}
+  .select-table:focus-visible {outline:2px solid var(--brand);outline-offset:2px;border-radius:8px;}
+  
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;

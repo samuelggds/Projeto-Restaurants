@@ -37,6 +37,7 @@ export interface Order {
 export interface RestaurantTable {
   id: string;
   number: number;
+  seatCapacity?: number | null;
   status: TableStatus;
   sessionStatus?: TableSessionStatus;
   sessionId?: string;

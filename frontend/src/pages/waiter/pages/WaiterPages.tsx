@@ -22,6 +22,7 @@ import {
   brl,
 } from '../components/Shared';
 import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
+import { TableSeatDiagram } from '../components/TableSeatDiagram';
 import { WAITER_LIST_BATCH_SIZE, WaiterListControls } from '../components/WaiterListControls';
 import * as S from '../Waiter.styles';
 
@@ -523,6 +524,7 @@ export function WaiterTablesPage() {
   const [transferDestination, setTransferDestination] = useState('');
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const confirmTransfer = async () => {
     if (!transferSource?.sessionId || !transferDestination || transferBusy) return;
     setTransferBusy(true);
@@ -625,13 +627,19 @@ export function WaiterTablesPage() {
           return (
             <S.TableCard
               key={table.id}
-              className={table.sessionStatus === 'CLOSING_REQUESTED' ? 'closing' : undefined}
+              className={[table.sessionStatus === 'CLOSING_REQUESTED' ? 'closing' : '', selectedTableId === table.id ? 'selected' : ''].filter(Boolean).join(' ')}
             >
               <header>
                 <b>Mesa {String(table.number).padStart(2, '0')}</b>
                 <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
               </header>
+              <button type="button" className="select-table" aria-label={`Selecionar Mesa ${table.number}`}
+                aria-pressed={selectedTableId === table.id} onClick={() => setSelectedTableId(table.id)}>
+                <TableSeatDiagram number={table.number} capacity={table.seatCapacity}
+                  tone={table.status === 'OCCUPIED' ? 'busy' : 'free'} />
+              </button>
               <div className="meta">
+                <span>{table.seatCapacity ? `${table.seatCapacity} lugares` : 'Lugares não configurados'}</span>
                 <span>
                   <Users size={14} /> {table.guests || 0} cliente(s)
                 </span>

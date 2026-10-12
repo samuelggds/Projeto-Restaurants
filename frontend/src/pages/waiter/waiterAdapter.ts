@@ -56,6 +56,7 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
       {
         id,
         number,
+        seatCapacity: Number.isInteger(Number(table.seatCapacity)) && Number(table.seatCapacity) > 0 ? Number(table.seatCapacity) : null,
         status,
         sessionStatus: status === 'OCCUPIED' ? sessionStatus || 'OPEN' : undefined,
         sessionId:
