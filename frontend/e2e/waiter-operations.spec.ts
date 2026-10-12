@@ -876,6 +876,41 @@ test('reserva impede abertura e estado muda após consulta autorizada', async ({
   await expect(panel.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
 });
 
+test('navegação inferior mantém seis destinos em uma linha, inclusive em telas estreitas', async ({ page }) => {
+  await mockWaiterAndTableApi(page, initialState());
+  for (const width of [320, 360, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.goto('/waiter');
+    const nav = page.getByRole('navigation', { name: 'Navegação móvel do garçom' });
+    const items = nav.locator('button');
+    await expect(items).toHaveCount(6);
+    const layout = await nav.evaluate((element) => {
+      const navRect = element.getBoundingClientRect();
+      const buttons = [...element.querySelectorAll('button')];
+      const bounds = buttons.map((button) => button.getBoundingClientRect());
+      return {
+        viewport: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        navHeight: navRect.height,
+        buttonHeights: bounds.map((rect) => rect.height),
+        tops: bounds.map((rect) => rect.top),
+        minLeft: Math.min(...bounds.map((rect) => rect.left)),
+        maxRight: Math.max(...bounds.map((rect) => rect.right)),
+      };
+    });
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewport + 1);
+    expect(layout.navHeight).toBeLessThanOrEqual(90);
+    expect(Math.max(...layout.tops) - Math.min(...layout.tops)).toBeLessThanOrEqual(1);
+    expect(Math.min(...layout.buttonHeights)).toBeGreaterThanOrEqual(44);
+    expect(layout.minLeft).toBeGreaterThanOrEqual(0);
+    expect(layout.maxRight).toBeLessThanOrEqual(layout.viewport + 1);
+    await nav.getByRole('button', { name: 'Pagamentos' }).click();
+    await expect(page.getByRole('heading', { name: 'Pagamentos', exact: true })).toBeVisible();
+    await nav.getByRole('button', { name: 'Reservas' }).click();
+    await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible();
+  }
+});
+
 test('todas as abas do garçom permanecem acessíveis e sem overflow em celular', async ({
   page,
 }) => {

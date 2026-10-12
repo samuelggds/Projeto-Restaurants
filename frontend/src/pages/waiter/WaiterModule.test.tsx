@@ -105,6 +105,28 @@ describe('WaiterModule navigation and loading states', () => {
     expect(container.textContent).not.toContain('Os dados do salão ainda não estão disponíveis.');
   });
 
+  it('mantém as seis opções na navegação inferior sem perder Pagamentos', () => {
+    render();
+    const navigation = container.querySelector(
+      '[aria-label="Navegação móvel do garçom"]',
+    ) as HTMLElement;
+    const buttons = [...navigation.querySelectorAll('button')];
+    expect(buttons).toHaveLength(6);
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Visão geral',
+      'Para entregar',
+      'Mesas e QR Codes',
+      'Reservas',
+      'Chamados',
+      'Pagamentos',
+    ]);
+    expect(buttons.every((button) => button.querySelector('.mobile-nav-label'))).toBe(true);
+    expect(buttons[0].getAttribute('aria-current')).toBe('page');
+    act(() => buttons[5].click());
+    expect(buttons[5].getAttribute('aria-current')).toBe('page');
+    expect(container.querySelector('h1')?.textContent).toBe('Pagamentos');
+  });
+
   it('mantém o foco no menu móvel, fecha com Escape e devolve o foco ao botão de origem', () => {
     render();
     const trigger = container.querySelector(

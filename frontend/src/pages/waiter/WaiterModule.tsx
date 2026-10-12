@@ -225,11 +225,11 @@ function WaiterShell({
             aria-current={view === id ? 'page' : undefined}
             onClick={() => navigate(id)}
           >
-            <span>
+            <span className="mobile-nav-icon" aria-hidden="true">
               <Icon />
               {count > 0 && <i>{count}</i>}
             </span>
-            {mobileLabel}
+            <span className="mobile-nav-label">{mobileLabel}</span>
           </button>
         ))}
       </N.MobileNav>

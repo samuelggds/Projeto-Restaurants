@@ -208,27 +208,37 @@ export const MobileNav = styled.nav`
     inset: auto 0 0;
     z-index: 80;
     height: calc(72px + env(safe-area-inset-bottom));
-    padding: 6px 5px max(6px, env(safe-area-inset-bottom));
+    padding: 6px max(5px, env(safe-area-inset-right, 0px))
+      max(6px, env(safe-area-inset-bottom, 0px))
+      max(5px, env(safe-area-inset-left, 0px));
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    /* Six destinations: each must remain on the same row, including Pagamentos. */
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    box-sizing: border-box;
     border-top: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 -8px 24px rgba(23, 34, 30, 0.08);
 
     button {
       min-width: 0;
-      padding: 0 2px;
+      min-height: 48px;
+      padding: 5px 1px;
       border: 0;
-      border-radius: 7px;
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 3px;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      overflow: hidden;
       color: #6d7c75;
       background: transparent;
       font: inherit;
-      font-size: 8px;
+      font-size: clamp(8px, 2.4vw, 10px);
       font-weight: 750;
+      line-height: 1.2;
     }
 
     button.active {
@@ -236,14 +246,24 @@ export const MobileNav = styled.nav`
       background: color-mix(in srgb, var(--brand) 9%, #fff);
     }
 
-    button > span {
+    .mobile-nav-icon {
       position: relative;
+      flex: 0 0 auto;
       display: grid;
       place-items: center;
     }
 
+    .mobile-nav-label {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     svg {
       width: 19px;
+      height: 19px;
     }
 
     i {
