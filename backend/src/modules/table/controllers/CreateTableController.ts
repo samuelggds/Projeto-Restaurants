@@ -6,10 +6,11 @@ class CreateTableController {
     try {
       const restaurantId = req.user.restaurantId;
 
-      const { number } = req.body;
+      const { number, seatCapacity } = req.body;
 
       const table = await createTableService.execute({
         number,
+        seatCapacity,
         restaurantId,
       });
 
