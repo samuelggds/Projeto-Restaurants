@@ -138,6 +138,19 @@ class OpenTableSessionService {
     try {
       session = await prisma.$transaction(
         async (tx) => {
+          const now = new Date();
+          const upcomingReservation = await tx.tableReservation.findFirst({
+            where: {
+              restaurantId: normalizedRestaurantId,
+              tableId: normalizedTableId,
+              status: 'CONFIRMED',
+              startsAt: { lt: expiresAt },
+              endsAt: { gt: now },
+            },
+          });
+          if (upcomingReservation) {
+            throw new Error('Mesa reservada. Escolha outra mesa ou realize o check-in autorizado.');
+          }
           const created = await tableSessionRepository.create(
             {
               restaurantId: normalizedRestaurantId,
