@@ -47,7 +47,7 @@ const MobileLayer = styled.div`
   @media(max-width:760px){
     display:flex;position:fixed;inset:0;z-index:1200;background:rgba(15,23,20,.48);
     align-items:flex-end;justify-content:center;padding:10px;
-    >aside{width:100%;max-width:540px;max-height:91dvh;overflow-y:auto;overscroll-behavior:contain;border-radius:18px 18px 12px 12px}
+    >div{width:100%;max-width:540px;max-height:91dvh;overflow-y:auto;overscroll-behavior:contain;border-radius:18px 18px 12px 12px}
   }
 `;
 

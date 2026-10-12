@@ -286,6 +286,8 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Abra a mesa para iniciar o atendimento.');
     expect(container.textContent).toContain('Ao fechar a mesa, os acessos dos clientes são encerrados.');
     expect(container.textContent).toContain('ABERTA');
+    expect(container.textContent).not.toContain('Fechar mesa');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     expect(container.textContent).toContain('Fechar mesa');
     expect(container.textContent).not.toContain('Visualizar QR Code');
     expect(container.textContent).not.toContain('Imprimir QR');
@@ -345,7 +347,6 @@ describe('waiter operational pages', () => {
     await act(async () => finalize?.click());
 
     expect(container.textContent).toContain('Consultar pedidos e pagamentos');
-    expect(container.textContent).toContain('Pedidos para entregar');
     expect(container.textContent).toContain('Pedidos para entregar');
   });
 
