@@ -55,9 +55,9 @@ const statusLabels: Record<string,string> = {
   PENDENTE:'Pendente',PREPARANDO:'Em preparo',PRONTO:'Pronto',ENTREGUE:'Entregue',
   CANCELADO:'Cancelado',SAIU_PARA_ENTREGA:'Em entrega',
 };
-function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAction}:{
+function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved}:{
   table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
-  onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;
+  onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved:boolean;
 }) {
   const {tableAccountClient,tableAccountRefreshKey} = useWaiterWorkspace();
   const [snapshot,setSnapshot]=useState<WaiterTableAccountSnapshot|null>(null);
@@ -81,9 +81,9 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
   return <Panel aria-label={`Atendimento da Mesa ${table.number}`}>
     <div className="head">
       <div className="eyebrow"><span>ATENDIMENTO</span><button className="close" aria-label="Fechar detalhes da mesa" onClick={onClose}><X size={17}/></button></div>
-      <div className="identity"><TableSeatDiagram number={table.number} capacity={table.seatCapacity} tone={occupied?'busy':'free'}/>
+      <div className="identity"><TableSeatDiagram number={table.number} capacity={table.seatCapacity} tone={occupied?'busy':reserved?'reserved':'free'}/>
         <div><h2>Mesa {String(table.number).padStart(2,'0')}</h2>
-          <span className={`tag ${occupied?'':'free'}`}>{table.sessionStatus==='CLOSING_REQUESTED'?'Conta solicitada':occupied?'Ocupada':'Livre'}</span></div>
+          <span className={`tag ${occupied?'':'free'}`}>{table.sessionStatus==='CLOSING_REQUESTED'?'Conta solicitada':occupied?'Ocupada':reserved?'Reservada':'Livre'}</span></div>
       </div>
       <p className="context">{table.seatCapacity?`${table.seatCapacity} lugares`:'Lugares não configurados'} · {table.guests} cliente(s)</p>
       {occupied&&<div className="meta"><span>{snapshot?'Comanda ativa':'Sessão em atendimento'}</span>
@@ -112,13 +112,13 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
         <button className="danger" type="button" onClick={()=>onNavigate('payments')}><ReceiptText size={16}/>Conferir fechamento</button>
         <button className="subtle" type="button" onClick={onTransfer} disabled={!table.sessionId}><ArrowRightLeft size={16}/>Transferir mesa</button>
         {sessionAction}
-      </>:<><p className="context">Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.</p>{sessionAction}</>}
+      </>:<><p className="context">{reserved?'Mesa reservada. Faça check-in autorizado na aba Reservas para receber os clientes.':'Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.'}</p>{!reserved&&sessionAction}</>}
     </footer>
   </Panel>;
 }
-export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,sessionAction}:{
+export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved=false}:{
  table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
- onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;
+ onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved?:boolean;
 }) {
   const [mobile,setMobile]=useState(false);
   useEffect(()=>{
@@ -134,7 +134,7 @@ export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigat
     return ()=>{document.body.style.overflow=old;document.removeEventListener('keydown',key);};
   },[mobile,onClose]);
   const contents=<PanelContents table={table} onClose={onClose} onAccount={onAccount}
-    onTransfer={onTransfer} onNavigate={onNavigate} sessionAction={sessionAction}/>;
+    onTransfer={onTransfer} onNavigate={onNavigate} sessionAction={sessionAction} reserved={reserved}/>;
   return mobile ? <MobileLayer onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
     <div role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
       {contents}
