@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ExternalLink,
   HelpCircle,
+  Headphones,
   Handshake,
   LayoutGrid,
   LogOut,
@@ -60,6 +61,7 @@ import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
 import { useAdminUnreadIssues } from './hooks/useAdminUnreadIssues';
+import { useAdminOrderSupportCount, formatAdminSupportBadge } from './hooks/useAdminOrderSupportCount';
 import {
   UnsavedSettingsDialog,
   type UnsavedSettingsDialogPhase,
@@ -98,6 +100,12 @@ const operationNavigationItems: AdminNavigationItem[] = [
     label: 'Pedidos',
     mobileLabel: 'Pedidos',
     icon: ShoppingBag,
+  },
+  {
+    area: 'support',
+    label: 'Suporte dos pedidos',
+    mobileLabel: 'Suporte',
+    icon: Headphones,
   },
   {
     area: 'catalog',
@@ -141,7 +149,14 @@ const managementNavigationItems: AdminNavigationItem[] = [
   },
 ];
 
-const mobilePrimaryNavigationItems = operationNavigationItems.slice(0, 4);
+// The mobile bar keeps support visible; Customers is reachable through "Mais".
+const mobilePrimaryNavigationItems = operationNavigationItems.filter(
+  (item) => item.area !== 'customers',
+);
+const mobileMoreNavigationItems = [
+  ...operationNavigationItems.filter((item) => item.area === 'customers'),
+  ...managementNavigationItems,
+];
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -256,6 +271,11 @@ export function AdminPage({
   const [settingsSearch, setSettingsSearch] = useState('');
   const { unreadIssues: unreadEmployeeIssues, clearUnreadIssues: clearUnreadEmployeeIssues } =
     useAdminUnreadIssues(area === 'help');
+  const {
+    count: openSupportCount,
+    syncError: supportCountSyncError,
+    refresh: refreshSupportCount,
+  } = useAdminOrderSupportCount();
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [catalogImportOpen, setCatalogImportOpen] = useState(false);
@@ -307,6 +327,7 @@ export function AdminPage({
   const areaTitles: Record<Exclude<AdminSection, 'settings' | 'help'>, string> = {
     overview: 'Visão geral',
     orders: 'Pedidos',
+    support: 'Suporte dos pedidos',
     catalog: 'Cardápio',
     customers: 'Clientes',
     subscriptions: 'Cobranças e assinaturas',
@@ -721,6 +742,16 @@ export function AdminPage({
                 >
                   <Icon />
                   {item.label}
+                  {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
+                    <span className="support-badge" data-testid="admin-desktop-support-count"
+                      title={`${openSupportCount} atendimentos abertos`}>
+                      {formatAdminSupportBadge(openSupportCount)}
+                    </span>
+                  )}
+                  {item.area === 'support' && supportCountSyncError && (
+                    <span className="support-sync-error" aria-label="Falha ao sincronizar o contador"
+                      title="Não foi possível atualizar o contador de suporte">!</span>
+                  )}
                 </button>
               );
             })}
@@ -807,6 +838,8 @@ export function AdminPage({
             <p>
               {area === 'overview'
                 ? `Acompanhe e gerencie a operação do ${settings.restaurantName} em um só lugar.`
+                : area === 'support'
+                  ? 'Atenda clientes, acompanhe conversas e resolva solicitações dos pedidos.'
                 : area === 'employees'
                 ? 'Somente o administrador cria e edita funcionários.'
                 : area === 'subscriptions'
@@ -878,6 +911,7 @@ export function AdminPage({
             area === 'catalog' ||
             area === 'overview' ||
             area === 'orders' ||
+            area === 'support' ||
             area === 'customers' ||
             area === 'employees' ||
             area === 'subscriptions' ||
@@ -1040,6 +1074,8 @@ export function AdminPage({
                 ingredients={ingredients}
                 restaurantName={settings.restaurantName}
                 operationalSettings={settings}
+                openSupportCount={openSupportCount}
+                onSupportUpdated={refreshSupportCount}
                 onNavigate={(destination) => void changeArea(destination)}
                 onUpdateOrderStatus={async (id, status) => {
                   await onUpdateOrderStatus?.(id, status);
@@ -1101,6 +1137,14 @@ export function AdminPage({
             >
               <span aria-hidden="true">
                 <Icon />
+                {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
+                  <i className="support-badge" data-testid="admin-mobile-support-count">
+                    {formatAdminSupportBadge(openSupportCount)}
+                  </i>
+                )}
+                {item.area === 'support' && supportCountSyncError && (
+                  <i className="support-sync-error">!</i>
+                )}
               </span>
               {item.mobileLabel}
             </button>
@@ -1109,7 +1153,7 @@ export function AdminPage({
         <button
           type="button"
           className={
-            managementNavigationItems.some((item) => item.area === area) || area === 'help'
+            mobileMoreNavigationItems.some((item) => item.area === area) || area === 'help'
               ? 'active'
               : ''
           }
@@ -1145,7 +1189,7 @@ export function AdminPage({
                 <small>Gestão e configurações</small>
               </span>
             </header>
-            {managementNavigationItems.map((item) => {
+            {mobileMoreNavigationItems.map((item) => {
               const Icon = item.icon;
               const active = area === item.area;
               return (

@@ -16,7 +16,7 @@ import { hasPremiumAiAccess } from '../domain/aiPlanAccess';
 import { AdminOverviewAiSummaryPortal } from './AdminOverviewAiSummaryPortal';
 
 const AREA_LABELS: Record<string, string> = {
-  overview: 'Visão geral', orders: 'Pedidos', catalog: 'Cardápio', customers: 'Clientes',
+  overview: 'Visão geral', orders: 'Pedidos', support: 'Suporte dos pedidos', catalog: 'Cardápio', customers: 'Clientes',
   employees: 'Funcionários', subscriptions: 'Cobranças e assinaturas', help: 'Central de ajuda',
 };
 const SETTING_LABELS: Record<string, string> = {
@@ -31,6 +31,7 @@ const SETTING_LABELS: Record<string, string> = {
 const TOUR_AREAS = [
   { id: 'overview', label: 'Visão geral', description: 'Indicadores, vendas, clientes e atalhos do painel.' },
   { id: 'orders', label: 'Pedidos', description: 'Fila, detalhes, pagamentos, status, cancelamentos e estornos.' },
+  { id: 'support', label: 'Suporte dos pedidos', description: 'Conversas de clientes, respostas, histórico e resolução de atendimentos.' },
   { id: 'catalog', label: 'Cardápio', description: 'Produtos, categorias, estoque, opções e importação.' },
   { id: 'customers', label: 'Clientes', description: 'Busca, histórico, valores e última compra.' },
   { id: 'employees', label: 'Funcionários', description: 'Equipe, funções, criação, edição e status dos acessos.' },
@@ -54,7 +55,7 @@ function findButtonByLabel(label: string) {
 
 function tagTourTargets() {
   const areaTargets: Record<string, string> = {
-    'Visão geral': 'nav-overview', Pedidos: 'nav-orders', Cardápio: 'nav-catalog', Clientes: 'nav-customers',
+    'Visão geral': 'nav-overview', Pedidos: 'nav-orders', 'Suporte dos pedidos': 'nav-support', Cardápio: 'nav-catalog', Clientes: 'nav-customers',
     Funcionários: 'nav-employees', 'Cobranças e assinaturas': 'nav-subscriptions', Configurações: 'nav-settings',
     'Central de ajuda': 'nav-help',
   };

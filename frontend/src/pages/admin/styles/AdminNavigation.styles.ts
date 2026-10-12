@@ -94,6 +94,22 @@ export const MainNav = styled.nav`
     box-shadow: inset 3px 0 #ff4b4b;
   }
   button:focus-visible { outline: 2px solid #ff7777; outline-offset: -2px; }
+  .support-badge, .support-sync-error {
+    min-width: 21px;
+    height: 21px;
+    margin-left: auto;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: #c45117;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .support-sync-error { min-width: 18px; height: 18px; padding: 0 4px; background: #6c655f; }
   svg {
     width: 19px;
     flex: 0 0 auto;
@@ -286,6 +302,26 @@ export const MobileBottomNav = styled.nav`
       border-radius: 50%;
       background: var(--brand);
     }
+    button > span i.support-badge, button > span i.support-sync-error {
+      top: -7px;
+      right: -13px;
+      min-width: 18px;
+      width: auto;
+      height: 18px;
+      padding: 0 4px;
+      border: 2px solid #fff;
+      border-radius: 999px;
+      background: #c45117;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 9px;
+      font-style: normal;
+      font-weight: 850;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    button > span i.support-sync-error { background: #6c655f; }
     svg {
       width: 19px;
     }

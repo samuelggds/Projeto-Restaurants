@@ -30,6 +30,8 @@ type Props = {
   ingredients: AdminIngredient[];
   restaurantName: string;
   operationalSettings?: Pick<AdminSettings, 'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'>;
+  openSupportCount: number | null;
+  onSupportUpdated: () => void;
   onNavigate: (area: 'orders' | 'catalog' | 'customers') => void;
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
   onConfirmOrderPayment: (id: number) => Promise<void>;
@@ -67,12 +69,18 @@ export function AdminManagement(props: Props) {
         onCancelOrder={props.onCancelOrder}
       />
     );
+  if (props.area === 'support')
+    return (
+      <Suspense fallback={<p role="status">Carregando atendimentos...</p>}>
+        <AdminOrderSupportInbox
+          openCount={props.openSupportCount}
+          onSupportUpdated={props.onSupportUpdated}
+        />
+      </Suspense>
+    );
   if (props.area === 'orders')
     return (
       <>
-        <Suspense fallback={<p role="status">Carregando suporte dos pedidos...</p>}>
-          <AdminOrderSupportInbox />
-        </Suspense>
         <AdminPendingPayments
           orders={props.orders}
           money={money}
