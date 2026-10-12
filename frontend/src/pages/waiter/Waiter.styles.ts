@@ -1301,3 +1301,22 @@ export const TransferDialog = styled.section`
     .transfer-source{flex-wrap:wrap;}
   }
 `;
+
+export const TableLayout = styled.div<{ $selected: boolean }>`
+  display:grid;grid-template-columns:minmax(0,1fr) ${p=>p.$selected?'minmax(290px,350px)':'0px'};
+  gap:${p=>p.$selected?'18px':'0'};align-items:start;
+  >${TableGrid}{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .desktop-table-details{min-width:0}
+  @media(max-width:1450px){
+    >${TableGrid}{grid-template-columns:repeat(3,minmax(0,1fr));}
+  }
+  @media(max-width:1150px){
+    >${TableGrid}{grid-template-columns:repeat(2,minmax(0,1fr));}
+  }
+  @media(max-width:760px){
+    display:block;
+    >${TableGrid}{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+    .desktop-table-details{display:none;}
+  }
+  @media(max-width:380px){>${TableGrid}{grid-template-columns:1fr;}}
+`;

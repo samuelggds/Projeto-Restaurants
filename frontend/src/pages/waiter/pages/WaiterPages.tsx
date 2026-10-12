@@ -23,6 +23,7 @@ import {
 } from '../components/Shared';
 import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
 import { TableSeatDiagram } from '../components/TableSeatDiagram';
+import { SelectedTablePanel } from '../components/SelectedTablePanel';
 import { WAITER_LIST_BATCH_SIZE, WaiterListControls } from '../components/WaiterListControls';
 import * as S from '../Waiter.styles';
 
@@ -515,7 +516,7 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
   );
 }
 
-export function WaiterTablesPage() {
+export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|'payments')=>void}={}) {
   const { tables, accounts, transferTable } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatus | 'ALL' | 'CLOSING'>('ALL');
@@ -525,6 +526,11 @@ export function WaiterTablesPage() {
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const selectedTable=tables.find(table=>table.id===selectedTableId)||null;
+  const [panelCloseKey,setPanelCloseKey]=useState(0);
+  const showAccount=()=>{if(selectedTable){setAccountTable(selectedTable);}};
+  const beginTransfer=()=>{if(selectedTable){setTransferSource(selectedTable);setTransferDestination('');setTransferError('');}};
+
   const confirmTransfer = async () => {
     if (!transferSource?.sessionId || !transferDestination || transferBusy) return;
     setTransferBusy(true);
@@ -618,7 +624,8 @@ export function WaiterTablesPage() {
           },
         ]}
       />
-      <S.TableGrid>
+      <S.TableLayout $selected={Boolean(selectedTable)}>
+        <S.TableGrid>
         {visible.slice(0, visibleCount).map((table) => {
           const account = accounts.find(
             (item) =>
@@ -634,7 +641,7 @@ export function WaiterTablesPage() {
                 <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
               </header>
               <button type="button" className="select-table" aria-label={`Selecionar Mesa ${table.number}`}
-                aria-pressed={selectedTableId === table.id} onClick={() => setSelectedTableId(table.id)}>
+                aria-pressed={selectedTableId === table.id} onClick={() => {setSelectedTableId(table.id);setPanelCloseKey(current=>current+1);}}>
                 <TableSeatDiagram number={table.number} capacity={table.seatCapacity}
                   tone={table.status === 'OCCUPIED' ? 'busy' : 'free'} />
               </button>
@@ -665,35 +672,17 @@ export function WaiterTablesPage() {
                   </span>
                 )}
               </div>
-              <div className="actions">
-                {table.status === 'OCCUPIED' && (
-                  <button
-                    type="button"
-                    className="view-account"
-                    disabled={!table.sessionPublicId}
-                    title={
-                      table.sessionPublicId
-                        ? 'Abrir conta e pagamentos desta mesa'
-                        : 'Atualize os dados para carregar a conta desta mesa'
-                    }
-                    onClick={() => setAccountTable(table)}
-                  >
-                    <ReceiptText size={14} /> Ver conta e pagamentos
-                  </button>
-                )}
-                {table.status === 'OCCUPIED' && table.sessionId && (
-                  <button type="button" className="view-account" onClick={() => {
-                    setTransferSource(table); setTransferDestination(''); setTransferError('');
-                  }}>
-                    <ArrowRightLeft size={14} aria-hidden="true" /> Transferir mesa
-                  </button>
-                )}
-                <TableSessionButton table={table} />
-              </div>
+
             </S.TableCard>
           );
         })}
       </S.TableGrid>
+      {selectedTable&&<SelectedTablePanel key={`${selectedTable.sessionPublicId||selectedTable.id}-${panelCloseKey}`}
+        table={selectedTable} onClose={()=>setSelectedTableId(null)}
+        onAccount={showAccount} onTransfer={beginTransfer}
+        onNavigate={view=>onNavigate?.(view)}
+        onCloseTable={()=>setSelectedTableId(null)} />}
+      </S.TableLayout>
       {!visible.length && <Empty>Nenhuma mesa encontrada com estes filtros.</Empty>}
       <WaiterListControls
         visibleCount={Math.min(visibleCount, visible.length)}
