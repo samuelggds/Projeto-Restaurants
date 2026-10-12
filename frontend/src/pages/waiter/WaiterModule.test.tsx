@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WaiterModule, type WaiterModuleProps } from './WaiterModule';
+import { AppDialogProvider } from '../../components/AppDialog/AppDialogProvider';
 
 vi.mock('../../features/employee-help/useEmployeeIssueNotifications', () => ({
   useEmployeeIssueNotifications: vi.fn(),
@@ -42,7 +43,11 @@ describe('WaiterModule navigation and loading states', () => {
   });
 
   function render(overrides: Partial<WaiterModuleProps> = {}) {
-    act(() => root.render(<WaiterModule {...props} {...overrides} />));
+    act(() => root.render(
+      <AppDialogProvider>
+        <WaiterModule {...props} {...overrides} />
+      </AppDialogProvider>,
+    ));
   }
 
   it('distingue carregamento inicial e falha de um salão vazio confirmado', () => {

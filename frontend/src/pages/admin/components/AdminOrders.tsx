@@ -562,6 +562,7 @@ export function AdminOrders({
             <nav className="order-compact-list" aria-label="Selecionar pedido para detalhes">
               {displayedOrders.map((item) => (
                 <button key={item.numericId} type="button"
+                  aria-label={`Ver detalhes do pedido ${item.id} de ${item.customerName}`}
                   className={(selectedOrderId ?? displayedOrders[0]?.numericId) === item.numericId ? 'selected' : ''}
                   aria-current={(selectedOrderId ?? displayedOrders[0]?.numericId) === item.numericId ? 'true' : undefined}
                   onClick={() => setSelectedOrderId(item.numericId)}>

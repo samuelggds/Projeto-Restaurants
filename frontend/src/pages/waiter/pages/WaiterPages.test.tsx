@@ -289,9 +289,9 @@ describe('waiter operational pages', () => {
       }],
     });
     expect(container.textContent).toContain('0 cliente(s)');
-    expect(container.textContent).toContain('R$ 0,00');
+    expect(container.textContent).toMatch(/R\$\s0,00/u);
     expect(container.textContent).not.toContain('Saldo em aberto');
-    expect(container.textContent).not.toContain('R$ 8,60');
+    expect(container.textContent).not.toMatch(/R\$\s8,60/u);
   });
 
   it('mantém mesa reservada visível quando agenda detalhada está indisponível', async () => {

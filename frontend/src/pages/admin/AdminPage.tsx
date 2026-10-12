@@ -5,7 +5,6 @@ import {
   ExternalLink,
   HelpCircle,
   LogOut,
-  Menu,
   MoreHorizontal,
   Plus,
   Search as SearchIcon,
