@@ -114,6 +114,7 @@ describe('waiter operational pages', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(tableAccountService.getAdminSnapshot).mockResolvedValue({summary:{consumedCents:5800,netPaidCents:0,processingCents:0,remainingCents:5800},participants:[],items:[],paymentIntents:[]});
     dialogMocks.confirmDialog.mockResolvedValue(true);
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -438,7 +439,7 @@ describe('waiter operational pages', () => {
     );
     expect(tableAccountService.confirmManualPayment).toHaveBeenCalledWith('manual-payment');
     expect(tableAccountService.confirmManualPayment).not.toHaveBeenCalledWith('online-payment');
-    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(2);
+    expect(tableAccountService.getAdminSnapshot).toHaveBeenCalledTimes(3);
   });
 
   it('organiza dinheiro em fila e registra recebimento sem ação administrativa de PAID', async () => {
