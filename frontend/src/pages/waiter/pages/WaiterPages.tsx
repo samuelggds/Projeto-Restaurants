@@ -686,6 +686,7 @@ export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|
       {selectedTable&&<SelectedTablePanel key={`${selectedTable.sessionPublicId||selectedTable.id}-${panelCloseKey}`}
         table={selectedTable} onClose={()=>setSelectedTableId(null)}
         reserved={tableOperationalState(selectedTable, overview.upcoming) === 'RESERVED'}
+        availabilityUnknown={unavailable}
         onAccount={showAccount} onTransfer={beginTransfer}
         onNavigate={view=>onNavigate?.(view)}
         sessionAction={<TableSessionButton table={selectedTable}/>} />}
