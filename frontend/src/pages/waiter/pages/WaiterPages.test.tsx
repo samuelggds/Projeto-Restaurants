@@ -217,6 +217,7 @@ describe('waiter operational pages', () => {
         </WaiterProvider>,
       ),
     );
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const open = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Abrir mesa',
     );
@@ -238,6 +239,7 @@ describe('waiter operational pages', () => {
         </WaiterProvider>,
       ),
     );
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const close = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Fechar mesa',
     );
@@ -248,6 +250,7 @@ describe('waiter operational pages', () => {
 
   it('não simula abertura quando o endpoint não foi conectado', async () => {
     renderPage(<WaiterTablesPage />, { tables: [freeTable] });
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const open = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Abrir mesa',
     );
@@ -308,6 +311,7 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('novos pedidos estão bloqueados');
     expect(container.textContent).not.toContain('Abra a mesa antes');
 
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const finalize = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Finalizar mesa',
     );
@@ -334,14 +338,15 @@ describe('waiter operational pages', () => {
       ),
     );
 
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const finalize = [...container.querySelectorAll('button')].find(
       (button) => button.textContent?.trim() === 'Finalizar mesa',
     );
     await act(async () => finalize?.click());
 
-    expect(container.textContent).toContain('Ver conta e pagamentos');
-    expect(container.textContent).toContain('Para entregar');
-    expect(container.textContent).toContain('Entregue à mesa');
+    expect(container.textContent).toContain('Consultar pedidos e pagamentos');
+    expect(container.textContent).toContain('Pedidos para entregar');
+    expect(container.textContent).toContain('Pedidos para entregar');
   });
 
   it('mostra a conta por cliente e permite ao garçom apenas registrar dinheiro recebido', async () => {
@@ -408,8 +413,9 @@ describe('waiter operational pages', () => {
     vi.mocked(tableAccountService.confirmManualPayment).mockResolvedValue({});
 
     renderPage(<WaiterTablesPage />);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Selecionar Mesa 12"]')?.click());
     const openAccount = [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Ver conta e pagamentos'),
+      button.textContent?.includes('Consultar pedidos e pagamentos'),
     );
     await act(async () => openAccount?.click());
 
