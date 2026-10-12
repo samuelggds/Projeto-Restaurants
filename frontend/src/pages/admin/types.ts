@@ -9,7 +9,8 @@ export type AdminSection =
   | 'managed-service'
   | 'help'
   | 'settings'
-  | 'employees';
+  | 'employees'
+  | 'reservations';
 export type SettingsSection =
   | 'brand'
   | 'business'

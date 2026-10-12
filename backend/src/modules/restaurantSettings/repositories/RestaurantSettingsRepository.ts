@@ -203,6 +203,7 @@ class RestaurantSettingsRepository {
         openFinancePixEnabled: true,
         acceptsCard: true,
         tableOrderingEnabled: true,
+        tableReservationsEnabled: true,
         waiterCallEnabled: true,
         billRequestEnabled: true,
         pixProvider: true,

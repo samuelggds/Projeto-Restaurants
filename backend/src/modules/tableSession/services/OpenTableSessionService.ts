@@ -7,6 +7,7 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { Prisma } from '@prisma/client';
 import tableWaiterAssignmentService from '../../employeeCompensation/services/TableWaiterAssignmentService.js';
 
@@ -25,13 +26,15 @@ type OpenTableSessionPayload = {
   tableId: number | string;
   restaurantId: number;
   openedById: number | string | null;
+  reservationId?: number;
 };
 
 class OpenTableSessionService {
-  async execute({ tableId, restaurantId, openedById }: OpenTableSessionPayload) {
+  async execute({ tableId, restaurantId, openedById, reservationId }: OpenTableSessionPayload) {
     const normalizedRestaurantId = Number(restaurantId);
     const normalizedTableId = Number(tableId);
     const normalizedOpenedById = Number(openedById);
+    const normalizedReservationId = reservationId ? Number(reservationId) : null;
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
       throw new Error('Restaurante inválido para abrir a mesa.');
     }
@@ -138,6 +141,34 @@ class OpenTableSessionService {
     try {
       session = await prisma.$transaction(
         async (tx) => {
+          await setTenantDbContext(tx, normalizedRestaurantId);
+          const now = new Date();
+          const upcomingReservation = await tx.tableReservation.findFirst({
+            where: {
+              restaurantId: normalizedRestaurantId,
+              tableId: normalizedTableId,
+              status: 'CONFIRMED',
+              startsAt: { lt: expiresAt },
+              endsAt: { gt: now },
+            },
+          });
+          if (upcomingReservation && upcomingReservation.id !== normalizedReservationId) {
+            throw new Error('Mesa reservada. Escolha outra mesa ou realize o check-in autorizado.');
+          }
+          if (normalizedReservationId) {
+            const ownReservation = await tx.tableReservation.findFirst({
+              where: {
+                id: normalizedReservationId, restaurantId: normalizedRestaurantId,
+                tableId: normalizedTableId, status: 'CONFIRMED',
+              },
+              select: { id: true, startsAt: true, endsAt: true },
+            });
+            if (!ownReservation ||
+              ownReservation.startsAt.getTime() - 30 * 60_000 > now.getTime() ||
+              ownReservation.endsAt <= now) {
+              throw new Error('Reserva inválida ou fora da janela de check-in.');
+            }
+          }
           const created = await tableSessionRepository.create(
             {
               restaurantId: normalizedRestaurantId,
@@ -150,6 +181,12 @@ class OpenTableSessionService {
             },
             tx,
           );
+          if (normalizedReservationId) {
+            await tx.tableReservation.update({
+              where: { id: normalizedReservationId, restaurantId: normalizedRestaurantId },
+              data: { status: 'SEATED', checkedInAt: now },
+            });
+          }
           await tableWaiterAssignmentService.autoAssignOpenedByWaiter({
             db: tx,
             restaurantId: normalizedRestaurantId,

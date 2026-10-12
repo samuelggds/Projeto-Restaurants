@@ -22,6 +22,7 @@ import {
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
+import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
@@ -874,6 +875,8 @@ export function FigmaDeliveryExperience({
             </S.HeroCarousel>
           ) : null}
 
+
+          <ReservationContactCard brand={data.brand} />
           <S.Main
             id="cardapio"
             className={promotionBanners.length ? 'has-banner' : 'no-banner'}
