@@ -874,6 +874,34 @@ export function FigmaDeliveryExperience({
             </S.HeroCarousel>
           ) : null}
 
+
+          {data.brand.reservationsEnabled && (data.brand.whatsapp || data.brand.reservationPhone) ? (
+            <section aria-label="Reservas de mesas" style={{
+              margin:'20px 0', padding:'18px', border:'1px solid #e5e7eb',
+              borderRadius:18, background:'#fff',
+            }}>
+              <h2 style={{fontSize:19,margin:'0 0 8px'}}>Quer reservar uma mesa?</h2>
+              <p style={{margin:'0 0 15px',color:'#64748b',fontSize:14}}>
+                Entre em contato com a equipe do restaurante para consultar a disponibilidade.
+                A reserva é confirmada somente pela equipe.
+              </p>
+              <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                {data.brand.whatsapp && (
+                  <a href={buildWhatsAppUrl(data.brand.whatsapp, `Olá! Gostaria de reservar uma mesa no ${data.brand.name}. Poderiam informar os horários disponíveis?`)}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{borderRadius:12,padding:'12px 16px',background:'var(--primary, #c95d3d)',color:'#fff',textDecoration:'none',fontWeight:700}}>
+                    Reservar pelo WhatsApp
+                  </a>
+                )}
+                {data.brand.reservationPhone && (
+                  <a href={`tel:${data.brand.reservationPhone.replace(/\\D/gu,'')}`}
+                    style={{borderRadius:12,padding:'12px 16px',border:'1px solid #cbd5e1',color:'inherit',textDecoration:'none',fontWeight:700}}>
+                    Ligar para reservar
+                  </a>
+                )}
+              </div>
+            </section>
+          )}
           <S.Main
             id="cardapio"
             className={promotionBanners.length ? 'has-banner' : 'no-banner'}

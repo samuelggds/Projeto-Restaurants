@@ -55,6 +55,7 @@ type PublicSettingsFallback = {
   acceptsCard: boolean;
   acceptsDebitCard: boolean;
   tableOrderingEnabled: boolean;
+  tableReservationsEnabled: boolean;
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
   pixProvider: string;
@@ -226,7 +227,8 @@ class GetPublicRestaurantSettingsService {
         openFinancePixEnabled: false,
         acceptsCard: false,
         acceptsDebitCard: false,
-        tableOrderingEnabled: true,
+        tableOrderingEnabled: false,
+        tableReservationsEnabled: false,
         waiterCallEnabled: true,
         billRequestEnabled: true,
         pixProvider: 'MERCADO_PAGO',

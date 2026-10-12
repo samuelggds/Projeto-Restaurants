@@ -14,6 +14,8 @@ export type HomeBrand = {
   whatsapp?: string;
   whatsappDisplayName?: string;
   whatsappDefaultMessage?: string;
+  reservationsEnabled?: boolean;
+  reservationPhone?: string;
   instagram?: string;
   facebook?: string;
   tiktok?: string;

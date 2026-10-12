@@ -311,6 +311,8 @@ export function buildHomeData(
     whatsapp: whatsappEnabled ? rawWhatsapp : '',
     whatsappDisplayName: String(settings?.whatsappDisplayName || ''),
     whatsappDefaultMessage: String(settings?.whatsappDefaultMessage || ''),
+    reservationsEnabled: settings?.tableReservationsEnabled === true,
+    reservationPhone: formatCommercialPhone(restaurant.phone || restaurant.whatsapp || ''),
     instagram: String(settings?.instagram || ''),
     facebook: String(settings?.facebook || ''),
     tiktok: String(settings?.tiktok || ''),
