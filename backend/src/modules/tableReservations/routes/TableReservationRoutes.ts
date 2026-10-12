@@ -4,8 +4,14 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 import service, { ReservationError } from '../services/TableReservationService.js';
+import { tableReservationEvents } from '../realtime/tableReservationEvents.js';
 const router = Router();
 router.use(authMiddleware, waiterMiddleware, premiumTablePlanMiddleware);
+function notify(restaurantId: number) {
+  // An unsuccessful push must not roll back a committed reservation.
+  try { tableReservationEvents.changed(restaurantId); }
+  catch { console.warn('[TABLE_RESERVATION_INVALIDATION_FAILED]'); }
+}
 function respond(res: import('express').Response, error: unknown) {
   const status = error instanceof ZodError ? 422 : error instanceof ReservationError ? error.statusCode : 500;
   return res.status(status).json({ error: error instanceof ZodError ? error.issues[0]?.message : error instanceof ReservationError ? error.message : 'Não foi possível concluir a operação.' });
@@ -17,7 +23,9 @@ router.put('/settings', async (req,res) => {
       res.status(403).json({error:'Apenas administradores podem alterar reservas.'});
       return;
     }
-    res.json(await service.updateSettings(req.user.restaurantId,req.body?.enabled,req.body?.toleranceMinutes));
+    const updated = await service.updateSettings(req.user.restaurantId,req.body?.enabled,req.body?.toleranceMinutes);
+    notify(req.user.restaurantId);
+    res.json(updated);
   } catch(e){ respond(res,e); }
 });
 router.get('/',async(req,res)=>{
@@ -25,15 +33,27 @@ router.get('/',async(req,res)=>{
   catch(e){respond(res,e);}
 });
 router.post('/',async(req,res)=>{
-  try{res.status(201).json(await service.create(req.user.restaurantId,req.user.id,req.body));}
+  try{
+    const created = await service.create(req.user.restaurantId,req.user.id,req.body);
+    notify(req.user.restaurantId);
+    res.status(201).json(created);
+  }
   catch(e){respond(res,e);}
 });
 router.patch('/:publicId/status',async(req,res)=>{
-  try{res.json(await service.changeStatus(req.user.restaurantId,req.params.publicId,req.body?.status));}
+  try{
+    const updated = await service.changeStatus(req.user.restaurantId,req.params.publicId,req.body?.status);
+    notify(req.user.restaurantId);
+    res.json(updated);
+  }
   catch(e){respond(res,e);}
 });
 router.post('/:publicId/check-in',async(req,res)=>{
-  try{res.json(await service.checkIn(req.user.restaurantId,req.params.publicId,req.user.id));}
+  try{
+    const result = await service.checkIn(req.user.restaurantId,req.params.publicId,req.user.id);
+    notify(req.user.restaurantId);
+    res.json(result);
+  }
   catch(e){respond(res,e);}
 });
 export default router;

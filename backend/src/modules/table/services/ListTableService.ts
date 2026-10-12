@@ -1,4 +1,5 @@
 import tableRepository from '../repositories/TableRepository.js';
+import reservationStateRepository from '../repositories/ReservationStateRepository.js';
 import { resolveRestaurantMenuBaseUrl } from '../../customDomains/services/PublicCustomDomainService.js';
 
 type ListTablePayload = {
@@ -13,9 +14,10 @@ class ListTableService {
       throw new Error('Restaurante não identificado para listar mesas.');
     }
 
-    const [tables, menuBaseUrl] = await Promise.all([
+    const [tables, menuBaseUrl, reservedTableIds] = await Promise.all([
       tableRepository.findAllByRestaurant(normalizedRestaurantId),
       resolveRestaurantMenuBaseUrl(normalizedRestaurantId),
+      reservationStateRepository.findReservedTableIds(normalizedRestaurantId),
     ]);
 
     return tables.map((table) => {
@@ -23,7 +25,9 @@ class ListTableService {
       const openSession = table.tableSessions[0] || null;
       const activeTotal = orders.reduce((total, order) => total + Number(order.total || 0), 0);
       const guests = new Set(orders.map((order) => order.userId)).size;
-      const operationalStatus = openSession ? 'OCCUPIED' : 'FREE';
+      const operationalStatus = openSession
+        ? 'OCCUPIED'
+        : reservedTableIds.has(table.id) ? 'RESERVED' : 'FREE';
 
       return {
         ...safeTableData,
@@ -31,6 +35,7 @@ class ListTableService {
         menuBaseUrl,
         ...(includeQrToken ? { token } : {}),
         status: operationalStatus,
+        reservationStatusVerified: true,
         sessionId: openSession?.id ?? null,
         openedAt: openSession?.openedAt ?? null,
         guests,
