@@ -681,7 +681,7 @@ export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|
         table={selectedTable} onClose={()=>setSelectedTableId(null)}
         onAccount={showAccount} onTransfer={beginTransfer}
         onNavigate={view=>onNavigate?.(view)}
-        onCloseTable={()=>setSelectedTableId(null)} />}
+        sessionAction={<TableSessionButton table={selectedTable}/>} />}
       </S.TableLayout>
       {!visible.length && <Empty>Nenhuma mesa encontrada com estes filtros.</Empty>}
       <WaiterListControls

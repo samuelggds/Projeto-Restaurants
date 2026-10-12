@@ -344,7 +344,7 @@ function WaiterShell({
               onFocusComplete={clearFocusedOrder}
             />
           ) : (
-            Page && <Page />
+            Page && (view === 'tables' ? <WaiterTablesPage onNavigate={navigate} /> : <Page />)
           )}
         </S.Content>
       </S.Main>

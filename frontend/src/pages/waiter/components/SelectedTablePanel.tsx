@@ -1,7 +1,6 @@
-import { ArrowRightLeft, BellRing, Clock3, Plus, ReceiptText, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ArrowRightLeft, BellRing, Plus, ReceiptText, X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import styled from 'styled-components';
-import { useDialogFocusManagement } from '../../../shared/hooks/useDialogFocusManagement';
 import type { RestaurantTable, WaiterTableAccountSnapshot } from '../types';
 import { useWaiterWorkspace } from '../useWaiterWorkspace';
 import { brl } from './Shared';
@@ -56,9 +55,9 @@ const statusLabels: Record<string,string> = {
   PENDENTE:'Pendente',PREPARANDO:'Em preparo',PRONTO:'Pronto',ENTREGUE:'Entregue',
   CANCELADO:'Cancelado',SAIU_PARA_ENTREGA:'Em entrega',
 };
-function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,onCloseTable}:{
+function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAction}:{
   table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
-  onNavigate:(destination:'deliveries'|'payments')=>void;onCloseTable:()=>void;
+  onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;
 }) {
   const {tableAccountClient,tableAccountRefreshKey} = useWaiterWorkspace();
   const [snapshot,setSnapshot]=useState<WaiterTableAccountSnapshot|null>(null);
@@ -112,25 +111,37 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,onCloseTab
         <button type="button" onClick={onAccount} disabled={!session}><ReceiptText size={16}/>Consultar pedidos e pagamentos</button>
         <button className="danger" type="button" onClick={()=>onNavigate('payments')}><ReceiptText size={16}/>Conferir fechamento</button>
         <button className="subtle" type="button" onClick={onTransfer} disabled={!table.sessionId}><ArrowRightLeft size={16}/>Transferir mesa</button>
-        <button className="subtle" type="button" onClick={onCloseTable}> {table.sessionStatus==='CLOSING_REQUESTED'?'Finalizar mesa':'Fechar mesa'}</button>
-      </>:<p className="context">Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.</p>}
+        {sessionAction}
+      </>:<><p className="context">Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.</p>{sessionAction}</>}
     </footer>
   </Panel>;
 }
-export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,onCloseTable}:{
+export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,sessionAction}:{
  table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
- onNavigate:(destination:'deliveries'|'payments')=>void;onCloseTable:()=>void;
+ onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;
 }) {
-  const ref=useDialogFocusManagement<HTMLDivElement>(onClose,true);
+  const [mobile,setMobile]=useState(false);
+  useEffect(()=>{
+    const update=()=>setMobile(window.innerWidth<=760);
+    update();window.addEventListener('resize',update);
+    return ()=>window.removeEventListener('resize',update);
+  },[]);
+  useEffect(()=>{
+    if(!mobile)return;
+    const old=document.body.style.overflow;document.body.style.overflow='hidden';
+    const key=(event:KeyboardEvent)=>{if(event.key==='Escape')onClose();};
+    document.addEventListener('keydown',key);
+    return ()=>{document.body.style.overflow=old;document.removeEventListener('keydown',key);};
+  },[mobile,onClose]);
   return <>
     <div className="desktop-table-details">
       <PanelContents table={table} onClose={onClose} onAccount={onAccount} onTransfer={onTransfer}
-        onNavigate={onNavigate} onCloseTable={onCloseTable}/>
+        onNavigate={onNavigate} sessionAction={sessionAction}/>
     </div>
     <MobileLayer onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
-      <div ref={ref} role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
+      <div role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
         <PanelContents table={table} onClose={onClose} onAccount={onAccount} onTransfer={onTransfer}
-          onNavigate={onNavigate} onCloseTable={onCloseTable}/>
+          onNavigate={onNavigate} sessionAction={sessionAction}/>
       </div>
     </MobileLayer>
   </>;
