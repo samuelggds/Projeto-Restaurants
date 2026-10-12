@@ -29,7 +29,7 @@ const originalTransaction = prisma.$transaction;
 const originalAutoAssign = tableWaiterAssignmentService.autoAssignOpenedByWaiter;
 
 beforeEach(() => {
-  prisma.$transaction = async (callback) => callback({});
+  prisma.$transaction = async (callback) => callback({ tableReservation: { findFirst: async () => null } });
   tableWaiterAssignmentService.autoAssignOpenedByWaiter = async () => null;
 });
 
@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 test('abre mesa sem gerar ou expor PIN e retorna somente dados seguros da sessão', async () => {
-  const transaction = { kind: 'open-table-transaction' };
+  const transaction = { kind: 'open-table-transaction', tableReservation: { findFirst: async () => null } };
   prisma.$transaction = async (callback) => callback(transaction);
   const table = {
     id: 91,
