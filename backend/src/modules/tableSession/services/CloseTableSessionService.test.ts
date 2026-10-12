@@ -50,6 +50,13 @@ function mockTransaction({ ledgerItems = [] } = {}) {
     tablePaymentIntent: { findMany: async () => [] },
     tableBillItem: { findMany: async () => ledgerItems },
     order: { findMany: async () => [] },
+    tableReservation: { updateMany: async ({ where, data }) => {
+      assert.equal(where.restaurantId, 7);
+      assert.equal(where.tableSessionId, 55);
+      assert.equal(where.status, 'SEATED');
+      assert.equal(data.status, 'COMPLETED');
+      return { count: 1 };
+    } },
   };
   prisma.$transaction = async (callback) => callback(transaction);
   waiterCompensationProjectionService.project = async () => ({
