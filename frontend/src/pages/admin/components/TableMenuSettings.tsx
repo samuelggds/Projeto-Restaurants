@@ -116,7 +116,7 @@ export function TableMenuSettings({ settings, update }: Props) {
 
   const updateSeats = async (table: AdminTableQrRecord) => {
     const count = Number(editingSeats);
-    if (!/^\\d+$/u.test(editingSeats.trim()) || !Number.isInteger(count) || count < 1 || count > 50) {
+    if (!/^\d+$/u.test(editingSeats.trim()) || !Number.isInteger(count) || count < 1 || count > 50) {
       setActionError('Informe um número inteiro de lugares entre 1 e 50.'); return;
     }
     setSeatBusy(true);setActionError('');setSuccess('');
@@ -140,7 +140,7 @@ export function TableMenuSettings({ settings, update }: Props) {
       return;
     }
 
-    if (!/^\\d+$/u.test(seatCapacity.trim()) || Number(seatCapacity) < 1 || Number(seatCapacity) > 50) {
+    if (!/^\d+$/u.test(seatCapacity.trim()) || Number(seatCapacity) < 1 || Number(seatCapacity) > 50) {
       setActionError('Informe a capacidade da mesa entre 1 e 50 lugares.'); return;
     }
     setCreating(true);

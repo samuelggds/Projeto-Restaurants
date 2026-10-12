@@ -42,8 +42,8 @@ test('admin cria a mesa já vinculada a um token criptográfico opaco', async ()
     };
   };
 
-  const first = await createTableService.execute({ number: 1, restaurantId: 7 });
-  const second = await createTableService.execute({ number: 2, restaurantId: 7 });
+  const first = await createTableService.execute({ number: 1, seatCapacity: 4, restaurantId: 7 });
+  const second = await createTableService.execute({ number: 2, seatCapacity: 6, restaurantId: 7 });
 
   assert.match(first.token, /^[a-f0-9]{32}$/);
   assert.match(second.token, /^[a-f0-9]{32}$/);
@@ -51,6 +51,7 @@ test('admin cria a mesa já vinculada a um token criptográfico opaco', async ()
   assert.equal(first.restaurantId, 7);
   assert.equal(first.restaurantSlug, 'restaurante-teste');
   assert.equal(first.number, 1);
+  assert.equal(first.seatCapacity, 4);
 });
 
 test('consulta individual usa id e tenant juntos e só expõe token para admin', async () => {
