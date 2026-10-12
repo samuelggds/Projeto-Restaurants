@@ -135,6 +135,7 @@ function tableFor(persona: Persona | null, state: FlowState) {
   return {
     id: TABLE_ID,
     number: TABLE_NUMBER,
+    seatCapacity: Number(state.createTablePayload?.seatCapacity ?? 4),
     ...(persona === 'admin' ? { token: TABLE_TOKEN } : {}),
     active: true,
     restaurantId: RESTAURANT_ID,
@@ -337,6 +338,10 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
       state.createTablePayload = request.postDataJSON() as Record<string, unknown>;
       if (Number(state.createTablePayload.number) !== TABLE_NUMBER) {
         return json(route, { error: 'Número da mesa inválido.' }, 400);
+      }
+      const seats = state.createTablePayload.seatCapacity;
+      if (typeof seats !== 'number' || !Number.isSafeInteger(seats) || seats < 1 || seats > 50) {
+        return json(route, { error: 'Quantidade de lugares inválida.' }, 400);
       }
       state.tableCreated = true;
       return json(route, tableFor('admin', state), 201);
@@ -731,11 +736,16 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
     page.getByRole('heading', { level: 1, name: 'Cardápio de mesa', exact: true }),
   ).toBeVisible();
   await page.getByLabel('Número da mesa').fill(String(TABLE_NUMBER));
+  await page.getByRole('spinbutton', { name: 'Lugares da nova mesa' }).fill('6');
   await page.getByRole('button', { name: 'Criar mesa' }).click();
 
-  await expect.poll(() => state.createTablePayload).toEqual({ number: TABLE_NUMBER });
+  await expect.poll(() => state.createTablePayload).toEqual({
+    number: TABLE_NUMBER,
+    seatCapacity: 6,
+  });
   const adminTable = page.getByRole('article', { name: 'Mesa 01', exact: true });
   await expect(adminTable).toBeVisible();
+  await expect(adminTable).toContainText('6 lugares');
   let qrDialog = page.getByRole('dialog', { name: 'QR Code da Mesa 01' });
   await expect(qrDialog).toBeVisible();
   await expect(qrDialog.getByRole('img', { name: 'QR Code da Mesa 01' })).toBeVisible();
@@ -751,6 +761,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
   const waiterTable = page.locator('article').filter({ hasText: 'Mesa 01' }).first();
   await expect(waiterTable).toBeVisible();
+  await expect(waiterTable).toContainText('6 lugares');
   await expect(waiterTable.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Visualizar QR Code|Imprimir QR/i })).toHaveCount(
     0,
