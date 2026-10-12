@@ -176,7 +176,6 @@ export function AdminOverview({
   }, [products, productSearch, productStatus]);
   const visibleOrders = orderPage.orders;
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
-  const hasActiveOperation = availability?.isOpen ?? false;
   const metricText = (value: number | string) => metricsStatus === 'ready' ? value : '—';
 
   const clearOrderFilters = () => {
@@ -197,23 +196,19 @@ export function AdminOverview({
           <span className="eyebrow">
             <Sparkles aria-hidden="true" /> Resumo de hoje
           </span>
-          <h2 id="overview-summary-title">
-            {hasActiveOperation
-              ? 'Sua operação, em um só olhar'
-              : 'Tudo pronto para os próximos pedidos'}
-          </h2>
+          <h2 id="overview-summary-title">Tudo pronto para os próximos pedidos.</h2>
           <p>
-            {hasActiveOperation
-              ? 'Acompanhe o movimento do restaurante e vá direto ao que precisa de atenção.'
-              : 'Assim que um novo pedido chegar, os principais números aparecerão aqui.'}
+            {availability
+              ? `O restaurante ${restaurantName} está ${availability.isOpen ? 'aberto' : 'fechado'} para novos pedidos. ${availability.detail}.`
+              : `Acompanhe pedidos e disponibilidade do cardápio do ${restaurantName}.`}
           </p>
           <div className="hero-status" aria-label="Situação atual da operação">
             <span>
-              <ShoppingBag aria-hidden="true" /> {metrics.todayOrders}{' '}
+              <ShoppingBag aria-hidden="true" /> {metricText(metrics.todayOrders)}{' '}
               {metrics.todayOrders === 1 ? 'pedido hoje' : 'pedidos hoje'}
             </span>
             <span>
-              <Clock3 aria-hidden="true" /> {metrics.preparingOrders} em preparo
+              <Clock3 aria-hidden="true" /> {metricText(metrics.preparingOrders)} em preparo
             </span>
             <span>
               <PackageCheck aria-hidden="true" /> {availableProducts.length} disponíveis
@@ -221,8 +216,16 @@ export function AdminOverview({
           </div>
         </S.HeroCopy>
         <S.HeroAside>
-          <small>{getTodayLabel()}</small>
+          <small>Operação agora · {getTodayLabel()}</small>
           <strong>{restaurantName}</strong>
+          <span className="hero-operating-state" role="status">
+            {availability ? availability.label : 'Situação a confirmar'}
+          </span>
+          <div className="hero-quick-metrics">
+            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b><small>pedidos hoje</small></span>
+            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b><small>em preparo</small></span>
+            <span><PackageCheck aria-hidden="true" /><b>{products.length ? `${productAvailability}%` : '—'}</b><small>cardápio disponível</small></span>
+          </div>
           <div>
             <button type="button" className="primary" onClick={() => onNavigate('orders')}>
               Acompanhar pedidos <ArrowRight aria-hidden="true" />
@@ -241,7 +244,7 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Vendas de hoje</small>
-            <strong>{money(metrics.sales)}</strong>
+            <strong>{metricText(money(metrics.sales))}</strong>
             <em>Pagamentos confirmados hoje</em>
           </span>
         </S.Metric>
@@ -251,8 +254,8 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Pedidos hoje</small>
-            <strong>{metrics.todayOrders}</strong>
-            <em>{metrics.preparingOrders} em preparo agora</em>
+            <strong>{metricText(metrics.todayOrders)}</strong>
+            <em>{metricText(metrics.preparingOrders)} em preparo agora</em>
           </span>
         </S.Metric>
         <S.Metric>
@@ -261,7 +264,7 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Ticket médio</small>
-            <strong>{money(metrics.averageTicket)}</strong>
+            <strong>{metricText(money(metrics.averageTicket))}</strong>
             <em>{metrics.sales > 0 ? 'Média dos pedidos pagos hoje' : 'Aguardando pagamentos'}</em>
           </span>
         </S.Metric>
@@ -271,7 +274,7 @@ export function AdminOverview({
           </span>
           <span className="metric-copy">
             <small>Clientes ativos</small>
-            <strong>{metrics.customers}</strong>
+            <strong>{metricText(metrics.customers)}</strong>
             <button type="button" onClick={() => onNavigate('customers')}>
               Ver clientes <ArrowRight aria-hidden="true" />
             </button>
