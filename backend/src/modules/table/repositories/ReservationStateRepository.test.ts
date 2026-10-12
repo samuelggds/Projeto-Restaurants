@@ -24,6 +24,7 @@ test('consulta reserva somente com RLS tenant-local, sem carregar PII ou outro r
     }),
   };
   const result = await repository.findReservedTableIds(7, db as unknown as typeof prisma);
+  assert.ok(seenQuery);
   assert.deepEqual([...result], [91, 92]);
   assert.equal(seenQuery.where.restaurantId, 7);
   assert.equal(seenQuery.where.status, 'CONFIRMED');
