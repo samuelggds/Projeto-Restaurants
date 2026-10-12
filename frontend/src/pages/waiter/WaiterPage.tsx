@@ -66,6 +66,7 @@ export default function WaiterPage() {
   });
   const [tableAccountRefreshKey, setTableAccountRefreshKey] = useState(0);
   const inFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
   const mountedRef = useRef(true);
   const alertedCallIdsRef = useRef(new Set<string>());
 
@@ -74,7 +75,11 @@ export default function WaiterPage() {
   }, []);
 
   const loadWorkspace = useCallback(async (refreshing = false) => {
-    if (inFlightRef.current) return;
+    if (inFlightRef.current) {
+      // A real-time event must not disappear while another refresh is in flight.
+      refreshQueuedRef.current = true;
+      return;
+    }
     inFlightRef.current = true;
     if (mountedRef.current) {
       setWorkspaceState((current) => ({
@@ -145,12 +150,19 @@ export default function WaiterPage() {
         : null,
       lastUpdatedAt: failures.length === 4 ? null : new Date().toISOString(),
     });
+    if (refreshQueuedRef.current) {
+      refreshQueuedRef.current = false;
+      queueMicrotask(() => {
+        if (mountedRef.current) void loadWorkspace(true);
+      });
+    }
   }, []);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      refreshQueuedRef.current = false;
       stopCallAlarm();
     };
   }, [stopCallAlarm]);

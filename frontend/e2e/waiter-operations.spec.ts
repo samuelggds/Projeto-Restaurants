@@ -911,6 +911,38 @@ test('navegação inferior mantém seis destinos em uma linha, inclusive em tela
   }
 });
 
+test('indicadores de pedidos e atendimentos acompanham o estado e mobile usa sidebar escura', async ({ page }) => {
+  const state = initialState();
+  await page.setViewportSize({ width: 390, height: 780 });
+  await mockWaiterAndTableApi(page, state);
+  await page.goto('/waiter');
+  const desktop = page.getByRole('navigation', { name: 'Navegação do garçom' });
+  const mobile = page.getByRole('navigation', { name: 'Navegação móvel do garçom' });
+  const orders = mobile.getByTestId('waiter-mobile-count-deliveries');
+  const calls = mobile.getByTestId('waiter-mobile-count-calls');
+  await expect(orders).toHaveText('1');
+  await expect(calls).toHaveText('2');
+  await expect(desktop.getByTestId('waiter-desktop-count-calls')).toHaveText('2');
+  await expect(mobile).toHaveCSS('background-color', 'rgb(28, 28, 28)');
+  await expect(calls).toHaveCSS('background-color', 'rgb(189, 71, 8)');
+  await expect(mobile.getByRole('button', { name: 'Visão geral' })).toHaveCSS('color', 'rgb(255, 255, 255)');
+
+  state.calls[0].status = 'IN_PROGRESS';
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveText('2'); // In progress still counts as an open call.
+
+  state.calls[1].status = 'RESOLVED';
+  state.includeReadyOrder = false;
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveText('1');
+  await expect(orders).toHaveCount(0);
+  await expect(desktop.getByTestId('waiter-desktop-count-deliveries')).toHaveCount(0);
+
+  state.calls[0].status = 'RESOLVED';
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveCount(0);
+});
+
 test('todas as abas do garçom permanecem acessíveis e sem overflow em celular', async ({
   page,
 }) => {

@@ -127,6 +127,41 @@ describe('WaiterModule navigation and loading states', () => {
     expect(container.querySelector('h1')?.textContent).toBe('Pagamentos');
   });
 
+  it('atualiza e zera indicadores na sidebar desktop e mobile quando os estados mudam', () => {
+    const ready = {
+      id: '#11', channel: 'TABLE' as const, reference: 'Mesa 01',
+      items: ['1 Pizza'], createdAt: '18:30', elapsed: '00:30',
+      status: 'PRONTO' as const, total: 25,
+    };
+    const waiting = {
+      id: 'call-1', tableNumber: 1, type: 'WAITER' as const,
+      status: 'WAITING' as const, elapsed: '01:00',
+    };
+    const active = { ...waiting, id: 'call-2', status: 'IN_PROGRESS' as const };
+
+    const badge = (prefix: string, destination: string) =>
+      container.querySelector(`[data-testid="waiter-${prefix}-count-${destination}"]`)?.textContent;
+
+    render({ data: { ...props.data!, orders: [ready], calls: [waiting, active] } });
+    expect(badge('desktop', 'deliveries')).toBe('1');
+    expect(badge('mobile', 'deliveries')).toBe('1');
+    expect(badge('desktop', 'calls')).toBe('2');
+    expect(badge('mobile', 'calls')).toBe('2');
+
+    render({ data: { ...props.data!,
+      orders: [{ ...ready, status: 'ENTREGUE' }],
+      calls: [{ ...waiting, status: 'IN_PROGRESS' }, { ...active, status: 'RESOLVED' }],
+    } });
+    expect(badge('desktop', 'deliveries')).toBeUndefined();
+    expect(badge('mobile', 'deliveries')).toBeUndefined();
+    expect(badge('desktop', 'calls')).toBe('1');
+    expect(badge('mobile', 'calls')).toBe('1');
+
+    render({ data: { ...props.data!, orders: [], calls: [] } });
+    expect(badge('desktop', 'calls')).toBeUndefined();
+    expect(badge('mobile', 'calls')).toBeUndefined();
+  });
+
   it('mantém o foco no menu móvel, fecha com Escape e devolve o foco ao botão de origem', () => {
     render();
     const trigger = container.querySelector(

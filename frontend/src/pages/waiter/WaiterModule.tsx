@@ -32,6 +32,7 @@ import { reportEmployeeIssue } from '../../features/employee-help/reportEmployee
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
 import { getWaiterOperatingStatus } from './domain/restaurantOperatingStatus';
+import { badgeDisplayCount, waiterNavigationCounters } from './domain/waiterNavigationCounters';
 import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 
 export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments' | 'reservations';
@@ -110,20 +111,17 @@ function WaiterShell({
     setMoreOpen(false);
     if (next !== 'help') onViewChange?.(next);
   };
-  const readyCount = orders.filter(
-    (order) => order.channel === 'TABLE' && order.status === 'PRONTO',
-  ).length;
-  const waitingCallCount = calls.filter((call) => call.status === 'WAITING').length;
-  const pendingPaymentCount = accounts.reduce(
-    (total, account) => total + account.pendingManualPayments.length,
-    0,
-  );
+  const {
+    readyOrders: readyCount,
+    activeCalls: activeCallCount,
+    pendingPayments: pendingPaymentCount,
+  } = waiterNavigationCounters({ orders, calls, accounts });
   const nav = [
     ['overview', 'Visão geral', 'Início', LayoutGrid, 0],
     ['deliveries', 'Para entregar', 'Entregas', ShoppingBag, readyCount],
     ['tables', 'Mesas e QR Codes', 'Mesas', QrCode, 0],
     ['reservations', 'Reservas', 'Reservas', CalendarDays, 0],
-    ['calls', 'Chamados', 'Chamados', BellRing, waitingCallCount],
+    ['calls', 'Chamados', 'Chamados', BellRing, activeCallCount],
     ['payments', 'Pagamentos', 'Pagamentos', CreditCard, pendingPaymentCount],
   ] as const;
   const titles: Record<WaiterView | 'help', [string, string]> = {
@@ -171,7 +169,7 @@ function WaiterShell({
               >
                 <Icon />
                 {label}
-                {count > 0 && <N.NavBadge>{count}</N.NavBadge>}
+                {count > 0 && <N.NavBadge data-testid={`waiter-desktop-count-${id}`} title={`${count} pendência(s)`}>{badgeDisplayCount(count)}</N.NavBadge>}
               </button>
             ))}
           </N.Nav>
@@ -227,7 +225,7 @@ function WaiterShell({
           >
             <span className="mobile-nav-icon" aria-hidden="true">
               <Icon />
-              {count > 0 && <i>{count}</i>}
+              {count > 0 && <i data-testid={`waiter-mobile-count-${id}`} title={`${count} pendência(s)`}>{badgeDisplayCount(count)}</i>}
             </span>
             <span className="mobile-nav-label">{mobileLabel}</span>
           </button>
