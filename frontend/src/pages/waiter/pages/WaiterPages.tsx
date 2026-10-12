@@ -5,6 +5,7 @@ import {
   Eye,
   Info,
   ReceiptText,
+  ArrowRightLeft,
   Trash2,
   Users,
   X,
@@ -514,10 +515,28 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
 }
 
 export function WaiterTablesPage() {
-  const { tables, accounts } = useWorkspace();
+  const { tables, accounts, transferTable } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatus | 'ALL' | 'CLOSING'>('ALL');
   const [accountTable, setAccountTable] = useState<RestaurantTable | null>(null);
+  const [transferSource, setTransferSource] = useState<RestaurantTable | null>(null);
+  const [transferDestination, setTransferDestination] = useState('');
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [transferError, setTransferError] = useState('');
+  const confirmTransfer = async () => {
+    if (!transferSource?.sessionId || !transferDestination || transferBusy) return;
+    setTransferBusy(true);
+    setTransferError('');
+    try {
+      await transferTable(transferSource.sessionId, transferDestination);
+      setTransferSource(null);
+      setTransferDestination('');
+    } catch (error: unknown) {
+      setTransferError(getErrorMessage(error, 'Não foi possível transferir a mesa.'));
+    } finally {
+      setTransferBusy(false);
+    }
+  };
   const [visibleCount, setVisibleCount] = useState(WAITER_LIST_BATCH_SIZE);
   const visible = tables.filter(
     (table) =>
@@ -654,6 +673,13 @@ export function WaiterTablesPage() {
                     <ReceiptText size={14} /> Ver conta e pagamentos
                   </button>
                 )}
+                {table.status === 'OCCUPIED' && table.sessionId && (
+                  <button type="button" className="view-account" onClick={() => {
+                    setTransferSource(table); setTransferDestination(''); setTransferError('');
+                  }}>
+                    <ArrowRightLeft size={14} aria-hidden="true" /> Transferir mesa
+                  </button>
+                )}
                 <TableSessionButton table={table} />
               </div>
             </S.TableCard>
@@ -668,6 +694,27 @@ export function WaiterTablesPage() {
         onShowMore={() => setVisibleCount((current) => current + WAITER_LIST_BATCH_SIZE)}
         onReset={() => setVisibleCount(WAITER_LIST_BATCH_SIZE)}
       />
+      {transferSource && (
+        <S.InlineNotice role="dialog" aria-label="Transferir atendimento de mesa">
+          <span>
+            <b>Transferir Mesa {String(transferSource.number).padStart(2, '0')}</b>
+            <p>Pedidos, participantes, pagamentos e conta continuarão na mesma sessão.</p>
+            <label htmlFor="transfer-destination">Mesa de destino</label>
+            <select id="transfer-destination" value={transferDestination}
+              onChange={(event) => setTransferDestination(event.target.value)} disabled={transferBusy}>
+              <option value="">Selecione uma mesa vazia</option>
+              {tables.filter(item => item.id !== transferSource.id && item.status === 'FREE').map(item => (
+                <option key={item.id} value={item.id}>Mesa {String(item.number).padStart(2, '0')}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => void confirmTransfer()} disabled={transferBusy || !transferDestination}>
+              {transferBusy ? 'Transferindo...' : 'Confirmar transferência'}
+            </button>
+            <button type="button" onClick={() => setTransferSource(null)} disabled={transferBusy}>Cancelar</button>
+            {transferError && <S.ActionError role="alert">{transferError}</S.ActionError>}
+          </span>
+        </S.InlineNotice>
+      )}
       {accountTable && (
         <WaiterTableAccountDialog table={accountTable} onClose={() => setAccountTable(null)} />
       )}
