@@ -66,10 +66,11 @@ export async function resumeExistingTableSession(input: ResumeInput) {
     if (!status || status >= 500) {
       throw new TemporaryTableResumeError(
         'Não foi possível verificar sua sessão. Tente novamente sem escanear outra mesa.',
+        { cause: error },
       );
     }
     if (wasTransferred) {
-      throw new Error('A mesa transferida não pôde ser validada. Solicite auxílio ao garçom.');
+      throw new Error('A mesa transferida não pôde ser validada. Solicite auxílio ao garçom.', { cause: error });
     }
     return null;
   }
