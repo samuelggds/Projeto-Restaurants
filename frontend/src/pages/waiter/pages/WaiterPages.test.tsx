@@ -281,7 +281,7 @@ describe('waiter operational pages', () => {
     expect(container.textContent).toContain('Fechar mesa');
   });
 
-  it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', () => {
+  it('permite somente abrir ou fechar a mesa sem expor ações administrativas do QR', async () => {
     renderPage(<WaiterTablesPage />);
     expect(container.textContent).toContain('Abra a mesa para iniciar o atendimento.');
     expect(container.textContent).toContain('Ao fechar a mesa, os acessos dos clientes são encerrados.');
