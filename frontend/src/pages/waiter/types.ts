@@ -80,6 +80,8 @@ export interface WaiterTableAccountSnapshot {
     financialStatus: 'UNPAID' | 'RESERVED' | 'PROCESSING' | 'PAID' | 'REFUNDED';
     orderedByDisplayName: string;
   }>;
+  orders?: Array<{ id: number; status: string; createdAt: string; totalCents: number; itemsCount: number; items: string[] }>;
+  hasMoreOrders?: boolean;
   paymentIntents: Array<{
     publicId: string;
     method: 'PIX' | 'CARD' | 'CASH' | 'CARD_MACHINE';
