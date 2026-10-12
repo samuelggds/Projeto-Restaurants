@@ -13,6 +13,8 @@ export interface RestaurantBrand {
   primaryColor: string;
   restaurantId?: number;
   slug?: string;
+  businessHours?: import('../admin/types').BusinessHour[];
+  isOpenForOrders?: boolean;
 }
 export interface Employee {
   id: string;

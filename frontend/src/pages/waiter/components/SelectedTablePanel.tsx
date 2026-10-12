@@ -86,7 +86,7 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
           <span className={`tag ${occupied?'':'free'}`}>{table.sessionStatus==='CLOSING_REQUESTED'?'Conta solicitada':occupied?'Ocupada':'Livre'}</span></div>
       </div>
       <p className="context">{table.seatCapacity?`${table.seatCapacity} lugares`:'Lugares não configurados'} · {table.guests} cliente(s)</p>
-      {occupied&&<div className="meta"><span>{snapshot?.summary?.sessionPublicId?'Comanda ativa':'Sessão em atendimento'}</span>
+      {occupied&&<div className="meta"><span>{snapshot?'Comanda ativa':'Sessão em atendimento'}</span>
         <span>{table.openedAt?`Aberta às ${table.openedAt}`:'Aberta'}</span></div>}
     </div>
     <div className="summary"><h3>Resumo da comanda</h3>

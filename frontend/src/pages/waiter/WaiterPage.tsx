@@ -152,6 +152,8 @@ export default function WaiterPage() {
           ...mapRestaurantBrand(settings),
           restaurantId,
           slug: String(restaurantRecord.slug || settings.restaurantSlug || '').trim() || undefined,
+          businessHours: Array.isArray(settings.businessHours) ? settings.businessHours : undefined,
+          isOpenForOrders: settings.isOpenForOrders !== false,
         });
       })
       .catch((error: unknown) => {
