@@ -112,6 +112,24 @@ describe('AdminOrders', () => {
     vi.useRealTimers();
   });
 
+  function selectOrderDetails(order: AdminOrder) {
+    const option = buttonByLabel(
+      container,
+      `Ver detalhes do pedido ${order.id} de ${order.customerName}`,
+    );
+    expect(option).not.toBeNull();
+    act(() => option.click());
+    expect(option.getAttribute('aria-current')).toBe('true');
+    const detail = container.querySelector('.selected-order-detail') as HTMLElement | null;
+    expect(detail).not.toBeNull();
+    expect(detail?.querySelectorAll('.order-card')).toHaveLength(1);
+    return detail!;
+  }
+
+  function compactOrderCount() {
+    return container.querySelectorAll('.order-compact-list button').length;
+  }
+
   function mockPage(renderedOrders = orders, total = renderedOrders.length) {
     return {
       orders: renderedOrders.map((order) => ({ ...order, id: order.numericId })),
@@ -149,15 +167,20 @@ describe('AdminOrders', () => {
     await renderOrders();
 
     expect(container.textContent).toContain('Pedidos ativos');
-    expect(container.textContent).toContain('Pago online');
-    expect(container.textContent).toContain('Pix · estorno automático ao cancelar');
-    expect(container.textContent).toContain('Pago na entrega');
-    expect(container.textContent).toContain('Pagamento na entrega exige devolução manual');
-    expect(container.textContent).toContain('Pagamento pendente');
-    expect(container.textContent).toContain('Sem cobrança online confirmada');
-    expect(container.textContent).toContain('Entrega');
-    expect(container.textContent).toContain('Retirada no balcão');
-    expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(3);
+    expect(compactOrderCount()).toBe(3);
+    expect(container.querySelectorAll('.order-card')).toHaveLength(1);
+    const pixDetail = selectOrderDetails(orders[0]);
+    expect(pixDetail.textContent).toContain('Pago online');
+    expect(pixDetail.textContent).toContain('Pix · estorno automático ao cancelar');
+    expect(pixDetail.textContent).toContain('Entrega');
+    const deliveryDetail = selectOrderDetails(orders[1]);
+    expect(deliveryDetail.textContent).toContain('Pago na entrega');
+    expect(deliveryDetail.textContent).toContain('Pagamento na entrega exige devolução manual');
+    const unpaidDetail = selectOrderDetails(orders[2]);
+    expect(unpaidDetail.textContent).toContain('Pagamento pendente');
+    expect(unpaidDetail.textContent).toContain('Sem cobrança online confirmada');
+    expect(unpaidDetail.textContent).toContain('Retirada no balcão');
+    expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(1);
   });
 
   it('mantém confirmação de dinheiro disponível depois da entrega', async () => {
@@ -325,21 +348,27 @@ describe('AdminOrders', () => {
     });
     await renderOrders(undefined, manyOrders);
 
-    expect(container.querySelectorAll('.order-card')).toHaveLength(10);
+    expect(compactOrderCount()).toBe(10);
+    expect(container.querySelectorAll('.order-card')).toHaveLength(1);
     expect(container.textContent).toContain('Exibindo 10 de 23 pedidos');
     expect(mocks.listPage).toHaveBeenCalledTimes(1);
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL' });
 
     await act(async () => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
-    expect(container.querySelectorAll('.order-card')).toHaveLength(20);
+    expect(compactOrderCount()).toBe(20);
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL', cursor: 410 });
+    selectOrderDetails(manyOrders[19]);
+    expect(container.querySelector('.selected-order-detail')?.textContent).toContain('#420');
 
     await act(async () => buttonByLabel(container, 'Mostrar mais 10 pedidos').click());
-    expect(container.querySelectorAll('.order-card')).toHaveLength(23);
+    expect(compactOrderCount()).toBe(23);
     expect(mocks.listPage).toHaveBeenCalledTimes(3);
+    selectOrderDetails(manyOrders[22]);
+    expect(container.querySelector('.selected-order-detail')?.textContent).toContain('#423');
 
     await act(async () => buttonByLabel(container, 'Voltar aos 10 pedidos iniciais').click());
-    expect(container.querySelectorAll('.order-card')).toHaveLength(10);
+    expect(compactOrderCount()).toBe(10);
+    expect(container.querySelector('.selected-order-detail')?.textContent).toContain('#401');
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ALL' });
   });
 
@@ -362,7 +391,10 @@ describe('AdminOrders', () => {
 
     mocks.listPage.mockResolvedValue(mockPage());
     await act(async () => buttonByLabel(container, 'Mostrar pedidos ativos').click());
-    expect(container.querySelectorAll('.order-card')).toHaveLength(3);
+    expect(compactOrderCount()).toBe(3);
+    expect(container.querySelectorAll('.order-card')).toHaveLength(1);
+    selectOrderDetails(orders[1]);
+    expect(container.querySelector('.selected-order-detail')?.textContent).toContain('Pago na entrega');
   });
 
   it('só chama o cancelamento online depois da confirmação no diálogo interno', async () => {
@@ -390,6 +422,7 @@ describe('AdminOrders', () => {
 
   it('informa devolução manual para pagamento recebido na entrega', async () => {
     const { onCancelOrder } = await renderOrders();
+    selectOrderDetails(orders[1]);
 
     await act(async () => buttonByLabel(container, 'Cancelar o pedido #302').click());
 
@@ -443,12 +476,21 @@ describe('AdminOrders', () => {
       { ...queued, id: '#304', numericId: 304, status: 'CANCELADO' },
       { ...queued, id: '#305', numericId: 305, status: 'ENTREGUE' },
     ]);
-    const statuses = Array.from(container.querySelectorAll('.order-status')).map(
-      (element) => element.textContent,
-    );
+    expect(compactOrderCount()).toBe(3);
+    const statuses: string[] = [];
+    for (const candidate of [
+      queued,
+      { ...queued, id: '#304', numericId: 304, status: 'CANCELADO' },
+      { ...queued, id: '#305', numericId: 305, status: 'ENTREGUE' },
+    ]) {
+      const detail = selectOrderDetails(candidate);
+      statuses.push(detail.querySelector('.order-status')?.textContent?.trim() ?? '');
+      if (candidate.numericId !== 303) {
+        expect(buttonByLabel(container, `Cancelar o pedido ${candidate.id}`)).toBeNull();
+      }
+    }
     expect(statuses).toEqual(['Aguardando vaga', 'Cancelado', 'Entregue']);
-    expect(buttonByLabel(container, 'Cancelar o pedido #304')).toBeNull();
-    expect(buttonByLabel(container, 'Cancelar o pedido #305')).toBeNull();
+    selectOrderDetails(queued);
     await act(async () => buttonByLabel(container, 'Cancelar o pedido #303').click());
     expect(container.textContent).toContain('retirado da fila de espera, sem iniciar o preparo');
   });

@@ -85,7 +85,7 @@ export const Nav = styled.nav`
   button.active {
     color: #fff;
     background: rgba(255,255,255,.09);
-    box-shadow: inset 3px 0 0 #ff4b4b;
+    box-shadow: inset 3px 0 0 #ff6b35;
   }
 
   svg {
@@ -100,7 +100,7 @@ export const NavBadge = styled.span`
   padding: 2px 6px;
   border-radius: 999px;
   color: #fff;
-  background: #ff4b4b;
+  background: #bd4708;
   font-size: 9px;
   font-weight: 800;
   text-align: center;
@@ -208,42 +208,66 @@ export const MobileNav = styled.nav`
     inset: auto 0 0;
     z-index: 80;
     height: calc(72px + env(safe-area-inset-bottom));
-    padding: 6px 5px max(6px, env(safe-area-inset-bottom));
+    padding: 6px max(5px, env(safe-area-inset-right, 0px))
+      max(6px, env(safe-area-inset-bottom, 0px))
+      max(5px, env(safe-area-inset-left, 0px));
     display: grid;
+    /* Cinco destinos oficiais do garçom, sem Reservas ou uma aba genérica Pedidos. */
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    border-top: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.98);
-    box-shadow: 0 -8px 24px rgba(23, 34, 30, 0.08);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    box-sizing: border-box;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: #1c1c1c;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
 
     button {
       min-width: 0;
-      padding: 0 2px;
+      min-height: 48px;
+      padding: 5px 1px;
       border: 0;
-      border-radius: 7px;
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 3px;
-      color: #6d7c75;
+      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      overflow: hidden;
+      color: #a5aaa7;
       background: transparent;
       font: inherit;
-      font-size: 8px;
+      font-size: clamp(8px, 2.4vw, 10px);
       font-weight: 750;
+      line-height: 1.2;
     }
+
+    button:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 
     button.active {
-      color: color-mix(in srgb, var(--brand) 82%, #25332d);
-      background: color-mix(in srgb, var(--brand) 9%, #fff);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.09);
+      box-shadow: inset 0 3px 0 #ff6b35;
     }
+    button:focus-visible { outline: 2px solid #ff9a68; outline-offset: -2px; }
 
-    button > span {
+    .mobile-nav-icon {
       position: relative;
+      flex: 0 0 auto;
       display: grid;
       place-items: center;
+    }
+
+    .mobile-nav-label {
+      display: block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     svg {
       width: 19px;
+      height: 19px;
     }
 
     i {
@@ -253,12 +277,12 @@ export const MobileNav = styled.nav`
       min-width: 15px;
       height: 15px;
       padding: 0 3px;
-      border: 2px solid #fff;
+      border: 2px solid #1c1c1c;
       border-radius: 999px;
       display: grid;
       place-items: center;
       color: #fff;
-      background: #c94737;
+      background: #bd4708;
       font-size: 8px;
       font-style: normal;
     }
@@ -315,10 +339,11 @@ export const MoreSheet = styled.section`
     padding: 14px;
     display: grid;
     gap: 7px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 18px 50px rgba(14, 25, 21, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: #242424;
+    color: #f4f8f5;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
 
     header {
       min-height: 42px;
@@ -336,14 +361,14 @@ export const MoreSheet = styled.section`
 
     header b {
       overflow: hidden;
-      color: var(--ink);
+      color: #fff;
       font-size: 14px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     header small {
-      color: var(--muted);
+      color: #a5aaa7;
       font-size: 10px;
     }
 
@@ -351,24 +376,24 @@ export const MoreSheet = styled.section`
       width: 44px;
       height: 44px;
       flex-shrink: 0;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 7px;
       display: grid;
       place-items: center;
-      color: var(--ink);
-      background: #fff;
+      color: #fff;
+      background: #323232;
     }
 
     > button {
       min-height: 44px;
       padding: 0 12px;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 7px;
       display: flex;
       align-items: center;
       gap: 10px;
-      color: #405149;
-      background: #f8faf8;
+      color: #ccd4d0;
+      background: #303030;
       font: inherit;
       font-size: 12px;
       font-weight: 700;
@@ -376,15 +401,20 @@ export const MoreSheet = styled.section`
     }
 
     > button.active {
-      color: var(--brand);
-      border-color: color-mix(in srgb, var(--brand) 32%, var(--border));
-      background: color-mix(in srgb, var(--brand) 7%, #fff);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.12);
+      background: #383838;
+      box-shadow: inset 3px 0 0 #ff6b35;
     }
 
     > button.logout {
-      color: #9e392f;
-      border-color: #efd0cc;
-      background: #fff5f4;
+      color: #ffd6cd;
+      border-color: rgba(255, 138, 110, 0.22);
+      background: #452a27;
+    }
+    > button:focus-visible, header button:focus-visible {
+      outline: 2px solid #ff9a68;
+      outline-offset: 2px;
     }
 
     svg {

@@ -3,6 +3,7 @@ import type { PaymentConnectionOverview } from '../../Services/paymentConnection
 export type AdminSection =
   | 'overview'
   | 'orders'
+  | 'support'
   | 'catalog'
   | 'customers'
   | 'subscriptions'

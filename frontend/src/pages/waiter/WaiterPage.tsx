@@ -7,7 +7,6 @@ import { acquireSocket } from '../../Services/socketService';
 import tablesService from '../../Services/tablesService';
 import waiterCallsService from '../../Services/waiterCallsService';
 import tableAccountService from '../../Services/tableAccountService';
-import tableReservationsService from '../../Services/tableReservationsService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 import { WaiterModule } from './WaiterModule';
 import type { EmployeeWorkspaceData, RestaurantBrand, WaiterWorkspaceState } from './types';
@@ -66,6 +65,7 @@ export default function WaiterPage() {
   });
   const [tableAccountRefreshKey, setTableAccountRefreshKey] = useState(0);
   const inFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
   const mountedRef = useRef(true);
   const alertedCallIdsRef = useRef(new Set<string>());
 
@@ -74,9 +74,16 @@ export default function WaiterPage() {
   }, []);
 
   const loadWorkspace = useCallback(async (refreshing = false) => {
-    if (inFlightRef.current) return;
+    if (inFlightRef.current) {
+      // A real-time event must not disappear while another refresh is in flight.
+      refreshQueuedRef.current = true;
+      return;
+    }
     inFlightRef.current = true;
-    if (mountedRef.current) {
+    try {
+      do {
+        refreshQueuedRef.current = false;
+        if (mountedRef.current) {
       setWorkspaceState((current) => ({
         ...current,
         loading: current.lastUpdatedAt === null,
@@ -90,12 +97,7 @@ export default function WaiterPage() {
       tablesService.listTables(),
       waiterCallsService.listCalls(),
       tableAccountService.listWaiterSessions(),
-      tableReservationsService.settings().then(async (settings) => {
-        if (!settings.enabled) return { enabled: false as const, rows: [] };
-        return { enabled: true as const, rows: await tableReservationsService.list() };
-      }),
     ]);
-    inFlightRef.current = false;
     if (!mountedRef.current) return;
 
     const failures: string[] = [];
@@ -123,19 +125,10 @@ export default function WaiterPage() {
               Array.isArray(results[3].value.sessions) ? results[3].value.sessions : [],
             )
           : current.accounts,
-      reservationAvailability: results[4].status === 'rejected'
-        ? 'unavailable'
-        : results[4].value.enabled ? 'ready' : 'disabled',
-      reservations: results[4].status === 'fulfilled' && results[4].value.enabled
-        ? results[4].value.rows
-          .filter((row) => row.status === 'CONFIRMED')
-          .map((row) => ({
-            tableId: String(row.tableId),
-            startsAt: row.startsAt,
-            endsAt: row.endsAt,
-            guestCount: row.guestCount,
-          }))
-        : [],
+      // Reservas com PII pertencem ao atendente/admin.
+      // Garçons recebem apenas o status operacional da mesa, verificado pelo backend.
+      reservationAvailability: 'unavailable',
+      reservations: [],
     }));
     setWorkspaceState({
       loading: false,
@@ -145,12 +138,19 @@ export default function WaiterPage() {
         : null,
       lastUpdatedAt: failures.length === 4 ? null : new Date().toISOString(),
     });
+        // Repeat until all invalidations received during the request are processed.
+        refreshing = true;
+      } while (refreshQueuedRef.current && mountedRef.current);
+    } finally {
+      inFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      refreshQueuedRef.current = false;
       stopCallAlarm();
     };
   }, [stopCallAlarm]);

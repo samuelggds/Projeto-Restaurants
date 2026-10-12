@@ -12,6 +12,7 @@ import tableParticipantRepository from '../repositories/TableParticipantReposito
 import tableSessionRepository from '../repositories/TableSessionRepository.js';
 import { tableSessionEvents } from '../realtime/tableSessionEvents.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
+import { tableReservationEvents } from '../../tableReservations/realtime/tableReservationEvents.js';
 
 type ForceCloseTableSessionPayload = {
   sessionId: number | string;
@@ -79,6 +80,11 @@ export class ForceCloseTableSessionService {
           reason,
           tx,
         );
+        // O fechamento administrativo também exige quitação e conclui somente a reserva vinculada.
+        const completedReservations = await tx.tableReservation.updateMany({
+          where: { restaurantId, tableSessionId: session.id, status: 'SEATED' },
+          data: { status: 'COMPLETED' },
+        });
         await tableParticipantRepository.revokeActiveBySession(sessionId, restaurantId, tx);
         if (activeCalls.length) {
           await tableServiceCallRepository.resolveActiveBySession(
@@ -95,10 +101,15 @@ export class ForceCloseTableSessionService {
           now,
         });
 
-        return { session, closedSession, activeCalls };
+        return { session, closedSession, activeCalls, completedReservations: completedReservations.count };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+
+    if (result.completedReservations > 0) {
+      try { tableReservationEvents.changed(restaurantId); }
+      catch { console.warn('[TABLE_RESERVATION_INVALIDATION_FAILED]'); }
+    }
 
     for (const activeCall of result.activeCalls) {
       const resolvedCall = await tableServiceCallRepository.findByIdForRestaurant(

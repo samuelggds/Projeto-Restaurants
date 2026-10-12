@@ -48,6 +48,7 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
       operational.status === 'OCCUPIED' || table.status === 'OCCUPIED' || Boolean(sessionStatus)
         ? 'OCCUPIED'
         : operational.status === 'RESERVED' || table.status === 'RESERVED' ? 'RESERVED' : 'FREE';
+    const hasActiveSession = status === 'OCCUPIED';
     const id = String(table.id || '').trim();
     const number = Number(table.number);
     if (!id || !Number.isInteger(number) || number <= 0) return [];
@@ -68,9 +69,10 @@ export function mapWaiterTables(raw: unknown[]): RestaurantTable[] {
           status === 'OCCUPIED'
             ? String(table.sessionPublicId || openSession.publicId || '').trim() || undefined
             : undefined,
-        guests: Math.max(0, Number(operational.guests ?? table.guests ?? 0) || 0),
-        total: Math.max(0, Number(operational.total ?? table.total ?? 0) || 0),
-        openedAt: formatTime(table.openedAt || openSession.openedAt),
+        // Proteção de UI contra snapshots defasados: mesas sem sessão não têm consumo atual.
+        guests: hasActiveSession ? Math.max(0, Number(operational.guests ?? table.guests ?? 0) || 0) : 0,
+        total: hasActiveSession ? Math.max(0, Number(operational.total ?? table.total ?? 0) || 0) : 0,
+        openedAt: hasActiveSession ? formatTime(table.openedAt || openSession.openedAt) : undefined,
       },
     ];
   });

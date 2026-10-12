@@ -1,23 +1,16 @@
 import { ChangeEvent, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   HelpCircle,
-  Handshake,
-  LayoutGrid,
   LogOut,
-  Menu,
   MoreHorizontal,
   Plus,
-  ReceiptText,
   Search as SearchIcon,
-  Settings2,
-  ShoppingBag,
+  Store,
+  UtensilsCrossed,
   Upload,
-  Users,
-  type LucideIcon,
 } from 'lucide-react';
 import { adminMockEmployees, adminMockSettings } from './data';
 import { useAppDialog } from '../../components/AppDialog/context';
@@ -40,6 +33,7 @@ const HelpCenter = lazy(() =>
 );
 const ManagedServiceArea = lazy(() => import('./components/ManagedServiceArea'));
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
+import { operationNavigationItems, managementNavigationItems, mobilePrimaryNavigationItems, mobileMoreNavigationItems } from './config/adminSidebarItems';
 import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import * as S from './Admin.styles';
 import type {
@@ -52,11 +46,13 @@ import type {
 } from './types';
 import { validateBusinessSettings } from './domain/businessSettingsValidation';
 import { validateEstablishmentAddress } from './domain/establishmentAddress';
-import { validateBusinessHours } from './domain/businessHours';
+import { getRestaurantAvailability, validateBusinessHours } from './domain/businessHours';
+import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 import { validateBrandSettings } from './domain/brandSettingsValidation';
 import { validateOrderFlowSettings } from './domain/orderFlowSettingsValidation';
 import { validateTableAccountSettings } from './domain/tableAccountSettingsValidation';
 import { useAdminUnreadIssues } from './hooks/useAdminUnreadIssues';
+import { useAdminOrderSupportCount, formatAdminSupportBadge } from './hooks/useAdminOrderSupportCount';
 import {
   UnsavedSettingsDialog,
   type UnsavedSettingsDialogPhase,
@@ -76,69 +72,6 @@ type PendingNavigation =
   { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
 type PendingChangesSource = 'settings' | 'product';
 
-type AdminNavigationItem = {
-  area: AdminSection;
-  label: string;
-  mobileLabel: string;
-  icon: LucideIcon;
-};
-
-const operationNavigationItems: AdminNavigationItem[] = [
-  {
-    area: 'overview',
-    label: 'Visão geral',
-    mobileLabel: 'Início',
-    icon: LayoutGrid,
-  },
-  {
-    area: 'orders',
-    label: 'Pedidos',
-    mobileLabel: 'Pedidos',
-    icon: ShoppingBag,
-  },
-  {
-    area: 'catalog',
-    label: 'Cardápio',
-    mobileLabel: 'Cardápio',
-    icon: Menu,
-  },
-  {
-    area: 'customers',
-    label: 'Clientes',
-    mobileLabel: 'Clientes',
-    icon: Users,
-  },
-];
-
-const managementNavigationItems: AdminNavigationItem[] = [
-  { area: 'reservations', label: 'Reservas', mobileLabel: 'Reservas', icon: CalendarDays },
-  {
-    area: 'employees',
-    label: 'Funcionários',
-    mobileLabel: 'Equipe',
-    icon: Users,
-  },
-  {
-    area: 'subscriptions',
-    label: 'Cobranças e assinaturas',
-    mobileLabel: 'Cobranças',
-    icon: ReceiptText,
-  },
-  {
-    area: 'managed-service',
-    label: 'Gestão assistida',
-    mobileLabel: 'Assistida',
-    icon: Handshake,
-  },
-  {
-    area: 'settings',
-    label: 'Configurações',
-    mobileLabel: 'Ajustes',
-    icon: Settings2,
-  },
-];
-
-const mobilePrimaryNavigationItems = operationNavigationItems.slice(0, 4);
 
 function wait(milliseconds: number) {
   return new Promise<void>((resolve) => {
@@ -233,6 +166,12 @@ export function AdminPage({
     paymentOAuthStatus ? 'payments' : initialSettingsSection,
   );
   const [settings, setSettings] = useState(initialSettings);
+  const availabilityClock = useRestaurantAvailabilityClock();
+  const operationAvailability = getRestaurantAvailability(
+    settings.businessHoursConfigured ? settings.businessHours : undefined,
+    settings.isOpenForOrders,
+    availabilityClock,
+  );
   const [settingsSource, setSettingsSource] = useState(initialSettings);
   const [lastSavedSettings, setLastSavedSettings] = useState(initialSettings);
   const [employees, setEmployees] = useState(initialEmployees);
@@ -247,6 +186,11 @@ export function AdminPage({
   const [settingsSearch, setSettingsSearch] = useState('');
   const { unreadIssues: unreadEmployeeIssues, clearUnreadIssues: clearUnreadEmployeeIssues } =
     useAdminUnreadIssues(area === 'help');
+  const {
+    count: openSupportCount,
+    syncError: supportCountSyncError,
+    refresh: refreshSupportCount,
+  } = useAdminOrderSupportCount();
   const [editing, setEditing] = useState<Employee | null | undefined>();
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null | undefined>();
   const [catalogImportOpen, setCatalogImportOpen] = useState(false);
@@ -298,6 +242,7 @@ export function AdminPage({
   const areaTitles: Record<Exclude<AdminSection, 'settings' | 'help'>, string> = {
     overview: 'Visão geral',
     orders: 'Pedidos',
+    support: 'Suporte dos pedidos',
     catalog: 'Cardápio',
     customers: 'Clientes',
     subscriptions: 'Cobranças e assinaturas',
@@ -693,9 +638,9 @@ export function AdminPage({
             <ChevronLeft />
           </S.CollapseButton>
           <S.Brand>
-            <span>{createRestaurantMonogram(settings.restaurantName)}</span>
-            <b>{settings.restaurantName}</b>
-            <small>Painel administrativo</small>
+            <span><UtensilsCrossed aria-hidden="true" /></span>
+            <b>GastroNexa</b>
+            <small>ADMIN</small>
           </S.Brand>
           <S.MainNav aria-label="Navegação principal do painel">
             {[...operationNavigationItems, ...managementNavigationItems].map((item) => {
@@ -712,6 +657,16 @@ export function AdminPage({
                 >
                   <Icon />
                   {item.label}
+                  {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
+                    <span className="support-badge" data-testid="admin-desktop-support-count"
+                      title={`${openSupportCount} atendimentos abertos`}>
+                      {formatAdminSupportBadge(openSupportCount)}
+                    </span>
+                  )}
+                  {item.area === 'support' && supportCountSyncError && (
+                    <span className="support-sync-error" aria-label="Falha ao sincronizar o contador"
+                      title="Não foi possível atualizar o contador de suporte">!</span>
+                  )}
                 </button>
               );
             })}
@@ -786,17 +741,21 @@ export function AdminPage({
         </S.SettingsNav>
       </S.SettingsSidebar>
       <S.Main>
-        <S.Top>
+        <S.Top data-area={area}>
           <div>
             <small>
               PAINEL &nbsp;/&nbsp;{' '}
-              {area === 'customers' || area === 'employees'
+              {area === 'overview' ? 'OVERVIEW' : area === 'customers' || area === 'employees'
                 ? title.toLocaleUpperCase('pt-BR')
                 : area.toUpperCase()}
             </small>
             <h1>{title}</h1>
             <p>
-              {area === 'employees'
+              {area === 'overview'
+                ? `Acompanhe e gerencie a operação do ${settings.restaurantName} em um só lugar.`
+                : area === 'support'
+                  ? 'Atenda clientes, acompanhe conversas e resolva solicitações dos pedidos.'
+                : area === 'employees'
                 ? 'Somente o administrador cria e edita funcionários.'
                 : area === 'subscriptions'
                   ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
@@ -812,6 +771,17 @@ export function AdminPage({
             </p>
           </div>
           <S.TopActions>
+            {area === 'overview' && (
+              <div className="overview-context" aria-label="Situação do restaurante">
+                <span className={`operation-chip ${operationAvailability.isOpen ? 'open' : 'closed'}`}
+                  role="status" title={operationAvailability.detail}>
+                  <i aria-hidden="true" /> {operationAvailability.label}
+                </span>
+                <span className="overview-unit" title="Restaurante atual">
+                  <Store aria-hidden="true" /> {settings.restaurantName}
+                </span>
+              </div>
+            )}
             {area === 'catalog' && !catalogImportOpen && (
               <>
                 <button
@@ -856,6 +826,7 @@ export function AdminPage({
             area === 'catalog' ||
             area === 'overview' ||
             area === 'orders' ||
+            area === 'support' ||
             area === 'customers' ||
             area === 'employees' ||
             area === 'subscriptions' ||
@@ -1017,6 +988,9 @@ export function AdminPage({
                 categories={categories}
                 ingredients={ingredients}
                 restaurantName={settings.restaurantName}
+                operationalSettings={settings}
+                openSupportCount={openSupportCount}
+                onSupportUpdated={refreshSupportCount}
                 onNavigate={(destination) => void changeArea(destination)}
                 onUpdateOrderStatus={async (id, status) => {
                   await onUpdateOrderStatus?.(id, status);
@@ -1078,6 +1052,14 @@ export function AdminPage({
             >
               <span aria-hidden="true">
                 <Icon />
+                {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
+                  <i className="support-badge" data-testid="admin-mobile-support-count">
+                    {formatAdminSupportBadge(openSupportCount)}
+                  </i>
+                )}
+                {item.area === 'support' && supportCountSyncError && (
+                  <i className="support-sync-error">!</i>
+                )}
               </span>
               {item.mobileLabel}
             </button>
@@ -1086,7 +1068,7 @@ export function AdminPage({
         <button
           type="button"
           className={
-            managementNavigationItems.some((item) => item.area === area) || area === 'help'
+            mobileMoreNavigationItems.some((item) => item.area === area) || area === 'help'
               ? 'active'
               : ''
           }
@@ -1122,7 +1104,7 @@ export function AdminPage({
                 <small>Gestão e configurações</small>
               </span>
             </header>
-            {managementNavigationItems.map((item) => {
+            {mobileMoreNavigationItems.map((item) => {
               const Icon = item.icon;
               const active = area === item.area;
               return (

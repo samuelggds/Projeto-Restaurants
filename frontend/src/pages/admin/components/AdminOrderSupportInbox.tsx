@@ -4,7 +4,6 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import {
   Bot,
   CheckCircle2,
-  ChevronRight,
   Headphones,
   Inbox,
   LoaderCircle,
@@ -12,7 +11,6 @@ import {
   RefreshCw,
   Send,
   Sparkles,
-  X,
 } from 'lucide-react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
@@ -69,10 +67,9 @@ function orderThread(order: RawOrder): ConversationSummary | null {
   };
 }
 
-export function AdminOrderSupportInbox() {
+export function AdminOrderSupportInbox({ openCount: externalCount, onSupportUpdated }: { openCount?: number | null; onSupportUpdated?: () => void } = {}) {
   const [orders, setOrders] = useState<RawOrder[]>([]);
   const history = useOrderHistory({ query: { queue: 'ALL', issueState: 'RESOLVED' }, refreshSignal: orders });
-  const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [thread, setThread] = useState<Thread | null>(null);
   const [draft, setDraft] = useState('');
@@ -107,11 +104,11 @@ export function AdminOrderSupportInbox() {
         .filter((item): item is ConversationSummary => Boolean(item)),
     [orders, history.orders],
   );
-  const openCount = conversations.filter((item) => !item.isResolved).length;
+  const openCount = externalCount ?? conversations.filter((item) => !item.isResolved).length;
   const visible = filter === 'open' ? conversations.filter((item) => !item.isResolved) : conversations;
 
   useEffect(() => {
-    if (!open || !selectedId) return undefined;
+    if (!selectedId) return undefined;
     let active = true;
 
     const loadThread = async (quiet = false) => {
@@ -144,15 +141,7 @@ export function AdminOrderSupportInbox() {
       window.clearTimeout(initialRefresh);
       window.clearInterval(interval);
     };
-  }, [open, selectedId]);
-
-  const closeDialog = () => {
-    setOpen(false);
-    setSelectedId(null);
-    setThread(null);
-    setDraft('');
-    setAiDraft(null);
-  };
+  }, [selectedId]);
 
   async function prepareAiDraft() {
     if (!selectedId || aiLoading) return;
@@ -189,6 +178,7 @@ export function AdminOrderSupportInbox() {
       setDraft('');
       setAiDraft(null);
       await loadOrders();
+      onSupportUpdated?.();
     } catch (error) {
       toast.error(
         (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
@@ -205,6 +195,7 @@ export function AdminOrderSupportInbox() {
       await ordersService.resolveIssue(selectedId);
       setThread((current) => (current ? { ...current, isResolved: true } : current));
       await loadOrders();
+      onSupportUpdated?.();
       toast.success(`Atendimento do pedido #${selectedId} encerrado.`);
     } catch {
       toast.error('Não foi possível encerrar este atendimento.');
@@ -217,19 +208,19 @@ export function AdminOrderSupportInbox() {
         <span className="icon"><Headphones /></span>
         <span className="copy">
           <small>Atendimento ao cliente</small>
-          <strong>Suporte dos pedidos</strong>
-          <p>Converse manualmente ou use a IA apenas para resumir, classificar e preparar um rascunho editável.</p>
+          <strong>Central de suporte dos pedidos</strong>
+          <p>Converse com clientes e resolva solicitações. A IA apenas prepara rascunhos editáveis.</p>
         </span>
         <span className="count"><b>{openCount}</b><small>{openCount === 1 ? 'caso aberto' : 'casos abertos'}</small></span>
-        <button type="button" onClick={() => setOpen(true)}>Abrir atendimentos <ChevronRight /></button>
+        <button type="button" onClick={() => { void loadOrders(); onSupportUpdated?.(); }}>
+          <RefreshCw /> Atualizar
+        </button>
       </Summary>
-
-      {open && (
-        <Backdrop role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeDialog()}>
-          <Dialog role="dialog" aria-modal="true" aria-label="Suporte dos pedidos">
+      <SupportWorkspace>
+          <Dialog role="region" aria-label="Suporte dos pedidos">
             <Header>
               <span><Inbox /><span><b>Suporte dos pedidos</b><small>{openCount} aguardando atendimento</small></span></span>
-              <button type="button" onClick={closeDialog} aria-label="Fechar suporte"><X /></button>
+              <button type="button" onClick={() => { void loadOrders(); onSupportUpdated?.(); }} aria-label="Atualizar suporte"><RefreshCw /></button>
             </Header>
 
             <Layout>
@@ -295,8 +286,7 @@ export function AdminOrderSupportInbox() {
               </Conversation>
             </Layout>
           </Dialog>
-        </Backdrop>
-      )}
+        </SupportWorkspace>
     </>
   );
 }
@@ -304,8 +294,8 @@ export function AdminOrderSupportInbox() {
 const Summary = styled.section`
   margin:0 0 18px;padding:16px 18px;display:grid;grid-template-columns:44px minmax(0,1fr) auto auto;align-items:center;gap:12px;border:1px solid #dfe8e2;border-radius:16px;background:linear-gradient(135deg,#f4fbf6,#fff);.icon{width:44px;height:44px;display:grid;place-items:center;border-radius:13px;background:#e8f6ec;color:#267044}.icon svg{width:21px}.copy small,.copy strong{display:block}.copy small{font-size:9px;text-transform:uppercase;color:#4d8060;font-weight:900}.copy strong{font-size:15px;margin-top:2px}.copy p{margin:3px 0 0;font-size:10px;color:#657468}.count{text-align:center;padding:0 12px}.count b,.count small{display:block}.count b{font-size:20px;color:#267044}.count small{font-size:8px;color:#718079;white-space:nowrap}>button{min-height:40px;padding:0 13px;border:0;border-radius:11px;background:#244d38;color:#fff;font-weight:800;font-size:10px;display:flex;align-items:center;gap:6px;cursor:pointer}>button svg{width:15px}@media(max-width:760px){grid-template-columns:40px 1fr auto;.count{padding:0}.copy p{display:none}>button{grid-column:1/-1;justify-content:center;width:100%}}
 `;
-const Backdrop = styled.div`position:fixed;inset:0;z-index:3300;display:grid;place-items:center;padding:22px;background:rgba(15,23,42,.55);backdrop-filter:blur(7px);@media(max-width:720px){padding:0;place-items:stretch}`;
-const Dialog = styled.section`width:min(1040px,100%);height:min(720px,calc(100dvh - 44px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border-radius:20px;background:#fff;box-shadow:0 32px 100px rgba(15,23,42,.28);@media(max-width:720px){width:100vw;height:100dvh;border-radius:0}`;
+const SupportWorkspace = styled.div`min-width:0;width:100%;display:grid;align-items:start;@media(max-width:720px){min-height:0}`;
+const Dialog = styled.section`width:100%;height:min(740px,calc(100dvh - 195px));min-height:380px;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid #e4eaf0;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.05);@media(max-width:720px){height:min(720px,calc(100dvh - 255px));min-height:340px;border-radius:12px}`;
 const Header = styled.header`min-height:70px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e4eaf0;>span{display:flex;align-items:center;gap:10px}>span>svg{width:22px;color:#267044}b,small{display:block}b{font-size:15px}small{font-size:9px;color:#718096;margin-top:2px}>button{width:38px;height:38px;border:1px solid #dce3eb;border-radius:10px;background:#fff;display:grid;place-items:center;cursor:pointer}>button svg{width:17px}@media(max-width:720px){padding-top:max(12px,env(safe-area-inset-top))}`;
 const Layout = styled.div`min-height:0;display:grid;grid-template-columns:minmax(290px,340px) minmax(0,1fr);@media(max-width:720px){grid-template-columns:1fr}`;
 const Sidebar = styled.aside<{ $hidden:boolean }>`min-height:0;overflow:auto;border-right:1px solid #e6ebf1;background:#f8fafc;@media(max-width:720px){display:${(props)=>props.$hidden?'none':'block'};border-right:0}`;

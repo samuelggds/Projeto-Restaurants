@@ -36,14 +36,18 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
             status: 'OPEN',
             openedAt: new Date('2026-08-24T12:00:00.000Z'),
             expiresAt: new Date('2026-08-25T00:00:00.000Z'),
+            _count: { participants: 2 },
           },
         ],
         orders: [
-          { id: 1, userId: 8, total: 25.5 },
-          { id: 2, userId: 8, total: 10 },
-          { id: 3, userId: 9, total: 4.5 },
+          { id: 1, tableSessionId: 55, total: 25.5 },
+          { id: 2, tableSessionId: 55, total: 10 },
+          { id: 3, tableSessionId: 55, total: 4.5 },
+          // Mesmo com status ainda pendente, uma comanda antiga não contamina a atual.
+          { id: 4, tableSessionId: 44, total: 8.6 },
+          { id: 5, tableSessionId: null, total: 15 },
         ],
-        _count: { orders: 3, tableSessions: 1 },
+        _count: { orders: 5, tableSessions: 2 },
       },
       {
         id: 92,
@@ -53,8 +57,8 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
         restaurantId: 7,
         restaurant: { slug: 'restaurante-teste' },
         tableSessions: [],
-        orders: [],
-        _count: { orders: 0, tableSessions: 0 },
+        orders: [{ id: 6, tableSessionId: 39, total: 8.6 }],
+        _count: { orders: 1, tableSessions: 1 },
       },
       {
         id: 93,
@@ -69,10 +73,22 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
             status: 'CLOSING_REQUESTED',
             openedAt: new Date('2026-08-24T13:00:00.000Z'),
             expiresAt: new Date('2026-08-25T01:00:00.000Z'),
+            _count: { participants: 1 },
           },
         ],
-        orders: [],
-        _count: { orders: 0, tableSessions: 1 },
+        orders: [{ id: 7, tableSessionId: 56, total: 7.75 }],
+        _count: { orders: 1, tableSessions: 1 },
+      },
+      {
+        id: 94,
+        number: 15,
+        token: 'd'.repeat(32),
+        active: true,
+        restaurantId: 7,
+        restaurant: { slug: 'restaurante-teste' },
+        tableSessions: [],
+        orders: [{ id: 8, tableSessionId: null, total: 8.6 }],
+        _count: { orders: 1, tableSessions: 1 },
       },
     ];
   };
@@ -93,11 +109,21 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
   assert.equal(result[1].operational.status, 'RESERVED');
   assert.equal(result[1].reservationStatusVerified, true);
   assert.equal(result[1].sessionId, null);
+  assert.equal(result[1].guests, 0);
+  assert.equal(result[1].total, 0);
+  assert.equal(result[1].operational.activeOrdersCount, 0);
   assert.equal('token' in result[1], false);
   assert.equal(result[2].status, 'OCCUPIED');
   assert.equal(result[2].sessionId, 56);
   assert.equal(result[2].operational.openSession.status, 'CLOSING_REQUESTED');
+  assert.equal(result[2].guests, 1);
+  assert.equal(result[2].total, 7.75);
+  assert.equal(result[2].operational.activeOrdersCount, 1);
   assert.equal('token' in result[2], false);
+  assert.equal(result[3].status, 'FREE');
+  assert.equal(result[3].guests, 0);
+  assert.equal(result[3].total, 0);
+  assert.equal(result[3].operational.activeOrdersCount, 0);
 
   const adminResult = await listTableService.execute({
     restaurantId: 7,
@@ -121,12 +147,28 @@ test('consulta do repositório isola restaurante e ignora sessões expiradas', a
   await tableRepository.findAllByRestaurant(7, fakeDb);
 
   assert.equal(query.where.restaurantId, 7);
+  assert.equal(query.include.tableSessions.where.restaurantId, 7);
   assert.deepEqual(query.include.tableSessions.where.status, {
     in: ['OPEN', 'CLOSING_REQUESTED'],
   });
   assert.ok(query.include.tableSessions.where.OR[1].expiresAt.gt instanceof Date);
   assert.deepEqual(query.include.tableSessions.orderBy, { openedAt: 'desc' });
   assert.equal(query.include.tableSessions.take, 1);
+  assert.deepEqual(query.include.tableSessions.select._count.select.participants.where, {
+    restaurantId: 7,
+    status: 'ACTIVE',
+    revokedAt: null,
+  });
+  assert.equal(query.include.orders.where.tableSession.is.restaurantId, 7);
+  assert.deepEqual(query.include.orders.where.tableSession.is.status, {
+    in: ['OPEN', 'CLOSING_REQUESTED'],
+  });
+  assert.ok(query.include.orders.where.tableSession.is.OR[1].expiresAt.gt instanceof Date);
+  assert.deepEqual(query.include.orders.select, {
+    id: true,
+    tableSessionId: true,
+    total: true,
+  });
   assert.ok(
     query.include.orders.where.OR.some((condition) => condition.settlementMode === 'TABLE_ACCOUNT'),
   );

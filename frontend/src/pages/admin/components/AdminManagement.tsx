@@ -5,6 +5,7 @@ import type {
   AdminOrder,
   AdminProduct,
   AdminSection,
+  AdminSettings,
 } from '../types';
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
@@ -28,6 +29,9 @@ type Props = {
   categories: AdminCategory[];
   ingredients: AdminIngredient[];
   restaurantName: string;
+  operationalSettings?: Pick<AdminSettings, 'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'>;
+  openSupportCount: number | null;
+  onSupportUpdated: () => void;
   onNavigate: (area: 'orders' | 'catalog' | 'customers') => void;
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
   onConfirmOrderPayment: (id: number) => Promise<void>;
@@ -59,17 +63,24 @@ export function AdminManagement(props: Props) {
         orders={props.orders}
         products={props.products}
         restaurantName={props.restaurantName}
+        operationalSettings={props.operationalSettings}
         money={money}
         onNavigate={props.onNavigate}
         onCancelOrder={props.onCancelOrder}
       />
     );
+  if (props.area === 'support')
+    return (
+      <Suspense fallback={<p role="status">Carregando atendimentos...</p>}>
+        <AdminOrderSupportInbox
+          openCount={props.openSupportCount}
+          onSupportUpdated={props.onSupportUpdated}
+        />
+      </Suspense>
+    );
   if (props.area === 'orders')
     return (
       <>
-        <Suspense fallback={<p role="status">Carregando suporte dos pedidos...</p>}>
-          <AdminOrderSupportInbox />
-        </Suspense>
         <AdminPendingPayments
           orders={props.orders}
           money={money}

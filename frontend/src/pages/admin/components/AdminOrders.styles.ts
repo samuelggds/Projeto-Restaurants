@@ -2,7 +2,70 @@ import styled from 'styled-components';
 
 export const OrdersWorkspace = styled.div`
   display: grid;
-  gap: 20px;
+  gap: 12px;
+  min-width: 0;
+
+  .orders-split-view {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(250px, 0.95fr) minmax(340px, 1.05fr);
+    align-items: start;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .order-compact-list {
+    min-width: 0;
+    max-height: min(72vh, 780px);
+    overflow: auto;
+    border: 1px solid #e6e9e5;
+    border-radius: 12px;
+    background: #fff;
+    padding: 6px;
+    display: grid;
+    align-content: start;
+    gap: 5px;
+  }
+  .order-compact-list button {
+    width: 100%;
+    min-width: 0;
+    min-height: 64px;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    color: #213029;
+    background: #fff;
+    font: inherit;
+    cursor: pointer;
+  }
+  .order-compact-list button:hover { background: #f7f8f6; }
+  .order-compact-list button.selected {
+    background: #eff7f0;
+    border-color: #b9d5c1;
+    box-shadow: inset 3px 0 #206c4d;
+  }
+  .order-compact-list button:focus-visible { outline: 2px solid #206c4d; outline-offset: -2px; }
+  .compact-identity, .compact-side { min-width: 0; display: grid; gap: 5px; }
+  .compact-identity b { font-size: 12px; overflow-wrap: anywhere; }
+  .compact-identity b span { font-weight: 550; }
+  .compact-identity small, .compact-side small { font-size: 10px; color: #75837b; }
+  .compact-side { flex-shrink: 0; text-align: right; }
+  .compact-side strong { font-size: 12px; color: #263b2f; }
+  .selected-order-detail { min-width: 0; max-height: min(72vh, 780px); overflow: auto; }
+  .selected-order-detail .order-card { margin: 0; }
+  @media (max-width: 1020px) {
+    .orders-split-view { grid-template-columns: minmax(0, 1fr); }
+    .order-compact-list { max-height: 280px; }
+    .selected-order-detail { max-height: none; }
+  }
+  @media (max-width: 600px) {
+    .order-compact-list { max-height: 230px; }
+    .orders-split-view { gap: 8px; }
+  }
 `;
 
 export { HeroCopy, OrdersHero, PriorityCard } from './AdminOrders.hero.styles';
@@ -10,19 +73,19 @@ export { HeroCopy, OrdersHero, PriorityCard } from './AdminOrders.hero.styles';
 export const OrdersSummary = styled.section`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 9px;
 
   .summary-card {
     position: relative;
     min-width: 0;
-    min-height: 126px;
+    min-height: 86px;
     overflow: hidden;
     border: 1px solid #e5dfd8;
     border-radius: 8px;
     padding: 18px;
     color: inherit;
     background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
+    box-shadow: 0 3px 12px rgba(48, 35, 25, 0.035);
     display: flex;
     align-items: flex-start;
     gap: 13px;
@@ -52,9 +115,9 @@ export const OrdersSummary = styled.section`
   }
 
   .summary-icon {
-    flex: 0 0 42px;
-    width: 42px;
-    height: 42px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
     display: grid;
     place-items: center;
@@ -102,7 +165,7 @@ export const OrdersSummary = styled.section`
 
   .summary-copy strong {
     color: #211f1c;
-    font-size: 27px;
+    font-size: 22px;
     line-height: 1.05;
     letter-spacing: -0.035em;
   }

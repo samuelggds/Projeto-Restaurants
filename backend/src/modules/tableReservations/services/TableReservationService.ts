@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import openTableSessionService from '../../tableSession/services/OpenTableSessionService.js';
+import { expireNoShowReservations, reservationCanCheckIn } from '../domain/tableReservationTolerance.js';
 
 const dateSchema = z.coerce.date();
 const reservationInput = z.object({
@@ -16,7 +17,10 @@ const reservationInput = z.object({
 }).strict().refine((value) => value.endsAt > value.startsAt, {
   message: 'O encerramento previsto deve ser posterior ao início.',
 });
-const statusInput = z.enum(['CANCELED', 'NO_SHOW', 'COMPLETED']);
+const statusInput = z.enum(['CANCELED', 'NO_SHOW']);
+const historyStatuses = ['SEATED', 'COMPLETED', 'CANCELED', 'NO_SHOW'] as const;
+const historyFilter = z.enum(['ALL', ...historyStatuses]);
+const historyOffset = z.coerce.number().int().min(0).max(1_000_000);
 type CreateReservation = z.input<typeof reservationInput>;
 
 export class ReservationError extends Error {
@@ -99,13 +103,39 @@ export class TableReservationService {
     }
     return prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, id);
-      await ensureEnabled(tx, id);
+      const settings = await ensureEnabled(tx, id);
+      await expireNoShowReservations(tx, id, settings.tableReservationToleranceMinutes);
       const rows = await tx.tableReservation.findMany({
         where: { restaurantId: id, startsAt: { lt: to }, endsAt: { gt: from } },
         include: { table: { select: { number: true } } },
         orderBy: { startsAt: 'asc' }, take: 500,
       });
       return rows.map(sanitize);
+    });
+  }
+
+  async history(restaurantId: number, status: unknown = 'ALL', skip: unknown = 0) {
+    const id = positive(restaurantId);
+    const selectedStatus = historyFilter.parse(status);
+    const offset = historyOffset.parse(skip);
+    const where: Prisma.TableReservationWhereInput = {
+      restaurantId: id,
+      status: selectedStatus === 'ALL' ? { in: [...historyStatuses] } : selectedStatus,
+    };
+    // Paginação real no banco: reservas antigas não desaparecem por causa da janela da agenda.
+    return prisma.$transaction(async (tx) => {
+      await setTenantDbContext(tx, id);
+      const [total, records] = await Promise.all([
+        tx.tableReservation.count({ where }),
+        tx.tableReservation.findMany({
+          where,
+          include: { table: { select: { number: true } } },
+          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          skip: offset,
+          take: 10,
+        }),
+      ]);
+      return { total, rows: records.map(sanitize), skip: offset, take: 10 };
     });
   }
 
@@ -123,7 +153,7 @@ export class TableReservationService {
     try {
       return await prisma.$transaction(async (tx) => {
         await setTenantDbContext(tx, id);
-        await ensureEnabled(tx, id);
+        const settings = await ensureEnabled(tx, id);
         // Table lock serializes reservations and table opening/booking attempts.
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Table"
           WHERE "id" = ${parsed.tableId} AND "restaurantId" = ${id} AND "active" = true FOR UPDATE`);
@@ -143,6 +173,7 @@ export class TableReservationService {
           }, select: { id: true },
         });
         if (session) throw new ReservationError('Esta mesa ainda estará ocupada no horário selecionado.');
+        await expireNoShowReservations(tx, id, settings.tableReservationToleranceMinutes, new Date(), table.id);
         const clash = await tx.tableReservation.findFirst({
           where: {
             restaurantId: id, tableId: table.id, status: 'CONFIRMED',
@@ -188,11 +219,9 @@ export class TableReservationService {
         include: { table: { select: { number: true } } },
       });
       if (!row) throw new ReservationError('Reserva não encontrada.', 404);
-      if (row.status !== 'CONFIRMED' && !(row.status === 'SEATED' && next === 'COMPLETED')) {
+      // Conclusão é automática e atômica com o fechamento financeiro da sessão.
+      if (row.status !== 'CONFIRMED') {
         throw new ReservationError('Esta reserva não pode mais ser alterada.');
-      }
-      if (row.status === 'SEATED' && next !== 'COMPLETED') {
-        throw new ReservationError('Finalize a mesa antes de concluir a reserva.');
       }
       const updated = await tx.tableReservation.update({
         where: { id: row.id }, data: {
@@ -209,7 +238,7 @@ export class TableReservationService {
     // Same-tenant validation before invoking the established session-opening workflow.
     const record = await prisma.$transaction(async tx => {
       await setTenantDbContext(tx, id);
-      await ensureEnabled(tx, id);
+      const settings = await ensureEnabled(tx, id);
       const row = await tx.tableReservation.findFirst({
         where: { restaurantId: id, publicId, status: 'CONFIRMED' }, select: {
           id: true, tableId: true, startsAt: true, endsAt: true,
@@ -217,7 +246,7 @@ export class TableReservationService {
       });
       if (!row) throw new ReservationError('Reserva confirmada não encontrada.', 404);
       const now = new Date();
-      if (now < new Date(row.startsAt.getTime() - 30 * 60_000) || now > row.endsAt) {
+      if (!reservationCanCheckIn(row.startsAt, row.endsAt, settings.tableReservationToleranceMinutes, now)) {
         throw new ReservationError('Check-in fora da janela de atendimento.');
       }
       const conflictingSession = await tx.tableSession.findFirst({

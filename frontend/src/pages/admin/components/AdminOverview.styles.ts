@@ -4,7 +4,8 @@ type StatusTone = 'warning' | 'info' | 'success' | 'danger' | 'neutral';
 
 export const OverviewRoot = styled.div`
   display: grid;
-  gap: 20px;
+  gap: 12px;
+  min-width: 0;
 
   .sr-only {
     position: absolute;
@@ -24,8 +25,8 @@ export const Hero = styled.section`
   min-height: 226px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 30px;
+  border-radius: 18px;
+  padding: 26px 30px;
   color: #fff;
   background:
     radial-gradient(
@@ -36,8 +37,8 @@ export const Hero = styled.section`
     linear-gradient(118deg, #142722 0%, #17342c 52%, #54362b 100%);
   box-shadow: 0 24px 58px rgba(27, 38, 33, 0.16);
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(250px, 0.6fr);
-  gap: 32px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.6fr);
+  gap: 28px;
   isolation: isolate;
 
   &::before,
@@ -151,8 +152,10 @@ export const HeroCopy = styled.div`
 export const HeroAside = styled.aside`
   min-width: 0;
   align-self: stretch;
-  padding-left: 27px;
-  border-left: 1px solid rgba(255, 255, 255, 0.13);
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  background: rgba(13,46,37,0.66);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -173,10 +176,16 @@ export const HeroAside = styled.aside`
     white-space: nowrap;
   }
 
-  > div {
-    display: grid;
-    gap: 8px;
-    margin-top: 20px;
+  .hero-operating-state { color: #b9d5c7; font-size: 11px; margin-top: 6px; }
+  .hero-quick-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 14px; }
+  .hero-quick-metrics > span { min-width: 0; padding: 10px; display: grid; gap: 5px; border-radius: 10px; background: rgba(255,255,255,0.07); }
+  .hero-quick-metrics svg { width: 15px; height: 15px; color: #c1dccb; }
+  .hero-quick-metrics b { font-size: 18px; color: #fff; }
+  .hero-quick-metrics small { font-size: 10px; color: #c1d2c9; text-transform: none; }
+  > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  @media (max-width: 560px) {
+    .hero-quick-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    > div:last-child { grid-template-columns: 1fr; }
   }
 
   button {
@@ -263,11 +272,11 @@ export const Metrics = styled.section`
 
 export const Metric = styled.article`
   min-width: 0;
-  min-height: 126px;
+  min-height: 110px;
   border: 1px solid #e5dfd8;
-  border-radius: 8px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
   display: flex;
   align-items: flex-start;
@@ -405,9 +414,9 @@ export const Metric = styled.article`
 
 export const AdminGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.28fr) minmax(360px, 0.72fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   align-items: start;
-  gap: 16px;
+  gap: 12px;
 
   @media (max-width: 1040px) {
     grid-template-columns: 1fr;
@@ -418,8 +427,8 @@ export const Panel = styled.section`
   min-width: 0;
   overflow: hidden;
   border: 1px solid #e5dfd8;
-  border-radius: 8px;
-  padding: 22px;
+  border-radius: 12px;
+  padding: 18px;
   background: #fff;
   box-shadow: 0 12px 34px rgba(48, 35, 25, 0.055);
 

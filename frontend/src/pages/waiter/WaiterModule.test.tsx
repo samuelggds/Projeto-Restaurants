@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WaiterModule, type WaiterModuleProps } from './WaiterModule';
+import { AppDialogProvider } from '../../components/AppDialog/AppDialogProvider';
 
 vi.mock('../../features/employee-help/useEmployeeIssueNotifications', () => ({
   useEmployeeIssueNotifications: vi.fn(),
@@ -42,7 +43,11 @@ describe('WaiterModule navigation and loading states', () => {
   });
 
   function render(overrides: Partial<WaiterModuleProps> = {}) {
-    act(() => root.render(<WaiterModule {...props} {...overrides} />));
+    act(() => root.render(
+      <AppDialogProvider>
+        <WaiterModule {...props} {...overrides} />
+      </AppDialogProvider>,
+    ));
   }
 
   it('distingue carregamento inicial e falha de um salão vazio confirmado', () => {
@@ -103,6 +108,69 @@ describe('WaiterModule navigation and loading states', () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe('Atualização incompleta');
     expect(container.textContent).not.toContain('Atualização automática');
     expect(container.textContent).not.toContain('Os dados do salão ainda não estão disponíveis.');
+  });
+
+  it('mantém os cinco destinos oficiais no desktop e no mobile, sem gestão de reservas', () => {
+    render();
+    const navigation = container.querySelector(
+      '[aria-label="Navegação móvel do garçom"]',
+    ) as HTMLElement;
+    const buttons = [...navigation.querySelectorAll('button')];
+    expect(buttons).toHaveLength(5);
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Visão geral',
+      'Para entregar',
+      'Mesas e QR Codes',
+      'Chamados',
+      'Pagamentos',
+    ]);
+    expect(buttons.every((button) => button.querySelector('.mobile-nav-label'))).toBe(true);
+    expect(buttons[0].getAttribute('aria-current')).toBe('page');
+    const desktop = container.querySelector('[aria-label="Navegação do garçom"]') as HTMLElement;
+    expect([...desktop.querySelectorAll('button')].map(button => button.getAttribute('aria-label'))).toEqual([
+      'Visão geral', 'Para entregar', 'Mesas e QR Codes', 'Chamados', 'Pagamentos',
+    ]);
+    expect([...navigation.querySelectorAll('.mobile-nav-label')].map(item=>item.textContent)).toEqual([
+      'Visão geral', 'Para entregar', 'Mesas', 'Chamados', 'Pagamentos',
+    ]);
+    act(() => buttons[4].click());
+    expect(buttons[4].getAttribute('aria-current')).toBe('page');
+    expect(container.querySelector('h1')?.textContent).toBe('Pagamentos');
+  });
+
+  it('atualiza e zera indicadores na sidebar desktop e mobile quando os estados mudam', () => {
+    const ready = {
+      id: '#11', channel: 'TABLE' as const, reference: 'Mesa 01',
+      items: ['1 Pizza'], createdAt: '18:30', elapsed: '00:30',
+      status: 'PRONTO' as const, total: 25,
+    };
+    const waiting = {
+      id: 'call-1', tableNumber: 1, type: 'WAITER' as const,
+      status: 'WAITING' as const, elapsed: '01:00',
+    };
+    const active = { ...waiting, id: 'call-2', status: 'IN_PROGRESS' as const };
+
+    const badge = (prefix: string, destination: string) =>
+      container.querySelector(`[data-testid="waiter-${prefix}-count-${destination}"]`)?.textContent;
+
+    render({ data: { ...props.data!, orders: [ready], calls: [waiting, active] } });
+    expect(badge('desktop', 'deliveries')).toBe('1');
+    expect(badge('mobile', 'deliveries')).toBe('1');
+    expect(badge('desktop', 'calls')).toBe('2');
+    expect(badge('mobile', 'calls')).toBe('2');
+
+    render({ data: { ...props.data!,
+      orders: [{ ...ready, status: 'ENTREGUE' }],
+      calls: [{ ...waiting, status: 'IN_PROGRESS' }, { ...active, status: 'RESOLVED' }],
+    } });
+    expect(badge('desktop', 'deliveries')).toBeUndefined();
+    expect(badge('mobile', 'deliveries')).toBeUndefined();
+    expect(badge('desktop', 'calls')).toBe('1');
+    expect(badge('mobile', 'calls')).toBe('1');
+
+    render({ data: { ...props.data!, orders: [], calls: [] } });
+    expect(badge('desktop', 'calls')).toBeUndefined();
+    expect(badge('mobile', 'calls')).toBeUndefined();
   });
 
   it('mantém o foco no menu móvel, fecha com Escape e devolve o foco ao botão de origem', () => {

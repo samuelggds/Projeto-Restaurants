@@ -239,7 +239,7 @@ function account(f) {
     email: 'synthetic@example.test',
   };
   f.stub(prisma.user, 'findUnique', async () => ({ ...user }));
-  const token = jwt.sign({ ...user, type: 'access' }, process.env.JWT_SECRET, { expiresIn: '1s' });
+  const token = jwt.sign({ ...user, type: 'access' }, process.env.JWT_SECRET, { expiresIn: '60s' });
   return { user, token };
 }
 

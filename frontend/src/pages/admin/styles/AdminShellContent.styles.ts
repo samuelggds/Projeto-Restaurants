@@ -8,6 +8,20 @@ export const Main = styled.main`
 
 export const Top = styled.header`
   min-height: 154px;
+  &[data-area='overview'] {
+    min-height: 122px;
+    padding: 25px 30px 19px;
+    border-bottom: 0;
+    background: transparent;
+    align-items: flex-end;
+    small { color: #68736d; }
+    h1 { margin: 7px 0 3px; font-size: 30px; color: #17231e; letter-spacing: -0.04em; }
+    p { color: #68736d; font-size: 13px; }
+  }
+  @media (max-width: 820px) {
+    &[data-area='overview'] { padding: 16px 12px 9px; align-items: flex-start; flex-wrap: wrap; }
+    &[data-area='overview'] h1 { font-size: 24px; }
+  }
   padding: 27px 34px 20px;
   border-bottom: 1px solid var(--border);
   background: rgba(255, 253, 249, 0.94);
@@ -57,6 +71,22 @@ export const Top = styled.header`
 `;
 
 export const TopActions = styled.div`
+  .overview-context { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+  .operation-chip, .overview-unit {
+    display: inline-flex; align-items: center; gap: 7px; min-height: 36px;
+    border-radius: 9px; padding: 0 11px; white-space: nowrap;
+    font-size: 11px; font-weight: 750;
+  }
+  .operation-chip { color: #245742; background: #e9f2ed; }
+  .operation-chip.closed { color: #8e4b32; background: #fff0e8; }
+  .operation-chip i { height: 7px; width: 7px; border-radius: 50%; background: #388a66; }
+  .operation-chip.closed i { background: #c26142; }
+  .overview-unit { border: 1px solid #e5e8e3; color: #17231e; background: #fff; }
+  .overview-unit svg { width: 15px; height: 15px; }
+  @media (max-width: 580px) {
+    .overview-context { justify-content: flex-start; width: 100%; }
+    .operation-chip, .overview-unit { white-space: normal; min-height: 34px; }
+  }
   margin-left: auto;
   display: flex;
   gap: 10px;

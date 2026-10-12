@@ -10,6 +10,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { Prisma } from '@prisma/client';
 import tableWaiterAssignmentService from '../../employeeCompensation/services/TableWaiterAssignmentService.js';
+import { reservationCanCheckIn, expireNoShowReservations } from '../../tableReservations/domain/tableReservationTolerance.js';
 
 function isUniqueConflict(error: unknown) {
   return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'P2002');
@@ -143,6 +144,9 @@ class OpenTableSessionService {
         async (tx) => {
           await setTenantDbContext(tx, normalizedRestaurantId);
           const now = new Date();
+          const reservationSettings = await tx.restaurantSettings.findUnique({ where: { restaurantId: normalizedRestaurantId }, select: { tableReservationToleranceMinutes: true } });
+          const toleranceMinutes = reservationSettings?.tableReservationToleranceMinutes ?? 15;
+          await expireNoShowReservations(tx, normalizedRestaurantId, toleranceMinutes, now, normalizedTableId);
           const upcomingReservation = await tx.tableReservation.findFirst({
             where: {
               restaurantId: normalizedRestaurantId,
@@ -165,7 +169,7 @@ class OpenTableSessionService {
             });
             if (!ownReservation ||
               ownReservation.startsAt.getTime() - 30 * 60_000 > now.getTime() ||
-              ownReservation.endsAt <= now) {
+              !reservationCanCheckIn(ownReservation.startsAt, ownReservation.endsAt, toleranceMinutes, now)) {
               throw new Error('Reserva inválida ou fora da janela de check-in.');
             }
           }
@@ -184,7 +188,7 @@ class OpenTableSessionService {
           if (normalizedReservationId) {
             await tx.tableReservation.update({
               where: { id: normalizedReservationId, restaurantId: normalizedRestaurantId },
-              data: { status: 'SEATED', checkedInAt: now },
+              data: { status: 'SEATED', checkedInAt: now, tableSessionId: created.id },
             });
           }
           await tableWaiterAssignmentService.autoAssignOpenedByWaiter({

@@ -876,6 +876,76 @@ test('reserva impede abertura e estado muda após consulta autorizada', async ({
   await expect(panel.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
 });
 
+test('navegação inferior mantém os cinco destinos do garçom em uma linha', async ({ page }) => {
+  await mockWaiterAndTableApi(page, initialState());
+  for (const width of [320, 360, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.goto('/waiter');
+    const nav = page.getByRole('navigation', { name: 'Navegação móvel do garçom' });
+    const items = nav.locator('button');
+    await expect(items).toHaveCount(5);
+    const layout = await nav.evaluate((element) => {
+      const navRect = element.getBoundingClientRect();
+      const buttons = [...element.querySelectorAll('button')];
+      const bounds = buttons.map((button) => button.getBoundingClientRect());
+      return {
+        viewport: window.innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        navHeight: navRect.height,
+        buttonHeights: bounds.map((rect) => rect.height),
+        tops: bounds.map((rect) => rect.top),
+        minLeft: Math.min(...bounds.map((rect) => rect.left)),
+        maxRight: Math.max(...bounds.map((rect) => rect.right)),
+      };
+    });
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewport + 1);
+    expect(layout.navHeight).toBeLessThanOrEqual(90);
+    expect(Math.max(...layout.tops) - Math.min(...layout.tops)).toBeLessThanOrEqual(1);
+    expect(Math.min(...layout.buttonHeights)).toBeGreaterThanOrEqual(44);
+    expect(layout.minLeft).toBeGreaterThanOrEqual(0);
+    expect(layout.maxRight).toBeLessThanOrEqual(layout.viewport + 1);
+    await nav.getByRole('button', { name: 'Pagamentos' }).click();
+    await expect(page.getByRole('heading', { name: 'Pagamentos', exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: 'Reservas' })).toHaveCount(0);
+    await nav.getByRole('button', { name: 'Chamados' }).click();
+    await expect(page.getByRole('heading', { name: 'Chamados', exact: true })).toBeVisible();
+  }
+});
+
+test('indicadores de pedidos e atendimentos acompanham o estado e mobile usa sidebar escura', async ({ page }) => {
+  const state = initialState();
+  // Verify the desktop indicator while that navigation is actually visible.
+  await page.setViewportSize({ width: 1280, height: 780 });
+  await mockWaiterAndTableApi(page, state);
+  await page.goto('/waiter');
+  const desktop = page.getByRole('navigation', { name: 'Navegação do garçom' });
+  await expect(desktop.getByTestId('waiter-desktop-count-calls')).toHaveText('2');
+  await page.setViewportSize({ width: 390, height: 780 });
+  const mobile = page.getByRole('navigation', { name: 'Navegação móvel do garçom' });
+  const orders = mobile.getByTestId('waiter-mobile-count-deliveries');
+  const calls = mobile.getByTestId('waiter-mobile-count-calls');
+  await expect(orders).toHaveText('1');
+  await expect(calls).toHaveText('2');
+  await expect(mobile).toHaveCSS('background-color', 'rgb(28, 28, 28)');
+  await expect(calls).toHaveCSS('background-color', 'rgb(189, 71, 8)');
+  await expect(mobile.getByRole('button', { name: 'Visão geral' })).toHaveCSS('color', 'rgb(255, 255, 255)');
+
+  state.calls[0].status = 'IN_PROGRESS';
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveText('2'); // In progress still counts as an open call.
+
+  state.calls[1].status = 'RESOLVED';
+  state.includeReadyOrder = false;
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveText('1');
+  await expect(orders).toHaveCount(0);
+  await expect(mobile.getByTestId('waiter-mobile-count-deliveries')).toHaveCount(0);
+
+  state.calls[0].status = 'RESOLVED';
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(calls).toHaveCount(0);
+});
+
 test('todas as abas do garçom permanecem acessíveis e sem overflow em celular', async ({
   page,
 }) => {

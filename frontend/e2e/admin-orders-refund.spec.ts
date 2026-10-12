@@ -192,22 +192,39 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
 
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
 
-  const onlinePixOrder = page.locator('article.order-card').filter({ hasText: '#701' });
-  await expect(onlinePixOrder).toContainText('Cliente Pix Online');
-  await expect(onlinePixOrder).toContainText('Pago online');
-  await expect(onlinePixOrder).toContainText(
+  // The Figma layout lists all orders on the left and shows actions only
+  // for the selected order on the right. Validate both payment flows explicitly.
+  const queue = page.getByRole('navigation', { name: 'Selecionar pedido para detalhes' });
+  const selectPix = queue.getByRole('button', {
+    name: 'Ver detalhes do pedido #701 de Cliente Pix Online',
+  });
+  const selectPayOnDelivery = queue.getByRole('button', {
+    name: 'Ver detalhes do pedido #702 de Cliente Pagamento na Entrega',
+  });
+  await expect(selectPix).toBeVisible();
+  await expect(selectPayOnDelivery).toBeVisible();
+  await selectPix.click();
+  const selectedOrder = page.locator('article.order-card');
+  await expect(selectedOrder).toHaveCount(1);
+  await expect(selectedOrder).toContainText('Cliente Pix Online');
+  await expect(selectedOrder).toContainText('Pago online');
+  await expect(selectedOrder).toContainText(
     'Ao cancelar, o estorno online será solicitado automaticamente',
   );
 
-  const payOnDeliveryOrder = page.locator('article.order-card').filter({ hasText: '#702' });
-  await expect(payOnDeliveryOrder).toContainText('Pago na entrega');
-  await expect(payOnDeliveryOrder).toContainText('Pagamento na entrega exige devolução manual');
-  await expect(payOnDeliveryOrder).not.toContainText('estorno automático ao cancelar');
+  await selectPayOnDelivery.click();
+  await expect(selectedOrder).toContainText('#702');
+  await expect(selectedOrder).toContainText('Pago na entrega');
+  await expect(selectedOrder).toContainText('Pagamento na entrega exige devolução manual');
+  await expect(selectedOrder).not.toContainText('estorno automático ao cancelar');
   await expect(
-    payOnDeliveryOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #702' }),
+    selectedOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #702' }),
   ).toHaveCount(0);
 
-  await onlinePixOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #701' }).click();
+  await selectPix.click();
+  await expect(selectPix).toHaveAttribute('aria-current', 'true');
+  await expect(selectedOrder).toContainText('#701');
+  await selectedOrder.getByRole('button', { name: 'Cancelar e estornar o pedido #701' }).click();
 
   const confirmation = page.getByRole('dialog');
   await expect(confirmation).toContainText('Cancelar pedido e solicitar estorno?');
@@ -219,8 +236,8 @@ test('admin cancela Pix online com estorno único e distingue pagamento na entre
 
   await expect.poll(() => state.refundRequests).toBe(1);
   await expect(page.getByText('Pedido #701 cancelado e estorno solicitado.')).toBeVisible();
-  await expect(onlinePixOrder).toContainText('Cancelado');
-  await expect(onlinePixOrder).toContainText('Estorno concluído no mesmo meio de pagamento');
+  await expect(selectedOrder).toContainText('Cancelado');
+  await expect(selectedOrder).toContainText('Estorno concluído no mesmo meio de pagamento');
   expect(state.refundRequests).toBe(1);
 });
 
@@ -235,10 +252,15 @@ test('indicadores incluem mais de 100 pedidos e a fila ativa encontra um pedido 
   await expect(page.getByText('126 pedidos hoje', { exact: false })).toBeVisible();
   await expect(page.getByText('R$ 1.275,00', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
-  await expect(page.locator('article.order-card')).toHaveCount(10);
+  const queue = page.getByRole('navigation', { name: 'Selecionar pedido para detalhes' });
+  await expect(queue.getByRole('button')).toHaveCount(10);
+  await expect(page.locator('article.order-card')).toHaveCount(1);
   await expect(page.getByText('Exibindo 10 de 126 pedidos')).toBeVisible();
   await page.getByRole('button', { name: 'Mostrar pedidos ativos', exact: true }).click();
+  await expect(queue.getByRole('button')).toHaveCount(1);
   await expect(page.locator('article.order-card')).toHaveCount(1);
+  await expect(queue.getByRole('button', { name: 'Ver detalhes do pedido #1 de Cliente Pix Online' }))
+    .toHaveAttribute('aria-current', 'true');
   await expect(page.locator('article.order-card')).toContainText('#1');
   await expect(page.locator('article.order-card')).toContainText('Em preparo');
 });

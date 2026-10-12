@@ -162,6 +162,7 @@ export function AdminOrders({
 }: AdminOrdersProps) {
   const { confirmDialog } = useAppDialog();
   const [search, setSearch] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [status, setStatus] = useState('');
   const [queueView, setQueueView] = useState<QueueView>('ALL');
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<number | null>(null);
@@ -557,10 +558,26 @@ export function AdminOrders({
         )}
 
         {displayedOrders.length ? (
+          <div className="orders-split-view">
+            <nav className="order-compact-list" aria-label="Selecionar pedido para detalhes">
+              {displayedOrders.map((item) => (
+                <button key={item.numericId} type="button"
+                  aria-label={`Ver detalhes do pedido ${item.id} de ${item.customerName}`}
+                  className={(selectedOrderId ?? displayedOrders[0]?.numericId) === item.numericId ? 'selected' : ''}
+                  aria-current={(selectedOrderId ?? displayedOrders[0]?.numericId) === item.numericId ? 'true' : undefined}
+                  onClick={() => setSelectedOrderId(item.numericId)}>
+                  <span className="compact-identity"><b>{item.id} <span>{item.customerName}</span></b>
+                    <small>{getOrderTypeLabel(item.type)} · {formatCreatedAt(item.createdAt)}</small></span>
+                  <span className="compact-side"><strong>{money(item.total)}</strong>
+                    <small>{statusLabels[item.status] ?? item.status}</small></span>
+                </button>
+              ))}
+            </nav>
+            <div className="selected-order-detail" aria-label="Detalhes e ações do pedido selecionado">
           <S.OrdersList
             aria-busy={page.loading || cancellingOrderId !== null || confirmingPaymentId !== null}
           >
-            {displayedOrders.map((order) => {
+            {displayedOrders.filter((order) => order.numericId === (selectedOrderId && displayedOrders.some(item => item.numericId === selectedOrderId) ? selectedOrderId : displayedOrders[0]?.numericId)).map((order) => {
               const payment = getOrderPaymentPresentation(order);
               const progress = getOrderProgress(order.status);
               const waitingForCapacity = isOrderWaitingForCapacity(order);
@@ -849,6 +866,8 @@ export function AdminOrders({
               );
             })}
           </S.OrdersList>
+            </div>
+          </div>
         ) : page.loading ? (
           <S.OrdersEmpty role="status">
             <p>Carregando pedidos...</p>

@@ -7,6 +7,7 @@ import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationC
 import orderPixPaymentExpirationJob from '../modules/orders/jobs/OrderPixPaymentExpirationJob.js';
 import orderCapacityQueueJob from '../modules/orders/jobs/OrderCapacityQueueJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
+import tableReservationNoShowExpirationJob from '../modules/tableReservations/jobs/TableReservationNoShowExpirationJob.js';
 import type { JobDefinition } from './JobDefinition.js';
 import { drainNotificationOutbox } from '../services/notificationOutbox.js';
 import { deliverSalesLeadEmails } from '../modules/salesLeads/services/SalesLeadEmailOutboxService.js';
@@ -184,6 +185,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       failureBackoffMs: 30_000,
       runOnStart: true,
       execute: () => orderPixPaymentExpirationJob.execute(),
+    },
+    {
+      key: 'table-reservations.no-show-expiration',
+      description: 'Marca ausência somente depois da tolerância, sem alterar mesas em atendimento',
+      runtime: 'api',
+      schedule: { kind: 'interval', intervalMs: 60_000 },
+      leaseDurationMs: 3 * 60 * 1000,
+      successCooldownMs: 50_000,
+      failureBackoffMs: 30_000,
+      runOnStart: true,
+      execute: () => tableReservationNoShowExpirationJob.execute(),
     },
     {
       key: 'table-account.payment-expiration',

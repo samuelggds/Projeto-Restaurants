@@ -32,6 +32,12 @@ router.get('/',async(req,res)=>{
   try { res.json(await service.list(req.user.restaurantId,String(req.query.from||''),String(req.query.to||''))); }
   catch(e){respond(res,e);}
 });
+router.get('/history',async(req,res)=>{
+  try {
+    const result = await service.history(req.user.restaurantId, req.query.status ?? 'ALL', req.query.skip ?? '0');
+    res.json(result);
+  } catch(e){ respond(res,e); }
+});
 router.post('/',async(req,res)=>{
   try{
     const created = await service.create(req.user.restaurantId,req.user.id,req.body);

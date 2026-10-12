@@ -129,8 +129,12 @@ export const Content = styled.div`
   max-width: 1390px;
   margin: 0 auto;
   padding: 24px 28px 70px;
+  @media (max-width: 820px) {
+    /* Keeps the final card and its actions above the fixed mobile navigation. */
+    padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  }
   @media (max-width: 650px) {
-    padding: 12px 10px 98px;
+    padding: 12px 10px calc(98px + env(safe-area-inset-bottom, 0px));
   }
 `;
 export const WorkspaceNotice = styled.div`

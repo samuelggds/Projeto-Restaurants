@@ -113,6 +113,42 @@ describe('AdminOverview', () => {
     expect(container.querySelectorAll('.data-row')).toHaveLength(20);
   });
 
+  it('usa somente métricas e disponibilidade reais sem assumir loja aberta', async () => {
+    mocks.overview.mockResolvedValue({
+      todayOrders: 8, sales: 430, averageTicket: 53.75,
+      preparingOrders: 2, customers: 6, timezone: 'America/Sao_Paulo',
+    });
+    const operation = {
+      businessHours: [],
+      businessHoursConfigured: false,
+      isOpenForOrders: false,
+    } as const;
+    await act(async () => root.render(
+      <AppDialogProvider>
+        <AdminOverview orders={[]} products={[]} restaurantName="Loja Teste"
+          operationalSettings={{ ...operation, businessHours: [] }}
+          money={(value) => `R$ ${value}`} onNavigate={() => undefined} />
+      </AppDialogProvider>,
+    ));
+    expect(container.textContent).toContain('Loja Teste está fechado');
+    expect(container.textContent).toContain('8 pedidos hoje');
+    expect(container.textContent).toContain('2 em preparo');
+    expect(container.textContent).toContain('R$ 430');
+    expect(container.textContent).toContain('cardápio disponível');
+  });
+
+  it('não apresenta zeros falsos quando o relatório de métricas falha', async () => {
+    mocks.overview.mockRejectedValue(new Error('temporariamente indisponível'));
+    await act(async () => root.render(
+      <AppDialogProvider>
+        <AdminOverview orders={[]} products={[]} restaurantName="Loja Teste"
+          money={(value) => `R$ ${value}`} onNavigate={() => undefined} />
+      </AppDialogProvider>,
+    ));
+    expect(container.textContent).toContain('Indicadores indisponíveis');
+    expect(container.querySelector('[aria-label="Indicadores de hoje"]')?.textContent).toContain('—');
+  });
+
   it('oferece atalhos contextuais para pedidos, cardápio e clientes', async () => {
     const onNavigate = vi.fn();
 
