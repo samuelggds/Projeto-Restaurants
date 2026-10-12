@@ -150,6 +150,7 @@ describe('TableMenuSettings', () => {
     vi.mocked(tablesService.createTable).mockResolvedValue({
       id: 10,
       number: 2,
+      seatCapacity: 4,
       restaurantId: 4,
       restaurantSlug: 'casa-teste',
       token: 'fedcba9876543210fedcba9876543210',
@@ -173,7 +174,8 @@ describe('TableMenuSettings', () => {
     });
     await act(async () => submit.click());
 
-    expect(tablesService.createTable).toHaveBeenCalledWith({ number: 2 });
+    expect(tablesService.createTable).toHaveBeenCalledWith({ number: 2, seatCapacity: 4 });
+    expect(container.textContent).toContain('4 lugares');
     expect(container.textContent).toContain('Mesa 02 criada com QR Code seguro.');
     expect(
       container.querySelector('[role="dialog"][aria-label="QR Code da Mesa 02"]'),

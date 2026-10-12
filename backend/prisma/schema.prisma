@@ -922,6 +922,7 @@ model ProductRating {
 model Table {
   id            Int                @id @default(autoincrement())
   number        Int
+  seatCapacity  Int?
   token         String             @unique
   active        Boolean            @default(true)
   restaurantId  Int

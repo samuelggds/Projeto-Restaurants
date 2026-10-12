@@ -128,9 +128,11 @@ export class TableReservationService {
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Table"
           WHERE "id" = ${parsed.tableId} AND "restaurantId" = ${id} AND "active" = true FOR UPDATE`);
         const table = await tx.table.findFirst({
-          where: { id: parsed.tableId, restaurantId: id, active: true }, select: { id: true, number: true },
+          where: { id: parsed.tableId, restaurantId: id, active: true }, select: { id: true, number: true, seatCapacity: true },
         });
         if (!table) throw new ReservationError('Mesa inativa ou pertencente a outro restaurante.', 404);
+        if (table.seatCapacity === null) throw new ReservationError('O administrador deve configurar os lugares desta mesa.');
+        if (parsed.guestCount > table.seatCapacity) throw new ReservationError('Quantidade de convidados superior à capacidade da mesa.', 422);
         // A mesa pode estar ocupada agora e disponível no horário da reserva.
         // Só bloqueia quando a sessão atual ainda alcança o intervalo escolhido.
         const session = await tx.tableSession.findFirst({

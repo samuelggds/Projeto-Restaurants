@@ -36,6 +36,11 @@ class TablesService {
     return response.data;
   }
 
+  async updateSeatCapacity(tableId: string, seatCapacity: number) {
+    const response = await api.put(`/tables/${tableId}`, { seatCapacity });
+    return response.data;
+  }
+
   async deactivateTable(tableId) {
     const response = await api.patch(`/tables/${tableId}`);
     return response.data;

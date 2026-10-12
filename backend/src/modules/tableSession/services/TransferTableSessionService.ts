@@ -30,12 +30,22 @@ export class TransferTableSessionService {
         if(!session) throw new TableTransferError('Sessão não encontrada, expirada ou fechada.',404);
         if(session.tableId===destinationTableId) throw new TableTransferError('Selecione outra mesa.',422);
         const tableIds=[session.tableId,destinationTableId].sort((a,b)=>a-b);
-        const locked=await tx.$queryRaw<Array<{id:number;number:number;active:boolean}>>(
-          Prisma.sql`SELECT "id","number","active" FROM "Table" WHERE "restaurantId"=${restaurantId}
+        const locked=await tx.$queryRaw<Array<{id:number;number:number;active:boolean;seatCapacity:number|null}>>(
+          Prisma.sql`SELECT "id","number","active","seatCapacity" FROM "Table" WHERE "restaurantId"=${restaurantId}
             AND "id" IN (${Prisma.join(tableIds)}) ORDER BY "id" FOR UPDATE`);
         const source=locked.find(t=>t.id===session.tableId);
         const destination=locked.find(t=>t.id===destinationTableId);
         if(!source||!destination||!destination.active) throw new TableTransferError('Mesa destino inexistente, inativa ou de outro restaurante.',404);
+        // Deny unknown capacity and never implicitly split a party across tables.
+        if (destination.seatCapacity === null) {
+          throw new TableTransferError('Configure os lugares da mesa destino antes da transferência.');
+        }
+        const activeParticipants = await tx.tableParticipant.count({
+          where: { restaurantId, tableSessionId: sessionId, status: 'ACTIVE' },
+        });
+        if (activeParticipants > destination.seatCapacity) {
+          throw new TableTransferError('A mesa destino não acomoda todos os clientes ativos.');
+        }
         const occupied=await tx.tableSession.findFirst({
           where:{restaurantId,tableId:destinationTableId,status:{in:[TableSessionStatus.OPEN,TableSessionStatus.CLOSING_REQUESTED]}},
           select:{id:true},

@@ -20,14 +20,17 @@ type Scenario = {
   occupied?: boolean;
   reserved?: boolean;
   staleUpdate?: boolean;
+  destinationCapacity?: number | null;
+  activeParticipants?: number;
 };
 
 function setup(input: Scenario = {}) {
   const calls: Array<{ table: string; args: unknown }> = [];
   const locked = [
-    { id: 91, number: 1, active: true },
+    { id: 91, number: 1, active: true, seatCapacity: 4 },
     ...(input.destinationOwned === false ? [] :
-      [{ id: 92, number: 2, active: input.destinationActive !== false }]),
+      [{ id: 92, number: 2, active: input.destinationActive !== false,
+        seatCapacity: input.destinationCapacity === undefined ? 4 : input.destinationCapacity }]),
   ];
   const expiresAt = new Date(Date.now() + 60 * 60_000);
   const tx = {
@@ -45,6 +48,14 @@ function setup(input: Scenario = {}) {
       },
     },
     tableReservation: { findFirst: async () => input.reserved ? { id: 17 } : null },
+    tableParticipant: {
+      count: async (args: { where: { restaurantId: number; tableSessionId: number; status: string } }) => {
+        assert.deepEqual(args.where, {
+          restaurantId: 7, tableSessionId: 55, status: 'ACTIVE',
+        });
+        return input.activeParticipants ?? 2;
+      },
+    },
     order: { updateMany: async (args: unknown) => {
       calls.push({ table: 'order', args }); return { count: 2 };
     } },
@@ -123,6 +134,18 @@ test('bloqueia destino inativo, ocupado ou com reserva confirmada', async () => 
     await assert.rejects(execute);
     assert.equal(calls.length, 0);
   }
+});
+
+test('bloqueia transferência quando mesa destino não possui capacidade definida', async () => {
+  const { execute, calls } = setup({ destinationCapacity: null });
+  await assert.rejects(execute, /configure os lugares/i);
+  assert.deepEqual(calls, []);
+});
+
+test('bloqueia transferência quando a capacidade da mesa é inferior aos participantes ativos', async () => {
+  const { execute, calls } = setup({ destinationCapacity: 2, activeParticipants: 3 });
+  await assert.rejects(execute, /não acomoda todos os clientes ativos/i);
+  assert.deepEqual(calls, []);
 });
 
 test('não migra pedidos ou contas se a sessão mudou durante a operação', async () => {

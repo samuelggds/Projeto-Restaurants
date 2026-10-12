@@ -1,14 +1,16 @@
 import crypto from 'crypto';
 import tableRepository from '../repositories/TableRepository.js';
+import { parseTableSeatCapacity } from '../domain/tableSeatCapacity.js';
 import { resolveRestaurantMenuBaseUrl } from '../../customDomains/services/PublicCustomDomainService.js';
 
 type CreateTablePayload = {
   number: number | string;
+  seatCapacity?: number | string;
   restaurantId: number;
 };
 
 class CreateTableService {
-  async execute({ number, restaurantId }: CreateTablePayload) {
+  async execute({ number, seatCapacity, restaurantId }: CreateTablePayload) {
     const normalizedNumber = Number(number);
     const normalizedRestaurantId = Number(restaurantId);
     if (!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) {
@@ -27,10 +29,12 @@ class CreateTableService {
       throw new Error('Já existe uma mesa com esse número!');
     }
 
+    const normalizedSeats = parseTableSeatCapacity(seatCapacity);
     const token = crypto.randomBytes(16).toString('hex');
 
     const created = await tableRepository.create({
       number: normalizedNumber,
+      seatCapacity: normalizedSeats,
       restaurantId: normalizedRestaurantId,
       token,
     });

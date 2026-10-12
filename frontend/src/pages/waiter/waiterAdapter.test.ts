@@ -7,6 +7,7 @@ describe('waiterAdapter', () => {
       {
         id: 91,
         number: 12,
+        seatCapacity: 4,
         token: 'secure-table-token',
         active: true,
         operational: {
@@ -26,6 +27,7 @@ describe('waiterAdapter', () => {
     expect(table).toMatchObject({
       id: '91',
       number: 12,
+      seatCapacity: 4,
       status: 'OCCUPIED',
       sessionStatus: 'OPEN',
       sessionId: '31',
@@ -73,6 +75,7 @@ describe('waiterAdapter', () => {
       {
         id: '1',
         number: 1,
+        seatCapacity: null,
         status: 'FREE',
         sessionStatus: undefined,
         sessionId: undefined,

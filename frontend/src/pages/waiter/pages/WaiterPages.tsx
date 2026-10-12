@@ -22,6 +22,7 @@ import {
   brl,
 } from '../components/Shared';
 import { WaiterTableAccountDialog } from '../components/WaiterTableAccountDialog';
+import { TableSeatDiagram } from '../components/TableSeatDiagram';
 import { WAITER_LIST_BATCH_SIZE, WaiterListControls } from '../components/WaiterListControls';
 import * as S from '../Waiter.styles';
 
@@ -523,6 +524,7 @@ export function WaiterTablesPage() {
   const [transferDestination, setTransferDestination] = useState('');
   const [transferBusy, setTransferBusy] = useState(false);
   const [transferError, setTransferError] = useState('');
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const confirmTransfer = async () => {
     if (!transferSource?.sessionId || !transferDestination || transferBusy) return;
     setTransferBusy(true);
@@ -625,13 +627,19 @@ export function WaiterTablesPage() {
           return (
             <S.TableCard
               key={table.id}
-              className={table.sessionStatus === 'CLOSING_REQUESTED' ? 'closing' : undefined}
+              className={[table.sessionStatus === 'CLOSING_REQUESTED' ? 'closing' : '', selectedTableId === table.id ? 'selected' : ''].filter(Boolean).join(' ')}
             >
               <header>
                 <b>Mesa {String(table.number).padStart(2, '0')}</b>
                 <S.TableState $state={table.status}>{tableStatusLabel(table)}</S.TableState>
               </header>
+              <button type="button" className="select-table" aria-label={`Selecionar Mesa ${table.number}`}
+                aria-pressed={selectedTableId === table.id} onClick={() => setSelectedTableId(table.id)}>
+                <TableSeatDiagram number={table.number} capacity={table.seatCapacity}
+                  tone={table.status === 'OCCUPIED' ? 'busy' : 'free'} />
+              </button>
               <div className="meta">
+                <span>{table.seatCapacity ? `${table.seatCapacity} lugares` : 'Lugares não configurados'}</span>
                 <span>
                   <Users size={14} /> {table.guests || 0} cliente(s)
                 </span>
@@ -695,25 +703,57 @@ export function WaiterTablesPage() {
         onReset={() => setVisibleCount(WAITER_LIST_BATCH_SIZE)}
       />
       {transferSource && (
-        <S.InlineNotice role="dialog" aria-label="Transferir atendimento de mesa">
-          <span>
-            <b>Transferir Mesa {String(transferSource.number).padStart(2, '0')}</b>
-            <p>Pedidos, participantes, pagamentos e conta continuarão na mesma sessão.</p>
-            <label htmlFor="transfer-destination">Mesa de destino</label>
-            <select id="transfer-destination" value={transferDestination}
-              onChange={(event) => setTransferDestination(event.target.value)} disabled={transferBusy}>
-              <option value="">Selecione uma mesa vazia</option>
-              {tables.filter(item => item.id !== transferSource.id && item.status === 'FREE').map(item => (
-                <option key={item.id} value={item.id}>Mesa {String(item.number).padStart(2, '0')}</option>
-              ))}
-            </select>
-            <button type="button" onClick={() => void confirmTransfer()} disabled={transferBusy || !transferDestination}>
-              {transferBusy ? 'Transferindo...' : 'Confirmar transferência'}
-            </button>
-            <button type="button" onClick={() => setTransferSource(null)} disabled={transferBusy}>Cancelar</button>
-            {transferError && <S.ActionError role="alert">{transferError}</S.ActionError>}
-          </span>
-        </S.InlineNotice>
+        <S.TransferBackdrop role="presentation" onMouseDown={() => !transferBusy && setTransferSource(null)}>
+          <S.TransferDialog role="dialog" aria-modal="true" aria-label="Transferir mesa"
+            onMouseDown={event => event.stopPropagation()}>
+            <header>
+              <div><h2>Transferir mesa</h2><p>Mova o atendimento para outra mesa livre do salão.</p></div>
+              <button type="button" aria-label="Fechar transferência" disabled={transferBusy}
+                onClick={() => setTransferSource(null)}><X size={18}/></button>
+            </header>
+            <div className="transfer-body">
+              <strong>Mesa atual</strong>
+              <div className="transfer-source">
+                <TableSeatDiagram number={transferSource.number} capacity={transferSource.seatCapacity} tone="busy"/>
+                <div><b>Mesa {String(transferSource.number).padStart(2,'0')}</b>
+                  <small>{transferSource.guests} clientes · {transferSource.seatCapacity || '—'} lugares</small>
+                </div>
+                <b>{brl(transferSource.total)}</b>
+              </div>
+              <div className="select-head"><strong>Selecionar mesa de destino</strong>
+                <small>{tables.filter(t => t.id !== transferSource.id && t.status === 'FREE').length} mesas livres</small>
+              </div>
+              <select id="transfer-destination" aria-label="Mesa de destino" value={transferDestination}
+                onChange={event => setTransferDestination(event.target.value)} disabled={transferBusy}>
+                <option value="">Selecione uma mesa livre</option>
+                {tables.filter(item => item.id !== transferSource.id && item.status === 'FREE'
+                  && item.seatCapacity && item.seatCapacity >= transferSource.guests).map(item => (
+                  <option key={item.id} value={item.id}>Mesa {String(item.number).padStart(2,'0')} · {item.seatCapacity} lugares</option>
+                ))}
+              </select>
+              {tables.find(t => t.id === transferDestination) && (
+                <div className="transfer-selected">
+                  <TableSeatDiagram number={tables.find(t => t.id === transferDestination)!.number}
+                    capacity={tables.find(t => t.id === transferDestination)!.seatCapacity} tone="free"/>
+                  <div><b>Mesa {String(tables.find(t => t.id === transferDestination)!.number).padStart(2,'0')} pronta para receber</b>
+                  <small>{tables.find(t => t.id === transferDestination)!.seatCapacity} lugares disponíveis</small></div>
+                  <CheckCircle2 size={18}/>
+                </div>
+              )}
+              <p className="transfer-explainer"><Info size={16}/>
+                Apenas a mesa muda. Pedidos, participantes, pagamentos e valores continuam
+                vinculados à mesma sessão. A origem ficará livre.</p>
+              {transferError && <S.ActionError role="alert">{transferError}</S.ActionError>}
+            </div>
+            <footer>
+              <button type="button" disabled={transferBusy} onClick={() => setTransferSource(null)}>Cancelar</button>
+              <button className="confirm" type="button" disabled={transferBusy || !transferDestination}
+                onClick={() => void confirmTransfer()}>
+                <ArrowRightLeft size={16}/>{transferBusy ? 'Transferindo...' : 'Transferir mesa'}
+              </button>
+            </footer>
+          </S.TransferDialog>
+        </S.TransferBackdrop>
       )}
       {accountTable && (
         <WaiterTableAccountDialog table={accountTable} onClose={() => setAccountTable(null)} />

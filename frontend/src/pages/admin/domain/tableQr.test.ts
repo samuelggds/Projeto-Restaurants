@@ -8,6 +8,7 @@ describe('tableQr', () => {
         {
           id: 7,
           number: 12,
+          seatCapacity: 6,
           restaurantId: 4,
           restaurantSlug: 'restaurante-teste',
           menuBaseUrl: null,
@@ -21,6 +22,7 @@ describe('tableQr', () => {
       {
         id: '7',
         number: 12,
+        seatCapacity: 6,
         restaurantId: 4,
         restaurantSlug: 'restaurante-teste',
         menuBaseUrl: null,
@@ -29,6 +31,21 @@ describe('tableQr', () => {
         status: 'OCCUPIED',
       },
     ]);
+  });
+
+  it('não inventa lugares nas mesas antigas nem aceita capacidades inválidas', () => {
+    const base = {
+      id: 7, number: 1, restaurantId: 4, restaurantSlug: 'restaurante-teste',
+      menuBaseUrl: null, token: 'qr-opaco', active: true,
+    };
+    const items = mapAdminTableQrs([
+      { ...base, seatCapacity: undefined },
+      { ...base, id: 8, number: 2, seatCapacity: 0 },
+      { ...base, id: 9, number: 3, seatCapacity: 51 },
+      { ...base, id: 10, number: 4, seatCapacity: 4 },
+    ]);
+    expect(items.map(table => table.seatCapacity)).toEqual([null, null, null, 4]);
+    expect(items.map(table => table.token)).toEqual(Array(4).fill('qr-opaco'));
   });
 
   it('gera URL tenant-safe com restaurante e token codificado', () => {
