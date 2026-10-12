@@ -1,8 +1,8 @@
 import styled from 'styled-components';
 
-const Layout = styled.span<{ $tone: 'free' | 'busy' | 'reserved' }>`
-  --ink: ${p => p.$tone === 'busy' ? '#a96614' : p.$tone === 'reserved' ? '#5374b6' : '#315a4c'};
-  --surface: ${p => p.$tone === 'busy' ? '#fff0d9' : p.$tone === 'reserved' ? '#eef2fc' : '#e9f2ed'};
+const Layout = styled.span<{ $tone: 'free' | 'busy' | 'reserved' | 'unknown' }>`
+  --ink: ${p => p.$tone === 'busy' ? '#a96614' : p.$tone === 'reserved' ? '#5374b6' : p.$tone === 'unknown' ? '#64748b' : '#315a4c'};
+  --surface: ${p => p.$tone === 'busy' ? '#fff0d9' : p.$tone === 'reserved' ? '#eef2fc' : p.$tone === 'unknown' ? '#f1f5f9' : '#e9f2ed'};
   position: relative;
   display: inline-flex;
   width: 106px;
@@ -56,7 +56,7 @@ export function TableSeatDiagram({
 }: {
   number: number;
   capacity?: number | null;
-  tone: 'free' | 'busy' | 'reserved';
+  tone: 'free' | 'busy' | 'reserved' | 'unknown';
 }) {
   const seats = Number.isInteger(capacity) && Number(capacity) > 0 ? Number(capacity) : 0;
   const visibleSeats = Math.min(seats, 12);

@@ -1120,14 +1120,14 @@ export const TableCard = styled.article`
   }
 `;
 export const TableState = styled.span<{
-  $state: 'FREE' | 'OCCUPIED';
+  $state: 'FREE' | 'OCCUPIED' | 'RESERVED';
 }>`
   font-size: 9px;
   font-weight: 800;
   padding: 5px 7px;
   border-radius: 6px;
-  color: ${(p) => (p.$state === 'FREE' ? '#18742e' : '#df4d12')};
-  background: ${(p) => (p.$state === 'FREE' ? '#e8f5e9' : '#fff0e7')};
+  color: ${(p) => p.$state === 'RESERVED' ? '#375bb0' : p.$state === 'FREE' ? '#18742e' : '#df4d12'};
+  background: ${(p) => p.$state === 'RESERVED' ? '#eef2fc' : p.$state === 'FREE' ? '#e8f5e9' : '#fff0e7'};
 `;
 export const FilterTabs = styled.div`
   display: flex;

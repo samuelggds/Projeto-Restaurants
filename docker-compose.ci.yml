@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: public.ecr.aws/docker/library/postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     environment:
       POSTGRES_USER: ci_owner
       POSTGRES_PASSWORD: ci-owner-password
@@ -19,7 +19,7 @@ services:
     build:
       context: ./backend
       args:
-        NODE_BASE_IMAGE: public.ecr.aws/docker/library/node:22-alpine
+        NODE_BASE_IMAGE: docker.io/library/node:22-alpine
     environment:
       NODE_ENV: test
       DATABASE_URL: postgresql://ci_owner:ci-owner-password@postgres:5432/gastronexa_ci?schema=public
@@ -39,7 +39,7 @@ services:
     build:
       context: ./backend
       args:
-        NODE_BASE_IMAGE: public.ecr.aws/docker/library/node:22-alpine
+        NODE_BASE_IMAGE: docker.io/library/node:22-alpine
     environment: &backend_environment
       NODE_ENV: test
       PORT: 3000
@@ -85,7 +85,7 @@ services:
     build:
       context: ./backend
       args:
-        NODE_BASE_IMAGE: public.ecr.aws/docker/library/node:22-alpine
+        NODE_BASE_IMAGE: docker.io/library/node:22-alpine
     environment: *backend_environment
     command: ['node', 'dist/worker.js']
     depends_on:
@@ -96,8 +96,8 @@ services:
     build:
       context: ./frontend
       args:
-        NODE_BASE_IMAGE: public.ecr.aws/docker/library/node:22-alpine
-        NGINX_BASE_IMAGE: public.ecr.aws/docker/library/nginx:1.30.4-alpine
+        NODE_BASE_IMAGE: docker.io/library/node:22-alpine
+        NGINX_BASE_IMAGE: docker.io/library/nginx:1.30.4-alpine
         VITE_API_URL: http://localhost:3000
         VITE_APP_URL: http://localhost:8080
         VITE_SOCKET_URL: http://localhost:3000

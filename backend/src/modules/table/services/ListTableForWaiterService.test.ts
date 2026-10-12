@@ -2,15 +2,23 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import tableRepository from '../repositories/TableRepository.js';
+import reservationStateRepository from '../repositories/ReservationStateRepository.js';
 import listTableService from './ListTableService.js';
 
 const originalFindAll = tableRepository.findAllByRestaurant;
+const originalFindReserved = reservationStateRepository.findReservedTableIds;
 
 afterEach(() => {
   tableRepository.findAllByRestaurant = originalFindAll;
+  reservationStateRepository.findReservedTableIds = originalFindReserved;
 });
 
 test('retorna estado operacional, sessão, clientes e total para a aba de mesas', async () => {
+  reservationStateRepository.findReservedTableIds = async (restaurantId) => {
+    assert.equal(restaurantId, 7);
+    // Uma mesa ocupada continua ocupada, mesmo que haja reserva futura.
+    return new Set([91, 92]);
+  };
   tableRepository.findAllByRestaurant = async (restaurantId) => {
     assert.equal(restaurantId, 7);
     return [
@@ -72,6 +80,7 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
   const result = await listTableService.execute({ restaurantId: 7 });
 
   assert.equal(result[0].status, 'OCCUPIED');
+  assert.equal(result[0].reservationStatusVerified, true);
   assert.equal(result[0].restaurantSlug, 'restaurante-teste');
   assert.equal(result[0].sessionId, 55);
   assert.equal(result[0].operational.openSession.publicId, 'session-public-55');
@@ -80,7 +89,9 @@ test('retorna estado operacional, sessão, clientes e total para a aba de mesas'
   assert.equal(result[0].operational.activeOrdersCount, 3);
   assert.equal('orders' in result[0], false);
   assert.equal('token' in result[0], false);
-  assert.equal(result[1].status, 'FREE');
+  assert.equal(result[1].status, 'RESERVED');
+  assert.equal(result[1].operational.status, 'RESERVED');
+  assert.equal(result[1].reservationStatusVerified, true);
   assert.equal(result[1].sessionId, null);
   assert.equal('token' in result[1], false);
   assert.equal(result[2].status, 'OCCUPIED');

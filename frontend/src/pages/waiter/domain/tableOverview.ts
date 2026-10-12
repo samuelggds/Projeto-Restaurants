@@ -27,7 +27,7 @@ export function tableOperationalState(
   upcoming: WaiterReservation[],
 ): TableOperationalState {
   if (table.status === 'OCCUPIED') return 'OCCUPIED';
-  return upcoming.some((reservation) => reservation.tableId === table.id) ? 'RESERVED' : 'FREE';
+  return table.status === 'RESERVED' || upcoming.some((reservation) => reservation.tableId === table.id) ? 'RESERVED' : 'FREE';
 }
 
 export function tableOverview(
@@ -38,9 +38,10 @@ export function tableOverview(
 ) {
   const upcoming = upcomingTableReservations(tables, availability === 'ready' ? reservations : [], now);
   const occupied = tables.filter((table) => table.status === 'OCCUPIED');
-  const reserved = new Set(upcoming.map((reservation) => reservation.tableId));
-  const reservedTables = tables.filter((table) => table.status === 'FREE' && reserved.has(table.id));
-  const free = tables.filter((table) => table.status === 'FREE' && !reserved.has(table.id));
+  const reservedTables = tables.filter((table) => tableOperationalState(table, upcoming) === 'RESERVED');
+  const free = tables.filter((table) => tableOperationalState(table, upcoming) === 'FREE');
+  const verified = tables.every((table) => table.reservationStatusVerified === true);
+  const hasAvailability = availability === 'ready' || availability === 'disabled' || verified;
   const nextReservation = upcoming.find((reservation) =>
     tables.some((table) => table.id === reservation.tableId && table.status !== 'OCCUPIED'),
   );
@@ -48,8 +49,8 @@ export function tableOverview(
     occupiedCount: occupied.length,
     guests: occupied.reduce((sum, table) => sum + Math.max(0, table.guests), 0),
     freeCount: free.length,
-    reservedCount: availability === 'unavailable' || !availability ? null : reservedTables.length,
-    reservationStatus: availability ?? 'unavailable',
+    reservedCount: hasAvailability ? reservedTables.length : null,
+    reservationStatus: availability === 'disabled' ? 'disabled' : hasAvailability ? 'ready' : 'unavailable',
     nextReservation,
     upcoming,
   };

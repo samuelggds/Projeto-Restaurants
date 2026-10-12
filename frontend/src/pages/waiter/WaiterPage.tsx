@@ -229,6 +229,7 @@ export default function WaiterPage() {
     socket.on('waiter:order-updated', refresh);
     socket.on('waiter-call:created', handleNewCall);
     socket.on('waiter-call:updated', refresh);
+    socket.on('table:reservations-changed', refresh);
     socket.on('table:session-opened', refresh);
     socket.on('table:session-closed', refresh);
     socket.on('table:session-transferred', refresh);
@@ -239,6 +240,7 @@ export default function WaiterPage() {
       socket.off('waiter:order-updated', refresh);
       socket.off('waiter-call:created', handleNewCall);
       socket.off('waiter-call:updated', refresh);
+      socket.off('table:reservations-changed', refresh);
       socket.off('table:session-opened', refresh);
       socket.off('table:session-closed', refresh);
       socket.off('table:session-transferred', refresh);

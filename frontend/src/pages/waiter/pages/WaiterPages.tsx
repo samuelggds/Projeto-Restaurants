@@ -458,6 +458,7 @@ export function WaiterDeliveriesPage({
 }
 
 function tableStatusLabel(table: RestaurantTable) {
+  if (table.status === 'RESERVED') return 'RESERVADA';
   if (table.status === 'FREE') return 'LIVRE';
   return table.sessionStatus === 'CLOSING_REQUESTED' ? 'CONTA SOLICITADA' : 'ABERTA';
 }
@@ -522,6 +523,7 @@ function TableSessionButton({ table }: { table: RestaurantTable }) {
 export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|'payments')=>void}={}) {
   const { tables, accounts, transferTable, reservations, reservationAvailability } = useWorkspace();
   const overview = tableOverview(tables, reservations, reservationAvailability);
+  const unavailable = overview.reservationStatus === 'unavailable';
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TableStatus | 'ALL' | 'CLOSING'>('ALL');
   const [accountTable, setAccountTable] = useState<RestaurantTable | null>(null);
@@ -642,7 +644,7 @@ export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|
             >
               <header>
                 <b>Mesa {String(table.number).padStart(2, '0')}</b>
-                <S.TableState $state={table.status}>{tableOperationalState(table, overview.upcoming) === 'RESERVED' ? 'RESERVADA' : tableStatusLabel(table)}</S.TableState>
+                <S.TableState $state={tableOperationalState(table, overview.upcoming)}>{table.status === 'FREE' && unavailable ? 'A CONFIRMAR' : tableOperationalState(table, overview.upcoming) === 'RESERVED' ? 'RESERVADA' : tableStatusLabel(table)}</S.TableState>
               </header>
               <button type="button" className="select-table" aria-label={`Selecionar Mesa ${table.number}`}
                 aria-pressed={selectedTableId === table.id} onClick={() => {setSelectedTableId(table.id);setPanelCloseKey(current=>current+1);}}>
@@ -684,6 +686,7 @@ export function WaiterTablesPage({onNavigate}: {onNavigate?: (view:'deliveries'|
       {selectedTable&&<SelectedTablePanel key={`${selectedTable.sessionPublicId||selectedTable.id}-${panelCloseKey}`}
         table={selectedTable} onClose={()=>setSelectedTableId(null)}
         reserved={tableOperationalState(selectedTable, overview.upcoming) === 'RESERVED'}
+        availabilityUnknown={unavailable}
         onAccount={showAccount} onTransfer={beginTransfer}
         onNavigate={view=>onNavigate?.(view)}
         sessionAction={<TableSessionButton table={selectedTable}/>} />}

@@ -17,6 +17,8 @@ const Panel = styled.aside`
   .identity h2{font-size:23px;margin:0 0 7px;color:var(--ink)}
   .tag{display:inline-flex;border-radius:100px;padding:4px 9px;background:#fff0d9;color:#95621d;font-size:10px;font-weight:700}
   .tag.free{background:#e9f2ed;color:#315a4c}
+  .tag.reserved{background:#eef2fc;color:#375bb0}
+  .tag.unknown{background:#f1f5f9;color:#475569}
   .context,.meta{color:var(--muted);font-size:11px;margin:0}
   .meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px}
   h3{margin:0;font-size:14px}
@@ -55,9 +57,9 @@ const statusLabels: Record<string,string> = {
   PENDENTE:'Pendente',PREPARANDO:'Em preparo',PRONTO:'Pronto',ENTREGUE:'Entregue',
   CANCELADO:'Cancelado',SAIU_PARA_ENTREGA:'Em entrega',
 };
-function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved}:{
+function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved,availabilityUnknown}:{
   table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
-  onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved:boolean;
+  onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved:boolean;availabilityUnknown:boolean;
 }) {
   const {tableAccountClient,tableAccountRefreshKey} = useWaiterWorkspace();
   const [snapshot,setSnapshot]=useState<WaiterTableAccountSnapshot|null>(null);
@@ -75,15 +77,16 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
     return ()=>{current=false;};
   },[session,tableAccountClient,tableAccountRefreshKey]);
   const occupied=table.status==='OCCUPIED';
+  const unknown=!occupied&&!reserved&&availabilityUnknown;
   const orders=snapshot?.orders??[];
   const ready=orders.find(order=>order.status==='PRONTO');
   const money=snapshot?brl(snapshot.summary.consumedCents/100):occupied?'Carregando...':brl(0);
   return <Panel aria-label={`Atendimento da Mesa ${table.number}`}>
     <div className="head">
       <div className="eyebrow"><span>ATENDIMENTO</span><button className="close" aria-label="Fechar detalhes da mesa" onClick={onClose}><X size={17}/></button></div>
-      <div className="identity"><TableSeatDiagram number={table.number} capacity={table.seatCapacity} tone={occupied?'busy':reserved?'reserved':'free'}/>
+      <div className="identity"><TableSeatDiagram number={table.number} capacity={table.seatCapacity} tone={occupied?'busy':reserved?'reserved':unknown?'unknown':'free'}/>
         <div><h2>Mesa {String(table.number).padStart(2,'0')}</h2>
-          <span className={`tag ${occupied?'':'free'}`}>{table.sessionStatus==='CLOSING_REQUESTED'?'Conta solicitada':occupied?'Ocupada':reserved?'Reservada':'Livre'}</span></div>
+          <span className={`tag ${occupied?'':reserved?'reserved':unknown?'unknown':'free'}`}>{table.sessionStatus==='CLOSING_REQUESTED'?'Conta solicitada':occupied?'Ocupada':reserved?'Reservada':unknown?'A confirmar':'Livre'}</span></div>
       </div>
       <p className="context">{table.seatCapacity?`${table.seatCapacity} lugares`:'Lugares não configurados'} · {table.guests} cliente(s)</p>
       {occupied&&<div className="meta"><span>{snapshot?'Comanda ativa':'Sessão em atendimento'}</span>
@@ -91,7 +94,7 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
     </div>
     <div className="summary"><h3>Resumo da comanda</h3>
       <div className="consumed"><small>Consumo até agora</small><strong>{money}</strong>
-        <small>{snapshot?`${orders.length} pedidos · ${orders.reduce((sum,order)=>sum+order.itemsCount,0)} itens na comanda`:loading?'Carregando conta...':occupied?'Consulte a conta para ver detalhes':'Mesa disponível para atendimento'}</small>
+        <small>{snapshot?`${orders.length} pedidos · ${orders.reduce((sum,order)=>sum+order.itemsCount,0)} itens na comanda`:loading?'Carregando conta...':occupied?'Consulte a conta para ver detalhes':unknown?'Disponibilidade não confirmada':'Mesa disponível para atendimento'}</small>
       </div>
       {error&&<p className="error" role="alert">{error}</p>}
     </div>
@@ -112,13 +115,13 @@ function PanelContents({table,onClose,onAccount,onTransfer,onNavigate,sessionAct
         <button className="danger" type="button" onClick={()=>onNavigate('payments')}><ReceiptText size={16}/>Conferir fechamento</button>
         <button className="subtle" type="button" onClick={onTransfer} disabled={!table.sessionId}><ArrowRightLeft size={16}/>Transferir mesa</button>
         {sessionAction}
-      </>:<><p className="context">{reserved?'Mesa reservada. Faça check-in autorizado na aba Reservas para receber os clientes.':'Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.'}</p>{!reserved&&sessionAction}</>}
+      </>:<><p className="context">{reserved?'Mesa reservada. Faça check-in autorizado na aba Reservas para receber os clientes.':unknown?'Não foi possível confirmar a disponibilidade das reservas. Atualize os dados antes de abrir a mesa.':'Mesa livre. Abra a mesa para permitir pedidos pelo QR Code.'}</p>{!reserved&&!unknown&&sessionAction}</>}
     </footer>
   </Panel>;
 }
-export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved=false}:{
+export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigate,sessionAction,reserved=false,availabilityUnknown=false}:{
  table:RestaurantTable;onClose:()=>void;onAccount:()=>void;onTransfer:()=>void;
- onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved?:boolean;
+ onNavigate:(destination:'deliveries'|'payments')=>void;sessionAction:ReactNode;reserved?:boolean;availabilityUnknown?:boolean;
 }) {
   const [mobile,setMobile]=useState(false);
   useEffect(()=>{
@@ -134,7 +137,7 @@ export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigat
     return ()=>{document.body.style.overflow=old;document.removeEventListener('keydown',key);};
   },[mobile,onClose]);
   const contents=<PanelContents table={table} onClose={onClose} onAccount={onAccount}
-    onTransfer={onTransfer} onNavigate={onNavigate} sessionAction={sessionAction} reserved={reserved}/>;
+    onTransfer={onTransfer} onNavigate={onNavigate} sessionAction={sessionAction} reserved={reserved} availabilityUnknown={availabilityUnknown}/>;
   return mobile ? <MobileLayer onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
     <div role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
       {contents}

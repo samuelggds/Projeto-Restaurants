@@ -41,6 +41,7 @@ export interface RestaurantTable {
   number: number;
   seatCapacity?: number | null;
   status: TableStatus;
+  reservationStatusVerified?: boolean;
   sessionStatus?: TableSessionStatus;
   sessionId?: string;
   sessionPublicId?: string;

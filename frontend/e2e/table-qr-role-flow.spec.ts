@@ -140,6 +140,9 @@ function tableFor(persona: Persona | null, state: FlowState) {
     active: true,
     restaurantId: RESTAURANT_ID,
     restaurantSlug: RESTAURANT_SLUG,
+    // A API de mesas confirma o estado das reservas para este tenant, mesmo sem reservas ativas.
+    reservationStatusVerified: true,
+    status: state.tableOpen ? 'OCCUPIED' : 'FREE',
     operational: {
       status: state.tableOpen ? 'OCCUPIED' : 'FREE',
       openSession: state.tableOpen
@@ -329,6 +332,14 @@ async function mockRoleFlowApi(page: Page, state: FlowState) {
       if (persona === 'waiter') state.waiterTableReads += 1;
       const table = tableFor(persona, state);
       return json(route, table ? [table] : []);
+    }
+
+    // O mock precisa refletir a API real: reservas habilitadas e nenhuma reserva confirmada.
+    if (pathname === '/table-reservations/settings' && method === 'GET') {
+      return json(route, { enabled: true, toleranceMinutes: 15 });
+    }
+    if (pathname === '/table-reservations' && method === 'GET') {
+      return json(route, []);
     }
 
     if (pathname === '/tables' && method === 'POST') {
@@ -762,6 +773,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   const waiterTable = page.locator('article').filter({ hasText: 'Mesa 01' }).first();
   await expect(waiterTable).toBeVisible();
   await expect(waiterTable).toContainText('6 lugares');
+  await expect(waiterTable.getByText('LIVRE', { exact: true })).toBeVisible();
   await expect(waiterTable.getByRole('button', { name: 'Abrir mesa' })).toHaveCount(0);
   await waiterTable.getByRole('button', { name: 'Selecionar Mesa 1' }).click();
   const selectedTable = page.getByLabel('Atendimento da Mesa 1');

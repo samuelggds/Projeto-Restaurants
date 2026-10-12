@@ -46,6 +46,7 @@ const freeTable: RestaurantTable = {
   id: '91',
   number: 12,
   status: 'FREE',
+  reservationStatusVerified: true,
   guests: 0,
   total: 0,
 };
@@ -261,6 +262,39 @@ describe('waiter operational pages', () => {
       'A abertura de mesas não está disponível neste momento.',
     );
     expect(container.textContent).toContain('LIVRE');
+  });
+
+  it('mantém mesa reservada visível quando agenda detalhada está indisponível', async () => {
+    renderPage(<WaiterTablesPage />, {
+      tables: [{ ...freeTable, status: 'RESERVED' }],
+      reservations: [],
+      reservationAvailability: 'unavailable',
+    });
+    expect(container.textContent).toContain('RESERVADA');
+    await act(async () => container.querySelector<HTMLButtonElement>(
+      '[aria-label="Selecionar Mesa 12"]',
+    )?.click());
+    expect(container.textContent).toContain('Mesa reservada. Faça check-in autorizado');
+    expect([...container.querySelectorAll('button')].some(
+      (button) => button.textContent?.trim() === 'Abrir mesa',
+    )).toBe(false);
+  });
+
+  it('não afirma que a mesa está livre sem dados confiáveis sobre reservas', async () => {
+    renderPage(<WaiterTablesPage />, {
+      tables: [{ ...freeTable, reservationStatusVerified: false }],
+      reservations: [],
+      reservationAvailability: 'unavailable',
+    });
+    expect(container.textContent).toContain('A CONFIRMAR');
+    await act(async () => container.querySelector<HTMLButtonElement>(
+      '[aria-label="Selecionar Mesa 12"]',
+    )?.click());
+    expect(container.textContent).toContain('Não foi possível confirmar a disponibilidade das reservas');
+    expect(container.textContent).not.toContain('Mesa livre. Abra a mesa');
+    expect([...container.querySelectorAll('button')].some(
+      (button) => button.textContent?.trim() === 'Abrir mesa',
+    )).toBe(false);
   });
 
   it('reflete imediatamente dados novos recebidos do polling sem manter mesas obsoletas', async () => {

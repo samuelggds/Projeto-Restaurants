@@ -28,6 +28,7 @@ type WaiterCall = {
 
 type WaiterE2EState = {
   tableOpen: boolean;
+  tableReserved: boolean;
   includeReadyOrder: boolean;
   outstandingOrder: boolean;
   orderPayload: Record<string, unknown> | null;
@@ -90,6 +91,7 @@ function isoMinutesAgo(minutes: number) {
 function initialState(): WaiterE2EState {
   return {
     tableOpen: false,
+    tableReserved: false,
     includeReadyOrder: true,
     outstandingOrder: false,
     orderPayload: null,
@@ -209,8 +211,10 @@ function rawTables(state: WaiterE2EState) {
       id: TABLE_ID,
       number: 7,
       active: true,
+      reservationStatusVerified: true,
+      status: state.tableOpen ? 'OCCUPIED' : state.tableReserved ? 'RESERVED' : 'FREE',
       operational: {
-        status: state.tableOpen ? 'OCCUPIED' : 'FREE',
+        status: state.tableOpen ? 'OCCUPIED' : state.tableReserved ? 'RESERVED' : 'FREE',
         openSession,
         guests: state.tableOpen ? 1 : 0,
         total: state.outstandingOrder ? 32 : 0,
@@ -221,6 +225,8 @@ function rawTables(state: WaiterE2EState) {
       id: 12,
       number: 12,
       active: true,
+      reservationStatusVerified: true,
+      status: 'OCCUPIED',
       operational: {
         status: 'OCCUPIED',
         openSession: { id: 502, status: 'OPEN', openedAt: isoMinutesAgo(30) },
@@ -232,6 +238,8 @@ function rawTables(state: WaiterE2EState) {
       id: 13,
       number: 3,
       active: true,
+      reservationStatusVerified: true,
+      status: 'FREE',
       operational: { status: 'FREE', openSession: null, guests: 0, total: 0 },
     },
   ];
@@ -366,6 +374,12 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
     if (pathname === '/tables' && method === 'GET') {
       return json(route, rawTables(state));
     }
+    if (pathname === '/table-reservations/settings' && method === 'GET') {
+      return json(route, { enabled: true, toleranceMinutes: 15 });
+    }
+    if (pathname === '/table-reservations' && method === 'GET') {
+      return json(route, []);
+    }
 
     if (pathname === '/waiter-calls' && method === 'GET') {
       return json(route, state.calls);
@@ -407,6 +421,9 @@ async function mockWaiterAndTableApi(page: Page, state: WaiterE2EState) {
       state.openRequests += 1;
       if (Number(payload.tableId) !== TABLE_ID) {
         return json(route, { error: 'Mesa não encontrada neste restaurante.' }, 400);
+      }
+      if (state.tableReserved) {
+        return json(route, { error: 'Mesa reservada. Faça check-in autorizado.' }, 409);
       }
       state.tableOpen = true;
       return json(route, {
@@ -837,6 +854,26 @@ test('QR sem PIN só libera pedidos com mesa aberta e fechamento respeita pendê
   );
   await expect(page.getByText(/ainda não foi aberta pelo garçom/i)).toBeVisible();
   await expect(page.getByText('Prato da casa')).toHaveCount(0);
+});
+
+test('reserva impede abertura e estado muda após consulta autorizada', async ({ page }) => {
+  const state = initialState();
+  state.tableReserved = true;
+  await mockWaiterAndTableApi(page, state);
+  await page.goto('/waiter');
+  await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
+  const card = tableCard(page, '07');
+  await expect(card.getByText('RESERVADA', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Selecionar Mesa 7' }).click();
+  const panel = page.getByLabel('Atendimento da Mesa 7');
+  await expect(panel.getByText('Reservada', { exact: true })).toBeVisible();
+  await expect(panel.getByText(/Faça check-in autorizado/)).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Abrir mesa' })).toHaveCount(0);
+  expect(state.openRequests).toBe(0);
+  state.tableReserved = false;
+  await page.getByRole('button', { name: 'Atualizar dados do salão' }).click();
+  await expect(card.getByText('LIVRE', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
 });
 
 test('todas as abas do garçom permanecem acessíveis e sem overflow em celular', async ({

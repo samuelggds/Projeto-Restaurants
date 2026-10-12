@@ -77,6 +77,7 @@ describe('waiterAdapter', () => {
         number: 1,
         seatCapacity: null,
         status: 'FREE',
+        reservationStatusVerified: false,
         sessionStatus: undefined,
         sessionId: undefined,
         sessionPublicId: undefined,
@@ -169,4 +170,9 @@ describe('waiterAdapter', () => {
       }),
     ]);
   });
+});
+
+it('mapeia reserva confirmada pela API de mesas', () => {
+  const [table] = mapWaiterTables([{id:41,number:1,status:'RESERVED',reservationStatusVerified:true,active:true}]);
+  expect(table).toMatchObject({status:'RESERVED',reservationStatusVerified:true});
 });
