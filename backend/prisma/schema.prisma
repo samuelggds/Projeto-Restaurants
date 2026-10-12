@@ -374,6 +374,7 @@ model Restaurant {
   orderIssueThreads             OrderIssueThread[]
   couponRedemptions             CouponRedemption[]
   tableServiceCalls             TableServiceCall[]
+  tableReservations             TableReservation[]
   tableSessions                 TableSession[]
   tableParticipants             TableParticipant[]
   tableAccessRequests           TableAccessRequest[]
@@ -926,12 +927,38 @@ model Table {
   updatedAt     DateTime           @updatedAt
   orders        Order[]
   restaurant    Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reservations  TableReservation[]
   tableSessions TableSession[]
   accessRequests       TableAccessRequest[]
   serviceCalls  TableServiceCall[]
 
   @@unique([restaurantId, number])
   @@unique([id, restaurantId])
+}
+
+model TableReservation {
+  id              Int       @id @default(autoincrement())
+  publicId        String    @unique @default(uuid())
+  restaurantId    Int
+  tableId         Int
+  guestName       String    @db.VarChar(100)
+  guestPhone      String    @db.VarChar(20)
+  guestCount      Int
+  startsAt        DateTime  @db.Timestamptz(3)
+  endsAt          DateTime  @db.Timestamptz(3)
+  status          String    @default("CONFIRMED") @db.VarChar(24)
+  note            String?   @db.VarChar(500)
+  createdById     Int?
+  checkedInAt     DateTime? @db.Timestamptz(3)
+  canceledAt      DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table           Table      @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, startsAt, status])
+  @@index([restaurantId, tableId, startsAt])
 }
 
 model TableSession {
@@ -1435,6 +1462,8 @@ model RestaurantSettings {
   seoDescription String?
   customDomainRequested Boolean @default(false)
   landingPageEnabled Boolean @default(false)
+  tableReservationsEnabled Boolean @default(false)
+  tableReservationToleranceMinutes Int @default(15)
 
   // Horários
   businessHours   Json?
