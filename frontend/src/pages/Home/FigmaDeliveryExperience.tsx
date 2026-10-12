@@ -26,6 +26,7 @@ import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
 import {
+  buildWhatsAppUrl,
   buildSocialProfileUrl,
   formatBusinessHoursSummary,
 } from './domain/publicSettings';
@@ -894,7 +895,7 @@ export function FigmaDeliveryExperience({
                   </a>
                 )}
                 {data.brand.reservationPhone && (
-                  <a href={`tel:${data.brand.reservationPhone.replace(/\\D/gu,'')}`}
+                  <a href={`tel:${data.brand.reservationPhone.replace(/\D/gu,'')}`}
                     style={{borderRadius:12,padding:'12px 16px',border:'1px solid #cbd5e1',color:'inherit',textDecoration:'none',fontWeight:700}}>
                     Ligar para reservar
                   </a>
