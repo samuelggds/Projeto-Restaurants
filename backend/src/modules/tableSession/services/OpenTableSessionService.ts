@@ -7,6 +7,7 @@ import tableServiceCallRepository from '../../waiterCalls/repositories/TableServ
 import { tableServiceCallEvents } from '../../waiterCalls/realtime/tableServiceCallEvents.js';
 import tableParticipantRepository from '../repositories/TableParticipantRepository.js';
 import prisma from '../../../config/prisma.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { Prisma } from '@prisma/client';
 import tableWaiterAssignmentService from '../../employeeCompensation/services/TableWaiterAssignmentService.js';
 
@@ -140,6 +141,7 @@ class OpenTableSessionService {
     try {
       session = await prisma.$transaction(
         async (tx) => {
+          await setTenantDbContext(tx, normalizedRestaurantId);
           const now = new Date();
           const upcomingReservation = await tx.tableReservation.findFirst({
             where: {

@@ -149,7 +149,18 @@ export class TableReservationService {
         });
         if (clash) throw new ReservationError('Já existe uma reserva confirmada nesse período.');
         const row = await tx.tableReservation.create({
-          data: { ...parsed, restaurantId: id, createdById: actor, status: 'CONFIRMED' },
+          data: {
+            restaurantId: id,
+            tableId: parsed.tableId,
+            guestName: parsed.guestName,
+            guestPhone: parsed.guestPhone,
+            guestCount: parsed.guestCount,
+            startsAt: parsed.startsAt,
+            endsAt: parsed.endsAt,
+            note: parsed.note ?? null,
+            createdById: actor,
+            status: 'CONFIRMED',
+          },
           include: { table: { select: { number: true } } },
         });
         return sanitize(row);

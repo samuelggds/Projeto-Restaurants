@@ -71,7 +71,9 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
   },[]);
   useEffect(()=>{
     let cancelled=false;
-    void refresh().catch(e=>{if(!cancelled)setError(message(e));}).finally(()=>{if(!cancelled)setLoading(false);});
+    void Promise.resolve().then(() => cancelled ? undefined : refresh())
+      .catch(e=>{if(!cancelled)setError(message(e));})
+      .finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;};
   },[refresh]);
   const run=async (operation:()=>Promise<unknown>, notice:string)=>{

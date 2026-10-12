@@ -13,7 +13,10 @@ function respond(res: import('express').Response, error: unknown) {
 router.get('/settings', async (req,res) => { try { res.json(await service.settings(req.user.restaurantId)); } catch(e){ respond(res,e); } });
 router.put('/settings', async (req,res) => {
   try {
-    if (String(req.user.role).toUpperCase() !== 'ADMIN') return res.status(403).json({error:'Apenas administradores podem alterar reservas.'});
+    if (String(req.user.role).toUpperCase() !== 'ADMIN') {
+      res.status(403).json({error:'Apenas administradores podem alterar reservas.'});
+      return;
+    }
     res.json(await service.updateSettings(req.user.restaurantId,req.body?.enabled,req.body?.toleranceMinutes));
   } catch(e){ respond(res,e); }
 });

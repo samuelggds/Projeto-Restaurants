@@ -45,8 +45,8 @@ export const TENANT_RLS_TABLES = [
   'RestaurantExternalDeliveryQuote',
   'RestaurantPrinterSettings',
   'TableAccessRequest',
-  'TableReservation',
   'TableParticipantState',
+  'TableReservation',
   'TableWaiterAssignment',
 ] as const;
 
