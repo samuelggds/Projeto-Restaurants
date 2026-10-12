@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import openTableSessionService from '../../tableSession/services/OpenTableSessionService.js';
+import { expireNoShowReservations, reservationCanCheckIn } from '../domain/tableReservationTolerance.js';
 
 const dateSchema = z.coerce.date();
 const reservationInput = z.object({
@@ -102,7 +103,8 @@ export class TableReservationService {
     }
     return prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, id);
-      await ensureEnabled(tx, id);
+      const settings = await ensureEnabled(tx, id);
+      await expireNoShowReservations(tx, id, settings.tableReservationToleranceMinutes);
       const rows = await tx.tableReservation.findMany({
         where: { restaurantId: id, startsAt: { lt: to }, endsAt: { gt: from } },
         include: { table: { select: { number: true } } },
@@ -151,7 +153,7 @@ export class TableReservationService {
     try {
       return await prisma.$transaction(async (tx) => {
         await setTenantDbContext(tx, id);
-        await ensureEnabled(tx, id);
+        const settings = await ensureEnabled(tx, id);
         // Table lock serializes reservations and table opening/booking attempts.
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Table"
           WHERE "id" = ${parsed.tableId} AND "restaurantId" = ${id} AND "active" = true FOR UPDATE`);
@@ -171,6 +173,7 @@ export class TableReservationService {
           }, select: { id: true },
         });
         if (session) throw new ReservationError('Esta mesa ainda estará ocupada no horário selecionado.');
+        await expireNoShowReservations(tx, id, settings.tableReservationToleranceMinutes, new Date(), table.id);
         const clash = await tx.tableReservation.findFirst({
           where: {
             restaurantId: id, tableId: table.id, status: 'CONFIRMED',
@@ -235,7 +238,7 @@ export class TableReservationService {
     // Same-tenant validation before invoking the established session-opening workflow.
     const record = await prisma.$transaction(async tx => {
       await setTenantDbContext(tx, id);
-      await ensureEnabled(tx, id);
+      const settings = await ensureEnabled(tx, id);
       const row = await tx.tableReservation.findFirst({
         where: { restaurantId: id, publicId, status: 'CONFIRMED' }, select: {
           id: true, tableId: true, startsAt: true, endsAt: true,
@@ -243,7 +246,7 @@ export class TableReservationService {
       });
       if (!row) throw new ReservationError('Reserva confirmada não encontrada.', 404);
       const now = new Date();
-      if (now < new Date(row.startsAt.getTime() - 30 * 60_000) || now > row.endsAt) {
+      if (!reservationCanCheckIn(row.startsAt, row.endsAt, settings.tableReservationToleranceMinutes, now)) {
         throw new ReservationError('Check-in fora da janela de atendimento.');
       }
       const conflictingSession = await tx.tableSession.findFirst({
