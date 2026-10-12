@@ -24,6 +24,7 @@ import { optionalAuthMiddleware } from '../../../middlewares/optionalAuthMiddlew
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
 import UpdateTableParticipantController from '../controllers/UpdateTableParticipantController.js';
 import ForceCloseTableSessionController from '../controllers/ForceCloseTableSessionController.js';
+import TransferTableSessionController from '../controllers/TransferTableSessionController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 
 const router = Router();
@@ -77,6 +78,9 @@ router.patch(
 router.post('/open', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, (req, res) =>
   OpenTableSessionController.handle(req, res),
 );
+
+router.patch('/:id/transfer',authMiddleware,waiterMiddleware,premiumTablePlanMiddleware,
+  (req,res)=>TransferTableSessionController.handle(req,res));
 
 router.patch(
   '/:id/close',

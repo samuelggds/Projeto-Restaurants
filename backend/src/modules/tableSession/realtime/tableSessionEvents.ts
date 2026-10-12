@@ -13,7 +13,16 @@ type TableSessionEvent = {
   reason?: 'closed-by-staff' | 'expired';
 };
 
+type TableTransferred = {restaurantId:number;sessionId:number;sessionPublicId:string;
+  fromTableId:number;fromTableNumber:number;tableId:number;tableNumber:number;
+};
 export const tableSessionEvents = {
+  async transferred(payload:TableTransferred) {
+    io.to(`restaurant:${payload.restaurantId}:waiter`).emit('table:session-transferred',payload);
+    io.to(`restaurant:${payload.restaurantId}:admin`).emit('table:session-transferred',payload);
+    await io.to(`table-session:${payload.sessionId}`).emit('table:session-transferred',payload);
+    attendantWorkspaceEvents.invalidated(payload.restaurantId,'TABLES');
+  },
   async opened(payload: TableSessionEvent) {
     io.to(`restaurant:${payload.restaurantId}:waiter`).emit('table:session-opened', payload);
     io.to(`restaurant:${payload.restaurantId}:admin`).emit('table:session-opened', payload);

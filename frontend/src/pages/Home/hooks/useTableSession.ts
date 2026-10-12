@@ -50,8 +50,8 @@ export function useTableSession(options: Options) {
   );
   const activeSession = sessionRouteMismatch ? null : tableSession;
   const mesaLabel =
-    route.routeTableNumber ||
     activeSession?.tableNumber ||
+    route.routeTableNumber ||
     activeSession?.tableId ||
     route.routeTableId ||
     '';
@@ -105,14 +105,18 @@ export function useTableSession(options: Options) {
         const current = await tableSessionService.getCurrentSession();
         if (!active || request !== verification) return;
         if (
-          Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId) ||
-          Number(current?.tableId) !== Number(activeSession.tableId)
+          Number(current?.id || current?.sessionId) !== Number(activeSession.sessionId)
         ) {
           active = false;
           endSession('A sessão ativa não corresponde mais a esta mesa. Escaneie o QR novamente.');
           return;
         }
 
+        const changedTableId = Number(current?.tableId) !== Number(activeSession.tableId);
+        // Verified by the session credential: this is a genuine same-session transfer.
+        // The printed QR route continues to represent the original physical table.
+        const transferred = changedTableId && Number(current?.tableId) > 0 &&
+          Number(current?.tableNumber) > 0;
         const closingRequested = current?.sessionStatus === 'CLOSING_REQUESTED';
         const participantOrderingBlocked = current?.participant?.orderingBlocked === true;
         const effectiveOrderingEnabled = !closingRequested && !participantOrderingBlocked;
@@ -122,11 +126,18 @@ export function useTableSession(options: Options) {
         const shouldSyncOrdering =
           Boolean(activeSession.tableOrderingEnabled) !== effectiveOrderingEnabled;
 
-        if (!shouldEnrichPublicId && !shouldSyncStatus && !shouldSyncOrdering) return;
+        if (!shouldEnrichPublicId && !shouldSyncStatus && !shouldSyncOrdering && !transferred) return;
 
         const wasBlocked = activeSession.tableOrderingEnabled === false;
         const enrichedSession: StoredTableSession = {
           ...activeSession,
+          ...(transferred
+            ? {
+                originalTableNumber: activeSession.originalTableNumber || route.routeTableNumber,
+                tableId: Number(current.tableId),
+                tableNumber: Number(current.tableNumber),
+              }
+            : undefined),
           ...(shouldEnrichPublicId
             ? { sessionPublicId: String(current.sessionPublicId) }
             : undefined),
@@ -135,6 +146,10 @@ export function useTableSession(options: Options) {
         };
         localStorage.setItem('tableSession', JSON.stringify(enrichedSession));
         setTableSession(enrichedSession);
+        if (transferred) {
+          notify('success', 'Mesa transferida',
+            `Seu atendimento foi transferido para a Mesa ${current.tableNumber}. Seus pedidos e sua conta continuam os mesmos.`);
+        }
 
         if (
           showSettlementNotification &&
@@ -196,6 +211,15 @@ export function useTableSession(options: Options) {
       void verifySession(true);
     };
 
+    const handleTransferred = (payload?: {
+      sessionId?: number; restaurantId?: number; tableId?: number;
+      tableNumber?: number; fromTableNumber?: number;
+    }) => {
+      if (Number(payload?.sessionId) !== Number(activeSession.sessionId) ||
+        Number(payload?.restaurantId) !== Number(activeSession.restaurantId)) return;
+      void verifySession();
+    };
+    socket?.on('table:session-transferred', handleTransferred);
     socket?.on('table:session-closed', handleClosed);
     socket?.on('waiter-call:updated', handleServiceUpdate);
     socket?.on('table-participant:ordering-updated', handleParticipantOrderingUpdate);
@@ -213,12 +237,13 @@ export function useTableSession(options: Options) {
       active = false;
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', verifyWhenVisible);
+      socket?.off('table:session-transferred', handleTransferred);
       socket?.off('table:session-closed', handleClosed);
       socket?.off('waiter-call:updated', handleServiceUpdate);
       socket?.off('table-participant:ordering-updated', handleParticipantOrderingUpdate);
       disconnectTableSessionSocket();
     };
-  }, [activeSession, endSession, notify, route.mesaMode]);
+  }, [activeSession, endSession, notify, route.mesaMode, route.routeTableNumber]);
 
   return {
     ...route,

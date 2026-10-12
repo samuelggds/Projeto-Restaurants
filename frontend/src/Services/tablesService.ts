@@ -61,6 +61,13 @@ class TablesService {
     return response.data;
   }
 
+  async transferTableSession(sessionId: string, destinationTableId: string) {
+    const response = await api.patch(`/table-sessions/${sessionId}/transfer`, {
+      destinationTableId: Number(destinationTableId),
+    });
+    return response.data;
+  }
+
   async closeTableSession(sessionId) {
     const response = await api.patch(`/table-sessions/${sessionId}/close`);
     return response.data;

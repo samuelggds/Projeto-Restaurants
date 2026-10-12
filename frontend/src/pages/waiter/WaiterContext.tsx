@@ -16,6 +16,7 @@ export type WaiterContextValue = WaiterModuleProps &
     updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
     openTable: (tableId: string) => Promise<void>;
     closeTable: (sessionId: string) => Promise<void>;
+    transferTable: (sessionId: string, destinationTableId: string) => Promise<void>;
     updateCall: (id: string, status: CallStatus) => Promise<void>;
     deleteCall: (id: string) => Promise<void>;
   };
@@ -27,7 +28,7 @@ export function WaiterProvider({
   data = workspaceMock,
   ...props
 }: PropsWithChildren<WaiterModuleProps>) {
-  const { onUpdateOrderStatus, onOpenTable, onCloseTable, onUpdateCall, onDeleteCall } = props;
+  const { onUpdateOrderStatus, onOpenTable, onCloseTable, onTransferTable, onUpdateCall, onDeleteCall } = props;
 
   const updateOrderStatus = useCallback(
     async (orderId: string, status: OrderStatus) => {
@@ -60,6 +61,14 @@ export function WaiterProvider({
     },
     [onCloseTable],
   );
+  const transferTable = useCallback(
+    async (sessionId: string, destinationTableId: string) => {
+      if (!onTransferTable) throw new Error('Transferência de mesa indisponível.');
+      await onTransferTable(sessionId, destinationTableId);
+    },
+    [onTransferTable],
+  );
+
   const updateCall = useCallback(
     async (id: string, status: CallStatus) => {
       if (!onUpdateCall) {
@@ -91,10 +100,11 @@ export function WaiterProvider({
       updateOrderStatus,
       openTable,
       closeTable,
+      transferTable,
       updateCall,
       deleteCall,
     }),
-    [props, data, updateOrderStatus, openTable, closeTable, updateCall, deleteCall],
+    [props, data, updateOrderStatus, openTable, closeTable, transferTable, updateCall, deleteCall],
   );
   return <WaiterContext.Provider value={value}>{children}</WaiterContext.Provider>;
 }

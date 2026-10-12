@@ -876,7 +876,6 @@ export function FigmaDeliveryExperience({
           ) : null}
 
 
-          <ReservationContactCard brand={data.brand} />
           <S.Main
             id="cardapio"
             className={promotionBanners.length ? 'has-banner' : 'no-banner'}
@@ -1119,6 +1118,7 @@ export function FigmaDeliveryExperience({
                 </S.RestaurantInfo>
               </>
             ) : null}
+            <ReservationContactCard brand={data.brand} />
           </S.Main>
 
       <S.MobileCartFab

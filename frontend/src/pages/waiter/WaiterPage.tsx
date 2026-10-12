@@ -209,6 +209,7 @@ export default function WaiterPage() {
     socket.on('waiter-call:updated', refresh);
     socket.on('table:session-opened', refresh);
     socket.on('table:session-closed', refresh);
+    socket.on('table:session-transferred', refresh);
     socket.on('table-account:updated', handleTableAccountUpdate);
     return () => {
       socket.off('new-order', refresh);
@@ -218,6 +219,7 @@ export default function WaiterPage() {
       socket.off('waiter-call:updated', refresh);
       socket.off('table:session-opened', refresh);
       socket.off('table:session-closed', refresh);
+      socket.off('table:session-transferred', refresh);
       socket.off('table-account:updated', handleTableAccountUpdate);
       release();
     };
@@ -278,6 +280,15 @@ export default function WaiterPage() {
           }));
           void loadWorkspace(true);
           return { sessionId };
+        } catch (error: unknown) {
+          await loadWorkspace(true);
+          throw error;
+        }
+      }}
+      onTransferTable={async (sessionId, destinationTableId) => {
+        try {
+          await tablesService.transferTableSession(sessionId, destinationTableId);
+          await loadWorkspace(true);
         } catch (error: unknown) {
           await loadWorkspace(true);
           throw error;
