@@ -955,13 +955,16 @@ model TableReservation {
   note            String?   @db.VarChar(500)
   createdById     Int?
   checkedInAt     DateTime? @db.Timestamptz(3)
+  tableSessionId  Int?
   canceledAt      DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
   restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table           Table      @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  tableSession    TableSession? @relation("ReservationAttendanceSession", fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
   @@unique([id, restaurantId])
+  @@unique([restaurantId, tableSessionId])
   @@index([restaurantId, startsAt, status])
   @@index([restaurantId, tableId, startsAt])
 }
@@ -992,6 +995,7 @@ model TableSession {
   openedBy             User                     @relation("OpenedTableSessions", fields: [openedById], references: [id])
   restaurant           Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table                Table                    @relation(fields: [tableId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  reservation          TableReservation?        @relation("ReservationAttendanceSession")
   serviceCalls         TableServiceCall[]
   participants         TableParticipant[]
   accessRequests       TableAccessRequest[]

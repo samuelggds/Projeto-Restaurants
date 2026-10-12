@@ -184,7 +184,7 @@ class OpenTableSessionService {
           if (normalizedReservationId) {
             await tx.tableReservation.update({
               where: { id: normalizedReservationId, restaurantId: normalizedRestaurantId },
-              data: { status: 'SEATED', checkedInAt: now },
+              data: { status: 'SEATED', checkedInAt: now, tableSessionId: created.id },
             });
           }
           await tableWaiterAssignmentService.autoAssignOpenedByWaiter({

@@ -12,6 +12,7 @@ import {
 } from '../../tableAccount/services/tablePaymentLedger.js';
 import waiterCompensationProjectionService from '../../employeeCompensation/services/WaiterCompensationProjectionService.js';
 import tableAccessRequestService from './TableAccessRequestService.js';
+import { tableReservationEvents } from '../../tableReservations/realtime/tableReservationEvents.js';
 
 type CloseTableSessionPayload = {
   sessionId: number | string;
@@ -102,6 +103,16 @@ class CloseTableSessionService {
           normalizedClosedById,
           tx,
         );
+        // O vínculo da reserva é o ID da sessão, nunca apenas o número da mesa.
+        // Só conclui após passar nos bloqueios de entrega e quitação, na mesma transação.
+        const completedReservations = await tx.tableReservation.updateMany({
+          where: {
+            restaurantId: normalizedRestaurantId,
+            tableSessionId: session.id,
+            status: 'SEATED',
+          },
+          data: { status: 'COMPLETED' },
+        });
         await tableParticipantRepository.revokeActiveBySession(
           session.id,
           normalizedRestaurantId,
@@ -122,7 +133,7 @@ class CloseTableSessionService {
           now: closedSession.closedAt || new Date(),
         });
 
-        return { session, closedSession, activeCalls };
+        return { session, closedSession, activeCalls, completedReservations: completedReservations.count };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -146,6 +157,11 @@ class CloseTableSessionService {
             });
         }
       }
+    }
+
+    if (result.completedReservations > 0) {
+      try { tableReservationEvents.changed(normalizedRestaurantId); }
+      catch { console.warn('[TABLE_RESERVATION_INVALIDATION_FAILED]'); }
     }
 
     await tableAccessRequestService.expireForSession({
