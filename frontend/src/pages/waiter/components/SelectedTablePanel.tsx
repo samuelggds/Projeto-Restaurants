@@ -133,16 +133,11 @@ export function SelectedTablePanel({table,onClose,onAccount,onTransfer,onNavigat
     document.addEventListener('keydown',key);
     return ()=>{document.body.style.overflow=old;document.removeEventListener('keydown',key);};
   },[mobile,onClose]);
-  return <>
-    <div className="desktop-table-details">
-      <PanelContents table={table} onClose={onClose} onAccount={onAccount} onTransfer={onTransfer}
-        onNavigate={onNavigate} sessionAction={sessionAction}/>
+  const contents=<PanelContents table={table} onClose={onClose} onAccount={onAccount}
+    onTransfer={onTransfer} onNavigate={onNavigate} sessionAction={sessionAction}/>;
+  return mobile ? <MobileLayer onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
+    <div role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
+      {contents}
     </div>
-    <MobileLayer onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
-      <div role="dialog" aria-modal="true" aria-label={`Atendimento da Mesa ${table.number}`}>
-        <PanelContents table={table} onClose={onClose} onAccount={onAccount} onTransfer={onTransfer}
-          onNavigate={onNavigate} sessionAction={sessionAction}/>
-      </div>
-    </MobileLayer>
-  </>;
+  </MobileLayer> : <div className="desktop-table-details">{contents}</div>;
 }
