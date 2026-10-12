@@ -121,9 +121,13 @@ export function TableMenuSettings({ settings, update }: Props) {
     }
     setSeatBusy(true);setActionError('');setSuccess('');
     try {
-      const updated = mapAdminTableQr(await tablesService.updateSeatCapacity(table.id, count));
-      if (!updated) throw new Error('Não foi possível confirmar a capacidade da mesa.');
-      setTables(current => current.map(item => item.id === table.id ? updated : item));
+      const updated = await tablesService.updateSeatCapacity(table.id, count);
+      if (Number(updated?.seatCapacity) !== count ||
+        Number(updated?.restaurantId) !== table.restaurantId || String(updated?.id) !== table.id) {
+        throw new Error('A atualização da capacidade não pôde ser confirmada.');
+      }
+      setTables(current => current.map(item => item.id === table.id
+        ? { ...item, seatCapacity: count } : item));
       setEditingSeatsId(null);
       setSuccess(`Mesa ${table.number}: ${count} lugares configurados.`);
     } catch (error: unknown) {
