@@ -131,13 +131,16 @@ export class TableReservationService {
           where: { id: parsed.tableId, restaurantId: id, active: true }, select: { id: true, number: true },
         });
         if (!table) throw new ReservationError('Mesa inativa ou pertencente a outro restaurante.', 404);
+        // A mesa pode estar ocupada agora e disponível no horário da reserva.
+        // Só bloqueia quando a sessão atual ainda alcança o intervalo escolhido.
         const session = await tx.tableSession.findFirst({
           where: {
             restaurantId: id, tableId: table.id, status: { in: ['OPEN', 'CLOSING_REQUESTED'] },
-            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            openedAt: { lt: parsed.endsAt },
+            OR: [{ expiresAt: null }, { expiresAt: { gt: parsed.startsAt } }],
           }, select: { id: true },
         });
-        if (session) throw new ReservationError('Esta mesa está ocupada; aguarde a liberação.');
+        if (session) throw new ReservationError('Esta mesa ainda estará ocupada no horário selecionado.');
         const clash = await tx.tableReservation.findFirst({
           where: {
             restaurantId: id, tableId: table.id, status: 'CONFIRMED',
