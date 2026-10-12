@@ -758,17 +758,20 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
 
   await selectPersona(page, 'waiter');
   await page.goto('/waiter');
-  await page.locator('nav').getByText('Mesas e QR Codes', { exact: true }).click();
+  await page.getByRole('button', { name: /Mesas e QR Codes|Mesas$/i }).first().click();
   const waiterTable = page.locator('article').filter({ hasText: 'Mesa 01' }).first();
   await expect(waiterTable).toBeVisible();
   await expect(waiterTable).toContainText('6 lugares');
-  await expect(waiterTable.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
+  await expect(waiterTable.getByRole('button', { name: 'Abrir mesa' })).toHaveCount(0);
+  await waiterTable.getByRole('button', { name: 'Selecionar Mesa 1' }).click();
+  const selectedTable = page.getByLabel('Atendimento da Mesa 1');
+  await expect(selectedTable.getByRole('button', { name: 'Abrir mesa' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Visualizar QR Code|Imprimir QR/i })).toHaveCount(
     0,
   );
-  await waiterTable.getByRole('button', { name: 'Abrir mesa' }).click();
+  await selectedTable.getByRole('button', { name: 'Abrir mesa' }).click();
   await expect.poll(() => state.tableOpen).toBe(true);
-  await expect(waiterTable.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
+  await expect(selectedTable.getByRole('button', { name: 'Fechar mesa' })).toBeVisible();
   expect(state.waiterTableReads).toBeGreaterThan(0);
 
   await selectPersona(page, 'customer');
