@@ -1,6 +1,7 @@
 export type AdminTableQrRecord = {
   id: string;
   number: number;
+  seatCapacity: number | null;
   restaurantId: number;
   restaurantSlug: string;
   menuBaseUrl: string | null;
@@ -46,7 +47,8 @@ export function mapAdminTableQr(value: unknown): AdminTableQrRecord | null {
   return {
     id,
     number,
-    restaurantId,
+    seatCapacity: Number.isInteger(Number(table.seatCapacity)) && Number(table.seatCapacity) >= 1 ? Number(table.seatCapacity) : null,
+    restaurantId:
     restaurantSlug,
     menuBaseUrl,
     token,

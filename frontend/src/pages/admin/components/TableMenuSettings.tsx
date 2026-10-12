@@ -54,6 +54,10 @@ function validateTableNumber(value: string) {
 export function TableMenuSettings({ settings, update }: Props) {
   const [tables, setTables] = useState<AdminTableQrRecord[]>([]);
   const [number, setNumber] = useState('');
+  const [seatCapacity, setSeatCapacity] = useState('4');
+  const [editingSeatsId, setEditingSeatsId] = useState<string | null>(null);
+  const [editingSeats, setEditingSeats] = useState('4');
+  const [seatBusy, setSeatBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadRevision, setLoadRevision] = useState(0);
   const [creating, setCreating] = useState(false);
@@ -110,6 +114,23 @@ export function TableMenuSettings({ settings, update }: Props) {
     [tables],
   );
 
+  const updateSeats = async (table: AdminTableQrRecord) => {
+    const count = Number(editingSeats);
+    if (!/^\\d+$/u.test(editingSeats.trim()) || !Number.isInteger(count) || count < 1 || count > 50) {
+      setActionError('Informe um número inteiro de lugares entre 1 e 50.'); return;
+    }
+    setSeatBusy(true);setActionError('');setSuccess('');
+    try {
+      const updated = mapAdminTableQr(await tablesService.updateSeatCapacity(table.id, count));
+      if (!updated) throw new Error('Não foi possível confirmar a capacidade da mesa.');
+      setTables(current => current.map(item => item.id === table.id ? updated : item));
+      setEditingSeatsId(null);
+      setSuccess(`Mesa ${table.number}: ${count} lugares configurados.`);
+    } catch (error: unknown) {
+      setActionError(requestErrorMessage(error, 'Não foi possível salvar a capacidade.'));
+    } finally { setSeatBusy(false); }
+  };
+
   const createTable = async (event: FormEvent) => {
     event.preventDefault();
     const validationError = validateTableNumber(number);
@@ -119,11 +140,14 @@ export function TableMenuSettings({ settings, update }: Props) {
       return;
     }
 
+    if (!/^\\d+$/u.test(seatCapacity.trim()) || Number(seatCapacity) < 1 || Number(seatCapacity) > 50) {
+      setActionError('Informe a capacidade da mesa entre 1 e 50 lugares.'); return;
+    }
     setCreating(true);
     setActionError('');
     setSuccess('');
     try {
-      const created = mapAdminTableQr(await tablesService.createTable({ number: Number(number) }));
+      const created = mapAdminTableQr(await tablesService.createTable({ number: Number(number), seatCapacity: Number(seatCapacity) }));
       if (!created) {
         throw new Error('A mesa foi criada, mas o servidor não retornou os dados do QR Code.');
       }
@@ -138,6 +162,7 @@ export function TableMenuSettings({ settings, update }: Props) {
         ),
       );
       setNumber('');
+      setSeatCapacity('4');
       setSuccess(`${tableDisplayName(created.number)} criada com QR Code seguro.`);
       setSelectedTable(created);
     } catch (requestError) {
@@ -237,6 +262,10 @@ export function TableMenuSettings({ settings, update }: Props) {
           </header>
           <form onSubmit={(event) => void createTable(event)} noValidate>
             <label htmlFor="admin-table-number">Número da mesa</label>
+            <label htmlFor="admin-seat-capacity">Quantidade de lugares da mesa</label>
+            <input id="admin-seat-capacity" type="number" min="1" max="50" required inputMode="numeric"
+              aria-label="Lugares da nova mesa" value={seatCapacity}
+              onChange={event => setSeatCapacity(event.target.value)} disabled={creating} />
             <div className="form-row">
               <input
                 id="admin-table-number"
@@ -363,6 +392,20 @@ export function TableMenuSettings({ settings, update }: Props) {
                 <T.TableCard key={table.id} aria-label={name}>
                   <div className="info">
                     <h4>{name}</h4>
+                    <p>{table.seatCapacity ? `${table.seatCapacity} lugares` : 'Capacidade não configurada'}</p>
+                    {editingSeatsId === table.id ? (
+                      <div className="form-row">
+                        <input type="number" min="1" max="50" inputMode="numeric" aria-label={`Lugares da ${name}`}
+                          value={editingSeats} disabled={seatBusy}
+                          onChange={event => setEditingSeats(event.target.value)} />
+                        <T.SecondaryButton type="button" disabled={seatBusy} onClick={() => void updateSeats(table)}>Salvar</T.SecondaryButton>
+                        <T.SecondaryButton type="button" disabled={seatBusy} onClick={() => setEditingSeatsId(null)}>Cancelar</T.SecondaryButton>
+                      </div>
+                    ) : (
+                      <T.SecondaryButton type="button" onClick={() => {
+                        setEditingSeats(String(table.seatCapacity || 4));setEditingSeatsId(table.id);
+                      }}>Configurar lugares</T.SecondaryButton>
+                    )}
                     <div className="badges">
                       <span className={`badge ${table.active ? '' : 'off'}`}>
                         {table.active ? 'Cadastro ativo' : 'Mesa inativa'}
