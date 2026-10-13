@@ -31,9 +31,25 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend ci
       - run: npm --prefix backend run test:refund && npm --prefix backend run test:billing
+      - name: Declare scope of automatic payment validation
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          {
+            echo '### Payment validation scope'
+            echo '- PASS/FAIL: local contracts, refunds, billing and provider integrations in the repository.'
+            echo '- NÃO EXECUTADO / PENDENTE: official Mercado Pago TEST sandbox credential check (production is configured separately).'
+            echo '- NÃO CONFIGURADO: Asaas and Pagar.me external homologation, pending merchant onboarding.'
+            echo '- No production tokens, production API calls, actual charges, refunds or simulated provider approvals are performed.'
+            echo '- Official sandbox checks remain STRICT and can be run individually using workflow_dispatch.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   official-sandboxes:
     name: Official provider sandbox preflight
+    # A push always validates the local financial contracts. External sandbox checks
+    # are a separate, explicit homologation gate and require dedicated TEST secrets.
+    # Do not inject production Mercado Pago credentials or pretend a skipped preflight passed.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: payment-sandbox
