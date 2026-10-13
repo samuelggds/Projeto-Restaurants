@@ -60,9 +60,15 @@ export const Brand = styled.div`
 export const MainNav = styled.nav`
   min-height: 0;
   display: grid;
-  gap: 2px;
-  margin-top: 20px;
+  align-content: start;
+  gap: 0;
+  margin-top: 16px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  .nav-group { display: grid; gap: 2px; min-width: 0; }
+  .nav-group + .nav-group { border-top: 1px solid #393939; margin-top: 10px; padding-top: 10px; }
+  .nav-group h2 { margin: 0 0 5px; padding: 0 11px; color: #888; font-family: inherit; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+  .item-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   button {
     width: 100%;
     min-width: 0;
