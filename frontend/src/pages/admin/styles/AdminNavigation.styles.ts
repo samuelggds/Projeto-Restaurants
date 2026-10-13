@@ -396,7 +396,8 @@ export const MobileMoreSheet = styled.section`
       gap: 2px;
     }
     header b,
-    > button b {
+    > button b,
+    .mobile-nav-group > button b {
       overflow: hidden;
       color: #2b2521;
       font-size: 12px;
@@ -404,11 +405,26 @@ export const MobileMoreSheet = styled.section`
       white-space: nowrap;
     }
     header small,
-    > button small {
+    > button small,
+    .mobile-nav-group > button small {
       color: var(--muted);
       font-size: 9px;
     }
-    > button {
+    .mobile-nav-group {
+      display: grid;
+      gap: 7px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .mobile-nav-group h2 {
+      margin: 0 0 3px;
+      padding: 0 6px;
+      color: #80756f;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+    > button, .mobile-nav-group > button {
       min-height: 49px;
       padding: 0 12px;
       border: 1px solid var(--border);
@@ -421,12 +437,12 @@ export const MobileMoreSheet = styled.section`
       background: #fbf9f7;
       text-align: left;
     }
-    > button.active {
+    > button.active, .mobile-nav-group > button.active {
       color: var(--brand);
       border-color: color-mix(in srgb, var(--brand) 32%, var(--border));
       background: color-mix(in srgb, var(--brand) 7%, #fff);
     }
-    > button.active b {
+    > button.active b, .mobile-nav-group > button.active b {
       color: var(--brand);
     }
     > button.logout {
@@ -434,10 +450,10 @@ export const MobileMoreSheet = styled.section`
       border-color: #efd0cc;
       background: #fff5f4;
     }
-    > button > svg {
+    > button > svg, .mobile-nav-group > button > svg {
       width: 18px;
     }
-    > button > svg:last-child {
+    > button > svg:last-child, .mobile-nav-group > button > svg:last-child {
       width: 15px;
       color: #a89e97;
     }
