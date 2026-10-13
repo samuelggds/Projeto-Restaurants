@@ -8,6 +8,7 @@ export const ProductFormDrawer = styled.form`
   min-width: 0;
   margin: 0;
   overflow-y: auto;
+  scroll-behavior: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -22,16 +23,12 @@ export const ProductFormDrawer = styled.form`
     #f7f5f2;
   border-radius: 0;
   box-shadow: none;
-  animation: drawer-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* Keep the form and its choice buttons spatially stable while the lazy
+     product editor becomes available, especially in WebKit. */
+  animation: drawer-enter 200ms ease-out both;
   @keyframes drawer-enter {
-    from {
-      opacity: 0;
-      transform: translateX(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   button:focus-visible,
   input:focus-visible,

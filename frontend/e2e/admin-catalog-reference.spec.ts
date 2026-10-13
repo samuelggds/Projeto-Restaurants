@@ -43,7 +43,10 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
-    await editor.getByRole('radio', { name: /Produto personalizável/ }).click();
+    const customMode = editor.getByRole('radio', { name: /Produto personalizável/ });
+    await expect(customMode).toBeVisible();
+    await customMode.click();
+    await expect(customMode).toHaveAttribute('aria-checked', 'true');
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
     await next();
     await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
@@ -413,7 +416,9 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await productEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
 
   await productCards.nth(2).getByRole('button', { name: 'Opções de X-Bacon' }).click();
-  await page.getByRole('button', { name: 'Editar produto' }).click();
+  const editXbacon = page.getByRole('button', { name: 'Editar produto' });
+  await expect(editXbacon).toBeVisible();
+  await editXbacon.click();
   const emptyCustomizationEditor = page.getByRole('dialog', { name: 'Editar produto' });
   for (let step = 0; step < 4; step += 1) {
     await emptyCustomizationEditor.getByRole('button', { name: 'Continuar', exact: true }).click();

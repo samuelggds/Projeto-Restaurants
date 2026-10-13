@@ -132,8 +132,8 @@ export const Product = styled.article`
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 14px 34px rgba(45, 31, 20, 0.18);
-    transform-origin: right bottom;
-    animation: catalog-menu-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* The popover must stay fixed under the pointer during its entrance. */
+    animation: catalog-menu-enter 140ms ease-out both;
   }
   footer .product-menu button {
     width: 100%;
@@ -149,14 +149,8 @@ export const Product = styled.article`
     color: #b42318;
   }
   @keyframes catalog-menu-enter {
-    from {
-      opacity: 0;
-      transform: translateY(4px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
