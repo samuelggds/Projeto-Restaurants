@@ -1101,7 +1101,10 @@ export function AdminPage({
                 <small>Gestão e configurações</small>
               </span>
             </header>
-            {mobileGroupedNavigation.flatMap(group => group.items.map(item => ({...item, groupLabel: group.label}))).map((item) => {
+            {mobileGroupedNavigation.map(group => (
+              <section className="mobile-nav-group" key={group.id} aria-label={group.label}>
+                <h2>{group.label}</h2>
+                {group.items.map((item) => {
               const Icon = item.icon;
               const active = area === item.area;
               return (
@@ -1120,7 +1123,9 @@ export function AdminPage({
                   <ChevronRight />
                 </button>
               );
-            })}
+                })}
+              </section>
+            ))}
             <button
               type="button"
               className={area === 'help' ? 'active' : ''}
