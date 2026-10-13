@@ -1,3 +1,4 @@
+import { promotionalCustomerScope } from '../../coupon/utils/promotionalCustomerScope.js';
 import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
@@ -605,11 +606,13 @@ class CreateOrderService {
                 throw new OrderRequestError('Cupom promocional esgotado ou indisponível.');
               }
               const priorUses = await tx.order.count({
-                where: {
+                where: promotionalCustomerScope({
                   restaurantId: resolvedRestaurantId,
-                  userId: resolvedUserId,
                   couponId: pricing.couponId,
-                },
+                  userId: resolvedUserId,
+                  participantId: tableParticipant?.id ?? null,
+                  tableSessionId: type === OrderType.MESA ? Number(tableSessionId) : null,
+                }),
               });
               const policy = await tx.coupon.findFirst({
                 where: { id: pricing.couponId, restaurantId: resolvedRestaurantId },
