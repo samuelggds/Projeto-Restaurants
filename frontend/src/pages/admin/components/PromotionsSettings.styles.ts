@@ -292,6 +292,11 @@ export const PanelHeader = styled.header`
 
 export const EditorGrid = styled.form`
   min-width: 0;
+  /* Keep the save action away from the viewport edge when the admin settings
+     scrolls to focused fields. This also leaves room for the browser toolbar. */
+  button[type='submit'] {
+    scroll-margin-block: 112px 144px;
+  }
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(250px, 0.65fr);
   gap: 20px;
