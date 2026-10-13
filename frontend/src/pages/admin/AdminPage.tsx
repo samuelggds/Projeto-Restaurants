@@ -33,7 +33,7 @@ const HelpCenter = lazy(() =>
 );
 const ManagedServiceArea = lazy(() => import('./components/ManagedServiceArea'));
 import { sectionTitle, settingGroups, settingItems } from './config/adminNavigation';
-import { operationNavigationItems, managementNavigationItems, mobilePrimaryNavigationItems, mobileMoreNavigationItems } from './config/adminSidebarItems';
+import { mobilePrimaryNavigationItems, mobileMoreNavigationItems, adminSidebarNavigationGroups, mobileGroupedNavigation } from './config/adminSidebarItems';
 import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import * as S from './Admin.styles';
 import type {
@@ -643,33 +643,30 @@ export function AdminPage({
             <small>ADMIN</small>
           </S.Brand>
           <S.MainNav aria-label="Navegação principal do painel">
-            {[...operationNavigationItems, ...managementNavigationItems].map((item) => {
-              const Icon = item.icon;
-              const active = area === item.area;
-              return (
-                <button
-                  key={item.area}
-                  type="button"
-                  className={active ? 'active' : ''}
-                  aria-label={item.label}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => void changeArea(item.area)}
-                >
-                  <Icon />
-                  {item.label}
-                  {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
-                    <span className="support-badge" data-testid="admin-desktop-support-count"
-                      title={`${openSupportCount} atendimentos abertos`}>
-                      {formatAdminSupportBadge(openSupportCount)}
-                    </span>
-                  )}
-                  {item.area === 'support' && supportCountSyncError && (
-                    <span className="support-sync-error" aria-label="Falha ao sincronizar o contador"
-                      title="Não foi possível atualizar o contador de suporte">!</span>
-                  )}
-                </button>
-              );
-            })}
+            {adminSidebarNavigationGroups.map(group => (
+              <section className="nav-group" key={group.id}
+                aria-labelledby={`admin-sidebar-${group.id}`}>
+                <h2 id={`admin-sidebar-${group.id}`}>{group.label}</h2>
+                {group.items.map(item => {
+                  const Icon = item.icon;
+                  const active = area === item.area;
+                  return <button key={item.area} type="button" className={active ? 'active' : ''}
+                    aria-label={item.label} aria-current={active ? 'page' : undefined}
+                    onClick={() => void changeArea(item.area)}>
+                    <Icon aria-hidden="true" />
+                    <span className="item-label">{item.label}</span>
+                    {item.area === 'support' && openSupportCount !== null && openSupportCount > 0 && (
+                      <span className="support-badge" data-testid="admin-desktop-support-count">
+                        {formatAdminSupportBadge(openSupportCount)}
+                      </span>
+                    )}
+                    {item.area === 'support' && supportCountSyncError && (
+                      <span className="support-sync-error" aria-label="Falha ao sincronizar o contador">!</span>
+                    )}
+                  </button>;
+                })}
+              </section>
+            ))}
           </S.MainNav>
           <S.SideFooter>
             <button
@@ -1104,7 +1101,7 @@ export function AdminPage({
                 <small>Gestão e configurações</small>
               </span>
             </header>
-            {mobileMoreNavigationItems.map((item) => {
+            {mobileGroupedNavigation.flatMap(group => group.items.map(item => ({...item, groupLabel: group.label}))).map((item) => {
               const Icon = item.icon;
               const active = area === item.area;
               return (
