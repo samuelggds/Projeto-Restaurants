@@ -26,8 +26,8 @@ import { useHomeNotifications } from './hooks/useHomeNotifications';
 import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
 import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
-import { listPublicPromotionalCoupons } from '../../Services/publicCouponsService';
-import type { PublicPromotionalCoupon } from './types';
+import { usePromotionalCoupons } from './hooks/usePromotionalCoupons';
+import { useApplyCheckoutCouponCode } from './hooks/useApplyCheckoutCouponCode';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
@@ -236,18 +236,8 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
-  const [promotionalCoupons, setPromotionalCoupons] = useState<PublicPromotionalCoupon[]>([]);
+  const promotionalCoupons = usePromotionalCoupons(restaurantId, mesaMode);
   const [selectedPromoCode, setSelectedPromoCode] = useState('');
-  useEffect(() => {
-    let alive = true;
-    setPromotionalCoupons([]);
-    if (restaurantId && !mesaMode) {
-      void listPublicPromotionalCoupons(restaurantId)
-        .then((items) => { if (alive) setPromotionalCoupons(items); })
-        .catch(() => { if (alive) setPromotionalCoupons([]); });
-    }
-    return () => { alive = false; };
-  }, [restaurantId, mesaMode]);
   const loyalty = useLoyaltyRewards({
     restaurantId,
     enabled: isLoyaltyCustomer,
@@ -272,42 +262,15 @@ export default function Home() {
       ? selectedRedemptionId
       : null;
 
-  const applyCheckoutCouponCode = useCallback(
-    (value: string) => {
-      const code = String(value || '').trim().toUpperCase();
-      if (!code) return;
-
-      const promo = promotionalCoupons.find((item) => item.code === code);
-      if (promo) {
-        setSelectedRedemptionId(null);
-        setSelectedPromoCode(promo.code);
-        return;
-      }
-      if (!isLoyaltyCustomer) {
-        notify('info', 'Cupom não encontrado', 'Este código não é uma promoção ativa deste restaurante.');
-        return;
-      }
-
-      const match = loyaltyRedemptionEntries(loyalty.summary).find(
-        ({ coupon, redemption }) =>
-          isUsableLoyaltyRedemption(redemption, loyaltyClock) &&
-          String(coupon.code || '').trim().toUpperCase() === code,
-      );
-
-      if (!match) {
-        notify(
-          'warning',
-          'Cupom não disponível',
-          'Confira o código ou escolha um dos cupons disponíveis na sua conta.',
-        );
-        return;
-      }
-
-      setSelectedRedemptionId(match.redemption.id);
-      setSelectedPromoCode('');
-    },
-    [isLoyaltyCustomer, loyalty.summary, loyaltyClock, notify, promotionalCoupons],
-  );
+  const applyCheckoutCouponCode = useApplyCheckoutCouponCode({
+    promotionalCoupons,
+    isLoyaltyCustomer,
+    loyaltySummary: loyalty.summary,
+    loyaltyClock,
+    notify,
+    setSelectedRedemptionId,
+    setSelectedPromoCode,
+  });
 
   const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
   const rawCardReturnStatus = String(searchParams.get('cardCheckoutStatus') || '').toLowerCase();
