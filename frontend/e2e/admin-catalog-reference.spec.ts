@@ -1,9 +1,30 @@
 import { orderFixtureResponse } from './helpers/orderFixtures';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const PRODUCT_IMAGE = '/e2e/fixtures/readme/pizza-calabresa.jpg';
+
+// Do not await Animation.finished promises: an infinite or WebKit-held animation
+// can leave such a promise pending until the entire test times out.
+// Poll actual finite animations instead; layout, CSS and screenshot assertions
+// below remain mandatory.
+async function waitForTransientAnimations(locator: Locator) {
+  await expect
+    .poll(
+      () =>
+        locator.evaluate((element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => {
+              const iterations = animation.effect?.getComputedTiming().iterations ?? 1;
+              return Number.isFinite(iterations) && animation.playState === 'running';
+            }).length,
+        ),
+      { message: 'Finite UI animations must settle before visual assertions' },
+    )
+    .toBe(0);
+}
 
 for (const width of [1440, 390]) {
   test(`preço meio a meio dispensa valor fixo no cadastro em ${width}px`, async ({
@@ -247,16 +268,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
-  await productCards
-    .first()
-    .locator('..')
-    .evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations({ subtree: true })
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
+  await waitForTransientAnimations(productCards.first().locator('..'));
   const firstProductBox = await productCards.first().boundingBox();
   const lastProductBox = await productCards.last().boundingBox();
   expect(firstProductBox).not.toBeNull();
@@ -296,13 +308,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.getByText('Como funciona?')).toBeVisible();
   await expect(page.locator('.ingredient-list article')).toHaveCount(7);
-  await page.locator('.ingredient-list').evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(page.locator('.ingredient-list'));
   const firstIngredientBox = await page.locator('.ingredient-list article').first().boundingBox();
   const secondIngredientBox = await page.locator('.ingredient-list article').nth(1).boundingBox();
   expect(firstIngredientBox).not.toBeNull();
@@ -321,13 +327,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.getByRole('button', { name: 'Novo ingrediente' }).click();
   const ingredientWizard = page.locator('[data-ingredient-wizard]');
   await expect(ingredientWizard.getByText('Ingrediente pronto para ser reutilizado')).toBeVisible();
-  await ingredientWizard.evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(ingredientWizard);
   const wizardDialog = ingredientWizard.locator('form');
   await expect(wizardDialog).toHaveCSS('background-color', 'rgb(251, 250, 248)');
   await expect(wizardDialog).toHaveCSS('opacity', '1');
@@ -361,13 +361,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(productCards).toHaveCount(5);
   // The tab has an entrance animation. Wait for the real product grid to settle
   // before interacting so WebKit never targets controls still in transition.
-  await productCards.first().locator('..').evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(productCards.first().locator('..'));
   const productActions = productCards.first().getByRole('button', {
     name: 'Opções de Pizza Calabresa',
   });
@@ -392,13 +386,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(customerPreview.getByText('Bacon', { exact: true })).toBeVisible();
   await expect(customerPreview.getByText('Catupiry', { exact: true })).toBeVisible();
   await expect(customerPreview.getByText('Adicionar ao pedido')).toBeVisible();
-  await productEditor.evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(productEditor);
   await productEditor
     .locator('form')
     .first()
