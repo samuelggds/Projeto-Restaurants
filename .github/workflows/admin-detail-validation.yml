@@ -1,0 +1,112 @@
+name: Admin Detail Complete Validation
+
+on:
+  push:
+    branches: [fix/admin-order-detail-reference-20261013]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-detail-complete-${{ github.ref }}
+  cancel-in-progress: true
+
+# Validation only. Never dispatch a production, release, publication or payment
+# sandbox workflow. The local payment contracts and CI already run on push.
+jobs:
+  additional-validation:
+    name: Full suite - ${{ matrix.workflow }}
+    if: github.ref == 'refs/heads/fix/admin-order-detail-reference-20261013'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        workflow:
+          - security-hardening.yml
+          - stack-smoke.yml
+          - deep-validation.yml
+          - load-validation.yml
+          - kitchen-desktop-windows.yml
+          - readme-screenshots.yml
+    steps:
+      # No checkout, repository code execution, persistent credentials or secrets
+      # in this dispatcher. Its short-lived token can only start the allowlist.
+      - name: Dispatch and require the unchanged validation workflow on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_FILE: ${{ matrix.workflow }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$WORKFLOW_FILE" in
+            security-hardening.yml|stack-smoke.yml|deep-validation.yml|load-validation.yml|kitchen-desktop-windows.yml|readme-screenshots.yml) ;;
+            *) echo 'Workflow is not in the validation allowlist.' >&2; exit 1 ;;
+          esac
+          test "$GITHUB_REF_NAME" = 'fix/admin-order-detail-reference-20261013'
+          current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${GITHUB_REF_NAME}" --jq '.object.sha')"
+          test "$current_sha" = "$GITHUB_SHA"
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW_FILE}/dispatches" -f "ref=${GITHUB_REF_NAME}"
+          run_id=''
+          for attempt in $(seq 1 30); do
+            payload="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW_FILE}/runs?event=workflow_dispatch&head_sha=${GITHUB_SHA}&per_page=100")"
+            run_id="$(jq -r --arg sha "$GITHUB_SHA" --arg since "$started" --arg branch "$GITHUB_REF_NAME" '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == $branch and .created_at >= $since)] | sort_by(.id) | last | .id // empty' <<< "$payload")"
+            if [[ "$run_id" =~ ^[0-9]+$ ]]; then break; fi
+            sleep 10
+          done
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          echo "- ${WORKFLOW_FILE}: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >> "$GITHUB_STEP_SUMMARY"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --interval 30 --exit-status
+
+  complete-validation:
+    name: All ten non-production workflows
+    if: always()
+    needs: [additional-validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require all ten workflows on this exact source commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ADDITIONAL_RESULT: ${{ needs.additional-validation.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$ADDITIONAL_RESULT" = 'success'
+          required='["ci.yml","browser-critical.yml","security-hardening.yml","stack-smoke.yml","migration-compatibility.yml","deep-validation.yml","load-validation.yml","payment-sandbox-validation.yml","kitchen-desktop-windows.yml","readme-screenshots.yml"]'
+          for attempt in $(seq 1 180); do
+            payload="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&per_page=100")"
+            rows="$(jq -c --argjson required "$required" --arg sha "$GITHUB_SHA" '
+              .workflow_runs as $runs | $required | map(. as $name |
+                ([$runs[] | select(.head_sha == $sha and (.path | split("/") | last) == $name)] | sort_by(.id) | last) as $run |
+                {name:$name, status:($run.status // "missing"), result:($run.conclusion // "pending"), url:($run.html_url // "")})' <<< "$payload")"
+            if jq -e 'any(.[]; .status == "completed" and .result != "success")' <<< "$rows" >/dev/null; then
+              jq -r '.[] | "\(.name): \(.status) / \(.result) \(.url)"' <<< "$rows"
+              echo 'At least one complete workflow failed; no approval is granted.' >&2
+              exit 1
+            fi
+            if jq -e 'all(.[]; .status == "completed" and .result == "success")' <<< "$rows" >/dev/null; then
+              {
+                echo '## Complete non-production validation'
+                echo
+                printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+                echo '| Workflow | Result |'
+                echo '| --- | --- |'
+                jq -r '.[] | "| [\(.name)](\(.url)) | success |"' <<< "$rows"
+                echo
+                echo 'Official provider sandbox homologation was not run; no production credentials, charges, image publication or deployment were requested.'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo 'Waiting for the remaining same-commit validations.'
+            sleep 20
+          done
+          echo 'Validation did not complete; no approval is granted.' >&2
+          exit 1

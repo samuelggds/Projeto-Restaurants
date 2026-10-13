@@ -2,7 +2,7 @@ name: Payment Sandbox Preflight
 
 on:
   push:
-    branches: [fix/post-merge-improvements-20261013]
+    branches: [fix/post-merge-improvements-20261013, fix/admin-order-detail-reference-20261013]
   workflow_dispatch:
     inputs:
       provider:
