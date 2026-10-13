@@ -8,6 +8,8 @@ export const ProductGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+  /* Fade the grid without translating clickable product cards. The combined
+     grid/card transforms can keep controls in motion during WebKit hit-testing. */
   animation: catalog-view-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   > * {
     animation: catalog-card-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -25,24 +27,12 @@ export const ProductGrid = styled.div`
     animation-delay: 140ms;
   }
   @keyframes catalog-view-enter {
-    from {
-      opacity: 0;
-      transform: translateY(7px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @keyframes catalog-card-enter {
-    from {
-      opacity: 0;
-      transform: translateY(5px) scale(0.995);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     &,
