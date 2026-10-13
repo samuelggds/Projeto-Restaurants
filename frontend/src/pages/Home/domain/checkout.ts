@@ -266,6 +266,7 @@ export function buildOrderQuotePayload(input: {
   cart: CartItem[];
   deliveryAddress?: DeliveryAddress;
   couponRedemptionId?: number | null;
+  couponCode?: string | null;
 }) {
   const deliveryAddress = input.deliveryAddress;
 
