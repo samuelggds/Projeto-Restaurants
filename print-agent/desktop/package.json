@@ -11,7 +11,7 @@
     "prepare:icon": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/prepare-icon.ps1"
   },
   "devDependencies": {
-    "electron": "40.0.0",
+    "electron": "41.10.6",
     "electron-builder": "26.0.12"
   },
   "build": {
