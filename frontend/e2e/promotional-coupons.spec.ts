@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test('visitante encontra cupons públicos, abre lista e aplica promoção na cotação', async ({ page }) => {
   const quotes: Array<Record<string, unknown>> = [];
   let loyaltyRequests = 0;
-  await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
-    const pathname = new URL(route.request().url()).pathname;
+  await page.route(/\/(?:api\/)?(?:settings\/public|products|coupons|orders|auth)(?:\/|\?|$)/, async (route) => {
+    const pathname = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, '');
     if (pathname === '/settings/public/slug/restaurante-teste' || pathname === '/settings/public/9') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
         restaurantId: 9, restaurantName: 'Restaurante Teste', isOpenForOrders: true,
