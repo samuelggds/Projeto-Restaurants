@@ -125,6 +125,37 @@ export const OrdersWorkspace = styled.div`
     .order-compact-list { max-height: 230px; }
     .orders-split-view { gap: 8px; }
   }
+
+  /* These rules deliberately follow the baseline split layout for cascade precedence. */
+  .orders-split-view {
+    grid-template-columns:minmax(0,1.55fr) minmax(330px,1fr);
+    align-items:stretch;gap:12px;
+  }
+  .order-compact-list {
+    min-height:550px;max-height:790px;padding:0;gap:0;border-radius:12px;
+  }
+  .order-compact-list > button {
+    display:grid;
+    grid-template-columns:minmax(120px,1.4fr) minmax(65px,1fr) minmax(65px,1fr) 72px minmax(78px,1fr);
+    align-items:center;gap:9px;min-height:72px;padding:11px 12px;
+    border:0;border-bottom:1px solid #edf1ed;border-radius:0;text-align:left;
+  }
+  .order-compact-list > button.selected {background:#eff7f1;box-shadow:inset 3px 0 #1e6746;border-color:#d4e8d9;}
+  .selected-order-detail {max-height:790px;overflow:auto;border:1px solid #e5ebe5;border-radius:12px;background:#fff;}
+  @media(max-width:1350px){
+    .order-compact-list > button {grid-template-columns:minmax(110px,1.4fr) minmax(65px,1fr) 72px minmax(75px,1fr);}
+    .compact-payment{display:none;}
+  }
+  @media(max-width:1020px){
+    .orders-split-view {grid-template-columns:minmax(0,1fr);}
+    .order-compact-list {min-height:0;max-height:380px;}
+    .selected-order-detail {max-height:none;}
+  }
+  @media(max-width:660px){
+    .order-compact-list > button {grid-template-columns:minmax(100px,1fr) 68px minmax(65px,1fr);}
+    .compact-modality,.compact-payment {display:none;}
+  }
+
 `;
 
 export { HeroCopy, OrdersHero, PriorityCard } from './AdminOrders.hero.styles';

@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   Bike,
   CheckCircle2,
   ChevronDown,

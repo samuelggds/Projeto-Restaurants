@@ -166,7 +166,7 @@ describe('AdminOrders', () => {
   it('separa pagamento, modalidade, andamento e regras de devolução', async () => {
     await renderOrders();
 
-    expect(container.textContent).toContain('Pedidos ativos');
+    expect(container.textContent).toContain('Gestão de pedidos');
     expect(compactOrderCount()).toBe(3);
     expect(container.querySelectorAll('.order-card')).toHaveLength(1);
     const pixDetail = selectOrderDetails(orders[0]);
@@ -384,13 +384,11 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('#303');
     expect(container.textContent).not.toContain('#301');
     expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'PAYMENT' });
-    expect(
-      buttonByLabel(container, 'Mostrar pedidos ativos').querySelector('strong')?.textContent,
-    ).toBe('3');
+    expect(container.textContent).toContain('Em preparo');
     expect(container.textContent).toContain('Todos 300');
 
     mocks.listPage.mockResolvedValue(mockPage());
-    await act(async () => buttonByLabel(container, 'Mostrar pedidos ativos').click());
+    await act(async () => buttonByLabel(container, 'Ver em preparo').click());
     expect(compactOrderCount()).toBe(3);
     expect(container.querySelectorAll('.order-card')).toHaveLength(1);
     selectOrderDetails(orders[1]);
@@ -494,4 +492,37 @@ describe('AdminOrders', () => {
     await act(async () => buttonByLabel(container, 'Cancelar o pedido #303').click());
     expect(container.textContent).toContain('retirado da fila de espera, sem iniciar o preparo');
   });
+  it('preserva produtos, quantidades, observações e pagamentos reais do backend no painel', async () => {
+    const itemOrder: AdminOrder = {
+      ...orders[0],
+      items: [
+        { id: 7, name: 'Pizza da casa', quantity: 2, unitPrice: 29.9,
+          observation: 'Sem cebola', options: ['Borda: Catupiry'] },
+      ],
+      observation: 'Entregar com cuidado',
+      itemsSubtotal: 59.8,
+      couponDiscount: 5,
+      couponCode: 'PROMO',
+      deliveryFeeAmount: 4,
+      preparationStartedAt: '2026-08-25T12:05:00Z',
+    };
+    await renderOrders(undefined, [itemOrder]);
+    const panel = selectOrderDetails(itemOrder);
+    expect(panel.textContent).toContain('Pizza da casa');
+    expect(panel.textContent).toContain('Sem cebola');
+    expect(panel.textContent).toContain('Borda: Catupiry');
+    expect(panel.textContent).toContain('Entregar com cuidado');
+    expect(panel.textContent).toContain('PROMO');
+    expect(panel.textContent).toContain('Preparo iniciado');
+    expect(panel.textContent).not.toContain('R$ 56,50');
+  });
+
+  it('não oferece despacho real pela integração sandbox nem avança pagamento online não confirmado', async () => {
+    const unpaid = { ...orders[2], type: 'DELIVERY' };
+    await renderOrders(undefined, [unpaid]);
+    const panel = selectOrderDetails(unpaid);
+    expect(panel.querySelector('button[aria-label="Iniciar preparo do pedido #303"]')).toBeNull();
+    expect(panel.textContent).not.toContain('Contratar motoqueiro');
+  });
+
 });
