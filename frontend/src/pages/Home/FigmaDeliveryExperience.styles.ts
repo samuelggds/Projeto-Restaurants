@@ -632,6 +632,7 @@ export const ProductCard = styled.article`
   .product-copy{min-width:0;display:grid;gap:4px}
 
   .featured-badge {
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     align-self: start;
