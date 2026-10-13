@@ -13,7 +13,7 @@ class OrderReportsController {
         const settings = await db.restaurantSettings.findUnique({ where: { restaurantId }, select: { timezone: true } });
         const periods = getRestaurantPeriodBoundaries(new Date(), settings?.timezone || 'America/Sao_Paulo');
         const base = { restaurantId, AND: [operationalPaymentWhere] };
-        const [todayOrders, paidToday, preparingOrders, customers] = await Promise.all([
+        const [todayOrders, paidToday, preparingOrders, customers, registeredToday, cancelledToday, refundedToday] = await Promise.all([
           db.order.count({
             where: {
               ...base,
@@ -33,6 +33,19 @@ class OrderReportsController {
           }),
           db.order.count({ where: { ...base, status: 'PREPARANDO' } }),
           readCustomerPage(db, restaurantId, { limit: 0 }),
+          // Valor registrado nos pedidos criados hoje, inclusive ainda não pagos.
+          // O total efetivamente confirmado continua em paidToday.
+          db.order.aggregate({
+            where: { restaurantId, createdAt: periods.today, status: { not: 'CANCELADO' } },
+            _sum: { total: true },
+          }),
+          // Sem canceledAt no schema: este contador é de pedidos criados hoje e cancelados.
+          db.order.count({
+            where: { restaurantId, createdAt: periods.today, status: 'CANCELADO' },
+          }),
+          db.order.count({
+            where: { restaurantId, refundedAt: periods.today, refundStatus: 'SUCCEEDED' },
+          }),
         ]);
         const sales = Number(paidToday._sum.total || 0);
         return {
@@ -42,6 +55,10 @@ class OrderReportsController {
           preparingOrders,
           customers: customers.summary.customers,
           timezone: periods.timeZone,
+          registeredSalesTotal: Number(registeredToday._sum.total || 0),
+          confirmedPaymentsToday: paidToday._count,
+          cancelledOrdersCreatedToday: cancelledToday,
+          refundedOrdersToday: refundedToday,
         };
       });
       return res.json(overview);

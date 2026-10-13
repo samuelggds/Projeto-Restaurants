@@ -49,6 +49,14 @@ export type OrderOverview = {
   preparingOrders: number;
   customers: number;
   timezone: string;
+  /** Value of non-cancelled orders created today, whether paid or not. */
+  registeredSalesTotal?: number;
+  /** Number of payments confirmed today. */
+  confirmedPaymentsToday?: number;
+  /** Cancelled orders created today (not cancellations performed today). */
+  cancelledOrdersCreatedToday?: number;
+  /** Refunds completed today. */
+  refundedOrdersToday?: number;
 };
 export type OrderCustomersPage = {
   customers: { key: string; name: string; email: string; count: number; total: number }[];
