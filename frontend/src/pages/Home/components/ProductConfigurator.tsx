@@ -633,12 +633,11 @@ export function ProductConfigurator({
                               disabled ||
                               event.target instanceof HTMLInputElement
                             ) return;
-                            // WebKit can fail to forward a label-text click to a
-                            // visually hidden required radio. Select it through
-                            // controlled state, cancelling the native forwarding
-                            // so this click cannot toggle the choice twice.
-                            event.preventDefault();
-                            event.currentTarget.querySelector('input')?.focus();
+                            // Keep the native label-to-radio click active for
+                            // Firefox/WebKit. Preventing its default action can
+                            // leave the DOM radio unchecked after a React update.
+                            // Applying the selection twice is safe because a
+                            // required SINGLE choice is idempotent.
                             applyOptionSelection();
                           }}
                         >
