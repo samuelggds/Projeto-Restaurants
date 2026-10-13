@@ -760,7 +760,7 @@ export function PromotionsSettings({
         <S.TabPanel
           id="promotions-panel-loyalty"
           role="tabpanel"
-          aria-labelledby="promotions-tab-loyalty"
+          aria-labelledby={tab === 'promotional' ? 'promotions-tab-promotional' : 'promotions-tab-loyalty'}
         >
           {tab === 'loyalty' && <S.LoyaltyFlow aria-label="Como funciona a fidelidade">
             <article>
@@ -808,7 +808,7 @@ export function PromotionsSettings({
                   <span>Código de identificação</span>
                   <input
                     maxLength={30}
-                    placeholder="Ex.: CLIENTE-FIEL"
+                    placeholder={tab === 'promotional' ? 'Ex.: PROMO20' : 'Ex.: CLIENTE-FIEL'}
                     value={couponDraft.code}
                     onChange={(event) =>
                       setCouponDraft((current) => ({
