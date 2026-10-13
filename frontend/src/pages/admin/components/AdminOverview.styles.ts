@@ -215,10 +215,10 @@ export const HeroAside = styled.aside`
   .hero-quick-metrics svg { width: 15px; height: 15px; color: #c1dccb; }
   .hero-quick-metrics b { font-size: 18px; color: #fff; }
   .hero-quick-metrics small { font-size: 10px; color: #c1d2c9; text-transform: none; }
-  > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  > .hero-quick-metrics { margin-top: 12px; }
   @media (max-width: 560px) {
     .hero-quick-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
-    > div:last-child { grid-template-columns: 1fr; }
+    .hero-quick-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
   }
 
   button {
