@@ -45,24 +45,20 @@ export function AiCreditCard({ balance }: { balance: AiCreditBalance | null }) {
       <Card data-tour="ai-credits" $exhausted={exhausted}>
         <div className="topline">
           <span className="icon" aria-hidden="true"><ChatGptLogo /></span>
-          <span className="title-copy">
-            <b>Créditos OpenAI</b>
-            <small>Saldo da sua carteira</small>
-          </span>
+          <span className="title-copy"><b>Créditos OpenAI</b></span>
         </div>
         <div className="balance-row">
-          <strong>{usd(remaining)}</strong>
-          <span className="available">
-            {exhausted ? 'Saldo esgotado' : 'disponíveis para usar com IA'}
-          </span>
+          <span className="available">{exhausted ? 'Saldo esgotado' : 'Saldo disponível'}</span>
+          <strong>{currentBalance ? usd(remaining) : '—'}</strong>
+        </div>
+        <div className="credit-track" role="meter" aria-label="Créditos disponíveis em dólar"
+          aria-valuemin={0} aria-valuemax={Math.max(remaining, 1)}
+          aria-valuenow={Math.max(0,remaining)}>
+          <span style={{width: currentBalance && remaining > 0 ? '100%' : '0%'}} />
         </div>
         <button className="topup" type="button" onClick={() => setOpen(true)}>
           Recarregar créditos
         </button>
-        <p>
-          O plano Premium recebe US$ 2,00 uma única vez para começar a usar a IA. Quando esse saldo
-          terminar, novas recargas são feitas por Pix.
-        </p>
       </Card>
       {open ? (
         <TopUpDialog onClose={() => setOpen(false)} onBalance={setBalanceOverride} />
@@ -273,24 +269,45 @@ function TopUpDialog({
 }
 
 const Card = styled.aside<{ $exhausted: boolean }>`
-  margin: 2px 4px 10px;
-  padding: 10px 8px 12px;
-  border: 0;
-  border-radius: 0;
+  margin: 10px 0 14px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.035);
+  border-radius: 15px;
   color: #fff;
-  background: transparent;
+  background: #2b2b2b;
   box-shadow: none;
-  .topline { display: flex; align-items: center; gap: 9px; }
-  .topline .icon { width: 24px; height: 24px; flex: 0 0 24px; display: grid; place-items: center; color: ${({ $exhausted }) => ($exhausted ? '#fca5a5' : '#f4efeb')}; }
-  .topline svg { width: 18px; height: 18px; }
-  .title-copy { min-width: 0; display: grid; gap: 1px; }
-  .topline b { color: #f7f2ee; font-size: 11px; font-weight: 760; }
-  .topline small { color: #8f8781; font-size: 8px; font-weight: 700; text-transform: uppercase; }
-  .balance-row { margin-top: 10px; display: grid; gap: 3px; }
-  .balance-row > strong { font-family: 'Sora', sans-serif; font-size: 21px; line-height: 1; }
-  .available { color: ${({ $exhausted }) => ($exhausted ? '#fca5a5' : '#a9a19b')}; font-size: 9px; }
-  .topup { margin-top: 10px; width: 100%; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 9px; color: #f7f2ee; background: rgba(255,255,255,.06); font: inherit; font-size: 9px; font-weight: 750; cursor: pointer; }
-  p { margin: 8px 0 0; color: #776f6a; font-size: 8px; line-height: 1.45; }
+  .topline { display: flex; gap: 8px; align-items: center; }
+  .topline .icon {
+    flex: 0 0 23px; display: grid; place-items: center;
+    color: #aaa; width: 23px; height: 23px;
+  }
+  .topline svg { width: 21px; height: 21px; }
+  .topline b { color: #c5c5c5; font-size: 13px; font-weight: 780; }
+  .balance-row {
+    display: flex; gap: 6px; align-items: center;
+    justify-content: space-between; margin-top: 10px;
+  }
+  .balance-row strong {
+    color: #fff; font-family: 'Sora', sans-serif;
+    font-size: 14px; font-weight: 800; white-space: nowrap;
+  }
+  .available { color: ({ $exhausted }) => $exhausted ? '#fca5a5' : '#999'; font-size: 12px; }
+  .credit-track {
+    margin-top: 12px; width: 100%; height: 5px;
+    overflow: hidden; border-radius: 999px; background: #575757;
+  }
+  .credit-track span {
+    display: block; height: 100%; border-radius: inherit;
+    background: #ff4b4b;
+  }
+  .topup {
+    margin-top: 12px; width: 100%; min-height: 40px;
+    border: 0; border-radius: 7px;
+    color: #fff; background: #ff4b4b;
+    font: inherit; font-size: 12px; font-weight: 850; cursor: pointer;
+  }
+  .topup:hover { background: #ed3838; }
+  .topup:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
   @media (max-width: 820px) { margin-inline: 0; }
 `;
 
