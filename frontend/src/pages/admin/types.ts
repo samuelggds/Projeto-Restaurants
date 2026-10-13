@@ -68,6 +68,15 @@ export type TableAccountAdminSettings = {
   timeZone: string;
 };
 
+export type AdminOrderItem = {
+  id: number;
+  name: string;
+  quantity: number;
+  unitPrice?: number;
+  observation?: string;
+  options: string[];
+};
+
 export type AdminOrder = {
   id: string;
   numericId: number;
@@ -75,6 +84,8 @@ export type AdminOrder = {
   userId?: string;
   customerName: string;
   customerEmail?: string;
+  customerPhone?: string;
+  tableNumber?: number;
   status: string;
   total: number;
   paid?: boolean;
@@ -83,7 +94,20 @@ export type AdminOrder = {
   payOnDelivery?: boolean;
   payOnDeliveryMethod?: string;
   createdAt?: string;
+  updatedAt?: string;
   paidAt?: string;
+  preparationStartedAt?: string;
+  readyAt?: string;
+  deliveryStartedAt?: string;
+  deliveredAt?: string;
+  observation?: string;
+  items?: AdminOrderItem[];
+  itemsSubtotal?: number;
+  productDiscountTotal?: number;
+  couponDiscount?: number;
+  deliveryFeeAmount?: number;
+  couponCode?: string;
+  assignedCourierId?: number;
   capacityQueuedAt?: string;
   capacityAdmittedAt?: string;
   refundStatus?: 'NOT_REQUESTED' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED';

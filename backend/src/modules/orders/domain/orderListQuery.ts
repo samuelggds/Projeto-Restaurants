@@ -1,4 +1,4 @@
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, OrderType, PaymentMethod, Prisma } from '@prisma/client';
 import { OrderRequestError } from './OrderRequestError.js';
 
 const queues = ['ALL', 'ACTIVE', 'PAYMENT', 'IN_PROGRESS', 'DELIVERED', 'HISTORY'] as const;
@@ -8,6 +8,10 @@ export type OrderListQuery = {
   status?: OrderStatus;
   search?: string;
   queue: (typeof queues)[number];
+  type?: OrderType;
+  payment?: PaymentMethod;
+  createdFrom?: Date;
+  createdTo?: Date;
   issuesOnly?: boolean;
   issueState?: 'OPEN' | 'RESOLVED';
 };
@@ -36,6 +40,30 @@ export function parseOrderListQuery(query: Record<string, unknown>): OrderListQu
   }
   const queue = (scalar('queue')?.toUpperCase() || 'ALL') as OrderListQuery['queue'];
   if (!queues.includes(queue)) throw new OrderRequestError('Fila de pedidos inválida.');
+  const type = scalar('type')?.toUpperCase() as OrderType | undefined;
+  if (type && !Object.values(OrderType).includes(type)) {
+    throw new OrderRequestError('Modalidade de pedido inválida.');
+  }
+  const payment = scalar('payment')?.toUpperCase() as PaymentMethod | undefined;
+  if (payment && !Object.values(PaymentMethod).includes(payment)) {
+    throw new OrderRequestError('Meio de pagamento inválido.');
+  }
+  const parseDate = (key: string) => {
+    const value = scalar(key);
+    if (value === undefined) return undefined;
+    const date = new Date(value);
+    if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/u.test(value) ||
+      Number.isNaN(date.getTime()) || date.toISOString() !== value) {
+      throw new OrderRequestError('Período inválido.');
+    }
+    return date;
+  };
+  const createdFrom = parseDate('createdFrom');
+  const createdTo = parseDate('createdTo');
+  if (Boolean(createdFrom) !== Boolean(createdTo) ||
+    (createdFrom && createdTo && createdTo <= createdFrom)) {
+    throw new OrderRequestError('Período inválido.');
+  }
   const search = scalar('search')?.trim();
   if (search && search.length > 100) throw new OrderRequestError('Busca limitada a 100 caracteres.');
   const issues = scalar('issuesOnly');
@@ -46,8 +74,18 @@ export function parseOrderListQuery(query: Record<string, unknown>): OrderListQu
   if (issueState && !['OPEN', 'RESOLVED'].includes(issueState)) {
     throw new OrderRequestError('Situação do atendimento inválida.');
   }
-  return { limit, cursor: positive('cursor'), status, queue, search, issuesOnly: issues === 'true',
-    issueState: issueState as OrderListQuery['issueState'] };
+  return {
+    limit,
+    cursor: positive('cursor'),
+    status,
+    queue,
+    search,
+    ...(type ? { type } : {}),
+    ...(payment ? { payment } : {}),
+    ...(createdFrom && createdTo ? { createdFrom, createdTo } : {}),
+    issuesOnly: issues === 'true',
+    issueState: issueState as OrderListQuery['issueState'],
+  };
 }
 
 export function queueWhere(queue: OrderListQuery['queue']): Prisma.OrderWhereInput {
@@ -73,6 +111,16 @@ export function filteredOrderWhere(base: Prisma.OrderWhereInput, query: OrderLis
   return {
     AND: [base, queueWhere(query.queue),
       ...(query.status ? [{ status: query.status }] : []),
+      ...(query.type ? [{ type: query.type }] : []),
+      ...(query.payment ? [{
+        OR: [
+          { paymentMethod: query.payment },
+          { payOnDeliveryMethod: query.payment },
+        ],
+      }] : []),
+      ...(query.createdFrom && query.createdTo
+        ? [{ createdAt: { gte: query.createdFrom, lt: query.createdTo } }]
+        : []),
       ...(query.issuesOnly ? [{ issueThread: { isNot: null } }] : []),
       ...(query.issueState ? [{ issueThread: { is: { isResolved: query.issueState === 'RESOLVED' } } }] : []),
       ...(search ? [{ OR: [

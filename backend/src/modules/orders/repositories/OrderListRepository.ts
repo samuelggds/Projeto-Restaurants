@@ -26,7 +26,10 @@ const privateFields = {
   paymentProof: true, paymentProofImage: true,
 } satisfies Prisma.OrderOmit;
 
-export const emptyOrderSummary = () => ({ total: 0, active: 0, awaitingPayment: 0, inProgress: 0, delivered: 0 });
+export const emptyOrderSummary = () => ({
+  total: 0, active: 0, awaitingPayment: 0, inProgress: 0, delivered: 0,
+  pending: 0, preparing: 0, ready: 0, onDelivery: 0, cancelled: 0,
+});
 
 export async function readOrderPage(
   db: TenantDbClient,
@@ -57,6 +60,11 @@ export async function readOrderPage(
       if (!group.paid && group.status !== 'CANCELADO') summary.awaitingPayment += count;
       if (['PREPARANDO', 'PRONTO', 'SAIU_PARA_ENTREGA'].includes(group.status)) summary.inProgress += count;
       if (group.status === 'ENTREGUE') summary.delivered += count;
+      if (group.status === 'PENDENTE') summary.pending += count;
+      if (group.status === 'PREPARANDO') summary.preparing += count;
+      if (group.status === 'PRONTO') summary.ready += count;
+      if (group.status === 'SAIU_PARA_ENTREGA') summary.onDelivery += count;
+      if (group.status === 'CANCELADO') summary.cancelled += count;
     }
   }
   const hasMore = rows.length > query.limit;

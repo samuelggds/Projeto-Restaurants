@@ -15,6 +15,10 @@ export type RestaurantOrdersPageQuery = {
   status?: string;
   search?: string;
   queue?: RestaurantOrdersQueue;
+  type?: 'DELIVERY' | 'RETIRADA' | 'MESA';
+  payment?: 'PIX' | 'CARTAO' | 'DINHEIRO';
+  createdFrom?: string;
+  createdTo?: string;
   issuesOnly?: boolean;
   issueState?: 'OPEN' | 'RESOLVED';
 };
@@ -24,6 +28,11 @@ export type RestaurantOrdersSummary = {
   awaitingPayment: number;
   inProgress: number;
   delivered: number;
+  pending?: number;
+  preparing?: number;
+  ready?: number;
+  onDelivery?: number;
+  cancelled?: number;
 };
 export type RestaurantOrdersPage = {
   orders: unknown[];
