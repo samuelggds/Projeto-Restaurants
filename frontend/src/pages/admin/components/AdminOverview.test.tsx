@@ -234,4 +234,49 @@ describe('AdminOverview', () => {
     expect(container.textContent).not.toContain('Aguardando vaga');
     expect(container.querySelector('button[aria-label="Cancelar o pedido #801"]')).toBeNull();
   });
+  it('apresenta forma de pagamento normalizada sem assumir que pedido sem método foi pago', async () => {
+    mocks.overview.mockResolvedValue({
+      todayOrders: 3, sales: 50, averageTicket: 50,
+      preparingOrders: 1, customers: 2, timezone: 'America/Sao_Paulo',
+      registeredSalesTotal: 120, confirmedPaymentsToday: 1,
+      cancelledOrdersCreatedToday: 1, refundedOrdersToday: 0,
+    });
+    mocks.listPage.mockResolvedValue({
+      orders: [
+        { id: 901, customerName: 'Cliente Pix', status: 'PREPARANDO', type: 'DELIVERY',
+          total: 25, paymentMethod: 'PIX', paid: true },
+        { id: 902, customerName: 'Cliente Cartão', status: 'PRONTO', type: 'RETIRADA',
+          total: 35, paymentMethod: 'CARTAO', paid: true },
+        { id: 903, customerName: 'Cliente Dinheiro', status: 'PENDENTE', type: 'DELIVERY',
+          total: 60, paymentMethod: 'DINHEIRO', payOnDelivery: true, paid: false },
+        { id: 904, customerName: 'Cliente sem método', status: 'PENDENTE', type: 'DELIVERY',
+          total: 10, paid: false },
+      ], total: 4, hasMore: false, nextCursor: null,
+    });
+    await act(async () => root.render(
+      <AppDialogProvider>
+        <AdminOverview orders={[]} products={[]} restaurantName="Restaurante Teste"
+          money={(value) => `R$ ${value}`} onNavigate={() => undefined} />
+      </AppDialogProvider>,
+    ));
+    const labels = Array.from(container.querySelectorAll('.order-row .payment-method'))
+      .map((item) => item.textContent?.trim());
+    expect(labels).toEqual(['Pix', 'Cartão', 'Dinheiro', 'Não informado']);
+    expect(container.textContent).toContain('R$ 120');
+    expect(container.textContent).toContain('Pagamentos confirmados');
+    expect(container.textContent).toContain('1 / 0');
+  });
+
+  it('não apresenta valores inventados para novos indicadores ausentes na API', async () => {
+    await act(async () => root.render(
+      <AppDialogProvider>
+        <AdminOverview orders={[]} products={[]} restaurantName="Restaurante Teste"
+          money={(value) => `R$ ${value}`} onNavigate={() => undefined} />
+      </AppDialogProvider>,
+    ));
+    const summary = container.querySelector('.assistant-summary');
+    expect(summary?.textContent).toContain('—');
+    expect(summary?.textContent).not.toContain('R$ 0');
+  });
+
 });
