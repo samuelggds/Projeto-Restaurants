@@ -846,12 +846,6 @@ export default function Home() {
       <Suspense fallback={null}>
         <TableMenuExperience
           data={homeData}
-        promotionalCoupons={promotionalCoupons}
-        onApplyPromotionalCoupon={(code) => {
-          setSelectedPromoCode(code);
-          setSelectedRedemptionId(null);
-          openHomeCart();
-        }}
           tableLabel={mesaLabel}
           cart={cart}
           cartTotal={cartTotal}
@@ -906,6 +900,12 @@ export default function Home() {
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <FigmaDeliveryExperience
         data={homeData}
+        promotionalCoupons={promotionalCoupons}
+        onApplyPromotionalCoupon={(code) => {
+          setSelectedPromoCode(code);
+          setSelectedRedemptionId(null);
+          openHomeCart();
+        }}
         cartCount={tableClosingRequested ? 0 : cartCount}
         cart={tableClosingRequested ? [] : cart}
         cartTotal={tableClosingRequested ? 0 : cartTotal}
