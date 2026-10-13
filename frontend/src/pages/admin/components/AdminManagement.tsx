@@ -93,6 +93,7 @@ export function AdminManagement(props: Props) {
           money={money}
           onConfirmPayment={props.onConfirmOrderPayment}
           onCancelOrder={props.onCancelOrder}
+          onUpdateOrderStatus={props.onUpdateOrderStatus}
         />
       </>
     );

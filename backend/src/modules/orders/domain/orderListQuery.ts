@@ -52,7 +52,7 @@ export function parseOrderListQuery(query: Record<string, unknown>): OrderListQu
     const value = scalar(key);
     if (value === undefined) return undefined;
     const date = new Date(value);
-    if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/u.test(value) ||
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value) ||
       Number.isNaN(date.getTime()) || date.toISOString() !== value) {
       throw new OrderRequestError('Período inválido.');
     }
