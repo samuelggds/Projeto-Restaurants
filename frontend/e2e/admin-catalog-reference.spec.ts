@@ -5,6 +5,47 @@ import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const PRODUCT_IMAGE = '/e2e/fixtures/readme/pizza-calabresa.jpg';
 
+// The product grid intentionally has no entrance animation. On WebKit,
+// getAnimations({ subtree: true }) may indefinitely report an unrelated child
+// transition as 'running' even when the product cards have stopped moving.
+// Verify the actual rendered card geometry instead of animation bookkeeping.
+// The count, alignment, functional edits and screenshot checks remain required.
+async function waitForStableProductGrid(cards: Locator) {
+  await expect(cards).toHaveCount(5);
+  const grid = cards.first().locator('..');
+  await expect(grid).toHaveCSS('animation-name', 'none');
+  await expect(cards.first()).toHaveCSS('animation-name', 'none');
+  await expect
+    .poll(
+      () =>
+        cards.evaluateAll(async (elements) => {
+          const measure = () =>
+            elements.map((element) => {
+              const { x, y, width, height } = element.getBoundingClientRect();
+              return [x, y, width, height];
+            });
+          const first = measure();
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          const second = measure();
+          return (
+            first.length === 5 &&
+            first.every((bounds, index) =>
+              bounds.every(
+                (value, dimension) =>
+                  Number.isFinite(value) &&
+                  (dimension < 2 || value > 0) &&
+                  Math.abs(value - second[index][dimension]) <= 0.5,
+              ),
+            )
+          );
+        }),
+      { message: 'Product card positions and sizes must stop changing before visual checks' },
+    )
+    .toBe(true);
+}
+
 // Do not await Animation.finished promises: an infinite or WebKit-held animation
 // can leave such a promise pending until the entire test times out.
 // Poll actual finite animations instead; layout, CSS and screenshot assertions
@@ -271,7 +312,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
-  await waitForTransientAnimations(productCards.first().locator('..'));
+  await waitForStableProductGrid(productCards);
   const firstProductBox = await productCards.first().boundingBox();
   const lastProductBox = await productCards.last().boundingBox();
   expect(firstProductBox).not.toBeNull();
@@ -362,9 +403,10 @@ test('Cardápio e importação seguem a composição visual de referência no de
 
   await page.getByRole('button', { name: 'Produtos', exact: true }).click();
   await expect(productCards).toHaveCount(5);
-  // The tab has an entrance animation. Wait for the real product grid to settle
-  // before interacting so WebKit never targets controls still in transition.
-  await waitForTransientAnimations(productCards.first().locator('..'));
+  // Confirm that the re-mounted product cards are geometrically stable before
+  // interacting. Waiting for all descendant Animation.playState values is not
+  // reliable in WebKit even when there is no grid/card entrance animation.
+  await waitForStableProductGrid(productCards);
   const productActions = productCards.first().getByRole('button', {
     name: 'Opções de Pizza Calabresa',
   });
