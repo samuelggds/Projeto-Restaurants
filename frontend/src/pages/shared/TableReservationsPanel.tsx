@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { CalendarDays, Check, Clock3, History, Phone, Plus, RefreshCw, Users, X } from 'lucide-react';
 import styled from 'styled-components';
 import reservationsService, {
-  type ReservationSettings, type TableReservation,
+  type ReservationSettings, type TableReservation, type ReservationSelectableTable,
 } from '../../Services/tableReservationsService';
-import tablesService from '../../Services/tablesService';
 import { acquireSocket } from '../../Services/socketService';
 import { getAccessToken } from '../../modules/auth/session/authSession';
 
@@ -46,7 +45,6 @@ const labels: Record<TableReservation['status'], string> = {
   CONFIRMED: 'Confirmada', SEATED: 'Cliente chegou', CANCELED: 'Cancelada',
   NO_SHOW: 'Não compareceu', COMPLETED: 'Concluída',
 };
-type Table = { id: number; number: number; active: boolean; tableSessions?: Array<{ status: string }> };
 type HistoryFilter = 'ALL' | 'SEATED' | 'COMPLETED' | 'CANCELED' | 'NO_SHOW';
 const historyFilters: Array<{value:HistoryFilter;label:string}> = [
   {value:'ALL',label:'Todas'}, {value:'SEATED',label:'Em andamento'},
@@ -72,7 +70,7 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
   const [historyLoading,setHistoryLoading]=useState(false);
   const [historyError,setHistoryError]=useState('');
   const [historyRevision,setHistoryRevision]=useState(0);
-  const [tables,setTables]=useState<Table[]>([]);
+  const [tables,setTables]=useState<ReservationSelectableTable[]>([]);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -91,9 +89,9 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
     setHistoryRevision(current=>current+1);
   },[]);
   const refresh=useCallback(async()=>{
-    const [config,allTables]=await Promise.all([reservationsService.settings(),tablesService.listTables()]);
+    const [config,allTables]=await Promise.all([reservationsService.settings(),reservationsService.tables()]);
     setSettings(config);
-    setTables((Array.isArray(allTables)?allTables:[]) as Table[]);
+    setTables(Array.isArray(allTables)?allTables:[]);
     setRows(config.enabled ? (await reservationsService.list()).filter(row => row.status === 'CONFIRMED') : []);
     invalidateHistory();
   },[invalidateHistory]);

@@ -3,6 +3,7 @@ import { OrderHistoryPagination } from '../../components/OrderHistoryPagination'
 import {
   AlertTriangle,
   Armchair,
+  CalendarDays,
   BellRing,
   CheckCircle2,
   ChevronRight,
@@ -30,6 +31,7 @@ import { toast } from 'react-toastify';
 import ordersService from '../../Services/ordersService';
 import productsService from '../../Services/productsService';
 import attendantApi from './attendantApi';
+import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import * as S from './AttendantOperationCenter.styles';
 import type {
   AttendantCall,
@@ -115,6 +117,10 @@ const viewMeta: Record<
     title: 'Mesas em operação',
     subtitle: 'Veja rapidamente mesas com pedidos, chamados ou conta solicitada.',
     icon: Armchair,
+  },
+  reservations: {
+    label: 'Reservas', title: 'Reservas de mesas',
+    subtitle: 'Gerencie reservas, check-in, ausências e histórico do restaurante.', icon: CalendarDays,
   },
   calls: {
     label: 'Chamados',
@@ -682,7 +688,7 @@ export function AttendantOperationCenter({ attendantId, attendantName, restauran
   return (
     <S.Shell style={shellStyle}>
       <S.Sidebar><S.Brand><span>{restaurant.monogram}</span><div><strong>{restaurant.name}</strong><small>Central do atendente</small></div></S.Brand><S.Nav aria-label="Navegação do atendente">{(Object.keys(viewMeta) as AttendantView[]).map((id) => { const Icon = viewMeta[id].icon; return <button type="button" key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}><Icon /><span>{viewMeta[id].label}</span></button>; })}</S.Nav><S.Profile><span>{initials}</span><div><b>{attendantName}</b><small>Atendente</small></div><button type="button" onClick={onLogout} aria-label="Sair"><LogOut /></button></S.Profile></S.Sidebar>
-      <S.Main><S.Topbar><div><span className="eyebrow">Operação em tempo real</span><h1>{meta.title}</h1><p>{meta.subtitle}</p></div><div className="sync"><span className={workspaceState.error ? 'offline' : 'online'}>{workspaceState.error ? 'Dados preservados' : 'Operação atualizada'}</span><button type="button" onClick={() => void onRefresh()} disabled={workspaceState.refreshing}><RefreshCw /> Atualizar</button></div></S.Topbar>{workspaceState.error && <S.ErrorBanner><AlertTriangle /><div><b>Não conseguimos atualizar agora</b><span>{workspaceState.error}</span></div></S.ErrorBanner>}<S.Content>{workspaceState.loading ? <EmptyState icon={RefreshCw} title="Carregando a operação..." text="Buscando pedidos, mesas e chamados." /> : view === 'overview' ? <Overview snapshot={snapshot} onGo={setView} /> : view === 'orders' ? <Orders snapshot={snapshot} onOpen={setSelectedOrder} /> : view === 'create' ? <CreateOrder restaurantId={restaurantId} onCreated={() => { void onRefresh(); setView('orders'); }} /> : view === 'support' ? <Support /> : view === 'deliveries' ? <Deliveries snapshot={snapshot} onOpen={setSelectedOrder} /> : view === 'tables' ? <Tables snapshot={snapshot} /> : <Calls calls={snapshot.calls} attendantId={attendantId} onChanged={() => void onRefresh()} />}</S.Content></S.Main>
+      <S.Main><S.Topbar><div><span className="eyebrow">Operação em tempo real</span><h1>{meta.title}</h1><p>{meta.subtitle}</p></div><div className="sync"><span className={workspaceState.error ? 'offline' : 'online'}>{workspaceState.error ? 'Dados preservados' : 'Operação atualizada'}</span><button type="button" onClick={() => void onRefresh()} disabled={workspaceState.refreshing}><RefreshCw /> Atualizar</button></div></S.Topbar>{workspaceState.error && <S.ErrorBanner><AlertTriangle /><div><b>Não conseguimos atualizar agora</b><span>{workspaceState.error}</span></div></S.ErrorBanner>}<S.Content>{view === 'reservations' ? <TableReservationsPanel admin /> : workspaceState.loading ? <EmptyState icon={RefreshCw} title="Carregando a operação..." text="Buscando pedidos, mesas e chamados." /> : view === 'overview' ? <Overview snapshot={snapshot} onGo={setView} /> : view === 'orders' ? <Orders snapshot={snapshot} onOpen={setSelectedOrder} /> : view === 'create' ? <CreateOrder restaurantId={restaurantId} onCreated={() => { void onRefresh(); setView('orders'); }} /> : view === 'support' ? <Support /> : view === 'deliveries' ? <Deliveries snapshot={snapshot} onOpen={setSelectedOrder} /> : view === 'tables' ? <Tables snapshot={snapshot} /> : <Calls calls={snapshot.calls} attendantId={attendantId} onChanged={() => void onRefresh()} />}</S.Content></S.Main>
       {selectedOrder && <OrderDrawer orderId={selectedOrder.orderId} fallback={selectedOrder} onClose={() => setSelectedOrder(null)} onCompleted={() => void onRefresh()} />}
     </S.Shell>
   );

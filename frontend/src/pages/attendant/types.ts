@@ -10,7 +10,8 @@ export type AttendantView =
   | 'support'
   | 'deliveries'
   | 'tables'
-  | 'calls';
+  | 'calls'
+  | 'reservations';
 
 export interface AttendantOrder {
   id: string;

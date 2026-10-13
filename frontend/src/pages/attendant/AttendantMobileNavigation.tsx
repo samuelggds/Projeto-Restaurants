@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Armchair,
+  CalendarDays,
   BellRing,
   ClipboardList,
   Headphones,
@@ -31,6 +32,7 @@ const secondary = [
   ['support', 'Atendimento', Headphones],
   ['deliveries', 'Entregas', Truck],
   ['tables', 'Mesas', Armchair],
+  ['reservations', 'Reservas', CalendarDays],
 ] as const;
 
 export function AttendantMobileNavigation({ view, name, onGo, onLogout }: Props) {

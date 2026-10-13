@@ -19,6 +19,7 @@ test('notifica apenas salas autorizadas do restaurante, sem dados pessoais', () 
     assert.deepEqual(received, [
       {room:'restaurant:7:waiter',event:'table:reservations-changed',payload:{changed:true}},
       {room:'restaurant:7:admin',event:'table:reservations-changed',payload:{changed:true}},
+      {room:'restaurant:7:attendant',event:'table:reservations-changed',payload:{changed:true}},
     ]);
     assert.throws(() => tableReservationEvents.changed(0), /Restaurante inválido/u);
   } finally {
