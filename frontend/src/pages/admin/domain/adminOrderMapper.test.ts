@@ -20,6 +20,20 @@ describe('mapeamento administrativo de pedidos', () => {
     expect(order.customerPhone).toBe('41999999999');
   });
 
+  it('mantém os adicionais e preços normalizados ao remapear uma página em cache', () => {
+    const normalized = mapAdminOrder({
+      id: 301, status: 'PREPARANDO', total: 70, items: [{
+        id: 7, name: 'Pizza da casa', quantity: 2, unitPrice: 29.9,
+        observation: 'Sem cebola', options: ['Borda: Catupiry'],
+      }],
+    });
+    const remapped = mapAdminOrder({ ...normalized, id: normalized.numericId });
+    expect(remapped.items?.[0]).toMatchObject({
+      quantity: 2, name: 'Pizza da casa', unitPrice: 29.9,
+      options: ['Borda: Catupiry'], observation: 'Sem cebola',
+    });
+  });
+
   it('não mistura campos de pedidos sem itens e mantém faltas explicitamente indisponíveis', () => {
     const order = mapAdminOrder({ id: 20, status: 'PENDENTE', total: 20 });
     expect(order.items).toEqual([]);

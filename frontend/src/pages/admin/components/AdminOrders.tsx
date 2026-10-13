@@ -43,7 +43,6 @@ import {
   getOrderTypeLabel,
   getPaymentMethodLabel,
   isOrderWaitingForCapacity,
-  ORDER_STATUSES,
 } from '../domain/adminOrders';
 
 const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
@@ -221,20 +220,6 @@ export function AdminOrders({
   });
   const hasFilters = Boolean(search || status || queueView !== 'ALL' ||
     typeFilter || paymentFilter || periodFilter !== 'ALL');
-  const priorityView: QueueView = summary.awaitingPayment
-    ? 'PAYMENT'
-    : summary.inProgress
-      ? 'IN_PROGRESS'
-      : summary.active
-        ? 'ACTIVE'
-        : 'ALL';
-  const priorityTitle = summary.awaitingPayment
-    ? `${summary.awaitingPayment} ${summary.awaitingPayment === 1 ? 'pagamento aguarda' : 'pagamentos aguardam'} confirmação`
-    : summary.inProgress
-      ? `${summary.inProgress} ${summary.inProgress === 1 ? 'pedido está' : 'pedidos estão'} em andamento`
-      : summary.active
-        ? `${summary.active} ${summary.active === 1 ? 'pedido precisa' : 'pedidos precisam'} de acompanhamento`
-        : 'Nenhuma pendência operacional';
 
   const updateSearch = (value: string) => {
     setSearch(value);
@@ -402,19 +387,27 @@ export function AdminOrders({
               <p>Encontre o pedido certo e veja exatamente qual ação precisa ser tomada.</p>
             </span>
           </div>
-          <span className="live-status">
-            <Activity aria-hidden="true" />
-            {page.loading
-              ? 'Atualizando pedidos...'
-              : page.error
-                ? 'A atualização está pendente'
-                : 'Pedidos atualizados'}
-          </span>
+          <div className="orders-live-actions">
+            <span className="live-status">
+              <Activity aria-hidden="true" />
+              {page.loading
+                ? 'Atualizando pedidos...'
+                : page.error
+                  ? 'A atualização está pendente'
+                  : 'Pedidos atualizados'}
+            </span>
+            <button type="button" className="orders-refresh"
+              disabled={page.loading}
+              aria-label="Atualizar pedidos" onClick={() => void page.refresh()}>
+              <RefreshCw aria-hidden="true" /> Atualizar
+            </button>
+          </div>
         </S.OrdersPanelHeader>
 
         <S.QueueTabs aria-label="Visualizações rápidas da fila">
           <button
             type="button"
+            aria-label="Mostrar todos os pedidos"
             aria-pressed={queueView === 'ALL'}
             onClick={() => selectQueueView('ALL')}
           >
@@ -422,6 +415,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos ativos"
             aria-pressed={queueView === 'ACTIVE'}
             onClick={() => selectQueueView('ACTIVE')}
           >
@@ -429,6 +423,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos aguardando pagamento"
             aria-pressed={queueView === 'PAYMENT'}
             onClick={() => selectQueueView('PAYMENT')}
           >
@@ -436,6 +431,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos em andamento"
             aria-pressed={queueView === 'IN_PROGRESS'}
             onClick={() => selectQueueView('IN_PROGRESS')}
           >
@@ -443,6 +439,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos concluídos"
             aria-pressed={queueView === 'DELIVERED'}
             onClick={() => selectQueueView('DELIVERED')}
           >
@@ -464,9 +461,7 @@ export function AdminOrders({
         {displayedOrders.length ? (
           <div className="orders-split-view">
             <nav className="order-compact-list" aria-label="Selecionar pedido para detalhes">
-              <div className="queue-list-head">Fila atual <span>{page.total} pedidos</span>
-                <button type="button" aria-label="Atualizar pedidos" onClick={() => void page.refresh()}>
-                  <RefreshCw aria-hidden="true" /> Atualizar</button></div>
+              <div className="queue-list-head">Fila atual <span>{page.total} pedidos</span></div>
               <div className="queue-columns" aria-hidden="true"><span>Pedido</span><span>Modalidade</span>
                 <span>Pagamento</span><span>Total</span><span>Situação</span></div>
               {displayedOrders.map((item) => (

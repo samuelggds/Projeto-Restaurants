@@ -342,6 +342,15 @@ export const OrdersPanel = styled.section`
 `;
 
 export const OrdersPanelHeader = styled.header`
+  .orders-live-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .orders-refresh {
+    border: 1px solid #d9e6dc; border-radius: 9px; color: #275b40;
+    background: #fff; min-height: 38px; padding: 0 11px;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 7px; cursor: pointer; font-size: 11px; font-weight: 700;
+  }
+  .orders-refresh svg { width: 14px; height: 14px; }
+  .orders-refresh:disabled { opacity: .6; cursor: wait; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;

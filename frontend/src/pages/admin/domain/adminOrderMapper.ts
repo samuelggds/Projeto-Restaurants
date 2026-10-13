@@ -49,6 +49,14 @@ function mapAdminOrderItem(value: unknown): AdminOrderItem | null {
       optionalText(group.groupName) ?? optionalText(group.name) ?? 'Personalização';
     return [`${groupName}: ${selected.join(', ')}`];
   });
+  // Preserve normalized line-item options while supporting raw legacy item snapshots.
+  if (!options.length && Array.isArray(item.options)) {
+    options.push(
+      ...item.options
+        .map(optionName)
+        .filter((name): name is string => Boolean(name)),
+    );
+  }
   if (!options.length && Array.isArray(item.ingredients)) {
     options.push(
       ...item.ingredients
@@ -68,7 +76,7 @@ function mapAdminOrderItem(value: unknown): AdminOrderItem | null {
     id: Number(item.id) || 0,
     name,
     quantity,
-    unitPrice: optionalAmount(item.price),
+    unitPrice: optionalAmount(item.unitPrice ?? item.price),
     observation: optionalText(item.observation),
     options,
   };

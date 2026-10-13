@@ -185,7 +185,7 @@ export function TableReservationsPanel({ admin = false }: { admin?: boolean }) {
         <label>Cliente<input required minLength={2} maxLength={100} value={guestName} onChange={e=>setGuestName(e.target.value)}/></label>
         <label>Telefone<input required inputMode="tel" value={guestPhone} onChange={e=>setGuestPhone(e.target.value)}/></label>
         <label>Quantidade de pessoas<input required type="number" min="1" max="100" value={guestCount} onChange={e=>setGuestCount(e.target.value)}/></label>
-        <label>Mesa<select required value={tableId} onChange={e=>setTableId(e.target.value)}>
+        <label>Mesa<select aria-label="Mesa" required value={tableId} onChange={e=>setTableId(e.target.value)}>
           <option value="">Selecione uma mesa</option>
           {tables.filter(t=>t.active).map(t=><option key={t.id} value={t.id}>Mesa {t.number}</option>)}
         </select></label>

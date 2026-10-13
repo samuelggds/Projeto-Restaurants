@@ -388,7 +388,8 @@ describe('AdminOrders', () => {
     expect(container.textContent).toContain('Todos 300');
 
     mocks.listPage.mockResolvedValue(mockPage());
-    await act(async () => buttonByLabel(container, 'Ver em preparo').click());
+    await act(async () => buttonByLabel(container, 'Mostrar pedidos ativos').click());
+    expect(mocks.listPage).toHaveBeenLastCalledWith({ limit: 10, queue: 'ACTIVE' });
     expect(compactOrderCount()).toBe(3);
     expect(container.querySelectorAll('.order-card')).toHaveLength(1);
     selectOrderDetails(orders[1]);
