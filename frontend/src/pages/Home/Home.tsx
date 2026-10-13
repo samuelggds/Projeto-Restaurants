@@ -31,6 +31,7 @@ import { useApplyCheckoutCouponCode } from './hooks/useApplyCheckoutCouponCode';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
+import { formatCheckoutCouponLabel } from './domain/checkoutCouponLabel';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
@@ -327,19 +328,7 @@ export default function Home() {
         : homeData.freeDeliveryFrom > 0 && checkoutSubtotal >= homeData.freeDeliveryFrom
           ? 0
           : Number(homeData.deliveryFee || 0);
-  const checkoutCouponLabel =
-    orderQuote.quote?.couponDiscountType === 'PERCENTAGE' &&
-    orderQuote.quote.couponDiscountValue !== null
-      ? `Cupom ${orderQuote.quote.couponDiscountValue}%`
-      : orderQuote.quote?.couponDiscountType === 'FIXED' &&
-          orderQuote.quote.couponDiscountValue !== null
-        ? `Cupom ${Number(orderQuote.quote.couponDiscountValue).toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          })}`
-        : orderQuote.quote?.couponCode
-          ? `Cupom · ${orderQuote.quote.couponCode}`
-          : undefined;
+  const checkoutCouponLabel = formatCheckoutCouponLabel(orderQuote.quote);
   const checkoutRecommendationItems = useMemo(
     () => checkoutRecommendations(homeData.products, cart),
     [cart, homeData.products],
