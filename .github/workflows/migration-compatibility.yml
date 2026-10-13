@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, fix/post-merge-improvements-20261013]
+    branches: [main, fix/post-merge-improvements-20261013, fix/admin-order-detail-reference-20261013]
 
 permissions:
   contents: read
