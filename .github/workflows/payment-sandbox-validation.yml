@@ -1,6 +1,8 @@
 name: Payment Sandbox Preflight
 
 on:
+  push:
+    branches: [fix/post-merge-improvements-20261013]
   workflow_dispatch:
     inputs:
       provider:
@@ -35,9 +37,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: payment-sandbox
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJSON(github.event_name == 'push' && '["mercado-pago","asaas","pagarme"]' || format('["{0}"]', inputs.provider)) }}
     steps:
       - name: Mercado Pago sandbox/test credential preflight
-        if: inputs.provider == 'mercado-pago'
+        if: matrix.provider == 'mercado-pago'
         env:
           TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
           TEST_ACCOUNT_ID: ${{ vars.MERCADO_PAGO_SANDBOX_USER_ID }}
@@ -63,7 +69,7 @@ jobs:
 
 
       - name: Asaas sandbox preflight
-        if: inputs.provider == 'asaas'
+        if: matrix.provider == 'asaas'
         env:
           TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
         shell: bash
@@ -85,7 +91,7 @@ jobs:
           fi
 
       - name: Pagar.me future integration preflight
-        if: inputs.provider == 'pagarme'
+        if: matrix.provider == 'pagarme'
         shell: bash
         run: |
           set -euo pipefail

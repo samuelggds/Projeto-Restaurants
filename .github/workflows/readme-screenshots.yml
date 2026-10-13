@@ -3,7 +3,7 @@ name: README Screenshots
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, fix/post-merge-improvements-20261013]
     paths:
       - 'frontend/src/**'
       - 'frontend/e2e/**'
