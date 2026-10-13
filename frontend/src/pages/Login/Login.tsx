@@ -109,9 +109,10 @@ export default function Login() {
     !isTechnicalAccess && !isAdminAccess && !isStaffAccess && (isCustomerAccess || portal === 'GENERIC');
   const { login } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [email, setEmail] = useState('');
+  const [credentialScope, setCredentialScope] = useState(rememberScope);
+  const [email, setEmail] = useState(() => readRememberedAccountEmail(rememberScope));
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => Boolean(readRememberedAccountEmail(rememberScope)));
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const initialEmailVerificationStatus = searchParams.get('emailVerified');
@@ -147,16 +148,22 @@ export default function Login() {
   const mfaRejectRef = useRef<((reason?: unknown) => void) | null>(null);
   const mfaToken = mfaChallenge?.mfaToken;
 
+  // Initialize before the fields are interactive, not from a deferred timer that
+  // can erase a customer's first keystrokes. A real portal/tenant change resets
+  // credentials before child inputs commit; ordinary branding updates do not.
+  if (
+    credentialScope.portal !== rememberScope.portal ||
+    credentialScope.restaurantSlug !== rememberScope.restaurantSlug
+  ) {
+    const rememberedEmail = readRememberedAccountEmail(rememberScope);
+    setCredentialScope(rememberScope);
+    setEmail(rememberedEmail);
+    setPassword('');
+    setRememberMe(Boolean(rememberedEmail));
+  }
+
   useEffect(() => {
     clearLegacyRememberedAccountEmail();
-    const rememberedEmail = readRememberedAccountEmail(rememberScope);
-    const timeoutId = window.setTimeout(() => {
-      setEmail(rememberedEmail);
-      setPassword('');
-      setRememberMe(Boolean(rememberedEmail));
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
   }, [rememberScope]);
 
   useEffect(
