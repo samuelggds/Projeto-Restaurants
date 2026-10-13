@@ -358,7 +358,22 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await ingredientWizard.getByRole('button', { name: 'Fechar cadastro de ingrediente' }).click();
 
   await page.getByRole('button', { name: 'Produtos', exact: true }).click();
-  await productCards.first().getByRole('button', { name: 'Opções de Pizza Calabresa' }).click();
+  await expect(productCards).toHaveCount(5);
+  // The tab has an entrance animation. Wait for the real product grid to settle
+  // before interacting so WebKit never targets controls still in transition.
+  await productCards.first().locator('..').evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+  const productActions = productCards.first().getByRole('button', {
+    name: 'Opções de Pizza Calabresa',
+  });
+  await expect(productActions).toBeVisible();
+  await productActions.click();
+  await expect(page.getByRole('button', { name: 'Editar produto' })).toBeVisible();
   await page.getByRole('button', { name: 'Editar produto' }).click();
   const productEditor = page.getByRole('dialog', { name: 'Editar produto' });
   for (let step = 0; step < 4; step += 1) {

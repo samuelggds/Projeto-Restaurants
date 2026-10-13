@@ -794,11 +794,11 @@ export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
     transform 150ms ease;
 
   &:hover {
-    transform: ${({ $disabled }) => ($disabled ? 'none' : 'translateY(-1px)')};
     border-color: ${({ $disabled }) => ($disabled ? '#e9e1da' : 'var(--config-primary)')};
   }
 
   > label {
+    position: relative;
     min-height: 58px;
     padding: 12px 14px;
     display: grid;
@@ -809,9 +809,24 @@ export const Option = styled.div<{ $selected: boolean; $disabled: boolean }>`
   }
 
   > label > input {
+    /* Keep the native input active for label clicks and keyboard focus in WebKit.
+       Hiding it with pointer-events:none can prevent a selected option from
+       being committed, leaving mandatory choices invalid at checkout. */
     position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
     opacity: 0;
-    pointer-events: none;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  > label > input:focus-visible + i {
+    outline: 3px solid var(--config-primary);
+    outline-offset: 3px;
   }
 
   i {
