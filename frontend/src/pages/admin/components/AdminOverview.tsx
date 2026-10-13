@@ -230,11 +230,11 @@ export function AdminOverview({
             {availability ? availability.label : 'Situação a confirmar'}
           </span>
           <div className="hero-quick-metrics">
-            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b><small>pedidos hoje</small></span>
-            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b><small>em preparo</small></span>
+            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b>{' '}<small>pedidos hoje</small></span>
+            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b>{' '}<small>em preparo</small></span>
             <span><PackageCheck aria-hidden="true" /><b>{products.length ? `${productAvailability}%` : '—'}</b><small>cardápio disponível</small></span>
           </div>
-         </S.HeroAside>
+        </S.HeroAside>
       </S.Hero>
 
       <section className="overview-assistant-strip" aria-label="Resumo operacional">
