@@ -321,7 +321,7 @@ test('todas as áreas do atendente cabem em telas de 360 e 430 pixels', async ({
         );
         await page.keyboard.press('Escape');
       } else await expect(button).toHaveAttribute('aria-current', 'page');
-      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: title, exact: true }).first()).toBeVisible();
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
         .toBeLessThanOrEqual(width + 1);

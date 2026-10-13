@@ -240,7 +240,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cardápio', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importar cardápio' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Novo produto' })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Categorias', exact: true })).toBeVisible();
@@ -559,7 +559,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
 
   await navigationDialog.getByRole('button', { name: 'Não salvar' }).click();
   await expect(editor).toHaveCount(0, { timeout: 7000 });
-  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByRole('heading', { name: 'Gestão de pedidos' })).toBeVisible({ timeout: 7000 });
 
   await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   editor = await openProductAndChangeName('Macarrão salvo antes de navegar');
@@ -577,7 +577,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
     name: 'Macarrão salvo antes de navegar',
   });
   await expect(editor).toHaveCount(0, { timeout: 7000 });
-  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByRole('heading', { name: 'Gestão de pedidos' })).toBeVisible({ timeout: 7000 });
 });
 
 test('Cardápio, ingredientes e importação permanecem contidos em 320 px', async ({
