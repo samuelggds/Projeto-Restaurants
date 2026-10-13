@@ -100,6 +100,11 @@ describe('validação de cupons de fidelidade', () => {
 
     expect(payload).toEqual({
       code: 'CLIENTE-FIEL',
+      kind: 'LOYALTY',
+      usageLimit: null,
+      allowDelivery: true,
+      allowPickup: true,
+      allowTable: true,
       title: 'Cliente fiel',
       description: 'Complete cinco compras.',
       discountType: 'FIXED',
@@ -113,4 +118,37 @@ describe('validação de cupons de fidelidade', () => {
       expiration: null,
     });
   });
+  it('valida limite global e modalidades dos cupons promocionais', () => {
+    const draft = {
+      code: 'PROMO20',
+      kind: 'PROMOTIONAL' as const,
+      title: 'Campanha pública',
+      description: 'Promoção disponível para visitantes.',
+      discountType: 'PERCENTAGE' as const,
+      discount: '20',
+      minimumSubtotal: '30',
+      maxDiscount: '15',
+      loyaltyPurchasesRequired: '1',
+      perCustomerLimit: '1',
+      redemptionValidityDays: '30',
+      usageLimit: '200',
+      allowDelivery: true,
+      allowPickup: false,
+      allowTable: false,
+      active: true,
+      expiration: '',
+    };
+    expect(validateCouponDraft(draft)).toEqual([]);
+    expect(couponPayload(draft)).toMatchObject({
+      kind: 'PROMOTIONAL', usageLimit: 200, allowDelivery: true,
+      allowPickup: false, allowTable: false, minimumSubtotal: 30,
+    });
+    expect(validateCouponDraft({ ...draft, usageLimit: '0' })).toContain(
+      'O limite total de usos deve ficar entre 1 e 1.000.000.',
+    );
+    expect(validateCouponDraft({ ...draft, allowDelivery: false })).toContain(
+      'Escolha pelo menos uma modalidade.',
+    );
+  });
+
 });

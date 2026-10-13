@@ -43,7 +43,7 @@ const coupon: AdminCoupon = {
   active: true,
 };
 
-describe('configurações de descontos e fidelidade', () => {
+describe('gestão de descontos e cupons', () => {
   it('explica as duas áreas e renderiza a oferta atual com preço final', () => {
     const markup = renderToStaticMarkup(
       createElement(
@@ -53,9 +53,9 @@ describe('configurações de descontos e fidelidade', () => {
       ),
     );
 
-    expect(markup).toContain('Descontos que vendem e fidelizam');
     expect(markup).toContain('Descontos nos produtos');
-    expect(markup).toContain('Cupons de fidelidade');
+    expect(markup).toContain('Descontos nos produtos');
+    expect(markup).not.toContain('Cupons de Fidelidade');
     expect(markup).toContain('Produto da casa');
     expect(markup).toContain('20% OFF');
     expect(markup).toContain('32,00');
@@ -81,4 +81,24 @@ describe('configurações de descontos e fidelidade', () => {
     expect(markup).toContain('Falha ao carregar campanhas.');
     expect(markup).toContain('Tentar novamente');
   });
+  it('separa cupons promocionais de fidelidade e não mistura descontos de produtos', () => {
+    const promotional: AdminCoupon = {
+      ...coupon, id: '8', code: 'PROMO15', kind: 'PROMOTIONAL',
+      title: 'Campanha para visitantes', usageLimit: 20, usageCount: 1,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(AppDialogProvider, null,
+        createElement(PromotionsSettings, {
+          mode: 'coupons', products: [product], coupons: [coupon, promotional],
+        }),
+      ),
+    );
+    expect(markup).toContain('Cupons Promocionais');
+    expect(markup).toContain('Cupons de Fidelidade');
+    expect(markup).toContain('Campanha para visitantes');
+    expect(markup).toContain('PROMO15');
+    expect(markup).not.toContain('Criar ou editar uma oferta');
+    expect(markup).not.toContain('CLIENTE-FIEL');
+  });
+
 });

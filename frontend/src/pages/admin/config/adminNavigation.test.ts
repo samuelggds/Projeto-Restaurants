@@ -11,7 +11,7 @@ describe('navegação agrupada das configurações', () => {
     expect(operation?.items.some(([id]) => id === 'table-account')).toBe(true);
     expect(operation?.items.some(([id]) => id === 'employee-payments')).toBe(true);
     expect(operation?.items.some(([id]) => id === 'courier-payments')).toBe(true);
-    expect(sectionTitle.promotions).toBe('Descontos e fidelidade');
+    expect(sectionTitle.promotions).toBe('Descontos de produtos');
     expect(sectionTitle['table-account']).toBe('Conta e pagamento da mesa');
     expect(sectionTitle['employee-payments']).toBe('Pagamento dos funcionários');
     expect(sectionTitle['courier-payments']).toBe('Pagamento dos motoqueiros');
