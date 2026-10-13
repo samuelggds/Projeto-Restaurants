@@ -859,7 +859,7 @@ export function PromotionsSettings({
                       }))
                     }
                   />
-                </S.Field>
+                </S.Field>}
                 <S.Field>
                   <span>
                     {tab === 'loyalty' ? 'Cupons guardados ao mesmo tempo' : 'Utilizações por cliente'} <small>Por benefício</small>
@@ -891,7 +891,7 @@ export function PromotionsSettings({
                       }))
                     }
                   />
-                </S.Field>
+                </S.Field>}
                 {tab === 'promotional' && <S.Field>
                   <span>Limite total de utilizações (opcional)</span>
                   <input type="number" min="1" max="1000000" value={couponDraft.usageLimit || ''}
