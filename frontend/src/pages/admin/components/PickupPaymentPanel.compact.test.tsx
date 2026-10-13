@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import PickupPaymentPanel from './PickupPaymentPanel';
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), start: vi.fn(), reconcile: vi.fn(), cash: vi.fn() }));
@@ -13,7 +13,7 @@ vi.mock('../../../Services/pickupPaymentService', () => ({
 describe('PickupPaymentPanel compacto', () => {
   let container: HTMLDivElement;
   let root: Root;
-  let onPaid: ReturnType<typeof vi.fn>;
+  let onPaid: Mock<() => void>;
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.list.mockResolvedValue({ terminals: [], couriers: [] });
@@ -21,7 +21,7 @@ describe('PickupPaymentPanel compacto', () => {
     mocks.start.mockReset();
     mocks.reconcile.mockReset();
     container = document.createElement('div'); document.body.appendChild(container);
-    root = createRoot(container); onPaid = vi.fn();
+    root = createRoot(container); onPaid = vi.fn<() => void>();
   });
   afterEach(() => { act(() => root.unmount()); container.remove(); });
   async function render(preferredMethod = 'DINHEIRO') {

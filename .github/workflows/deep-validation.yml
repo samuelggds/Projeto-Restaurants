@@ -109,15 +109,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A second Playwright invocation clears its output directory. Keep its
+          # output separate so successful critical-journey screenshots survive.
           if [ '${{ matrix.browser }}' = chromium ]; then
             npm run test:e2e:critical -- --project=chromium 2>&1 | tee ../deep-browser-e2e-${{ matrix.browser }}.log
-            npx playwright test e2e/browser-portable.spec.ts --project=chromium
+            npx playwright test e2e/browser-portable.spec.ts --project=chromium --output=test-results/portable
           else
             npm run test:e2e:critical -- \
               --project='${{ matrix.browser }}' \
               --grep-invert='impressão individual ocupa uma única folha A4|deslizar a prévia sem acionar os controles|logo GX preserva transparência real' \
               2>&1 | tee ../deep-browser-e2e-${{ matrix.browser }}.log
-            npx playwright test e2e/browser-portable.spec.ts --project='${{ matrix.browser }}'
+            npx playwright test e2e/browser-portable.spec.ts --project='${{ matrix.browser }}' --output=test-results/portable
           fi
       - name: Preserve browser diagnostics
         if: always()
