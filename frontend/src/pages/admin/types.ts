@@ -6,6 +6,7 @@ export type AdminSection =
   | 'support'
   | 'catalog'
   | 'customers'
+  | 'coupons'
   | 'subscriptions'
   | 'managed-service'
   | 'help'
@@ -178,6 +179,12 @@ export type ProductDiscountPayload = {
 };
 
 export type AdminCoupon = {
+  kind?: 'PROMOTIONAL' | 'LOYALTY';
+  usageLimit?: number | null;
+  usageCount?: number;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  allowTable?: boolean;
   id: string;
   code: string;
   title: string;

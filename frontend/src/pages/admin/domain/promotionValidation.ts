@@ -19,6 +19,11 @@ export type ProductDiscountDraft = {
 export type CouponDraft = {
   id?: string;
   code: string;
+  kind?: 'PROMOTIONAL' | 'LOYALTY';
+  usageLimit?: string;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  allowTable?: boolean;
   title: string;
   description: string;
   discountType: DiscountType;
@@ -106,6 +111,11 @@ export function validateCouponDraft(draft: CouponDraft) {
   const discount = Number(draft.discount);
   const minimumSubtotal = Number(draft.minimumSubtotal);
   const maxDiscount = draft.maxDiscount ? Number(draft.maxDiscount) : null;
+  const usageLimit = draft.usageLimit?.trim() ? Number(draft.usageLimit) : null;
+  if (usageLimit !== null && (!Number.isInteger(usageLimit) || usageLimit < 1 || usageLimit > 1000000))
+    errors.push('O limite total de usos deve ficar entre 1 e 1.000.000.');
+  if (draft.allowDelivery === false && draft.allowPickup === false && draft.allowTable === false)
+    errors.push('Escolha pelo menos uma modalidade.');
   const purchases = Number(draft.loyaltyPurchasesRequired);
   const limit = Number(draft.perCustomerLimit);
   const validityDays = Number(draft.redemptionValidityDays);
@@ -143,6 +153,11 @@ export function validateCouponDraft(draft: CouponDraft) {
 export function couponPayload(draft: CouponDraft): CouponPayload {
   return {
     code: normalizeCouponCode(draft.code),
+    kind: draft.kind || 'LOYALTY',
+    usageLimit: draft.usageLimit?.trim() ? Number(draft.usageLimit) : null,
+    allowDelivery: draft.allowDelivery !== false,
+    allowPickup: draft.allowPickup !== false,
+    allowTable: draft.allowTable !== false,
     title: draft.title.trim(),
     description: draft.description.trim(),
     discountType: draft.discountType,
@@ -161,6 +176,11 @@ export function couponToDraft(coupon: AdminCoupon): CouponDraft {
   return {
     id: coupon.id,
     code: coupon.code,
+    kind: coupon.kind || 'LOYALTY',
+    usageLimit: coupon.usageLimit == null ? '' : String(coupon.usageLimit),
+    allowDelivery: coupon.allowDelivery !== false,
+    allowPickup: coupon.allowPickup !== false,
+    allowTable: coupon.allowTable !== false,
     title: coupon.title,
     description: coupon.description,
     discountType: coupon.discountType,

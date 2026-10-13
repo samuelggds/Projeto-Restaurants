@@ -35,10 +35,11 @@ import {
 import * as S from './PromotionsSettings.styles';
 
 type Feedback = { tone: 'success' | 'error'; message: string } | null;
-type PromotionTab = 'discounts' | 'loyalty';
+type PromotionTab = 'discounts' | 'promotional' | 'loyalty';
 type StatusTone = 'active' | 'scheduled' | 'inactive' | 'expired';
 
 type Props = {
+  mode?: 'discounts' | 'coupons';
   products: AdminProduct[];
   coupons: AdminCoupon[];
   loading?: boolean;
@@ -64,7 +65,12 @@ const emptyDiscountDraft = (): ProductDiscountDraft => ({
   endsAt: '',
 });
 
-const emptyCouponDraft = (): CouponDraft => ({
+const emptyCouponDraft = (kind: 'PROMOTIONAL' | 'LOYALTY' = 'LOYALTY'): CouponDraft => ({
+  kind,
+  usageLimit: '',
+  allowDelivery: true,
+  allowPickup: true,
+  allowTable: true,
   code: '',
   title: '',
   description: '',
@@ -132,6 +138,7 @@ function discountValueLabel(type: DiscountType, value: number) {
 }
 
 export function PromotionsSettings({
+  mode = 'discounts',
   products,
   coupons,
   loading = false,
@@ -144,7 +151,7 @@ export function PromotionsSettings({
   onReload,
 }: Props) {
   const { confirmDialog } = useAppDialog();
-  const [tab, setTab] = useState<PromotionTab>('discounts');
+  const [tab, setTab] = useState<PromotionTab>(mode === 'coupons' ? 'promotional' : 'discounts');
   const [discountDraft, setDiscountDraft] = useState<ProductDiscountDraft>(emptyDiscountDraft);
   const [discountFeedback, setDiscountFeedback] = useState<Feedback>(null);
   const [discountBusy, setDiscountBusy] = useState<string | null>(null);
@@ -161,8 +168,9 @@ export function PromotionsSettings({
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
     event.preventDefault();
-    const nextTab: PromotionTab = tab === 'discounts' ? 'loyalty' : 'discounts';
+    const nextTab: PromotionTab = tab === 'promotional' ? 'loyalty' : 'promotional';
     setTab(nextTab);
+    setCouponDraft(emptyCouponDraft(nextTab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY'));
     window.requestAnimationFrame(() =>
       document.getElementById(`promotions-tab-${nextTab}`)?.focus(),
     );
@@ -180,7 +188,10 @@ export function PromotionsSettings({
   const activeDiscounts = discountedProducts.filter(
     (product) => discountStatus(product).tone === 'active',
   ).length;
-  const activeCoupons = coupons.filter((coupon) => couponStatus(coupon).tone === 'active').length;
+  const activeCoupons = coupons.filter((coupon) =>
+    (coupon.kind || 'LOYALTY') === (tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY') &&
+    couponStatus(coupon).tone === 'active',
+  ).length;
 
   const visibleDiscounts = useMemo(() => {
     const search = discountSearch.trim().toLocaleLowerCase('pt-BR');
@@ -199,6 +210,7 @@ export function PromotionsSettings({
   const visibleCoupons = useMemo(() => {
     const search = couponSearch.trim().toLocaleLowerCase('pt-BR');
     return coupons.filter((coupon) => {
+      if ((coupon.kind || 'LOYALTY') !== (tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY')) return false;
       const status = couponStatus(coupon).tone;
       if (couponFilter !== 'all' && status !== couponFilter) return false;
       return (
@@ -207,7 +219,7 @@ export function PromotionsSettings({
         coupon.title.toLocaleLowerCase('pt-BR').includes(search)
       );
     });
-  }, [couponFilter, couponSearch, coupons]);
+  }, [couponFilter, couponSearch, coupons, tab]);
 
   const submitDiscount = async (event: FormEvent) => {
     event.preventDefault();
@@ -311,18 +323,18 @@ export function PromotionsSettings({
     setCouponBusy('save');
     setCouponFeedback(null);
     try {
-      const payload = couponPayload(couponDraft);
+      const payload = couponPayload({ ...couponDraft, kind: tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY' });
       if (couponDraft.id) await onUpdateCoupon?.(couponDraft.id, payload);
       else await onCreateCoupon?.(payload);
-      setCouponDraft(emptyCouponDraft());
+      setCouponDraft(emptyCouponDraft(tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY'));
       setCouponFeedback({
         tone: 'success',
-        message: 'Benefício de fidelidade salvo e pronto para acompanhar as compras dos clientes.',
+        message: tab === 'promotional' ? 'Cupom promocional salvo.' : 'Benefício de fidelidade salvo e pronto para acompanhar as compras dos clientes.',
       });
     } catch (saveError) {
       setCouponFeedback({
         tone: 'error',
-        message: technicalMessage(saveError, 'Não foi possível salvar o cupom de fidelidade.'),
+        message: technicalMessage(saveError, 'Não foi possível salvar o cupom.'),
       });
     } finally {
       setCouponBusy(null);
@@ -353,7 +365,7 @@ export function PromotionsSettings({
 
   const removeCoupon = async (coupon: AdminCoupon) => {
     const confirmed = await confirmDialog({
-      title: 'Excluir benefício de fidelidade?',
+      title: coupon.kind === 'PROMOTIONAL' ? 'Excluir cupom promocional?' : 'Excluir benefício de fidelidade?',
       description: `A regra “${coupon.title}” só será excluída se ainda não tiver nenhum cupom emitido. Se clientes já resgataram, pause a campanha para preservar a carteira e o histórico.`,
       confirmLabel: 'Excluir benefício',
       tone: 'danger',
@@ -383,10 +395,11 @@ export function PromotionsSettings({
         </div>
         <div>
           <span className="eyebrow">OPERAÇÃO COMERCIAL</span>
-          <h2>Descontos que vendem e fidelizam</h2>
+          <h2>{mode === 'coupons' ? 'Cupons promocionais e fidelidade' : 'Descontos nos produtos'}</h2>
           <p>
-            Destaque ofertas na Home e recompense clientes frequentes com regras simples,
-            transparentes e exclusivas deste restaurante.
+            {mode === 'coupons'
+              ? 'Gerencie campanhas e recompensas com validações seguras por restaurante.'
+              : 'Configure descontos reais nos produtos e destaque as ofertas do cardápio.'}
           </p>
         </div>
         <dl aria-label="Resumo de descontos e fidelidade">
@@ -405,19 +418,19 @@ export function PromotionsSettings({
         </dl>
       </S.Hero>
 
-      <S.Tabs role="tablist" aria-label="Tipos de campanha">
+      {mode === 'coupons' && <S.Tabs role="tablist" aria-label="Tipos de cupom">
         <button
-          id="promotions-tab-discounts"
-          className={tab === 'discounts' ? 'active' : ''}
+          id="promotions-tab-promotional"
+          className={tab === 'promotional' ? 'active' : ''}
           type="button"
           role="tab"
-          aria-selected={tab === 'discounts'}
-          aria-controls="promotions-panel-discounts"
-          tabIndex={tab === 'discounts' ? 0 : -1}
+          aria-selected={tab === 'promotional'}
+          aria-controls="promotions-panel-loyalty"
+          tabIndex={tab === 'promotional' ? 0 : -1}
           onKeyDown={handleTabKeyDown}
-          onClick={() => setTab('discounts')}
+          onClick={() => { setTab('promotional'); setCouponDraft(emptyCouponDraft('PROMOTIONAL')); }}
         >
-          <Tag /> Descontos nos produtos
+          <Tag /> Cupons Promocionais
         </button>
         <button
           id="promotions-tab-loyalty"
@@ -428,11 +441,11 @@ export function PromotionsSettings({
           aria-controls="promotions-panel-loyalty"
           tabIndex={tab === 'loyalty' ? 0 : -1}
           onKeyDown={handleTabKeyDown}
-          onClick={() => setTab('loyalty')}
+          onClick={() => { setTab('loyalty'); setCouponDraft(emptyCouponDraft('LOYALTY')); }}
         >
-          <Gift /> Cupons de fidelidade
+          <Gift /> Cupons de Fidelidade
         </button>
-      </S.Tabs>
+      </S.Tabs>}
 
       {loading && (
         <S.LoadState $tone="loading" role="status">
@@ -451,7 +464,7 @@ export function PromotionsSettings({
         </S.LoadState>
       )}
 
-      {tab === 'discounts' ? (
+      {mode === 'discounts' ? (
         <S.TabPanel
           id="promotions-panel-discounts"
           role="tabpanel"
@@ -749,7 +762,7 @@ export function PromotionsSettings({
           role="tabpanel"
           aria-labelledby="promotions-tab-loyalty"
         >
-          <S.LoyaltyFlow aria-label="Como funciona a fidelidade">
+          {tab === 'loyalty' && <S.LoyaltyFlow aria-label="Como funciona a fidelidade">
             <article>
               <span>1</span>
               <b>Pedido é entregue</b>
@@ -770,7 +783,7 @@ export function PromotionsSettings({
               <b>Usa na tela de pagamento</b>
               <p>O desconto é validado antes da confirmação do próximo pedido.</p>
             </article>
-          </S.LoyaltyFlow>
+          </S.LoyaltyFlow>}
 
           <S.Panel id="coupon-editor">
             <S.PanelHeader>
@@ -779,8 +792,8 @@ export function PromotionsSettings({
                   <TicketPercent />
                 </span>
                 <div>
-                  <h3>{couponDraft.id ? 'Editar benefício' : 'Novo benefício de fidelidade'}</h3>
-                  <p>Defina quantos pedidos pagos e entregues liberam o cupom.</p>
+                  <h3>{couponDraft.id ? 'Editar benefício' : tab === 'promotional' ? 'Novo cupom promocional' : 'Novo benefício de fidelidade'}</h3>
+                  <p>{tab === 'promotional' ? 'Disponível para visitantes e clientes; configure regras de utilização.' : 'Defina quantos pedidos pagos e entregues liberam o cupom.'}</p>
                 </div>
               </div>
             </S.PanelHeader>
@@ -832,7 +845,7 @@ export function PromotionsSettings({
                     }
                   />
                 </S.Field>
-                <S.Field>
+                {tab === 'loyalty' && <S.Field>
                   <span>Pedidos pagos e entregues para liberar</span>
                   <input
                     type="number"
@@ -849,7 +862,7 @@ export function PromotionsSettings({
                 </S.Field>
                 <S.Field>
                   <span>
-                    Cupons guardados ao mesmo tempo <small>Por benefício</small>
+                    {tab === 'loyalty' ? 'Cupons guardados ao mesmo tempo' : 'Utilizações por cliente'} <small>Por benefício</small>
                   </span>
                   <input
                     type="number"
@@ -864,7 +877,7 @@ export function PromotionsSettings({
                     }
                   />
                 </S.Field>
-                <S.Field>
+                {tab === 'loyalty' && <S.Field>
                   <span>Validade após o resgate (dias)</span>
                   <input
                     type="number"
@@ -879,6 +892,19 @@ export function PromotionsSettings({
                     }
                   />
                 </S.Field>
+                {tab === 'promotional' && <S.Field>
+                  <span>Limite total de utilizações (opcional)</span>
+                  <input type="number" min="1" max="1000000" value={couponDraft.usageLimit || ''}
+                    onChange={(event) => setCouponDraft((current) => ({ ...current, usageLimit: event.target.value }))} />
+                </S.Field>}
+                <div className="inline-fields full">
+                  {([['allowDelivery', 'Delivery'], ['allowPickup', 'Retirada'], ['allowTable', 'Mesa']] as const).map(([field, label]) => (
+                    <S.SwitchRow key={field}>{label}
+                      <input type="checkbox" checked={couponDraft[field] !== false}
+                        onChange={(event) => setCouponDraft((current) => ({ ...current, [field]: event.target.checked }))} />
+                    </S.SwitchRow>
+                  ))}
+                </div>
                 <div className="inline-fields full">
                   <S.Field>
                     <span>Tipo de recompensa</span>
@@ -975,7 +1001,7 @@ export function PromotionsSettings({
                     className="secondary"
                     type="button"
                     onClick={() => {
-                      setCouponDraft(emptyCouponDraft());
+                      setCouponDraft(emptyCouponDraft(tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY'));
                       setCouponFeedback(null);
                     }}
                   >
@@ -987,7 +1013,7 @@ export function PromotionsSettings({
                 </S.FormActions>
               </div>
 
-              <S.CouponPreview aria-label="Prévia do cupom de fidelidade">
+              <S.CouponPreview aria-label="Prévia do cupom">
                 <small>PRÉVIA DO BENEFÍCIO</small>
                 <div className="coupon-ticket">
                   <div className="coupon-top">
@@ -1003,19 +1029,19 @@ export function PromotionsSettings({
                         : money(Number(couponDraft.discount || 0))}
                     </strong>
                   </div>
-                  <p>
+                  {tab === 'loyalty' && <p>
                     Liberado após {Number(couponDraft.loyaltyPurchasesRequired || 0)} pedidos pagos
                     e entregues neste restaurante.
-                  </p>
-                  <p>
+                  </p>}
+                  {tab === 'loyalty' && <p>
                     Depois do resgate, fica salvo por até{' '}
                     {Number(couponDraft.redemptionValidityDays || 0)} dias.
-                  </p>
+                  </p>}
                 </div>
                 <p className="preview-help">
-                  Ao resgatar, a contagem reinicia em zero. O cliente guarda o cupom no perfil e usa
-                  somente um por pedido. Se a campanha já tiver data final, o prazo emitido respeita
-                  esse encerramento.
+                  {tab === 'promotional'
+                    ? 'Campanha disponível para clientes e visitantes. O backend valida as regras no checkout.'
+                    : 'Ao resgatar, a contagem reinicia em zero. O cliente guarda o cupom no perfil e usa somente um por pedido.'}
                 </p>
               </S.CouponPreview>
             </S.EditorGrid>
@@ -1024,7 +1050,7 @@ export function PromotionsSettings({
           <S.Panel>
             <S.ListHeader>
               <div>
-                <h3>Benefícios cadastrados</h3>
+                <h3>{tab === 'promotional' ? 'Cupons promocionais cadastrados' : 'Benefícios cadastrados'}</h3>
                 <p>Acompanhe as metas disponíveis e ajuste as regras quando necessário.</p>
               </div>
               <div className="filters">
@@ -1115,10 +1141,10 @@ export function PromotionsSettings({
                 <S.EmptyState>
                   <CalendarClock />
                   <b>
-                    {coupons.length ? 'Nenhum benefício encontrado' : 'Nenhum benefício cadastrado'}
+                    {visibleCoupons.length ? 'Nenhum benefício encontrado' : 'Nenhum cupom encontrado'}
                   </b>
                   <p>
-                    {coupons.length
+                    {visibleCoupons.length
                       ? 'Altere os filtros para encontrar outra regra.'
                       : 'Crie a primeira meta para começar a recompensar clientes frequentes.'}
                   </p>

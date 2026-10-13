@@ -37,7 +37,7 @@ export const settingGroups: Array<{ id: string; label: string; items: SettingNav
     label: 'OPERAÇÃO',
     items: [
       ['orders', 'Pedidos', ShoppingBag],
-      ['promotions', 'Descontos e fidelidade', BadgePercent],
+      ['promotions', 'Descontos de produtos', BadgePercent],
       ['delivery', 'Delivery e retirada', Truck],
       ['table', 'Cardápio de mesa', QrCode],
       ['table-account', 'Conta e pagamento da mesa', ReceiptText],
@@ -67,7 +67,7 @@ export const sectionTitle: Record<SettingsSection, string> = {
   address: 'Endereço',
   hours: 'Horários',
   orders: 'Configurações de pedidos',
-  promotions: 'Descontos e fidelidade',
+  promotions: 'Descontos de produtos',
   delivery: 'Delivery e retirada',
   table: 'Cardápio de mesa',
   'table-account': 'Conta e pagamento da mesa',
