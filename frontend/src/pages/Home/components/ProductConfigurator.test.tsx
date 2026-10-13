@@ -180,8 +180,13 @@ describe('layout de produto personalizado do cliente', () => {
       expect(dialog.querySelector('img[src="/smash-bacon.webp"]')).toBeTruthy();
       expect(dialog.querySelector('img[src="/bacon.webp"]')).toBeTruthy();
 
+      const selectedRadio = dialog.querySelector('input[value="ao-ponto"]') as HTMLInputElement;
+      const visibleOption = selectedRadio.closest('label')?.querySelector('b') as HTMLElement;
+      await act(async () => visibleOption.click());
+      expect(selectedRadio.checked).toBe(true);
+      await act(async () => visibleOption.click());
+      expect(selectedRadio.checked).toBe(true);
       await act(async () => {
-        (dialog.querySelector('input[value="ao-ponto"]') as HTMLInputElement).click();
         (dialog.querySelector('input[value="bacon-extra"]') as HTMLInputElement).click();
       });
 
