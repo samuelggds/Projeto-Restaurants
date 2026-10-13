@@ -45,7 +45,7 @@ class OrderPricingService {
     type,
     items,
     couponRedemptionId,
-    couponCode,
+    couponCode: requestedCouponCode,
     deliveryDistanceMeters,
     now = new Date(),
     db = prisma,
@@ -244,7 +244,7 @@ class OrderPricingService {
     let couponId: number | null = null;
     let redemptionId: number | null = null;
     const requestedRedemptionId = Number(couponRedemptionId || 0);
-    const requestedPromotionalCode = String(couponCode || '').trim().toUpperCase();
+    const requestedPromotionalCode = String(requestedCouponCode || '').trim().toUpperCase();
     if (requestedPromotionalCode && couponRedemptionId) {
       throw new OrderRequestError('Selecione apenas um cupom por pedido.');
     }
