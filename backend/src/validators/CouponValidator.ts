@@ -87,7 +87,7 @@ function validatePercentage(
   payload: { discount?: number; discountType?: 'FIXED' | 'PERCENTAGE' },
   context: z.RefinementCtx,
 ) {
-  validateCouponChannels(payload as typeof couponFields, context);
+  validateCouponChannels(payload, context);
   if (payload.discountType === 'PERCENTAGE' && Number(payload.discount) >= 100) {
     context.addIssue({
       code: z.ZodIssueCode.custom,

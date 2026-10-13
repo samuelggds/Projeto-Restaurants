@@ -591,20 +591,17 @@ class CreateOrderService {
             // Lock the campaign row atomically before counting per-customer uses.
             // Order creation and usage reservation share the same transaction.
             if (pricing.couponId && !pricing.couponRedemptionId) {
-              const consumed = await tx.coupon.updateMany({
-                where: {
-                  id: pricing.couponId,
-                  restaurantId: resolvedRestaurantId,
-                  kind: 'PROMOTIONAL',
-                  active: true,
-                  OR: [{ expiration: null }, { expiration: { gt: new Date() } }],
-                  ...(pricing.couponId
-                    ? { AND: [{ OR: [{ usageLimit: null }, { usageCount: { lt: tx.coupon.fields.usageLimit } }] }] }
-                    : {}),
-                },
-                data: { usageCount: { increment: 1 } },
-              });
-              if (consumed.count !== 1) {
+              const consumed = await tx.$executeRaw`
+                UPDATE "Coupon"
+                SET "usageCount" = "usageCount" + 1
+                WHERE "id" = ${pricing.couponId}
+                  AND "restaurantId" = ${resolvedRestaurantId}
+                  AND "kind" = 'PROMOTIONAL'::"CouponKind"
+                  AND "active" = true
+                  AND ("expiration" IS NULL OR "expiration" > NOW())
+                  AND ("usageLimit" IS NULL OR "usageCount" < "usageLimit")
+              `;
+              if (consumed !== 1) {
                 throw new OrderRequestError('Cupom promocional esgotado ou indisponível.');
               }
               const priorUses = await tx.order.count({
