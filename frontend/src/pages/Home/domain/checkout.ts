@@ -182,7 +182,6 @@ type PayloadInput = {
   deliveryAddress: DeliveryAddress;
   couponRedemptionId?: number | null;
   couponCode?: string | null;
-  couponCode?: string | null;
 };
 
 export function buildOrderItems(cart: CartItem[]) {

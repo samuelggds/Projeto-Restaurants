@@ -568,7 +568,6 @@ export default function Home() {
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
       couponCode: selectedPromoCode,
-      couponCode: selectedPromoCode,
     });
 
     await executePayment(
@@ -591,6 +590,7 @@ export default function Home() {
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
+      couponCode: selectedPromoCode,
     });
 
     setTableOrderLoading(true);
