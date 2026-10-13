@@ -71,10 +71,11 @@ const couponFields = {
 };
 
 function validateCouponChannels(
-  payload: { allowDelivery?: boolean; allowPickup?: boolean; allowTable?: boolean },
+  payload: object,
   context: z.RefinementCtx,
 ) {
-  if (payload.allowDelivery === false && payload.allowPickup === false && payload.allowTable === false) {
+  const settings = payload as Record<string, unknown>;
+  if (settings.allowDelivery === false && settings.allowPickup === false && settings.allowTable === false) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['allowDelivery'],

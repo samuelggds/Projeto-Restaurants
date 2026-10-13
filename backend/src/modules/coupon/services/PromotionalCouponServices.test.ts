@@ -22,7 +22,7 @@ afterEach(() => {
   couponRepository.create = originalCreate;
 });
 test('resgate de fidelidade nunca aceita promoção pública', async () => {
-  couponRepository.findActiveById = async () => ({ id: 1, kind: 'PROMOTIONAL' });
+  couponRepository.findActiveById = (async () => ({ id: 1, kind: 'PROMOTIONAL' })) as unknown as typeof couponRepository.findActiveById;
   await assert.rejects(() => new RedeemLoyaltyCouponService().execute({ couponId: 1, userId: 4, restaurantId: 7 }), /fidelidade indisponível/);
 });
 test('criação de promoção preserva restaurantId confiável', async () => {
@@ -30,12 +30,12 @@ test('criação de promoção preserva restaurantId confiável', async () => {
     assert.equal(restaurantId, 7);
     return null;
   };
-  couponRepository.create = async (data) => {
+  couponRepository.create = (async (data: Parameters<typeof couponRepository.create>[0]) => {
     assert.equal(data.restaurantId, 7);
     assert.equal(data.kind, 'PROMOTIONAL');
     assert.equal(data.usageLimit, 10);
     return { ...data, id: 8 };
-  };
+  }) as unknown as typeof couponRepository.create;
   const result = await new CreateCouponService().execute({
     restaurantId: 7, code: ' PUBLICO10 ', kind: 'PROMOTIONAL', discount: 10, usageLimit: 10,
   });
