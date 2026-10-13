@@ -60,6 +60,18 @@ async function ensureEnabled(tx: Prisma.TransactionClient, restaurantId: number)
 }
 
 export class TableReservationService {
+  async selectableTables(restaurantId: number) {
+    const id = positive(restaurantId);
+    return prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, id);
+      return tx.table.findMany({
+        where: { restaurantId: id, active: true },
+        select: { id: true, number: true, active: true },
+        orderBy: { number: 'asc' },
+      });
+    });
+  }
+
   async settings(restaurantId: number) {
     const id = positive(restaurantId);
     return prisma.$transaction(async (tx) => {

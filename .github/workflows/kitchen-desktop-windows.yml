@@ -1,6 +1,11 @@
 name: GastroNexa Kitchen Windows Installer
 
 on:
+  push:
+    branches: [fix/post-merge-improvements-20261013]
+    paths:
+      - 'print-agent/**'
+      - '.github/workflows/kitchen-desktop-windows.yml'
   pull_request:
     branches: [main]
     paths:

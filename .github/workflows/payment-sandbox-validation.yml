@@ -1,6 +1,8 @@
 name: Payment Sandbox Preflight
 
 on:
+  push:
+    branches: [fix/post-merge-improvements-20261013]
   workflow_dispatch:
     inputs:
       provider:
@@ -29,15 +31,35 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend ci
       - run: npm --prefix backend run test:refund && npm --prefix backend run test:billing
+      - name: Declare scope of automatic payment validation
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          {
+            echo '### Payment validation scope'
+            echo '- PASS/FAIL: local contracts, refunds, billing and provider integrations in the repository.'
+            echo '- NÃO EXECUTADO / PENDENTE: official Mercado Pago TEST sandbox credential check (production is configured separately).'
+            echo '- NÃO CONFIGURADO: Asaas and Pagar.me external homologation, pending merchant onboarding.'
+            echo '- No production tokens, production API calls, actual charges, refunds or simulated provider approvals are performed.'
+            echo '- Official sandbox checks remain STRICT and can be run individually using workflow_dispatch.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   official-sandboxes:
     name: Official provider sandbox preflight
+    # A push always validates the local financial contracts. External sandbox checks
+    # are a separate, explicit homologation gate and require dedicated TEST secrets.
+    # Do not inject production Mercado Pago credentials or pretend a skipped preflight passed.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: payment-sandbox
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: ${{ fromJSON(github.event_name == 'push' && '["mercado-pago","asaas","pagarme"]' || format('["{0}"]', inputs.provider)) }}
     steps:
       - name: Mercado Pago sandbox/test credential preflight
-        if: inputs.provider == 'mercado-pago'
+        if: matrix.provider == 'mercado-pago'
         env:
           TOKEN: ${{ secrets.MERCADO_PAGO_SANDBOX_TOKEN }}
           TEST_ACCOUNT_ID: ${{ vars.MERCADO_PAGO_SANDBOX_USER_ID }}
@@ -63,7 +85,7 @@ jobs:
 
 
       - name: Asaas sandbox preflight
-        if: inputs.provider == 'asaas'
+        if: matrix.provider == 'asaas'
         env:
           TOKEN: ${{ secrets.ASAAS_SANDBOX_TOKEN }}
         shell: bash
@@ -85,7 +107,7 @@ jobs:
           fi
 
       - name: Pagar.me future integration preflight
-        if: inputs.provider == 'pagarme'
+        if: matrix.provider == 'pagarme'
         shell: bash
         run: |
           set -euo pipefail

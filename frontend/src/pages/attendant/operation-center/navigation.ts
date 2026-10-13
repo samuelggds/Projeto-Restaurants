@@ -1,5 +1,6 @@
 import {
   Armchair,
+  CalendarDays,
   BellRing,
   ClipboardList,
   Headphones,
@@ -58,6 +59,12 @@ export const viewMeta: Record<
     title: 'Mesas em operação',
     subtitle: 'Veja rapidamente mesas com pedidos, chamados ou conta solicitada.',
     icon: Armchair,
+  },
+  reservations: {
+    label: 'Reservas',
+    title: 'Reservas de mesas',
+    subtitle: 'Gerencie reservas, check-in, ausências e histórico do restaurante.',
+    icon: CalendarDays,
   },
   calls: {
     label: 'Chamados',

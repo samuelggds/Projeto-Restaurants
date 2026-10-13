@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
-import { waiterMiddleware } from '../../../middlewares/waiterMiddleware.js';
+import { reservationManagementMiddleware } from '../middlewares/reservationManagementMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';
 import service, { ReservationError } from '../services/TableReservationService.js';
 import { tableReservationEvents } from '../realtime/tableReservationEvents.js';
 const router = Router();
-router.use(authMiddleware, waiterMiddleware, premiumTablePlanMiddleware);
+router.use(authMiddleware, reservationManagementMiddleware, premiumTablePlanMiddleware);
 function notify(restaurantId: number) {
   // An unsuccessful push must not roll back a committed reservation.
   try { tableReservationEvents.changed(restaurantId); }
@@ -16,13 +16,13 @@ function respond(res: import('express').Response, error: unknown) {
   const status = error instanceof ZodError ? 422 : error instanceof ReservationError ? error.statusCode : 500;
   return res.status(status).json({ error: error instanceof ZodError ? error.issues[0]?.message : error instanceof ReservationError ? error.message : 'Não foi possível concluir a operação.' });
 }
+router.get('/tables', async (req, res) => {
+  try { res.json(await service.selectableTables(req.user.restaurantId)); }
+  catch(e) { respond(res,e); }
+});
 router.get('/settings', async (req,res) => { try { res.json(await service.settings(req.user.restaurantId)); } catch(e){ respond(res,e); } });
 router.put('/settings', async (req,res) => {
   try {
-    if (String(req.user.role).toUpperCase() !== 'ADMIN') {
-      res.status(403).json({error:'Apenas administradores podem alterar reservas.'});
-      return;
-    }
     const updated = await service.updateSettings(req.user.restaurantId,req.body?.enabled,req.body?.toleranceMinutes);
     notify(req.user.restaurantId);
     res.json(updated);

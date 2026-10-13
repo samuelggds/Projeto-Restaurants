@@ -7,6 +7,28 @@ export const OverviewRoot = styled.div`
   gap: 12px;
   min-width: 0;
 
+  .overview-assistant-strip {display:grid;grid-template-columns: minmax(205px,.33fr) minmax(0,1fr);align-items:stretch;min-width:0;background:#fff;border:1px solid #e7ebe7;border-radius:13px;box-shadow:0 8px 20px rgba(32,46,39,.03);overflow:hidden;}
+  .assistant-intro{padding:17px;border-right:1px solid #edf0ed;display:flex;flex-direction:column;justify-content:center;gap:7px;}
+  .assistant-title{font-size:10px;color:#496557;display:flex;align-items:center;gap:7px;}
+  .assistant-title svg{width:15px;height:15px;color:#ff4b4b;}
+  .assistant-intro strong{font-size:15px;color:#253b30;font-weight:650;}
+  .assistant-intro p{font-size:10px;line-height:1.5;color:#819086;margin:0;}
+  .assistant-intro>small{display:flex;align-items:center;gap:6px;color:#a0aaa3;font-size:9px;}
+  .assistant-intro>small svg{width:11px;height:11px;}
+  .assistant-summary{min-width:0;padding:14px;}
+  .assistant-summary-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px;}
+  .assistant-summary-heading strong{font-size:10px;color:#31483a;}
+  .assistant-summary-heading span{font-size:9px;color:#829388;padding:4px 7px;border-radius:8px;background:#f6f8f5;}
+  .assistant-summary-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+  .assistant-summary-cards>div{min-width:0;display:grid;grid-template-columns:20px minmax(0,1fr);grid-template-rows:auto auto;column-gap:7px;row-gap:4px;align-items:center;border:1px solid #ecf0ec;background:#fafbf9;padding:11px;border-radius:9px;}
+  .assistant-summary-cards svg{width:17px;height:17px;color:#2b8760;grid-row:1 / 3;align-self:start;}
+  .assistant-summary-cards>div:last-child svg{color:#f35b5b;}
+  .assistant-summary-cards span{font-size:9px;color:#627569;}
+  .assistant-summary-cards small{display:block;color:#a4b0a8;font-size:8px;margin-top:2px;}
+  .assistant-summary-cards b{font-size:16px;color:#24392c;overflow-wrap:anywhere;}
+  @media(max-width:760px){.overview-assistant-strip{grid-template-columns:1fr}.assistant-intro{border-right:0;border-bottom:1px solid #edf0ed;}.assistant-summary-cards{grid-template-columns:1fr;}}
+
+
   .sr-only {
     position: absolute;
     width: 1px;
@@ -22,11 +44,11 @@ export const OverviewRoot = styled.div`
 
 export const Hero = styled.section`
   position: relative;
-  min-height: 226px;
+  min-height: 178px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  padding: 26px 30px;
+  padding: 22px 25px;
   color: #fff;
   background:
     radial-gradient(
@@ -37,8 +59,8 @@ export const Hero = styled.section`
     linear-gradient(118deg, #142722 0%, #17342c 52%, #54362b 100%);
   box-shadow: 0 24px 58px rgba(27, 38, 33, 0.16);
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.6fr);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, .65fr);
+  gap: 20px;
   isolation: isolate;
 
   &::before,
@@ -98,7 +120,7 @@ export const HeroCopy = styled.div`
   h2 {
     max-width: 620px;
     margin: 12px 0 0;
-    font-size: clamp(27px, 3vw, 39px);
+    font-size: clamp(23px, 2.6vw, 32px);
     line-height: 1.04;
     letter-spacing: 0;
   }
@@ -111,6 +133,17 @@ export const HeroCopy = styled.div`
     line-height: 1.55;
   }
 
+  .hero-buttons {
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:17px;
+  }
+  .hero-buttons button {
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    min-height:34px;padding:0 12px;border:1px solid rgba(255,255,255,.7);
+    border-radius:7px;color:#b94040;background:#fff;font:inherit;font-size:11px;
+    font-weight:700;cursor:pointer;
+  }
+  .hero-buttons button.primary{background:#ff4b4b;border-color:#ff4b4b;color:#fff;}
+  .hero-buttons svg{width:13px;height:13px;}
   .hero-status {
     display: flex;
     flex-wrap: wrap;
@@ -182,10 +215,10 @@ export const HeroAside = styled.aside`
   .hero-quick-metrics svg { width: 15px; height: 15px; color: #c1dccb; }
   .hero-quick-metrics b { font-size: 18px; color: #fff; }
   .hero-quick-metrics small { font-size: 10px; color: #c1d2c9; text-transform: none; }
-  > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  > .hero-quick-metrics { margin-top: 12px; }
   @media (max-width: 560px) {
     .hero-quick-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
-    > div:last-child { grid-template-columns: 1fr; }
+    .hero-quick-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
   }
 
   button {
@@ -272,10 +305,10 @@ export const Metrics = styled.section`
 
 export const Metric = styled.article`
   min-width: 0;
-  min-height: 110px;
+  min-height: 91px;
   border: 1px solid #e5dfd8;
   border-radius: 12px;
-  padding: 15px;
+  padding: 13px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
   display: flex;
@@ -414,8 +447,8 @@ export const Metric = styled.article`
 
 export const AdminGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-  align-items: start;
+  grid-template-columns: minmax(0, 1.55fr) minmax(295px, .8fr);
+  align-items: stretch;
   gap: 12px;
 
   @media (max-width: 1040px) {
@@ -726,6 +759,8 @@ export const DataList = styled.div`
   .row-copy b span {
     color: #b6ada6;
   }
+
+  .row-copy .payment-method {color:#3b7257;font-weight:700;text-transform:none;}
 
   .row-copy small {
     overflow: hidden;

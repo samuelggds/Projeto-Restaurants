@@ -10,5 +10,6 @@ export const tableReservationEvents = {
     const payload = { changed: true };
     realtimePublisher.to(`restaurant:${restaurantId}:waiter`).emit(event, payload);
     realtimePublisher.to(`restaurant:${restaurantId}:admin`).emit(event, payload);
+    realtimePublisher.to(`restaurant:${restaurantId}:attendant`).emit(event, payload);
   },
 };

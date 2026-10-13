@@ -81,7 +81,11 @@ async function mockAdminApi(page: Page, state: AdminApiState) {
     primaryColor: '#d05632',
     isOpenForOrders: true,
     averageDeliveryTime: 45,
-    businessHours: weeklySchedule(),
+    // Distinct from the client defaults: editing must wait for the server's
+    // actual settings, rather than racing with async settings/banner hydration.
+    businessHours: weeklySchedule().map((day) =>
+      day.id === 'monday' ? { ...day, openingTime: '10:30' } : day,
+    ),
     restaurant: { id: 9, name: 'Restaurante Teste' },
   };
 
@@ -175,13 +179,18 @@ test('admin configura os sete dias e alterna entre pausa manual e agenda', async
     page.getByRole('heading', { name: 'Horários e recebimento de pedidos' }),
   ).toBeVisible();
 
-  const mondayOpen = page.getByRole('switch', { name: 'Segunda-feira: aberto' });
-  await expect(mondayOpen).toBeChecked();
-  await mondayOpen.click();
+  // The initial shell uses fallback settings until the API and companion
+  // settings requests resolve. Validate we have the server's actual schedule.
+  await expect(page.getByLabel('Segunda-feira: horário de abertura')).toHaveValue('10:30');
 
-  const mondayClosed = page.getByRole('switch', { name: 'Segunda-feira: fechado' });
-  await expect(mondayClosed).not.toBeChecked();
-  await mondayClosed.click();
+  const mondaySwitch = page.getByRole('switch', { name: /Segunda-feira:/ });
+  await expect(mondaySwitch).toBeChecked();
+  await mondaySwitch.uncheck();
+  await expect(mondaySwitch).not.toBeChecked();
+  await expect(mondaySwitch).toHaveAttribute('aria-label', 'Segunda-feira: fechado');
+  await mondaySwitch.check();
+  await expect(mondaySwitch).toBeChecked();
+  await expect(mondaySwitch).toHaveAttribute('aria-label', 'Segunda-feira: aberto');
 
   await page.getByLabel('Segunda-feira: horário de abertura').fill('18:00');
   await page.getByLabel('Segunda-feira: horário de fechamento').fill('02:00');

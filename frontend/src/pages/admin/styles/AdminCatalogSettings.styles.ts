@@ -8,48 +8,8 @@ export const ProductGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
-  animation: catalog-view-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  > * {
-    animation: catalog-card-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  > :nth-child(2) {
-    animation-delay: 35ms;
-  }
-  > :nth-child(3) {
-    animation-delay: 70ms;
-  }
-  > :nth-child(4) {
-    animation-delay: 105ms;
-  }
-  > :nth-child(n + 5) {
-    animation-delay: 140ms;
-  }
-  @keyframes catalog-view-enter {
-    from {
-      opacity: 0;
-      transform: translateY(7px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes catalog-card-enter {
-    from {
-      opacity: 0;
-      transform: translateY(5px) scale(0.995);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    &,
-    > * {
-      animation: none;
-    }
-  }
+  /* Keep the grid and cards actionable immediately after tab changes.
+     Safari could leave these 7 entrance animations running indefinitely. */
   @media (max-width: 1320px) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -172,8 +132,8 @@ export const Product = styled.article`
     border-radius: 10px;
     background: #fff;
     box-shadow: 0 14px 34px rgba(45, 31, 20, 0.18);
-    transform-origin: right bottom;
-    animation: catalog-menu-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    /* The popover must stay fixed under the pointer during its entrance. */
+    animation: catalog-menu-enter 140ms ease-out both;
   }
   footer .product-menu button {
     width: 100%;
@@ -189,14 +149,8 @@ export const Product = styled.article`
     color: #b42318;
   }
   @keyframes catalog-menu-enter {
-    from {
-      opacity: 0;
-      transform: translateY(4px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;

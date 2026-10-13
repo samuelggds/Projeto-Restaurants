@@ -160,9 +160,9 @@ test('central de pedidos mantém hierarquia e ações acessíveis em desktop e m
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
 
   await expect(
-    page.getByRole('heading', { name: 'Acompanhe cada pedido sem perder o ritmo' }),
+    page.getByRole('heading', { name: 'Gestão de pedidos' }),
   ).toBeVisible();
-  await expect(page.getByText('Prioridade agora')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fila atual' })).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: 'Visualizações rápidas da fila' }),
   ).toBeVisible();
@@ -253,11 +253,11 @@ test('indicadores incluem mais de 100 pedidos e a fila ativa encontra um pedido 
   await expect(page.getByText('R$ 1.275,00', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
   const queue = page.getByRole('navigation', { name: 'Selecionar pedido para detalhes' });
-  await expect(queue.getByRole('button')).toHaveCount(10);
+  await expect(queue.getByRole('button', { name: /Ver detalhes do pedido/ })).toHaveCount(10);
   await expect(page.locator('article.order-card')).toHaveCount(1);
   await expect(page.getByText('Exibindo 10 de 126 pedidos')).toBeVisible();
   await page.getByRole('button', { name: 'Mostrar pedidos ativos', exact: true }).click();
-  await expect(queue.getByRole('button')).toHaveCount(1);
+  await expect(queue.getByRole('button', { name: /Ver detalhes do pedido/ })).toHaveCount(1);
   await expect(page.locator('article.order-card')).toHaveCount(1);
   await expect(queue.getByRole('button', { name: 'Ver detalhes do pedido #1 de Cliente Pix Online' }))
     .toHaveAttribute('aria-current', 'true');

@@ -49,7 +49,24 @@ describe('montagem genérica de produto', () => {
     selections = toggleProductOption(groups, selections, 'massa', 'fina');
     selections = toggleProductOption(groups, selections, 'massa', 'grossa');
     expect(selections.massa).toEqual(['grossa']);
+    selections = toggleProductOption(groups, selections, 'massa', 'grossa');
+    expect(selections.massa).toEqual(['grossa']);
     expect(validateProductSelections(groups, selections)).toEqual({});
+  });
+
+  it('permite desmarcar uma escolha única opcional', () => {
+    const optional: ProductOptionGroup = {
+      id: 'opcional',
+      name: 'Cobertura',
+      required: false,
+      selectionType: 'SINGLE',
+      minSelections: 0,
+      maxSelections: 1,
+      options: [{ id: 'queijo', name: 'Queijo', price: 3, active: true }],
+    };
+    const selected = toggleProductOption([optional], { opcional: [] }, 'opcional', 'queijo');
+    expect(selected.opcional).toEqual(['queijo']);
+    expect(toggleProductOption([optional], selected, 'opcional', 'queijo').opcional).toEqual([]);
   });
 
   it('não ultrapassa o máximo e soma somente opções selecionadas', () => {

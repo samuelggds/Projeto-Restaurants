@@ -311,7 +311,16 @@ test('pagamento dos motoqueiros permanece contido no celular', async ({ page }, 
   await openCourierPayments(page, true);
 
   await page.getByRole('tab', { name: /Acertos e conferência/ }).click();
-  await page.getByText('Pedido #1401').click();
+  const settlementOrder = page.locator('label.order').filter({ hasText: 'Pedido #1401' });
+  await expect(settlementOrder).toBeVisible();
+  // On mobile, the fixed navigation bars can cover the row while the page
+  // performs smooth scrolling. Center the real label before clicking it.
+  await settlementOrder.evaluate((element) =>
+    element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }),
+  );
+  await expect(settlementOrder).toBeInViewport();
+  await settlementOrder.click();
+  await expect(settlementOrder.locator('input[type="checkbox"]')).toBeChecked();
   await expect(page.getByText('Motoqueiro devolve ao restaurante')).toBeVisible();
 
   const layout = await page.locator('main').evaluate((element) => {

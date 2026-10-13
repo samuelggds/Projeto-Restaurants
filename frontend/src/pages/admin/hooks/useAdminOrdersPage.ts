@@ -21,18 +21,27 @@ type OrdersPageState = Omit<RestaurantOrdersPage, 'orders'> & {
   queryKey: string;
 };
 
-const emptySummary = { total: 0, active: 0, awaitingPayment: 0, inProgress: 0, delivered: 0 };
+const emptySummary = {
+  total: 0, active: 0, awaitingPayment: 0, inProgress: 0, delivered: 0,
+  pending: 0, preparing: 0, ready: 0, onDelivery: 0, cancelled: 0,
+};
 
 export function useAdminOrdersPage({
   search,
   status,
   queue,
+  typeFilter = '',
+  paymentFilter = '',
+  periodFilter = 'ALL',
   refreshSignal,
   loadOrdersPage = loadLiveOrdersPage,
 }: {
   search: string;
   status: string;
   queue: RestaurantOrdersQueue;
+  typeFilter?: '' | 'DELIVERY' | 'RETIRADA' | 'MESA';
+  paymentFilter?: '' | 'PIX' | 'CARTAO' | 'DINHEIRO';
+  periodFilter?: 'ALL' | 'TODAY';
   refreshSignal: unknown;
   loadOrdersPage?: LoadAdminOrdersPage;
 }) {
@@ -52,14 +61,25 @@ export function useAdminOrdersPage({
   const visiblePages = useRef(1);
   const loadedQuery = useRef('');
   const lastRequestedCursor = useRef<number | undefined>(undefined);
+  const todayRange = useMemo(() => {
+    if (periodFilter !== 'TODAY') return null;
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return { createdFrom: start.toISOString(), createdTo: end.toISOString() };
+  }, [periodFilter]);
+
   const query = useMemo(
     () => ({
       limit: ADMIN_ORDERS_PAGE_SIZE,
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
       ...(status ? { status } : {}),
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(paymentFilter ? { payment: paymentFilter } : {}),
+      ...(todayRange ?? {}),
       queue,
     }),
-    [debouncedSearch, status, queue],
+    [debouncedSearch, status, queue, typeFilter, paymentFilter, todayRange],
   );
   const queryKey = JSON.stringify(query);
 

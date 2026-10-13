@@ -60,6 +60,12 @@ export const GlobalStyles = createGlobalStyle`
     scroll-behavior: smooth;
   }
 
+  /* Operational admin pages have fixed and sticky navigation. Instant scrolling
+     keeps form fields and actions reachable when browser engines scroll to them. */
+  html:has([data-admin-root]) {
+    scroll-behavior: auto;
+  }
+
   #root {
     min-height: 100vh;
     min-height: 100dvh;

@@ -2,11 +2,11 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   Bike,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
+  RefreshCw,
   CircleDollarSign,
   Clock3,
   CookingPot,
@@ -43,7 +43,6 @@ import {
   getOrderTypeLabel,
   getPaymentMethodLabel,
   isOrderWaitingForCapacity,
-  ORDER_STATUSES,
 } from '../domain/adminOrders';
 
 const PickupPaymentPanel = lazy(() => import('./PickupPaymentPanel'));
@@ -97,6 +96,7 @@ type AdminOrdersProps = {
   money: (value: number) => string;
   onConfirmPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
+  onUpdateOrderStatus?: (id: number, status: string) => Promise<void>;
   loadOrdersPage?: LoadAdminOrdersPage;
   renderPickupPayment?: (order: AdminOrder) => ReactNode;
 };
@@ -157,11 +157,16 @@ export function AdminOrders({
   money,
   onConfirmPayment,
   onCancelOrder,
+  onUpdateOrderStatus,
   loadOrdersPage,
   renderPickupPayment,
 }: AdminOrdersProps) {
   const { confirmDialog } = useAppDialog();
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'' | 'DELIVERY' | 'RETIRADA' | 'MESA'>('');
+  const [paymentFilter, setPaymentFilter] = useState<'' | 'PIX' | 'CARTAO' | 'DINHEIRO'>('');
+  const [periodFilter, setPeriodFilter] = useState<'ALL' | 'TODAY'>('ALL');
+  const [changingStatusId, setChangingStatusId] = useState<number | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [status, setStatus] = useState('');
   const [queueView, setQueueView] = useState<QueueView>('ALL');
@@ -174,6 +179,9 @@ export function AdminOrders({
     search,
     status,
     queue: queueView,
+    typeFilter,
+    paymentFilter,
+    periodFilter,
     refreshSignal: orders,
     loadOrdersPage,
   });
@@ -210,21 +218,8 @@ export function AdminOrders({
     onCancelOrder,
     onCancelled: page.refresh,
   });
-  const hasFilters = Boolean(search || status || queueView !== 'ALL');
-  const priorityView: QueueView = summary.awaitingPayment
-    ? 'PAYMENT'
-    : summary.inProgress
-      ? 'IN_PROGRESS'
-      : summary.active
-        ? 'ACTIVE'
-        : 'ALL';
-  const priorityTitle = summary.awaitingPayment
-    ? `${summary.awaitingPayment} ${summary.awaitingPayment === 1 ? 'pagamento aguarda' : 'pagamentos aguardam'} confirmação`
-    : summary.inProgress
-      ? `${summary.inProgress} ${summary.inProgress === 1 ? 'pedido está' : 'pedidos estão'} em andamento`
-      : summary.active
-        ? `${summary.active} ${summary.active === 1 ? 'pedido precisa' : 'pedidos precisam'} de acompanhamento`
-        : 'Nenhuma pendência operacional';
+  const hasFilters = Boolean(search || status || queueView !== 'ALL' ||
+    typeFilter || paymentFilter || periodFilter !== 'ALL');
 
   const updateSearch = (value: string) => {
     setSearch(value);
@@ -244,6 +239,30 @@ export function AdminOrders({
     setSearch('');
     setStatus('');
     setQueueView('ALL');
+    setTypeFilter('');
+    setPaymentFilter('');
+    setPeriodFilter('ALL');
+  };
+
+  const changeOrderStatus = async (order: AdminOrder, nextStatus: string) => {
+    if (!onUpdateOrderStatus || changingStatusId !== null) return;
+    const confirmed = await confirmDialog({
+      title: `Atualizar andamento do pedido ${order.id}?`,
+      description: 'A atualização será validada pelo servidor e pelas regras operacionais.',
+      confirmLabel: 'Confirmar alteração',
+      cancelLabel: 'Voltar',
+    });
+    if (!confirmed) return;
+    setChangingStatusId(order.numericId);
+    try {
+      await onUpdateOrderStatus(order.numericId, nextStatus);
+      await page.refresh();
+      toast.success(`Pedido ${order.id} atualizado.`);
+    } catch (error) {
+      toast.error(getActionErrorMessage(error, 'Não foi possível atualizar o pedido.'));
+    } finally {
+      setChangingStatusId(null);
+    }
   };
 
   const confirmPayment = async (order: AdminOrder) => {
@@ -322,122 +341,40 @@ export function AdminOrders({
 
   return (
     <S.OrdersWorkspace>
-      <S.OrdersHero aria-labelledby="orders-command-title">
-        <S.HeroCopy>
-          <span className="eyebrow">
-            <Sparkles aria-hidden="true" /> Central de pedidos
-          </span>
-          <h2 id="orders-command-title">
-            {summary.active
-              ? 'Acompanhe cada pedido sem perder o ritmo'
-              : 'Sua fila está sob controle'}
-          </h2>
-          <p>
-            Pagamentos, preparo e entregas organizados para sua equipe agir com segurança e rapidez.
-          </p>
-          <div className="hero-pulse" aria-label="Situação atual da fila">
-            <span>
-              <ShoppingBag aria-hidden="true" /> {summary.active} ativos
-            </span>
-            <span>
-              <Clock3 aria-hidden="true" /> {summary.inProgress} em andamento
-            </span>
-            <span>
-              <PackageCheck aria-hidden="true" /> {summary.delivered} entregues
-            </span>
-          </div>
-        </S.HeroCopy>
-        <S.PriorityCard>
-          <span className="priority-label">
-            <Activity aria-hidden="true" /> Prioridade agora
-          </span>
-          <strong>{priorityTitle}</strong>
-          <p>
-            {summary.awaitingPayment
-              ? 'Confirme apenas os valores que já foram recebidos.'
-              : summary.active
-                ? 'Abra a fila prioritária para acompanhar os próximos passos.'
-                : 'Continue acompanhando o histórico e aguarde novos pedidos.'}
-          </p>
-          <button type="button" onClick={() => selectQueueView(priorityView)}>
-            {summary.active ? 'Ver prioridade' : 'Ver todos os pedidos'}
-            <ArrowRight aria-hidden="true" />
-          </button>
-          <small>{restaurantName}</small>
-        </S.PriorityCard>
-      </S.OrdersHero>
-
-      <S.OrdersSummary aria-label="Resumo dos pedidos">
-        <button
-          type="button"
-          className="summary-card active"
-          aria-label="Mostrar pedidos ativos"
-          aria-pressed={queueView === 'ACTIVE'}
-          onClick={() => selectQueueView('ACTIVE')}
-        >
-          <span className="summary-icon active" aria-hidden="true">
-            <ShoppingBag />
-          </span>
-          <span className="summary-copy">
-            <small>Pedidos ativos</small>
-            <strong>{summary.active}</strong>
-            <em>Precisam de acompanhamento</em>
-          </span>
-          <ArrowRight className="summary-arrow" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="summary-card payment"
-          aria-label="Mostrar pedidos aguardando pagamento"
-          aria-pressed={queueView === 'PAYMENT'}
-          onClick={() => selectQueueView('PAYMENT')}
-        >
-          <span className="summary-icon payment" aria-hidden="true">
-            <CircleDollarSign />
-          </span>
-          <span className="summary-copy">
-            <small>Aguardando pagamento</small>
-            <strong>{summary.awaitingPayment}</strong>
-            <em>Confirme somente após receber</em>
-          </span>
-          <ArrowRight className="summary-arrow" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="summary-card progress"
-          aria-label="Mostrar pedidos em andamento"
-          aria-pressed={queueView === 'IN_PROGRESS'}
-          onClick={() => selectQueueView('IN_PROGRESS')}
-        >
-          <span className="summary-icon progress" aria-hidden="true">
-            <CookingPot />
-          </span>
-          <span className="summary-copy">
-            <small>Em andamento</small>
-            <strong>{summary.inProgress}</strong>
-            <em>Preparo, pronto ou em rota</em>
-          </span>
-          <ArrowRight className="summary-arrow" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="summary-card delivered"
-          aria-label="Mostrar pedidos entregues"
-          aria-pressed={queueView === 'DELIVERED'}
-          onClick={() => selectQueueView('DELIVERED')}
-        >
-          <span className="summary-icon delivered" aria-hidden="true">
-            <PackageCheck />
-          </span>
-          <span className="summary-copy">
-            <small>Entregues</small>
-            <strong>{summary.delivered}</strong>
-            <em>Pedidos concluídos</em>
-          </span>
-          <ArrowRight className="summary-arrow" aria-hidden="true" />
-        </button>
-      </S.OrdersSummary>
-
+      <header className="orders-command-header">
+        <div><h1>Gestão de pedidos</h1><p>Acompanhe a operação em tempo real e mantenha o salão fluindo.</p></div>
+        <div className="command-context"><span><Activity aria-hidden="true" /> Operação em acompanhamento</span>
+          <span><ShoppingBag aria-hidden="true" /> {restaurantName}</span></div>
+      </header>
+      <section className="orders-metrics" aria-label="Indicadores operacionais">
+        {([
+          {label:'Novos pedidos',value:summary.pending,icon:Sparkles,status:'PENDENTE'},
+          {label:'Em preparo',value:summary.preparing,icon:CookingPot,status:'PREPARANDO'},
+          {label:'Prontos',value:summary.ready,icon:PackageCheck,status:'PRONTO'},
+          {label:'Em entrega',value:summary.onDelivery,icon:Bike,status:'SAIU_PARA_ENTREGA'},
+          {label:'Aguardam pagamento',value:summary.awaitingPayment,icon:AlertTriangle,status:'PAYMENT'},
+        ] as const).map(metric => <button key={metric.label} type="button" className="metric-card"
+          aria-label={`Ver ${metric.label.toLowerCase()}`} onClick={() => metric.status === 'PAYMENT'
+            ? selectQueueView('PAYMENT') : updateStatus(metric.status)}>
+          <span>{metric.label}</span><metric.icon aria-hidden="true" /><strong>{metric.value ?? '—'}</strong>
+        </button>)}
+      </section>
+      <div className="orders-filters" aria-label="Filtros de pedidos">
+        <label className="orders-search"><Search aria-hidden="true" />
+          <input value={search} onChange={event => updateSearch(event.target.value)}
+            placeholder="Buscar nº ou cliente..." aria-label="Buscar pedido por número ou cliente" />
+        </label>
+        <label><select value={typeFilter} onChange={event => setTypeFilter(event.target.value as typeof typeFilter)}
+          aria-label="Filtrar modalidade"><option value="">Modalidade</option><option value="DELIVERY">Entrega</option>
+          <option value="RETIRADA">Retirada</option><option value="MESA">Mesa</option></select></label>
+        <label><select value={paymentFilter} onChange={event => setPaymentFilter(event.target.value as typeof paymentFilter)}
+          aria-label="Filtrar pagamento"><option value="">Pagamento</option><option value="PIX">Pix</option>
+          <option value="CARTAO">Cartão</option><option value="DINHEIRO">Dinheiro</option></select></label>
+        <label><select value={periodFilter} onChange={event => setPeriodFilter(event.target.value as typeof periodFilter)}
+          aria-label="Filtrar período"><option value="ALL">Todo o período</option><option value="TODAY">Hoje</option></select></label>
+        <button type="button" className="filters-clear" onClick={clearFilters}
+          aria-label="Limpar filtros" disabled={!hasFilters}><FilterX aria-hidden="true" /></button>
+      </div>
       <S.OrdersPanel>
         <S.OrdersPanelHeader>
           <div>
@@ -446,23 +383,31 @@ export function AdminOrders({
             </span>
             <span>
               <small>OPERAÇÃO EM TEMPO REAL</small>
-              <h2>Fila de atendimento</h2>
+              <h2>Fila atual</h2>
               <p>Encontre o pedido certo e veja exatamente qual ação precisa ser tomada.</p>
             </span>
           </div>
-          <span className="live-status">
-            <Activity aria-hidden="true" />
-            {page.loading
-              ? 'Atualizando pedidos...'
-              : page.error
-                ? 'A atualização está pendente'
-                : 'Pedidos atualizados'}
-          </span>
+          <div className="orders-live-actions">
+            <span className="live-status">
+              <Activity aria-hidden="true" />
+              {page.loading
+                ? 'Atualizando pedidos...'
+                : page.error
+                  ? 'A atualização está pendente'
+                  : 'Pedidos atualizados'}
+            </span>
+            <button type="button" className="orders-refresh"
+              disabled={page.loading}
+              aria-label="Atualizar pedidos" onClick={() => void page.refresh()}>
+              <RefreshCw aria-hidden="true" /> Atualizar
+            </button>
+          </div>
         </S.OrdersPanelHeader>
 
         <S.QueueTabs aria-label="Visualizações rápidas da fila">
           <button
             type="button"
+            aria-label="Mostrar todos os pedidos"
             aria-pressed={queueView === 'ALL'}
             onClick={() => selectQueueView('ALL')}
           >
@@ -470,6 +415,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos ativos"
             aria-pressed={queueView === 'ACTIVE'}
             onClick={() => selectQueueView('ACTIVE')}
           >
@@ -477,6 +423,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos aguardando pagamento"
             aria-pressed={queueView === 'PAYMENT'}
             onClick={() => selectQueueView('PAYMENT')}
           >
@@ -484,6 +431,7 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos em andamento"
             aria-pressed={queueView === 'IN_PROGRESS'}
             onClick={() => selectQueueView('IN_PROGRESS')}
           >
@@ -491,62 +439,15 @@ export function AdminOrders({
           </button>
           <button
             type="button"
+            aria-label="Mostrar pedidos concluídos"
             aria-pressed={queueView === 'DELIVERED'}
             onClick={() => selectQueueView('DELIVERED')}
           >
-            Entregues <span>{summary.delivered}</span>
+            Concluídos <span>{summary.delivered}</span>
           </button>
+          <button type="button" aria-pressed={status === 'CANCELADO'} onClick={() => updateStatus('CANCELADO')}>
+            Cancelados <span>{summary.cancelled ?? '—'}</span></button>
         </S.QueueTabs>
-
-        <S.OrdersToolbar>
-          <label className="search-field">
-            <span>Buscar pedido</span>
-            <div>
-              <Search aria-hidden="true" />
-              <input
-                value={search}
-                onChange={(event) => updateSearch(event.target.value)}
-                placeholder="Número do pedido ou nome do cliente"
-                aria-label="Buscar pedido por número ou cliente"
-              />
-            </div>
-          </label>
-          <label className="status-filter">
-            <span>Status específico</span>
-            <div>
-              <select
-                value={status}
-                onChange={(event) => updateStatus(event.target.value)}
-                aria-label="Filtrar pedidos por status"
-              >
-                <option value="">Todos os status</option>
-                {ORDER_STATUSES.map((item) => (
-                  <option key={item} value={item}>
-                    {statusLabels[item]}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown aria-hidden="true" />
-            </div>
-          </label>
-          <div className="toolbar-result">
-            <span role="status" aria-live="polite">
-              {page.loading ? (
-                'Carregando pedidos...'
-              ) : (
-                <>
-                  <strong>{page.total}</strong>
-                  {page.total === 1 ? 'pedido encontrado' : 'pedidos encontrados'}
-                </>
-              )}
-            </span>
-            {hasFilters && (
-              <button type="button" onClick={clearFilters}>
-                <FilterX aria-hidden="true" /> Limpar filtros
-              </button>
-            )}
-          </div>
-        </S.OrdersToolbar>
 
         {page.error && (
           <S.OrdersEmpty role="alert">
@@ -560,6 +461,9 @@ export function AdminOrders({
         {displayedOrders.length ? (
           <div className="orders-split-view">
             <nav className="order-compact-list" aria-label="Selecionar pedido para detalhes">
+              <div className="queue-list-head">Fila atual <span>{page.total} pedidos</span></div>
+              <div className="queue-columns" aria-hidden="true"><span>Pedido</span><span>Modalidade</span>
+                <span>Pagamento</span><span>Total</span><span>Situação</span></div>
               {displayedOrders.map((item) => (
                 <button key={item.numericId} type="button"
                   aria-label={`Ver detalhes do pedido ${item.id} de ${item.customerName}`}
@@ -568,8 +472,10 @@ export function AdminOrders({
                   onClick={() => setSelectedOrderId(item.numericId)}>
                   <span className="compact-identity"><b>{item.id} <span>{item.customerName}</span></b>
                     <small>{getOrderTypeLabel(item.type)} · {formatCreatedAt(item.createdAt)}</small></span>
-                  <span className="compact-side"><strong>{money(item.total)}</strong>
-                    <small>{statusLabels[item.status] ?? item.status}</small></span>
+                  <span className="compact-modality">{getOrderTypeLabel(item.type)}</span>
+                  <span className="compact-payment">{getPaymentMethodLabel(item.payOnDeliveryMethod || item.paymentMethod)}</span>
+                  <span className="compact-value">{money(item.total)}</span>
+                  <span className={`compact-status tone-${item.status.toLowerCase()}`}>{statusLabels[item.status] ?? item.status}</span>
                 </button>
               ))}
             </nav>
@@ -675,6 +581,48 @@ export function AdminOrders({
                     </div>
                   </div>
 
+                  <section className="selected-order-items" aria-label="Itens do pedido">
+                    <div className="items-heading">Itens do pedido <span>{order.items?.length ?? 0} itens</span></div>
+                    {order.items?.length ? order.items.map((item, index) => (
+                      <div className="ordered-item" key={item.id || index}>
+                        <span className="item-quantity">{item.quantity}×</span>
+                        <div><strong>{item.name}</strong>
+                          {item.options.map((option, index) => <small key={index}>{option}</small>)}
+                          {item.observation && <small>Observação: {item.observation}</small>}
+                        </div>
+                        <b>{item.unitPrice === undefined ? '—' : money(item.unitPrice * item.quantity)}</b>
+                      </div>
+                    )) : <p className="no-order-items">Itens indisponíveis nesta consulta.</p>}
+                    {order.observation && <p className="order-observation"><strong>Observação:</strong> {order.observation}</p>}
+                  </section>
+                  {(order.itemsSubtotal !== undefined || order.couponDiscount !== undefined ||
+                    order.deliveryFeeAmount !== undefined) && (
+                    <section className="order-financial" aria-label="Resumo financeiro">
+                      <h4>Resumo financeiro</h4>
+                      {order.itemsSubtotal !== undefined && <div><span>Subtotal</span><b>{money(order.itemsSubtotal)}</b></div>}
+                      {order.productDiscountTotal !== undefined && order.productDiscountTotal > 0 &&
+                        <div><span>Desconto em produtos</span><b>− {money(order.productDiscountTotal)}</b></div>}
+                      {order.couponDiscount !== undefined && order.couponDiscount > 0 &&
+                        <div><span>Cupom {order.couponCode ?? ''}</span><b>− {money(order.couponDiscount)}</b></div>}
+                      {order.deliveryFeeAmount !== undefined && order.deliveryFeeAmount > 0 &&
+                        <div><span>Entrega</span><b>{money(order.deliveryFeeAmount)}</b></div>}
+                      <div className="financial-total"><span>Total</span><b>{money(order.total)}</b></div>
+                    </section>
+                  )}
+                  <section className="order-history" aria-label="Histórico registrado">
+                    <h4>Histórico de status</h4>
+                    {([
+                      { date: order.createdAt, label: 'Pedido criado' },
+                      { date: order.paidAt, label: 'Pagamento confirmado' },
+                      { date: order.preparationStartedAt, label: 'Preparo iniciado' },
+                      { date: order.readyAt, label: 'Pedido pronto' },
+                      { date: order.deliveryStartedAt, label: 'Entrega iniciada' },
+                      { date: order.deliveredAt, label: 'Pedido concluído' },
+                      { date: order.refundedAt, label: 'Estorno concluído' },
+                    ]).filter(event => event.date).map(event => (
+                      <div key={event.label}><span>{event.label}</span><time>{formatCreatedAt(event.date)}</time></div>
+                    ))}
+                  </section>
                   {waitingForCapacity ? (
                     <div className="operation-note processing-note" role="status">
                       <Clock3 aria-hidden="true" />
@@ -730,10 +678,25 @@ export function AdminOrders({
                   ) : null}
 
                   {order.type === 'DELIVERY' && order.paid &&
-                  !order.payOnDelivery && ['PENDENTE','PREPARANDO','PRONTO'].includes(order.status) &&
+                  !order.payOnDelivery && !order.assignedCourierId && ['PENDENTE','PREPARANDO','PRONTO'].includes(order.status) &&
                   <LalamoveFreightQuote orderId={order.numericId} />}
 
                   <footer className="order-actions">
+                    {onUpdateOrderStatus && !waitingForCapacity && (order.paid || order.payOnDelivery ||
+                      !['PIX','CARTAO'].includes(String(order.paymentMethod || '').toUpperCase())) &&
+                      !isFinished && !isRefundProcessing && (
+                      <div className="action-buttons status-actions">
+                        {order.status === 'PENDENTE' && <button type="button"
+                          onClick={() => void changeOrderStatus(order,'PREPARANDO')} disabled={changingStatusId !== null}
+                          aria-label={`Iniciar preparo do pedido ${order.id}`}>Iniciar preparo</button>}
+                        {order.status === 'PREPARANDO' && <button type="button"
+                          onClick={() => void changeOrderStatus(order,'PRONTO')} disabled={changingStatusId !== null}
+                          aria-label={`Marcar pronto o pedido ${order.id}`}>Marcar pronto</button>}
+                        {order.status === 'PRONTO' && order.type !== 'DELIVERY' && <button type="button"
+                          onClick={() => void changeOrderStatus(order,'ENTREGUE')}
+                          disabled={changingStatusId !== null || !order.paid}
+                          aria-label={`Concluir pedido ${order.id}`}>Concluir pedido</button>}
+                      </div>)}
                     {order.refundStatus === 'SUCCEEDED' ? (
                       <span className="operation-note refund-note">
                         <CheckCircle2 aria-hidden="true" />

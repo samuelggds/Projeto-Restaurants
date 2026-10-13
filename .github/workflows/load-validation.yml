@@ -1,6 +1,8 @@
 name: Load Validation
 
 on:
+  push:
+    branches: [fix/post-merge-improvements-20261013]
   schedule:
     - cron: '17 5 * * 6'
   workflow_dispatch:

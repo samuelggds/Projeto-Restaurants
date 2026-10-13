@@ -1,6 +1,8 @@
 name: Deep Validation
 
 on:
+  push:
+    branches: [fix/post-merge-improvements-20261013]
   schedule:
     - cron: '41 3 * * 1,4'
   workflow_dispatch:

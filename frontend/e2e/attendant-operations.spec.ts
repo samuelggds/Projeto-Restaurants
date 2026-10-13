@@ -73,6 +73,8 @@ async function setup(page: Page) {
     ],
   };
   let manualPayload: Record<string, unknown> | null = null;
+  const reservationSettings = { enabled: true, toleranceMinutes: 15 };
+  let reservationCreated: Record<string, unknown> | null = null;
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
@@ -84,6 +86,30 @@ async function setup(page: Page) {
         primaryColor: '#e16a3d',
         restaurant: { id: restaurantId, name: 'Pizzaria Horizonte', slug: 'pizzaria-horizonte' },
       });
+    }
+    if (path === '/table-reservations/tables') {
+      return json(route, [{ id: 11, number: 3, active: true }]);
+    }
+    if (path === '/table-reservations/settings') {
+      if (request.method() === 'PUT') {
+        const payload = request.postDataJSON() as { enabled: boolean; toleranceMinutes: number };
+        reservationSettings.enabled = payload.enabled;
+        reservationSettings.toleranceMinutes = payload.toleranceMinutes;
+      }
+      return json(route, reservationSettings);
+    }
+    if (path === '/table-reservations/history') {
+      return json(route, { total: 0, rows: [], skip: 0, take: 10 });
+    }
+    if (path === '/table-reservations') {
+      if (request.method() === 'POST') {
+        const data = request.postDataJSON() as Record<string, unknown>;
+        reservationCreated = data;
+        return json(route, { publicId: 'reservation-1', ...data, tableNumber: 3, status: 'CONFIRMED', checkedInAt: null, createdAt: new Date().toISOString() }, 201);
+      }
+      return json(route, reservationCreated ? [{
+        publicId: 'reservation-1', ...reservationCreated, tableNumber: 3, status: 'CONFIRMED', checkedInAt: null, createdAt: new Date().toISOString(),
+      }] : []);
     }
     if (path === '/attendant/workspace') return json(route, state);
     if (path === '/products')
@@ -132,8 +158,35 @@ async function setup(page: Page) {
     (sessionUser) => localStorage.setItem('user', JSON.stringify(sessionUser)),
     user,
   );
-  return { state, getManualPayload: () => manualPayload };
+  return { state, getManualPayload: () => manualPayload, getReservationCreated: () => reservationCreated, reservationSettings };
 }
+
+test('atendente gerencia a mesma agenda de reservas do admin, inclusive configurações', async ({ page }) => {
+  const api = await setup(page);
+  await page.goto('/attendant');
+  const nav = page.getByRole('navigation', { name: 'Navegação do atendente' });
+  await nav.getByRole('button', { name: 'Reservas' }).click();
+  const reservations = page.getByRole('region', { name: 'Gestão de reservas de mesas' });
+  await expect(page.getByRole('heading', { name: 'Reservas de mesas', exact: true }).first()).toBeVisible();
+  await expect(reservations.getByRole('button', { name: 'Salvar configurações' })).toBeVisible();
+  await reservations.getByRole('button', { name: 'Nova reserva' }).click();
+  await reservations.getByLabel('Cliente', { exact: true }).fill('Cliente Reserva');
+  await reservations.getByLabel('Telefone').fill('11999999999');
+  await reservations.getByLabel('Quantidade de pessoas').fill('2');
+  await reservations.getByLabel('Mesa', { exact: true }).selectOption('11');
+  const from = new Date(Date.now() + 24 * 60 * 60_000);
+  const to = new Date(from.getTime() + 90 * 60_000);
+  const localDate = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60_000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  };
+  await reservations.getByLabel('Data e horário').fill(localDate(from));
+  await reservations.getByLabel('Fim previsto').fill(localDate(to));
+  await reservations.getByRole('button', { name: 'Confirmar reserva' }).click();
+  await expect.poll(() => api.getReservationCreated()?.guestName).toBe('Cliente Reserva');
+  expect(api.getReservationCreated()?.tableId).toBe(11);
+  await expect(reservations.getByText('Reserva confirmada.')).toBeVisible();
+});
 
 test('abre pedido e conclui retirada paga', async ({ page }) => {
   await setup(page);
@@ -253,8 +306,9 @@ test('todas as áreas do atendente cabem em telas de 360 e 430 pixels', async ({
       ['Entregas', 'Acompanhar deliveries'],
       ['Mesas', 'Mesas em operação'],
       ['Chamados', 'Chamados do salão'],
+      ['Reservas', 'Reservas de mesas'],
     ]) {
-      const secondary = ['Atendimento', 'Entregas', 'Mesas'].includes(name);
+      const secondary = ['Atendimento', 'Entregas', 'Mesas', 'Reservas'].includes(name);
       if (secondary) await more.click();
       const button = (secondary ? menu : navigation).getByRole('button', { name, exact: true });
       await button.click();
@@ -267,7 +321,7 @@ test('todas as áreas do atendente cabem em telas de 360 e 430 pixels', async ({
         );
         await page.keyboard.press('Escape');
       } else await expect(button).toHaveAttribute('aria-current', 'page');
-      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: title, exact: true }).first()).toBeVisible();
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
         .toBeLessThanOrEqual(width + 1);

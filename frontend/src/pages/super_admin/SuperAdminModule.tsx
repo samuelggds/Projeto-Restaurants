@@ -159,29 +159,42 @@ export function SuperAdminModule({
   const sidebar = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   const searchButton = useRef<HTMLButtonElement>(null);
-  const focusSidebarClose = useCallback(
-    (element: HTMLButtonElement | null) => {
-      if (sidebarOpen) element?.focus();
-    },
-    [sidebarOpen],
-  );
+  const sidebarCloseButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!sidebarOpen) return;
     const previousOverflow = document.body.style.overflow;
     const opener = menuButton.current;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSidebarOpen(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSidebarOpen(false);
+      }
     };
+    const closeButton = sidebarCloseButton.current;
+    const focusClose = () => closeButton?.focus({ preventScroll: true });
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handleKeyDown);
-    const focusTimer = window.setTimeout(() => {
-      sidebar.current?.querySelector<HTMLElement>('[aria-label="Fechar menu"]')?.focus();
-    }, 260);
+    // Focus immediately and once the browser has committed the visible sidebar.
+    // WebKit can discard focus requested by a ref during a visibility transition.
+    focusClose();
+    const focusFrame = window.requestAnimationFrame(focusClose);
+    const handleTransitionEnd = (event: TransitionEvent) => {
+      if (
+        event.target === sidebar.current &&
+        event.propertyName === 'transform' &&
+        !sidebar.current?.contains(document.activeElement)
+      ) {
+        focusClose();
+      }
+    };
+    const sidebarElement = sidebar.current;
+    sidebarElement?.addEventListener('transitionend', handleTransitionEnd);
     return () => {
-      window.clearTimeout(focusTimer);
+      window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', handleKeyDown);
+      sidebarElement?.removeEventListener('transitionend', handleTransitionEnd);
       opener?.focus();
     };
   }, [sidebarOpen]);
@@ -377,7 +390,7 @@ export function SuperAdminModule({
           <small>PAINEL SUPER ADMIN</small>
         </S.Brand>
         <S.Close
-          ref={focusSidebarClose}
+          ref={sidebarCloseButton}
           type="button"
           aria-label="Fechar menu"
           onClick={() => setSidebarOpen(false)}

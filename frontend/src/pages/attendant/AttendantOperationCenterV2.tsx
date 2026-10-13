@@ -28,6 +28,7 @@ import { CreateOrder } from './operation-center/CreateOrder';
 import { Calls, Tables, Deliveries } from './operation-center/SalonViews';
 import { Support } from './operation-center/Support';
 import { EmptyState } from './operation-center/EmptyState';
+import { TableReservationsPanel } from '../shared/TableReservationsPanel';
 import {
   OperationServicesContext,
   productionOperationServices,
@@ -163,7 +164,9 @@ export function AttendantOperationCenterV2({
             </ErrorBanner>
           )}
           <Content>
-            {workspaceState.loading ? (
+            {view === 'reservations' ? (
+              <TableReservationsPanel admin />
+            ) : workspaceState.loading ? (
               <EmptyState
                 icon={RefreshCw}
                 title="Carregando a operação..."

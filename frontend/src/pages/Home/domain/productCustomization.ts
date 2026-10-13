@@ -224,7 +224,15 @@ export function toggleProductOption(
   if (option.locked && current.includes(optionId)) return selections;
 
   if (group.selectionType === 'SINGLE') {
-    return { ...selections, [groupId]: current.includes(optionId) ? [] : [optionId] };
+    // Required single-selection groups render as radios and cannot be cleared
+    // by duplicate label/native events. Optional SINGLE groups render as
+    // checkboxes and intentionally remain deselectable.
+    if (current.includes(optionId)) {
+      return group.minSelections > 0
+        ? selections
+        : { ...selections, [groupId]: [] };
+    }
+    return { ...selections, [groupId]: [optionId] };
   }
 
   if (current.includes(optionId)) {

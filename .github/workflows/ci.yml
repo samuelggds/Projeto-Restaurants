@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop, development]
+    branches: [main, master, develop, development, fix/post-merge-improvements-20261013]
   pull_request:
     branches: [main, master, develop, development]
 

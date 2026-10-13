@@ -77,3 +77,25 @@ export const mobileMoreNavigationItems = [
   ...operationNavigationItems.filter((item) => item.area === 'customers'),
   ...managementNavigationItems,
 ];
+
+export const adminSidebarGroups = [
+  { id: 'operation', label: 'OPERAÇÃO', areas: ['overview','orders','support','reservations'] },
+  { id: 'business', label: 'CARDÁPIO E CLIENTES', areas: ['catalog','customers'] },
+  { id: 'team', label: 'EQUIPE E GESTÃO', areas: ['employees','managed-service'] },
+  { id: 'finance', label: 'FINANCEIRO', areas: ['subscriptions'] },
+  { id: 'system', label: 'SISTEMA', areas: ['settings'] },
+] as const;
+
+export const adminSidebarNavigationGroups = adminSidebarGroups.map(group => ({
+  ...group,
+  items: group.areas.map(area => {
+    const item = [...operationNavigationItems,...managementNavigationItems]
+      .find(item => item.area === area);
+    if (!item) throw new Error(`Área administrativa ausente: ${area}`);
+    return item;
+  }),
+}));
+export const mobileGroupedNavigation = adminSidebarNavigationGroups.map(group => ({
+  ...group,
+  items: group.items.filter(item => mobileMoreNavigationItems.some(m => m.area === item.area)),
+})).filter(group => group.items.length > 0);

@@ -14,6 +14,9 @@ import {
   Users,
   UtensilsCrossed,
   WalletCards,
+  CheckCircle2,
+  CircleAlert,
+  RefreshCw,
   Undo2,
 } from 'lucide-react';
 import * as S from './AdminOverview.styles';
@@ -23,7 +26,7 @@ import { useRestaurantAvailabilityClock } from '../../Home/hooks/useHomePageRunt
 import ordersService, { type OrderOverview } from '../../../Services/ordersService';
 import { useAdminOrdersPage, type LoadAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 import { useAdminOrderCancellation } from '../hooks/useAdminOrderCancellation';
-import { canCancelAdminOrder, isOrderWaitingForCapacity } from '../domain/adminOrders';
+import { canCancelAdminOrder, getPaymentMethodLabel, isOrderWaitingForCapacity } from '../domain/adminOrders';
 
 type OverviewDestination = 'orders' | 'catalog' | 'customers';
 
@@ -75,6 +78,16 @@ function formatOrderType(type?: string) {
   if (normalized === 'MESA' || normalized === 'TABLE') return 'Mesa';
   if (normalized === 'RETIRADA' || normalized === 'PICKUP') return 'Retirada';
   return 'Pedido';
+}
+
+function paymentMethodForOverview(order: AdminOrder) {
+  const method = order.payOnDeliveryMethod || order.paymentMethod;
+  if (!method) {
+    return order.type === 'RETIRADA' && !order.paid && !order.payOnDelivery
+      ? 'Pagamento no balcão'
+      : 'Não informado';
+  }
+  return getPaymentMethodLabel(method);
 }
 
 function getTodayLabel() {
@@ -202,40 +215,54 @@ export function AdminOverview({
               ? `O restaurante ${restaurantName} está ${availability.isOpen ? 'aberto' : 'fechado'} para novos pedidos. ${availability.detail}.`
               : `Acompanhe pedidos e disponibilidade do cardápio do ${restaurantName}.`}
           </p>
-          <div className="hero-status" aria-label="Situação atual da operação">
-            <span>
-              <ShoppingBag aria-hidden="true" /> {metricText(metrics.todayOrders)}{' '}
-              {metrics.todayOrders === 1 ? 'pedido hoje' : 'pedidos hoje'}
-            </span>
-            <span>
-              <Clock3 aria-hidden="true" /> {metricText(metrics.preparingOrders)} em preparo
-            </span>
-            <span>
-              <PackageCheck aria-hidden="true" /> {availableProducts.length} disponíveis
-            </span>
+          <div className="hero-buttons">
+            <button type="button" className="primary" onClick={() => onNavigate('orders')}>
+              <ArrowRight aria-hidden="true" /> Acompanhar pedidos
+            </button>
+            <button type="button" onClick={() => onNavigate('catalog')}>
+              <UtensilsCrossed aria-hidden="true" /> Gerenciar cardápio
+            </button>
           </div>
         </S.HeroCopy>
         <S.HeroAside>
           <small>Operação agora · {getTodayLabel()}</small>
-          <strong>{restaurantName}</strong>
           <span className="hero-operating-state" role="status">
             {availability ? availability.label : 'Situação a confirmar'}
           </span>
           <div className="hero-quick-metrics">
-            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b><small>pedidos hoje</small></span>
-            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b><small>em preparo</small></span>
+            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b>{' '}<small>pedidos hoje</small></span>
+            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b>{' '}<small>em preparo</small></span>
             <span><PackageCheck aria-hidden="true" /><b>{products.length ? `${productAvailability}%` : '—'}</b><small>cardápio disponível</small></span>
-          </div>
-          <div>
-            <button type="button" className="primary" onClick={() => onNavigate('orders')}>
-              Acompanhar pedidos <ArrowRight aria-hidden="true" />
-            </button>
-            <button type="button" onClick={() => onNavigate('catalog')}>
-              Gerenciar cardápio
-            </button>
           </div>
         </S.HeroAside>
       </S.Hero>
+
+      <section className="overview-assistant-strip" aria-label="Resumo operacional">
+        <div className="assistant-intro">
+          <span className="assistant-title"><Sparkles aria-hidden="true" /> Assistente do restaurante</span>
+          <strong>Prioridades do momento</strong>
+          <p>{orderPage.summary?.awaitingPayment
+            ? `${orderPage.summary.awaitingPayment} pedido(s) aguardando pagamento. Verifique os recebimentos antes de avançar o preparo.`
+            : metricsStatus === 'ready' && metrics.preparingOrders > 0
+              ? `${metrics.preparingOrders} pedido(s) em preparo. Acompanhe a fila operacional.`
+              : 'Consulte os indicadores e acompanhe os próximos pedidos.'}</p>
+          <small><RefreshCw aria-hidden="true" /> Resumo com dados atuais do restaurante</small>
+        </div>
+        <div className="assistant-summary">
+          <div className="assistant-summary-heading"><strong>Resumo operacional</strong><span>Hoje</span></div>
+          <div className="assistant-summary-cards">
+            <div><WalletCards aria-hidden="true" /><span>Vendas registradas<small>Pedidos criados hoje</small></span>
+              <b>{metricsStatus === 'ready' && metrics.registeredSalesTotal !== undefined
+                ? money(metrics.registeredSalesTotal) : '—'}</b></div>
+            <div><CheckCircle2 aria-hidden="true" /><span>Pagamentos confirmados<small>Hoje</small></span>
+              <b>{metricText(metrics.confirmedPaymentsToday ?? '—')}</b></div>
+            <div><CircleAlert aria-hidden="true" /><span>Cancelamentos / estornos<small>Criados hoje / devolvidos hoje</small></span>
+              <b>{metricsStatus === 'ready' && metrics.cancelledOrdersCreatedToday !== undefined &&
+                metrics.refundedOrdersToday !== undefined
+                ? `${metrics.cancelledOrdersCreatedToday} / ${metrics.refundedOrdersToday}` : '—'}</b></div>
+          </div>
+        </div>
+      </section>
 
       <S.Metrics aria-label="Indicadores de hoje">
         <S.Metric>
@@ -345,12 +372,11 @@ export function AdminOverview({
                     <ShoppingBag />
                   </span>
                   <div className="row-copy">
-                    <b>
-                      {order.id} <span>•</span> {order.customerName}
-                    </b>
-                    <small>
-                      {formatOrderType(order.type)}
-                      {order.paymentMethod ? ` • ${order.paymentMethod.replaceAll('_', ' ')}` : ''}
+                    <b>{order.id} <span>•</span> {order.customerName}</b>
+                    <small>{formatOrderType(order.type)} <span aria-hidden="true">·</span>{' '}
+                      <span className="payment-method" aria-label={`Pagamento: ${paymentMethodForOverview(order)}`}>
+                        {paymentMethodForOverview(order)}
+                      </span>
                     </small>
                   </div>
                   <div className="row-result">

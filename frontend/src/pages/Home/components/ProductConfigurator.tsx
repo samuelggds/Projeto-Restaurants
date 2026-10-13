@@ -601,6 +601,23 @@ export function ProductConfigurator({
                       option.locked ||
                       (!isSelected && atLimit && group.selectionType === 'MULTIPLE'),
                     );
+                    const applyOptionSelection = () => {
+                      setSelections((current) =>
+                        toggleProductOption(regularGroups, current, group.id, option.id),
+                      );
+                      if (!isSelected) {
+                        setOptionQuantities((current) => ({
+                          ...current,
+                          [option.id]: option.defaultQuantity ?? option.minQuantity ?? 1,
+                        }));
+                      }
+                      setErrors((current) => {
+                        if (!current[group.id]) return current;
+                        const next = { ...current };
+                        delete next[group.id];
+                        return next;
+                      });
+                    };
                     return (
                       <S.Option
                         className="product-option"
@@ -608,7 +625,22 @@ export function ProductConfigurator({
                         $selected={isSelected}
                         $disabled={disabled && !option.locked}
                       >
-                        <label>
+                        <label
+                          onClick={(event) => {
+                            if (
+                              group.selectionType !== 'SINGLE' ||
+                              group.minSelections <= 0 ||
+                              disabled ||
+                              event.target instanceof HTMLInputElement
+                            ) return;
+                            // Keep the native label-to-radio click active for
+                            // Firefox/WebKit. Preventing its default action can
+                            // leave the DOM radio unchecked after a React update.
+                            // Applying the selection twice is safe because a
+                            // required SINGLE choice is idempotent.
+                            applyOptionSelection();
+                          }}
+                        >
                           <input
                             type={
                               group.selectionType === 'SINGLE' && group.minSelections > 0
@@ -619,23 +651,7 @@ export function ProductConfigurator({
                             value={option.id}
                             checked={isSelected}
                             disabled={disabled}
-                            onChange={() => {
-                              setSelections((current) =>
-                                toggleProductOption(regularGroups, current, group.id, option.id),
-                              );
-                              if (!isSelected) {
-                                setOptionQuantities((current) => ({
-                                  ...current,
-                                  [option.id]: option.defaultQuantity ?? option.minQuantity ?? 1,
-                                }));
-                              }
-                              setErrors((current) => {
-                                if (!current[group.id]) return current;
-                                const next = { ...current };
-                                delete next[group.id];
-                                return next;
-                              });
-                            }}
+                            onChange={applyOptionSelection}
                           />
                           <i>{isSelected && <Check size={15} strokeWidth={3} />}</i>
                           <S.OptionIdentity>

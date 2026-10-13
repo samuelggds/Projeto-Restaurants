@@ -14,8 +14,12 @@ export type TableReservation = {
   createdAt: string;
 };
 export type ReservationSettings = { enabled: boolean; toleranceMinutes: number };
+export type ReservationSelectableTable = { id: number; number: number; active: boolean };
 const root = '/table-reservations';
 export default {
+  async tables(): Promise<ReservationSelectableTable[]> {
+    return (await api.get(`${root}/tables`)).data;
+  },
   async settings(): Promise<ReservationSettings> {
     return (await api.get(`${root}/settings`)).data;
   },

@@ -196,8 +196,14 @@ async function fillDebitCheckout(page: Page) {
   await page.goto(`/${RESTAURANT_SLUG}`);
   await page.getByRole('button', { name: 'Ver detalhes de Prato artesanal' }).click();
   await page.getByText('Base tradicional', { exact: true }).click();
+  // A visible label must select the underlying native radio in Chromium,
+  // Firefox and Safari; otherwise validation correctly prevents adding the item.
+  await expect(page.getByRole('radio', { name: /Base tradicional/ })).toBeChecked();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Montar Prato artesanal' })).toHaveCount(0);
+  const cart = page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ });
+  await expect(cart).toBeVisible();
+  await cart.click();
 
   const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
   await checkout.getByRole('button', { name: 'Continuar', exact: true }).click();

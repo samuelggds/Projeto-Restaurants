@@ -1,9 +1,71 @@
 import { orderFixtureResponse } from './helpers/orderFixtures';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { mockAuthRefresh } from './helpers/mockAuthRefresh';
 
 const PRODUCT_IMAGE = '/e2e/fixtures/readme/pizza-calabresa.jpg';
+
+// The product grid intentionally has no entrance animation. On WebKit,
+// getAnimations({ subtree: true }) may indefinitely report an unrelated child
+// transition as 'running' even when the product cards have stopped moving.
+// Verify the actual rendered card geometry instead of animation bookkeeping.
+// The count, alignment, functional edits and screenshot checks remain required.
+async function waitForStableProductGrid(cards: Locator) {
+  await expect(cards).toHaveCount(5);
+  // The admin shell animates the parent content on entry. This is expected.
+  // Check the cards' actual geometry below rather than requiring their parent
+  // to report animation-name:none, which is false in every browser.
+  await expect
+    .poll(
+      () =>
+        cards.evaluateAll(async (elements) => {
+          const measure = () =>
+            elements.map((element) => {
+              const { x, y, width, height } = element.getBoundingClientRect();
+              return [x, y, width, height];
+            });
+          const first = measure();
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          const second = measure();
+          return (
+            first.length === 5 &&
+            first.every((bounds, index) =>
+              bounds.every(
+                (value, dimension) =>
+                  Number.isFinite(value) &&
+                  (dimension < 2 || value > 0) &&
+                  Math.abs(value - second[index][dimension]) <= 0.5,
+              ),
+            )
+          );
+        }),
+      { message: 'Product card positions and sizes must stop changing before visual checks' },
+    )
+    .toBe(true);
+}
+
+// Do not await Animation.finished promises: an infinite or WebKit-held animation
+// can leave such a promise pending until the entire test times out.
+// Poll actual finite animations instead; layout, CSS and screenshot assertions
+// below remain mandatory.
+async function waitForTransientAnimations(locator: Locator) {
+  await expect
+    .poll(
+      () =>
+        locator.evaluate((element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => {
+              const iterations = animation.effect?.getComputedTiming().iterations ?? 1;
+              return Number.isFinite(iterations) && animation.playState === 'running';
+            }).length,
+        ),
+      { message: 'Finite UI animations must settle before visual assertions' },
+    )
+    .toBe(0);
+}
 
 for (const width of [1440, 390]) {
   test(`preço meio a meio dispensa valor fixo no cadastro em ${width}px`, async ({
@@ -22,7 +84,10 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
-    await editor.getByRole('radio', { name: /Produto personalizável/ }).click();
+    const customMode = editor.getByRole('radio', { name: /Produto personalizável/ });
+    await expect(customMode).toBeVisible();
+    await customMode.click();
+    await expect(customMode).toHaveAttribute('aria-checked', 'true');
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
     await next();
     await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
@@ -240,23 +305,14 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
 
-  await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cardápio', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importar cardápio' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Novo produto' })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Categorias', exact: true })).toBeVisible();
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
-  await productCards
-    .first()
-    .locator('..')
-    .evaluate(async (element) => {
-      await Promise.all(
-        element
-          .getAnimations({ subtree: true })
-          .map((animation) => animation.finished.catch(() => undefined)),
-      );
-    });
+  await waitForStableProductGrid(productCards);
   const firstProductBox = await productCards.first().boundingBox();
   const lastProductBox = await productCards.last().boundingBox();
   expect(firstProductBox).not.toBeNull();
@@ -296,13 +352,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.getByText('Como funciona?')).toBeVisible();
   await expect(page.locator('.ingredient-list article')).toHaveCount(7);
-  await page.locator('.ingredient-list').evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(page.locator('.ingredient-list'));
   const firstIngredientBox = await page.locator('.ingredient-list article').first().boundingBox();
   const secondIngredientBox = await page.locator('.ingredient-list article').nth(1).boundingBox();
   expect(firstIngredientBox).not.toBeNull();
@@ -321,13 +371,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await page.getByRole('button', { name: 'Novo ingrediente' }).click();
   const ingredientWizard = page.locator('[data-ingredient-wizard]');
   await expect(ingredientWizard.getByText('Ingrediente pronto para ser reutilizado')).toBeVisible();
-  await ingredientWizard.evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(ingredientWizard);
   const wizardDialog = ingredientWizard.locator('form');
   await expect(wizardDialog).toHaveCSS('background-color', 'rgb(251, 250, 248)');
   await expect(wizardDialog).toHaveCSS('opacity', '1');
@@ -358,7 +402,17 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await ingredientWizard.getByRole('button', { name: 'Fechar cadastro de ingrediente' }).click();
 
   await page.getByRole('button', { name: 'Produtos', exact: true }).click();
-  await productCards.first().getByRole('button', { name: 'Opções de Pizza Calabresa' }).click();
+  await expect(productCards).toHaveCount(5);
+  // Confirm that the re-mounted product cards are geometrically stable before
+  // interacting. Waiting for all descendant Animation.playState values is not
+  // reliable in WebKit even when there is no grid/card entrance animation.
+  await waitForStableProductGrid(productCards);
+  const productActions = productCards.first().getByRole('button', {
+    name: 'Opções de Pizza Calabresa',
+  });
+  await expect(productActions).toBeVisible();
+  await productActions.click();
+  await expect(page.getByRole('button', { name: 'Editar produto' })).toBeVisible();
   await page.getByRole('button', { name: 'Editar produto' }).click();
   const productEditor = page.getByRole('dialog', { name: 'Editar produto' });
   for (let step = 0; step < 4; step += 1) {
@@ -377,13 +431,7 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await expect(customerPreview.getByText('Bacon', { exact: true })).toBeVisible();
   await expect(customerPreview.getByText('Catupiry', { exact: true })).toBeVisible();
   await expect(customerPreview.getByText('Adicionar ao pedido')).toBeVisible();
-  await productEditor.evaluate(async (element) => {
-    await Promise.all(
-      element
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
+  await waitForTransientAnimations(productEditor);
   await productEditor
     .locator('form')
     .first()
@@ -410,7 +458,9 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await productEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
 
   await productCards.nth(2).getByRole('button', { name: 'Opções de X-Bacon' }).click();
-  await page.getByRole('button', { name: 'Editar produto' }).click();
+  const editXbacon = page.getByRole('button', { name: 'Editar produto' });
+  await expect(editXbacon).toBeVisible();
+  await editXbacon.click();
   const emptyCustomizationEditor = page.getByRole('dialog', { name: 'Editar produto' });
   for (let step = 0; step < 4; step += 1) {
     await emptyCustomizationEditor.getByRole('button', { name: 'Continuar', exact: true }).click();
@@ -559,7 +609,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
 
   await navigationDialog.getByRole('button', { name: 'Não salvar' }).click();
   await expect(editor).toHaveCount(0, { timeout: 7000 });
-  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByRole('heading', { name: 'Gestão de pedidos' })).toBeVisible({ timeout: 7000 });
 
   await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
   editor = await openProductAndChangeName('Macarrão salvo antes de navegar');
@@ -577,7 +627,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
     name: 'Macarrão salvo antes de navegar',
   });
   await expect(editor).toHaveCount(0, { timeout: 7000 });
-  await expect(page.getByText('Pedidos ativos')).toBeVisible({ timeout: 7000 });
+  await expect(page.getByRole('heading', { name: 'Gestão de pedidos' })).toBeVisible({ timeout: 7000 });
 });
 
 test('Cardápio, ingredientes e importação permanecem contidos em 320 px', async ({

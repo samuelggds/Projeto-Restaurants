@@ -106,7 +106,7 @@ export const Sidebar = styled.aside<{ $open: boolean }>`
     pointer-events: ${(p) => (p.$open ? 'auto' : 'none')};
     transition:
       transform 0.22s ease,
-      visibility 0.22s;
+      visibility 0s linear (p) => (p.$open ? '0s' : '0.22s');
     box-shadow: 24px 0 70px #10251b35;
     padding-top: 32px;
   }
@@ -208,6 +208,14 @@ export const Nav = styled.nav`
 
 export const User = styled.div`
   margin-top: auto;
+  /* Keep account actions reachable even when a short viewport has a long menu.
+     The sidebar itself remains the scroll container for keyboard and wheel input. */
+  position: sticky;
+  bottom: -20px;
+  flex-shrink: 0;
+  z-index: 1;
+  background: #1c352b;
+  box-shadow: 0 -9px 18px -13px #071c14;
   border-top: 1px solid #ffffff17;
   padding: 20px 4px 0;
   display: grid;

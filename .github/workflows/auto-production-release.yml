@@ -53,6 +53,26 @@ jobs:
           fi
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
 
+          # A merge marked [no-auto-deploy] is code-only. This must be checked
+          # BEFORE deciding on a release or dispatching any production workflow.
+          # The API check fails closed if GitHub cannot verify the commit.
+          commit_message="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${target_sha}" --jq '.commit.message')"
+          if [[ "$commit_message" == *'[no-auto-deploy]'* ]]; then
+            {
+              echo 'action=skip'
+              echo 'reason=production-release-not-authorized'
+              echo "sha=$target_sha"
+            } >> "$GITHUB_OUTPUT"
+            {
+              echo '## Production release intentionally withheld'
+              echo
+              echo "- Commit: \`${target_sha}\`"
+              echo '- Reason: explicit [no-auto-deploy] merge marker.'
+              echo '- No image publication or production deployment was dispatched.'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq '.object.sha')"
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/release-production-images.yml/runs?branch=main&event=workflow_dispatch&per_page=100" > "$RUNNER_TEMP/release-runs.json"
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-production.yml/runs?branch=main&event=workflow_dispatch&per_page=100" > "$RUNNER_TEMP/deploy-runs.json"

@@ -643,6 +643,9 @@ export const Root = styled.section`
     overscroll-behavior: contain;
   }
   .order {
+    /* Reserve room for the sticky settings selector and fixed mobile navbar
+       when focusing or scrolling a settlement checkbox into view. */
+    scroll-margin-block: 135px 118px;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 10px;

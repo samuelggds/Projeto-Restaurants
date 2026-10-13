@@ -239,7 +239,26 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   await page.getByLabel('Produto que receberá o desconto').selectOption('101');
   await page.getByLabel('Valor do desconto').fill('20');
   await page.getByPlaceholder('Ex.: Oferta especial ou 20% OFF').fill('20% de desconto');
-  await page.getByRole('button', { name: 'Salvar oferta' }).click();
+  const saveOffer = page.getByRole('button', { name: 'Salvar oferta' });
+  // The admin shell uses smooth document scrolling. On WebKit, Playwright can
+  // click at the bottom of the viewport while that scroll is still in flight.
+  // Move the actual control to the viewport center synchronously, then verify
+  // native form validity before exercising its real click and API request.
+  await saveOffer.evaluate((button) =>
+    button.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' }),
+  );
+  await expect(saveOffer).toBeInViewport({ ratio: 1 });
+  const invalidControls = await page.locator('#discount-editor form').evaluate((form) =>
+    Array.from(form.querySelectorAll('input:invalid, select:invalid')).map((field) => ({
+      name: field.getAttribute('aria-label') || field.getAttribute('name') || field.tagName,
+      value: (field as HTMLInputElement | HTMLSelectElement).value,
+      reason: (field as HTMLInputElement | HTMLSelectElement).validity.stepMismatch
+        ? 'stepMismatch'
+        : 'invalid',
+    })),
+  );
+  expect(invalidControls).toEqual([]);
+  await saveOffer.click();
 
   await expect
     .poll(() => state.discountPayload)
