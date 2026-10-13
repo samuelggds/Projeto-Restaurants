@@ -1,5 +1,11 @@
 type CouponLike = {
   id: number;
+  kind?: 'PROMOTIONAL' | 'LOYALTY' | string;
+  usageLimit?: number | null;
+  usageCount?: number;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  allowTable?: boolean;
   restaurantId: number;
   code: string;
   title?: string | null;
@@ -36,6 +42,12 @@ export function presentCoupon(coupon: CouponLike) {
 
   return {
     id: coupon.id,
+    kind: coupon.kind === 'PROMOTIONAL' ? 'PROMOTIONAL' : 'LOYALTY',
+    usageLimit: coupon.usageLimit == null ? null : Number(coupon.usageLimit),
+    usageCount: Number(coupon.usageCount || 0),
+    allowDelivery: coupon.allowDelivery !== false,
+    allowPickup: coupon.allowPickup !== false,
+    allowTable: coupon.allowTable !== false,
     restaurantId: coupon.restaurantId,
     code,
     title: coupon.title?.trim() || code,

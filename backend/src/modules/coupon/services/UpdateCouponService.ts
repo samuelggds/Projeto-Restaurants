@@ -10,6 +10,11 @@ type UpdateCouponPayload = {
   description?: string;
   discountType?: 'FIXED' | 'PERCENTAGE';
   discount?: number;
+  kind?: 'PROMOTIONAL' | 'LOYALTY';
+  usageLimit?: number | null;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  allowTable?: boolean;
   minimumSubtotal?: number;
   maxDiscount?: number | null;
   loyaltyPurchasesRequired?: number;
@@ -29,6 +34,19 @@ class UpdateCouponService {
     }
 
     const parsed = updateCouponSchema.parse(payload);
+    // Do not convert issued loyalty redemptions into public, unauthenticated coupons.
+    if (parsed.kind && parsed.kind !== coupon.kind) {
+      throw new Error('Não é permitido alterar o tipo de um cupom existente.');
+    }
+    if (parsed.usageLimit != null && parsed.usageLimit < coupon.usageCount) {
+      throw new Error('O limite de utilizações não pode ser inferior às utilizações já registradas.');
+    }
+    const allowedDelivery = parsed.allowDelivery ?? coupon.allowDelivery;
+    const allowedPickup = parsed.allowPickup ?? coupon.allowPickup;
+    const allowedTable = parsed.allowTable ?? coupon.allowTable;
+    if (!allowedDelivery && !allowedPickup && !allowedTable) {
+      throw new Error('Habilite pelo menos uma modalidade para o cupom.');
+    }
     const effectiveDiscountType = parsed.discountType || coupon.discountType || 'FIXED';
     const effectiveDiscount = parsed.discount ?? Number(coupon.discount);
 

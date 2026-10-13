@@ -1,6 +1,10 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { loyaltyRestaurantQuerySchema } from '../../../validators/CouponValidator.js';
+import couponRepository from '../repositories/CouponRepository.js';
+import { presentCoupon } from '../utils/couponPresenter.js';
+import { couponControllerError } from '../controllers/CouponControllerHelpers.js';
 
 import CreateCouponController from '../controllers/CreateCouponController.js';
 import ListCouponController from '../controllers/ListCouponController.js';
@@ -19,6 +23,19 @@ function clientMiddleware(req: Request, res: Response, next: NextFunction) {
   }
   return next();
 }
+
+// Public listing is strictly scoped and intentionally excludes loyalty rewards.
+router.get('/public', async (req, res) => {
+  try {
+    const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
+    const coupons = await couponRepository.findActivePromotionalByRestaurant(restaurantId);
+    return res.status(200).json(coupons
+      .filter((coupon) => coupon.usageLimit === null || coupon.usageCount < coupon.usageLimit)
+      .map(presentCoupon));
+  } catch (error: unknown) {
+    return couponControllerError(res, error, 'Não foi possível consultar as campanhas.');
+  }
+});
 
 router.get('/loyalty', authMiddleware, clientMiddleware, (req, res) =>
   ListLoyaltyCouponsController.handle(req, res),

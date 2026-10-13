@@ -27,7 +27,19 @@ export const couponCodeSchema = z
     'Use apenas letras, números, hífen ou sublinhado no código.',
   );
 
+const nullableUsageLimitSchema = z.preprocess(
+  (value) => (value === '' || value === null || value === undefined ? null : value),
+  z.union([z.null(), z.coerce.number().int().min(1).max(1000000)]),
+);
+
+const couponKindSchema = z.enum(['PROMOTIONAL', 'LOYALTY']);
+
 const couponFields = {
+  kind: couponKindSchema,
+  usageLimit: nullableUsageLimitSchema,
+  allowDelivery: booleanSchema,
+  allowPickup: booleanSchema,
+  allowTable: booleanSchema,
   code: couponCodeSchema,
   title: z.string().trim().max(80, 'O título deve ter no máximo 80 caracteres.').optional(),
   description: z
@@ -58,10 +70,24 @@ const couponFields = {
   expiration: nullableDateSchema,
 };
 
+function validateCouponChannels(
+  payload: { allowDelivery?: boolean; allowPickup?: boolean; allowTable?: boolean },
+  context: z.RefinementCtx,
+) {
+  if (payload.allowDelivery === false && payload.allowPickup === false && payload.allowTable === false) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['allowDelivery'],
+      message: 'Habilite pelo menos uma modalidade para o cupom.',
+    });
+  }
+}
+
 function validatePercentage(
   payload: { discount?: number; discountType?: 'FIXED' | 'PERCENTAGE' },
   context: z.RefinementCtx,
 ) {
+  validateCouponChannels(payload as typeof couponFields, context);
   if (payload.discountType === 'PERCENTAGE' && Number(payload.discount) >= 100) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
@@ -74,6 +100,11 @@ function validatePercentage(
 export const createCouponSchema = z
   .object({
     ...couponFields,
+    kind: couponFields.kind.default('LOYALTY'),
+    usageLimit: couponFields.usageLimit.default(null),
+    allowDelivery: couponFields.allowDelivery.default(true),
+    allowPickup: couponFields.allowPickup.default(true),
+    allowTable: couponFields.allowTable.default(true),
     title: couponFields.title.default(''),
     description: couponFields.description.default(''),
     discountType: couponFields.discountType.default('FIXED'),
@@ -90,6 +121,11 @@ export const createCouponSchema = z
 export const updateCouponSchema = z
   .object({
     code: couponFields.code.optional(),
+    kind: couponFields.kind.optional(),
+    usageLimit: couponFields.usageLimit.optional(),
+    allowDelivery: couponFields.allowDelivery.optional(),
+    allowPickup: couponFields.allowPickup.optional(),
+    allowTable: couponFields.allowTable.optional(),
     title: couponFields.title,
     description: couponFields.description,
     discountType: couponFields.discountType.optional(),

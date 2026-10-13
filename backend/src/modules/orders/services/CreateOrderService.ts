@@ -93,6 +93,7 @@ type CreateOrderPayload = {
   guestPasswordHash?: string;
   tableId?: number | string | null;
   couponRedemptionId?: number | string | null;
+  couponCode?: string | null;
   items: OrderItemInput[];
   address?: string;
   number?: string;
@@ -233,6 +234,7 @@ class CreateOrderService {
     customerPhone,
     tableId,
     couponRedemptionId,
+    couponCode,
     items,
     address,
     number,
@@ -370,6 +372,7 @@ class CreateOrderService {
       observation,
       tableId,
       couponRedemptionId,
+      couponCode,
       items,
       address,
       number,
@@ -580,10 +583,45 @@ class CreateOrderService {
               type,
               items,
               couponRedemptionId,
+              couponCode,
               deliveryDistanceMeters,
               db: tx,
             });
             const { products, orderItems } = pricing;
+            // Lock the campaign row atomically before counting per-customer uses.
+            // Order creation and usage reservation share the same transaction.
+            if (pricing.couponId && !pricing.couponRedemptionId) {
+              const consumed = await tx.coupon.updateMany({
+                where: {
+                  id: pricing.couponId,
+                  restaurantId: resolvedRestaurantId,
+                  kind: 'PROMOTIONAL',
+                  active: true,
+                  OR: [{ expiration: null }, { expiration: { gt: new Date() } }],
+                  ...(pricing.couponId
+                    ? { AND: [{ OR: [{ usageLimit: null }, { usageCount: { lt: tx.coupon.fields.usageLimit } }] }] }
+                    : {}),
+                },
+                data: { usageCount: { increment: 1 } },
+              });
+              if (consumed.count !== 1) {
+                throw new OrderRequestError('Cupom promocional esgotado ou indisponível.');
+              }
+              const priorUses = await tx.order.count({
+                where: {
+                  restaurantId: resolvedRestaurantId,
+                  userId: resolvedUserId,
+                  couponId: pricing.couponId,
+                },
+              });
+              const policy = await tx.coupon.findFirst({
+                where: { id: pricing.couponId, restaurantId: resolvedRestaurantId },
+                select: { perCustomerLimit: true },
+              });
+              if (!policy || priorUses >= policy.perCustomerLimit) {
+                throw new OrderRequestError('Você atingiu o limite de utilizações deste cupom.');
+              }
+            }
 
             if (type === OrderType.MESA) {
               const tableAccountSettings =

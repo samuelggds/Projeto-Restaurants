@@ -51,6 +51,7 @@ export const createOrderSchema = z
     complement: z.string().trim().optional(),
 
     couponRedemptionId: z.number().int().positive().nullable().optional(),
+    couponCode: z.string().trim().max(40).optional(),
 
     items: z
       .array(

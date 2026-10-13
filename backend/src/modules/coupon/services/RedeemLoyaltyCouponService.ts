@@ -27,8 +27,8 @@ export class RedeemLoyaltyCouponService {
   async execute({ couponId, restaurantId, userId, now = new Date() }: RedeemLoyaltyCouponPayload) {
     const coupon = await couponRepository.findActiveById(couponId, restaurantId, now);
 
-    if (!coupon) {
-      throw new Error('Cupom indisponível ou expirado.');
+    if (!coupon || coupon.kind === 'PROMOTIONAL') {
+      throw new Error('Cupom de fidelidade indisponível ou expirado.');
     }
 
     await couponRepository.expireClaimedRedemptions({
