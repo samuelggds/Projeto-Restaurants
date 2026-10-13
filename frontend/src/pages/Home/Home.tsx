@@ -26,6 +26,8 @@ import { useHomeNotifications } from './hooks/useHomeNotifications';
 import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
 import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
+import { listPublicPromotionalCoupons } from '../../Services/publicCouponsService';
+import type { PublicPromotionalCoupon } from './types';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
@@ -234,6 +236,18 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
+  const [promotionalCoupons, setPromotionalCoupons] = useState<PublicPromotionalCoupon[]>([]);
+  const [selectedPromoCode, setSelectedPromoCode] = useState('');
+  useEffect(() => {
+    let alive = true;
+    setPromotionalCoupons([]);
+    if (restaurantId && !mesaMode) {
+      void listPublicPromotionalCoupons(restaurantId)
+        .then((items) => { if (alive) setPromotionalCoupons(items); })
+        .catch(() => { if (alive) setPromotionalCoupons([]); });
+    }
+    return () => { alive = false; };
+  }, [restaurantId, mesaMode]);
   const loyalty = useLoyaltyRewards({
     restaurantId,
     enabled: isLoyaltyCustomer,
@@ -263,12 +277,14 @@ export default function Home() {
       const code = String(value || '').trim().toUpperCase();
       if (!code) return;
 
+      const promo = promotionalCoupons.find((item) => item.code === code);
+      if (promo) {
+        setSelectedRedemptionId(null);
+        setSelectedPromoCode(promo.code);
+        return;
+      }
       if (!isLoyaltyCustomer) {
-        notify(
-          'info',
-          'Entre para usar seu cupom',
-          'Faça login para consultar e aplicar os cupons disponíveis na sua conta.',
-        );
+        notify('info', 'Cupom não encontrado', 'Este código não é uma promoção ativa deste restaurante.');
         return;
       }
 
@@ -288,8 +304,9 @@ export default function Home() {
       }
 
       setSelectedRedemptionId(match.redemption.id);
+      setSelectedPromoCode('');
     },
-    [isLoyaltyCustomer, loyalty.summary, loyaltyClock, notify],
+    [isLoyaltyCustomer, loyalty.summary, loyaltyClock, notify, promotionalCoupons],
   );
 
   const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
@@ -333,6 +350,7 @@ export default function Home() {
     cart,
     deliveryAddress,
     couponRedemptionId: appliedRedemptionId,
+    couponCode: selectedPromoCode,
   });
   const checkoutSubtotal = orderQuote.quote?.itemsSubtotal ?? cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
@@ -413,6 +431,7 @@ export default function Home() {
     onPurchased: () => {
       applyPurchasedStockToHome();
       setSelectedRedemptionId(null);
+      setSelectedPromoCode('');
       void loyalty.refresh();
       if (mesaMode) void tableAccount.refresh({ silent: true });
     },
@@ -548,6 +567,8 @@ export default function Home() {
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
+      couponCode: selectedPromoCode,
+      couponCode: selectedPromoCode,
     });
 
     await executePayment(
@@ -873,6 +894,12 @@ export default function Home() {
       <Suspense fallback={null}>
         <TableMenuExperience
           data={homeData}
+        promotionalCoupons={promotionalCoupons}
+        onApplyPromotionalCoupon={(code) => {
+          setSelectedPromoCode(code);
+          setSelectedRedemptionId(null);
+          openHomeCart();
+        }}
           tableLabel={mesaLabel}
           cart={cart}
           cartTotal={cartTotal}
@@ -1190,18 +1217,35 @@ export default function Home() {
           }
           onApplyCouponCode={applyCheckoutCouponCode}
           couponContent={
-            <LoyaltyCouponPanel
+            <>
+              {promotionalCoupons.length > 0 && (
+                <div style={{ display: 'grid', gap: 8, padding: 12 }}>
+                  <strong>Cupons promocionais</strong>
+                  {promotionalCoupons.map((coupon) => (
+                    <button key={coupon.id} type="button"
+                      onClick={() => applyCheckoutCouponCode(coupon.code)}>
+                      {coupon.code} — {coupon.title}
+                      {selectedPromoCode === coupon.code ? ' · Aplicado' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
               loading={loyalty.loading}
               error={loyalty.error}
               summary={loyalty.summary}
               selectedRedemptionId={appliedRedemptionId}
               redeemingCouponId={loyalty.redeemingCouponId}
-              onSelect={(redemptionId) => setSelectedRedemptionId(redemptionId)}
+              onSelect={(redemptionId) => {
+                setSelectedRedemptionId(redemptionId);
+                setSelectedPromoCode('');
+              }}
               onLogin={navigateToLogin}
               onRetry={() => void loyalty.refresh()}
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
+            </>
           }
           />
         </Suspense>

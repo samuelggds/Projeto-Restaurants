@@ -181,6 +181,8 @@ type PayloadInput = {
   customer: Record<string, unknown>;
   deliveryAddress: DeliveryAddress;
   couponRedemptionId?: number | null;
+  couponCode?: string | null;
+  couponCode?: string | null;
 };
 
 export function buildOrderItems(cart: CartItem[]) {
@@ -273,6 +275,7 @@ export function buildOrderQuotePayload(input: {
     type: input.type,
     items: buildOrderItems(input.cart),
     ...(input.couponRedemptionId ? { couponRedemptionId: input.couponRedemptionId } : {}),
+    ...(input.couponCode ? { couponCode: input.couponCode } : {}),
     ...(input.type === 'DELIVERY' && deliveryAddress
       ? {
           address: deliveryAddress.address.trim(),
@@ -296,6 +299,7 @@ export function buildOrderPayload(input: PayloadInput) {
     customer,
     deliveryAddress,
     couponRedemptionId,
+    couponCode,
   } = input;
   const isTableAccountOrder = type === 'MESA' && settlementMode === 'TABLE_ACCOUNT';
   const safePaymentMethod = paymentMethod || 'pix';
@@ -328,6 +332,7 @@ export function buildOrderPayload(input: PayloadInput) {
           : {}),
       items: buildOrderItems(cart),
       ...(couponRedemptionId ? { couponRedemptionId } : {}),
+      ...(couponCode ? { couponCode } : {}),
       tableId: type === 'MESA' ? tableId || undefined : undefined,
       customerName: String(customer.name || 'Cliente'),
       customerCpf: String(customer.cpf || '').replace(/\D/g, '') || undefined,

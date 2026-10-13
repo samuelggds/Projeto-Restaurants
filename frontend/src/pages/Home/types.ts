@@ -213,7 +213,24 @@ export type HomeProfileView =
   | 'help'
   | 'settings';
 
+export type PublicPromotionalCoupon = {
+  id: number;
+  code: string;
+  title: string;
+  description: string;
+  discountType: 'FIXED' | 'PERCENTAGE';
+  discount: number;
+  minimumSubtotal: number;
+  maxDiscount?: number | null;
+  expiration?: string | null;
+  allowDelivery: boolean;
+  allowPickup: boolean;
+  allowTable: boolean;
+};
+
 export type HomeExperienceProps = {
+  promotionalCoupons?: PublicPromotionalCoupon[];
+  onApplyPromotionalCoupon?: (code: string) => void;
   data: HomeData;
   cartCount?: number;
   cart?: CartItem[];

@@ -631,6 +631,28 @@ export const ProductCard = styled.article`
 
   .product-copy{min-width:0;display:grid;gap:4px}
 
+  .featured-badge {
+    display: inline-flex;
+    align-items: center;
+    align-self: start;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: #ff4b4b;
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .featured-flame { display: inline-block; transform-origin: bottom center; animation: featured-flame 2s ease-in-out infinite; }
+  @keyframes featured-flame {
+    0%, 100% { transform: rotate(-6deg) scale(1); }
+    35% { transform: rotate(5deg) scale(1.11); }
+    65% { transform: rotate(-3deg) scale(.98); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .featured-flame { animation: none; }
+  }
+
   .product-label{
     width:max-content;
     max-width:100%;
