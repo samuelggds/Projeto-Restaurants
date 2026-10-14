@@ -104,7 +104,7 @@ function CouponEntry({
         {pending ? 'Validando...' : isApplied ? 'Aplicado' : 'Aplicar'}
       </button>
       {(requestedCode || appliedCode) && onRemove && <button type="button" aria-label="Remover cupom" onClick={onRemove}>Remover</button>}
-      {error && <span className="coupon-error" role="alert">{error}</span>
+      {error && <span className="coupon-error" role="alert">{error}</span>}
     </div>
   );
 }
