@@ -1,3 +1,4 @@
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import couponRepository from '../repositories/CouponRepository.js';
 import { updateCouponSchema } from '../../../validators/CouponValidator.js';
 import { presentCoupon } from '../utils/couponPresenter.js';
@@ -11,7 +12,9 @@ type UpdateCouponPayload = {
   discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
   discount?: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
-  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+  audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+  inactivityMonths?: number | null;
+  recipientUserIds?: number[];
   usageLimit?: number | null;
   allowDelivery?: boolean;
   allowPickup?: boolean;
@@ -76,10 +79,23 @@ class UpdateCouponService {
       }
     }
 
-    const updated = await couponRepository.update(normalizedId, restaurantId, {
-      ...parsed,
+    const { recipientUserIds, ...couponUpdate } = parsed;
+    const updated = await withTenantDbContext(Number(restaurantId), async (db) => {
+      if (recipientUserIds && (effectiveAudience === 'SPECIFIC_CUSTOMERS')) {
+        const count = await db.user.count({ where: { id: { in: recipientUserIds }, restaurantId: Number(restaurantId), role: 'CLIENTE', active: true } });
+        if (count !== new Set(recipientUserIds).size) throw new Error('Destinatários inválidos.');
+      }
+      const result = await db.coupon.updateMany({ where: { id: Number(normalizedId), restaurantId: Number(restaurantId) }, data: {
+      ...couponUpdate,
       ...(parsed.title !== undefined ? { title: parsed.title || null } : {}),
       ...(parsed.description !== undefined ? { description: parsed.description || null } : {}),
+      } });
+      if (!result.count) return null;
+      if (recipientUserIds || (parsed.audience && parsed.audience !== 'SPECIFIC_CUSTOMERS')) {
+        await db.couponRecipient.deleteMany({ where: { couponId: Number(normalizedId), restaurantId: Number(restaurantId) } });
+        if (effectiveAudience === 'SPECIFIC_CUSTOMERS' && recipientUserIds?.length) await db.couponRecipient.createMany({ data: [...new Set(recipientUserIds)].map((userId) => ({ couponId: Number(normalizedId), restaurantId: Number(restaurantId), userId })) });
+      }
+      return db.coupon.findFirst({ where: { id: Number(normalizedId), restaurantId: Number(restaurantId) } });
     });
 
     if (!updated) {

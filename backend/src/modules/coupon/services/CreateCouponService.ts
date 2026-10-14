@@ -1,3 +1,4 @@
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import couponRepository from '../repositories/CouponRepository.js';
 import { createCouponSchema } from '../../../validators/CouponValidator.js';
 import { presentCoupon } from '../utils/couponPresenter.js';
@@ -6,7 +7,9 @@ type CreateCouponPayload = {
   code: string;
   discount: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
-  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+  audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+  inactivityMonths?: number | null;
+  recipientUserIds?: number[];
   usageLimit?: number | null;
   allowDelivery?: boolean;
   allowPickup?: boolean;
@@ -36,10 +39,18 @@ export class CreateCouponService {
 
     let coupon;
     try {
-      coupon = await couponRepository.create({
+      coupon = await withTenantDbContext(restaurantId, async (db) => {
+        const recipients = parsed.audience === 'SPECIFIC_CUSTOMERS' ? parsed.recipientUserIds : [];
+        if (recipients.length) {
+          const count = await db.user.count({ where: { restaurantId, id: { in: recipients }, role: 'CLIENTE', active: true } });
+          if (count !== new Set(recipients).size) throw new Error('Selecione apenas clientes autenticados deste restaurante.');
+        }
+        return db.coupon.create({
         code: parsed.code,
         kind: parsed.kind,
         audience: parsed.audience,
+        inactivityMonths: parsed.inactivityMonths,
+        ...(recipients.length ? { recipients: { create: [...new Set(recipients)].map((userId) => ({ restaurantId, userId })) } } : {}),
         usageLimit: parsed.usageLimit,
         allowDelivery: parsed.allowDelivery,
         allowPickup: parsed.allowPickup,
@@ -56,6 +67,7 @@ export class CreateCouponService {
         active: parsed.active,
         expiration: parsed.expiration,
         restaurantId,
+      });
       });
     } catch (error: any) {
       if (error?.code === 'P2002') {

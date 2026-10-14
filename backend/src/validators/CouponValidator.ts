@@ -33,11 +33,13 @@ const nullableUsageLimitSchema = z.preprocess(
 );
 
 const couponKindSchema = z.enum(['PROMOTIONAL', 'LOYALTY']);
-const couponAudienceSchema = z.enum(['ALL', 'NEW_CUSTOMERS', 'RETURNING_CUSTOMERS']);
+const couponAudienceSchema = z.enum(['ALL', 'AUTHENTICATED', 'NEW_CUSTOMERS', 'RETURNING_CUSTOMERS', 'INACTIVE_CUSTOMERS', 'SPECIFIC_CUSTOMERS']);
 
 const couponFields = {
   kind: couponKindSchema,
   audience: couponAudienceSchema,
+  inactivityMonths: z.number().int().min(1).max(36).nullable(),
+  recipientUserIds: z.array(z.number().int().positive()).max(200),
   usageLimit: nullableUsageLimitSchema,
   allowDelivery: booleanSchema,
   allowPickup: booleanSchema,
@@ -89,7 +91,9 @@ function validateCouponChannels(
 function validateCouponRules(
   payload: {
     kind?: 'PROMOTIONAL' | 'LOYALTY';
-    audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+    audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+    inactivityMonths?: number | null;
+    recipientUserIds?: number[];
     discount?: number;
     discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
     allowDelivery?: boolean;
@@ -99,6 +103,9 @@ function validateCouponRules(
   context: z.RefinementCtx,
 ) {
   validateCouponChannels(payload, context);
+  if (payload.audience === 'INACTIVE_CUSTOMERS' && !(Number.isInteger(payload.inactivityMonths) && (payload.inactivityMonths || 0) >= 1 && (payload.inactivityMonths || 0) <= 36)) context.addIssue({ code: z.ZodIssueCode.custom, path: ['inactivityMonths'], message: 'Informe entre 1 e 36 meses de inatividade.' });
+  if (payload.audience === 'SPECIFIC_CUSTOMERS' && !payload.recipientUserIds?.length) context.addIssue({ code: z.ZodIssueCode.custom, path: ['recipientUserIds'], message: 'Selecione pelo menos um cliente cadastrado.' });
+  if (payload.audience !== 'INACTIVE_CUSTOMERS' && payload.inactivityMonths != null) context.addIssue({ code: z.ZodIssueCode.custom, path: ['inactivityMonths'], message: 'Meses só são permitidos para clientes inativos.' });
   const { discount, discountType, kind, audience } = payload;
   if (discountType === 'PERCENTAGE' && discount !== undefined && discount >= 100) {
     context.addIssue({
@@ -145,6 +152,8 @@ export const createCouponSchema = z
     ...couponFields,
     kind: couponFields.kind.default('LOYALTY'),
     audience: couponFields.audience.default('ALL'),
+    inactivityMonths: couponFields.inactivityMonths.default(null),
+    recipientUserIds: couponFields.recipientUserIds.default([]),
     usageLimit: couponFields.usageLimit.default(null),
     allowDelivery: couponFields.allowDelivery.default(true),
     allowPickup: couponFields.allowPickup.default(true),
@@ -167,6 +176,8 @@ export const updateCouponSchema = z
     code: couponFields.code.optional(),
     kind: couponFields.kind.optional(),
     audience: couponFields.audience.optional(),
+    inactivityMonths: couponFields.inactivityMonths.optional(),
+    recipientUserIds: couponFields.recipientUserIds.optional(),
     usageLimit: couponFields.usageLimit.optional(),
     allowDelivery: couponFields.allowDelivery.optional(),
     allowPickup: couponFields.allowPickup.optional(),
