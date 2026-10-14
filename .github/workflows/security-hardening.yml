@@ -97,7 +97,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v3
         with:
           languages: javascript-typescript
           config-file: ./.github/codeql/codeql-config.yml
