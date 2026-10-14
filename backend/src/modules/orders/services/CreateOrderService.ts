@@ -627,7 +627,7 @@ class CreateOrderService {
                   throw new OrderRequestError('Entre com sua conta para usar cupons exclusivos.');
                 }
                 const customer = await tx.user.findFirst({
-                  where: { id: Number(userId), role: 'CLIENTE', restaurantId: resolvedRestaurantId, active: true },
+                  where: { id: Number(userId), role: 'CLIENTE', active: true },
                   select: { id: true, email: true },
                 });
                 if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {

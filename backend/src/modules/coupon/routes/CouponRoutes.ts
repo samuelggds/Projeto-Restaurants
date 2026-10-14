@@ -50,14 +50,17 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
   try {
     const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
     const userId = Number(req.user?.id || 0);
-    const authenticatedRestaurantId = Number(req.user?.restaurantId || 0);
-    if (!userId || authenticatedRestaurantId !== restaurantId)
-      return res.status(403).json({ error: 'Cliente não pertence a este restaurante.' });
+    if (!Number.isSafeInteger(userId) || userId <= 0)
+      return res.status(403).json({ error: 'Conta de cliente inválida.' });
+    // Customer accounts are global: registration does not assign restaurantId.
+    // The requested restaurant only scopes coupons/orders; user identity comes
+    // exclusively from the authenticated token, not from request parameters.
 
     const now = new Date();
     const coupons = await withTenantDbContext(restaurantId, async (db) => {
       const customer = await db.user.findFirst({
-        where: { id: userId, restaurantId, role: 'CLIENTE', active: true },
+        where: { id: userId, role: 'CLIENTE', active: true,
+          NOT: { email: { endsWith: '@gastronexa.local' } } },
         select: { id: true },
       });
       if (!customer) return null;

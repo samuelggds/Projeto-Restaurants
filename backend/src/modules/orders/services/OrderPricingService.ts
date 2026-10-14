@@ -318,7 +318,7 @@ class OrderPricingService {
           throw new OrderRequestError('Entre com sua conta para usar este cupom.');
         }
         const customer = await db.user.findFirst({
-          where: { id: authenticatedId, role: 'CLIENTE', restaurantId: normalizedRestaurantId, active: true },
+          where: { id: authenticatedId, role: 'CLIENTE', active: true },
           select: { id: true, email: true },
         });
         if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
