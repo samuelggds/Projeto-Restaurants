@@ -8,9 +8,10 @@ type UpdateCouponPayload = {
   code?: string;
   title?: string;
   description?: string;
-  discountType?: 'FIXED' | 'PERCENTAGE';
+  discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
   discount?: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
+  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
   usageLimit?: number | null;
   allowDelivery?: boolean;
   allowPickup?: boolean;
@@ -48,8 +49,22 @@ class UpdateCouponService {
       throw new Error('Habilite pelo menos uma modalidade para o cupom.');
     }
     const effectiveDiscountType = parsed.discountType || coupon.discountType || 'FIXED';
+    const effectiveAudience = parsed.audience ?? coupon.audience ?? 'ALL';
     const effectiveDiscount = parsed.discount ?? Number(coupon.discount);
 
+    if (coupon.kind !== 'PROMOTIONAL' && effectiveAudience !== 'ALL') {
+      throw new Error('Público-alvo de primeira compra é exclusivo para cupons promocionais.');
+    }
+    if (effectiveDiscountType === 'FREE_SHIPPING') {
+      if (coupon.kind !== 'PROMOTIONAL' || !allowedDelivery || allowedPickup || allowedTable) {
+        throw new Error('Frete grátis só pode ser usado em campanhas promocionais de Delivery.');
+      }
+      if (effectiveDiscount !== 0) {
+        throw new Error('Frete grátis não pode descontar valores dos produtos.');
+      }
+    } else if (effectiveDiscount <= 0) {
+      throw new Error('Informe um desconto maior que zero.');
+    }
     if (effectiveDiscountType === 'PERCENTAGE' && effectiveDiscount >= 100) {
       throw new Error('O desconto percentual deve ser menor que 100%.');
     }

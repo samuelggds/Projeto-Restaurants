@@ -67,6 +67,7 @@ const emptyDiscountDraft = (): ProductDiscountDraft => ({
 
 const emptyCouponDraft = (kind: 'PROMOTIONAL' | 'LOYALTY' = 'LOYALTY'): CouponDraft => ({
   kind,
+  audience: 'ALL',
   usageLimit: '',
   allowDelivery: true,
   allowPickup: true,
@@ -133,8 +134,8 @@ function discountPayloadFromProduct(product: AdminProduct, active: boolean) {
   } satisfies ProductDiscountPayload;
 }
 
-function discountValueLabel(type: DiscountType, value: number) {
-  return type === 'PERCENTAGE' ? `${value}%` : money(value);
+function discountValueLabel(type: DiscountType | 'FREE_SHIPPING', value: number) {
+  return type === 'FREE_SHIPPING' ? 'Frete grátis' : type === 'PERCENTAGE' ? `${value}%` : money(value);
 }
 
 export function PromotionsSettings({
@@ -905,6 +906,15 @@ export function PromotionsSettings({
                     </S.SwitchRow>
                   ))}
                 </div>
+                {tab === 'promotional' && <S.Field className="full">
+                  <span>Público-alvo do cupom</span>
+                  <select aria-label="Público-alvo do cupom" value={couponDraft.audience || 'ALL'}
+                    onChange={(event) => setCouponDraft((current) => ({ ...current, audience: event.target.value as CouponDraft['audience'] }))}>
+                    <option value="ALL">Todos os clientes, incluindo visitantes</option>
+                    <option value="NEW_CUSTOMERS">Somente novos clientes (primeira compra)</option>
+                    <option value="RETURNING_CUSTOMERS">Clientes que já realizaram compras</option>
+                  </select>
+                </S.Field>}
                 <div className="inline-fields full">
                   <S.Field>
                     <span>Tipo de recompensa</span>
@@ -914,14 +924,16 @@ export function PromotionsSettings({
                         setCouponDraft((current) => ({
                           ...current,
                           discountType: event.target.value as CouponDraft['discountType'],
+                          ...(event.target.value === 'FREE_SHIPPING' ? { discount: '0', allowDelivery: true, allowPickup: false, allowTable: false } : {}),
                         }))
                       }
                     >
                       <option value="PERCENTAGE">Porcentagem (%)</option>
                       <option value="FIXED">Valor em reais (R$)</option>
+                      {tab === 'promotional' && <option value="FREE_SHIPPING">Frete grátis</option>}
                     </select>
                   </S.Field>
-                  <S.Field>
+                  {couponDraft.discountType !== 'FREE_SHIPPING' && <S.Field>
                     <span>Valor do desconto</span>
                     <input
                       type="number"
@@ -933,7 +945,7 @@ export function PromotionsSettings({
                         setCouponDraft((current) => ({ ...current, discount: event.target.value }))
                       }
                     />
-                  </S.Field>
+                  </S.Field>}
                 </div>
                 <S.Field>
                   <span>Pedido mínimo (R$)</span>
@@ -952,7 +964,7 @@ export function PromotionsSettings({
                 </S.Field>
                 <S.Field>
                   <span>
-                    Limite do desconto (R$) <small>Opcional</small>
+                    {couponDraft.discountType === 'FREE_SHIPPING' ? 'Limite de frete subsidiado (R$)' : 'Limite do desconto (R$)'} <small>Opcional</small>
                   </span>
                   <input
                     type="number"
@@ -1024,7 +1036,7 @@ export function PromotionsSettings({
                   <div className="coupon-value">
                     <span>Você ganhou</span>
                     <strong>
-                      {couponDraft.discountType === 'PERCENTAGE'
+                      {couponDraft.discountType === 'FREE_SHIPPING' ? 'FRETE GRÁTIS' : couponDraft.discountType === 'PERCENTAGE'
                         ? `${Number(couponDraft.discount || 0)}%`
                         : money(Number(couponDraft.discount || 0))}
                     </strong>
@@ -1089,7 +1101,7 @@ export function PromotionsSettings({
                       <div className="campaign-meta">
                         <strong>{coupon.code}</strong>
                         <span>
-                          {discountValueLabel(coupon.discountType, coupon.discount)} de desconto
+                          {coupon.discountType === 'FREE_SHIPPING' ? 'Frete grátis' : `${discountValueLabel(coupon.discountType, coupon.discount)} de desconto`}
                         </span>
                         <span>
                           Após {coupon.loyaltyPurchasesRequired} pedidos pagos e entregues

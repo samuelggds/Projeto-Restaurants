@@ -616,10 +616,33 @@ class CreateOrderService {
               });
               const policy = await tx.coupon.findFirst({
                 where: { id: pricing.couponId, restaurantId: resolvedRestaurantId },
-                select: { perCustomerLimit: true },
+                select: { perCustomerLimit: true, audience: true },
               });
               if (!policy || priorUses >= policy.perCustomerLimit) {
                 throw new OrderRequestError('Você atingiu o limite de utilizações deste cupom.');
+              }
+              if (policy.audience !== 'ALL') {
+                if (!userId || Number(userId) !== Number(resolvedUserId)) {
+                  throw new OrderRequestError('Entre com sua conta para usar cupons exclusivos.');
+                }
+                const customer = await tx.user.findFirst({
+                  where: { id: Number(userId), role: 'CLIENTE' },
+                  select: { id: true, email: true },
+                });
+                if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
+                  throw new OrderRequestError('Cupom exclusivo para contas de clientes autenticados.');
+                }
+                await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${Number(userId)} FOR UPDATE`;
+                const previous = await tx.order.count({
+                  where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
+                    status: { not: OrderStatus.CANCELADO } },
+                });
+                if (policy.audience === 'NEW_CUSTOMERS' && previous > 0) {
+                  throw new OrderRequestError('Este cupom é exclusivo para a primeira compra.');
+                }
+                if (policy.audience === 'RETURNING_CUSTOMERS' && previous === 0) {
+                  throw new OrderRequestError('Este cupom é exclusivo para clientes recorrentes.');
+                }
               }
             }
 

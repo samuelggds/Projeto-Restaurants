@@ -35,6 +35,7 @@ class CreateOrderOpenFinancePaymentController {
         customerPhone,
         whatsappOptIn,
         couponRedemptionId,
+        couponCode,
       } = req.body;
 
       if (String(paymentMethod || '').toUpperCase() !== 'PIX') {
@@ -69,6 +70,7 @@ class CreateOrderOpenFinancePaymentController {
         customerCpf,
         customerPhone,
         couponRedemptionId,
+        couponCode,
         items,
         address,
         number,

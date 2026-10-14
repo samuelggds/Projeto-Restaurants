@@ -1,6 +1,7 @@
 type CouponLike = {
   id: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY' | string;
+  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | string;
   usageLimit?: number | null;
   usageCount?: number;
   allowDelivery?: boolean;
@@ -10,7 +11,7 @@ type CouponLike = {
   code: string;
   title?: string | null;
   description?: string | null;
-  discountType?: 'FIXED' | 'PERCENTAGE' | string;
+  discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING' | string;
   discount: unknown;
   minimumSubtotal?: unknown;
   maxDiscount?: unknown;
@@ -43,6 +44,7 @@ export function presentCoupon(coupon: CouponLike) {
   return {
     id: coupon.id,
     kind: coupon.kind === 'PROMOTIONAL' ? 'PROMOTIONAL' : 'LOYALTY',
+    audience: coupon.audience === 'NEW_CUSTOMERS' || coupon.audience === 'RETURNING_CUSTOMERS' ? coupon.audience : 'ALL',
     usageLimit: coupon.usageLimit == null ? null : Number(coupon.usageLimit),
     usageCount: Number(coupon.usageCount || 0),
     allowDelivery: coupon.allowDelivery !== false,
@@ -52,7 +54,7 @@ export function presentCoupon(coupon: CouponLike) {
     code,
     title: coupon.title?.trim() || code,
     description: coupon.description?.trim() || '',
-    discountType: coupon.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
+    discountType: coupon.discountType === 'FREE_SHIPPING' ? 'FREE_SHIPPING' : coupon.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
     discount: Number(coupon.discount || 0),
     minimumSubtotal: Number(coupon.minimumSubtotal || 0),
     maxDiscount: nullableNumber(coupon.maxDiscount),

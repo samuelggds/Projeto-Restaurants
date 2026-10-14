@@ -1,6 +1,7 @@
 import type { OrderQuote } from '../hooks/useOrderQuote';
 
 export function formatCheckoutCouponLabel(quote: OrderQuote | null) {
+  if (quote?.couponDiscountType === 'FREE_SHIPPING') return 'Cupom de frete grátis';
   if (quote?.couponDiscountType === 'PERCENTAGE' && quote.couponDiscountValue != null)
     return `Cupom ${quote.couponDiscountValue}%`;
   if (quote?.couponDiscountType === 'FIXED' && quote.couponDiscountValue != null)

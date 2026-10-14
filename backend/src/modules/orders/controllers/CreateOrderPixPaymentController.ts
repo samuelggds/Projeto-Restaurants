@@ -41,6 +41,7 @@ class CreateOrderPixPaymentController {
         customerPhone,
         whatsappOptIn,
         couponRedemptionId,
+        couponCode,
       } = req.body;
 
       const userId = req.user?.id ?? null;
@@ -98,6 +99,7 @@ class CreateOrderPixPaymentController {
         customerCpf,
         customerPhone,
         couponRedemptionId,
+        couponCode,
         items,
         address,
         number,

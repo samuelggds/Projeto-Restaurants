@@ -33,9 +33,11 @@ const nullableUsageLimitSchema = z.preprocess(
 );
 
 const couponKindSchema = z.enum(['PROMOTIONAL', 'LOYALTY']);
+const couponAudienceSchema = z.enum(['ALL', 'NEW_CUSTOMERS', 'RETURNING_CUSTOMERS']);
 
 const couponFields = {
   kind: couponKindSchema,
+  audience: couponAudienceSchema,
   usageLimit: nullableUsageLimitSchema,
   allowDelivery: booleanSchema,
   allowPickup: booleanSchema,
@@ -47,8 +49,8 @@ const couponFields = {
     .trim()
     .max(300, 'A descrição deve ter no máximo 300 caracteres.')
     .optional(),
-  discountType: z.enum(['FIXED', 'PERCENTAGE']),
-  discount: z.coerce.number().positive('Informe um desconto maior que zero.'),
+  discountType: z.enum(['FIXED', 'PERCENTAGE', 'FREE_SHIPPING']),
+  discount: z.coerce.number().min(0, 'O desconto não pode ser negativo.'),
   minimumSubtotal: z.coerce.number().min(0, 'O pedido mínimo não pode ser negativo.'),
   maxDiscount: nullableMoneySchema,
   loyaltyPurchasesRequired: z.coerce
@@ -84,16 +86,56 @@ function validateCouponChannels(
   }
 }
 
-function validatePercentage(
-  payload: { discount?: number; discountType?: 'FIXED' | 'PERCENTAGE' },
+function validateCouponRules(
+  payload: {
+    kind?: 'PROMOTIONAL' | 'LOYALTY';
+    audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+    discount?: number;
+    discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
+    allowDelivery?: boolean;
+    allowPickup?: boolean;
+    allowTable?: boolean;
+  },
   context: z.RefinementCtx,
 ) {
   validateCouponChannels(payload, context);
-  if (payload.discountType === 'PERCENTAGE' && Number(payload.discount) >= 100) {
+  const { discount, discountType, kind, audience } = payload;
+  if (discountType === 'PERCENTAGE' && discount !== undefined && discount >= 100) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['discount'],
       message: 'O desconto percentual deve ser menor que 100%.',
+    });
+  }
+  if (discountType === 'FREE_SHIPPING') {
+    if (kind === 'LOYALTY') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom, path: ['discountType'],
+        message: 'Frete grátis está disponível apenas para cupons promocionais.',
+      });
+    }
+    if (discount !== undefined && discount !== 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom, path: ['discount'],
+        message: 'Frete grátis não pode descontar valores dos produtos.',
+      });
+    }
+    if (payload.allowDelivery === false || payload.allowPickup === true || payload.allowTable === true) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom, path: ['allowDelivery'],
+        message: 'Frete grátis está disponível exclusivamente em Delivery.',
+      });
+    }
+  } else if (discount !== undefined && discount <= 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom, path: ['discount'],
+      message: 'Informe um desconto maior que zero.',
+    });
+  }
+  if (audience && audience !== 'ALL' && kind === 'LOYALTY') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom, path: ['audience'],
+      message: 'Público-alvo de primeira compra é exclusivo para cupons promocionais.',
     });
   }
 }
@@ -102,6 +144,7 @@ export const createCouponSchema = z
   .object({
     ...couponFields,
     kind: couponFields.kind.default('LOYALTY'),
+    audience: couponFields.audience.default('ALL'),
     usageLimit: couponFields.usageLimit.default(null),
     allowDelivery: couponFields.allowDelivery.default(true),
     allowPickup: couponFields.allowPickup.default(true),
@@ -117,12 +160,13 @@ export const createCouponSchema = z
     active: couponFields.active.default(true),
     expiration: couponFields.expiration.default(null),
   })
-  .superRefine(validatePercentage);
+  .superRefine(validateCouponRules);
 
 export const updateCouponSchema = z
   .object({
     code: couponFields.code.optional(),
     kind: couponFields.kind.optional(),
+    audience: couponFields.audience.optional(),
     usageLimit: couponFields.usageLimit.optional(),
     allowDelivery: couponFields.allowDelivery.optional(),
     allowPickup: couponFields.allowPickup.optional(),
@@ -142,7 +186,7 @@ export const updateCouponSchema = z
   .refine((payload) => Object.keys(payload).length > 0, {
     message: 'Informe ao menos um campo para atualizar o cupom.',
   })
-  .superRefine(validatePercentage);
+  .superRefine(validateCouponRules);
 
 export const couponIdSchema = z.coerce.number().int('Cupom inválido.').positive('Cupom inválido.');
 

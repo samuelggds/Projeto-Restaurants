@@ -411,3 +411,55 @@ test('rejeita canais desativados nas configurações do restaurante', async () =
     );
   }
 });
+
+test('aplica frete grátis limitado apenas sobre a entrega, sem alterar itens', async () => {
+  productRepository.findById = async () => product;
+  const db = {
+    restaurantSettings: { findUnique: async () => ({
+      deliveryFee: 15, minimumOrder: 0, freeShippingMinimum: 0, acceptsDelivery: true,
+    }) },
+    coupon: { findFirst: async ({ where }) => {
+      assert.equal(where.restaurantId, 7);
+      return { id: 88, restaurantId: 7, code: 'FRETEZERO', kind: 'PROMOTIONAL',
+        audience: 'ALL', active: true, usageLimit: null, usageCount: 0,
+        discountType: 'FREE_SHIPPING', discount: 0, minimumSubtotal: 50, maxDiscount: 10,
+        allowDelivery: true, allowPickup: false, allowTable: false };
+    } },
+  };
+
+  const quote = await orderPricingService.quote({
+    restaurantId: 7, type: 'DELIVERY', couponCode: 'FRETEZERO',
+    items: [{ productId: 10, quantity: 1, optionIds: [501] }], db,
+  });
+  assert.equal(quote.itemsSubtotal, 90);
+  assert.equal(quote.couponDiscount, 0);
+  assert.equal(quote.shippingCouponDiscount, 10);
+  assert.equal(quote.deliveryFeeAmount, 5);
+  assert.equal(quote.total, 95);
+  assert.equal(quote.couponDiscountType, 'FREE_SHIPPING');
+});
+
+test('rejeita primeira compra para cliente com pedidos anteriores no mesmo restaurante', async () => {
+  productRepository.findById = async () => product;
+  const db = {
+    restaurantSettings: { findUnique: async () => ({ deliveryFee: 0, minimumOrder: 0 }) },
+    coupon: { findFirst: async () => ({
+      id: 89, restaurantId: 7, code: 'PRIMEIRA', kind: 'PROMOTIONAL',
+      audience: 'NEW_CUSTOMERS', active: true, usageLimit: null, usageCount: 0,
+      discountType: 'FIXED', discount: 10, minimumSubtotal: 0, maxDiscount: null,
+    }) },
+    user: { findFirst: async ({ where }) => {
+      assert.equal(where.id, 42);
+      return { id: 42, email: 'cliente@example.com' };
+    } },
+    order: { count: async ({ where }) => {
+      assert.equal(where.restaurantId, 7);
+      assert.equal(where.userId, 42);
+      return 1;
+    } },
+  };
+  await assert.rejects(() => orderPricingService.quote({
+    restaurantId: 7, userId: 42, type: 'RETIRADA', couponCode: 'PRIMEIRA',
+    items: [{ productId: 10, quantity: 1, optionIds: [501] }], db,
+  }), /primeira compra/);
+});

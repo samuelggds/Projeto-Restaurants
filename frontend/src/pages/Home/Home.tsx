@@ -1149,6 +1149,7 @@ export default function Home() {
               cartCount={cartCount}
               subtotal={checkoutSubtotal}
               couponDiscount={orderQuote.quote?.couponDiscount || 0}
+              shippingCouponDiscount={orderQuote.quote?.shippingCouponDiscount || 0}
               couponLabel={checkoutCouponLabel}
               deliveryFee={orderQuote.quote?.deliveryFeeAmount || 0}
               total={checkoutTotal}

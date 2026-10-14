@@ -54,6 +54,7 @@ export type CreateOrderCardCheckoutPayload = {
   successUrl?: string;
   cancelUrl?: string;
   couponRedemptionId?: number | string | null;
+  couponCode?: string | null;
   customerIp?: string | null;
 };
 

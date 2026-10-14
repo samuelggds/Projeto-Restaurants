@@ -167,6 +167,7 @@ export function FigmaCheckoutFlow({
         ? currency(deliveryFee)
         : 'Grátis';
   const couponRuleLabel =
+    quote?.couponDiscountType === 'FREE_SHIPPING' ? 'Cupom frete grátis' :
     quote?.couponDiscountType === 'PERCENTAGE' && quote.couponDiscountValue !== null
       ? `Cupom ${quote.couponDiscountValue}%`
       : quote?.couponDiscountType === 'FIXED' && quote.couponDiscountValue !== null
@@ -308,6 +309,7 @@ export function FigmaCheckoutFlow({
                     <strong>− {currency(quote.couponDiscount)}</strong>
                   </div>
                 ) : null}
+                {quote?.shippingCouponDiscount ? <div className="summary-row discount"><span>Desconto no frete · {quote.couponCode}</span><strong>− {currency(quote.shippingCouponDiscount)}</strong></div> : null}
                 <div className="summary-row">
                   <span>Taxa de entrega</span>
                   <strong>{deliveryFeeText}</strong>
@@ -350,6 +352,7 @@ export function FigmaCheckoutFlow({
                     <strong>− {currency(quote.couponDiscount)}</strong>
                   </div>
                 ) : null}
+                {quote?.shippingCouponDiscount ? <div className="summary-row discount"><span>Desconto no frete · {quote.couponCode}</span><strong>− {currency(quote.shippingCouponDiscount)}</strong></div> : null}
                 <div className="summary-row">
                   <span>Taxa de Entrega</span>
                   <strong>{deliveryFeeText}</strong>

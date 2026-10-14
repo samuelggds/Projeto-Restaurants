@@ -10,12 +10,13 @@ export type OrderQuote = {
   itemsSubtotal: number;
   productDiscountTotal: number;
   couponDiscount: number;
+  shippingCouponDiscount?: number;
   deliveryFeeAmount: number;
   deliveryDistanceMeters: number | null;
   deliveryFeeFallbackApplied: boolean;
   total: number;
   couponCode: string | null;
-  couponDiscountType: 'PERCENTAGE' | 'FIXED' | null;
+  couponDiscountType: 'PERCENTAGE' | 'FIXED' | 'FREE_SHIPPING' | null;
   couponDiscountValue: number | null;
 };
 
@@ -54,13 +55,14 @@ export function normalizeOrderQuote(payload: unknown): OrderQuote {
     itemsSubtotal: money(quote.itemsSubtotal),
     productDiscountTotal: money(quote.productDiscountTotal),
     couponDiscount: money(quote.couponDiscount),
+    ...(quote.shippingCouponDiscount !== undefined ? { shippingCouponDiscount: money(quote.shippingCouponDiscount) } : {}),
     deliveryFeeAmount: money(quote.deliveryFeeAmount),
     deliveryDistanceMeters: optionalNonNegativeNumber(quote.deliveryDistanceMeters),
     deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied === true,
     total: money(quote.total),
     couponCode: quote.couponCode ? String(quote.couponCode) : null,
     couponDiscountType:
-      quote.couponDiscountType === 'PERCENTAGE' || quote.couponDiscountType === 'FIXED'
+      quote.couponDiscountType === 'PERCENTAGE' || quote.couponDiscountType === 'FIXED' || quote.couponDiscountType === 'FREE_SHIPPING'
         ? quote.couponDiscountType
         : null,
     couponDiscountValue: optionalNonNegativeNumber(quote.couponDiscountValue),

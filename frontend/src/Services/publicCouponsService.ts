@@ -11,13 +11,15 @@ export async function listPublicPromotionalCoupons(restaurantId: number): Promis
     const id = Number(coupon.id);
     const discount = Number(coupon.discount);
     const code = String(coupon.code || '').trim();
-    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(discount) || discount <= 0 ||
+    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(discount) ||
+        (coupon.discountType === 'FREE_SHIPPING' ? discount !== 0 : discount <= 0) ||
         !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(code)) return [];
     return [{
       id, code,
       title: String(coupon.title || code),
       description: String(coupon.description || ''),
-      discountType: coupon.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
+      discountType: coupon.discountType === 'FREE_SHIPPING' ? 'FREE_SHIPPING' : coupon.discountType === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
+      audience: coupon.audience === 'NEW_CUSTOMERS' || coupon.audience === 'RETURNING_CUSTOMERS' ? coupon.audience : 'ALL',
       discount, minimumSubtotal: Math.max(0, Number(coupon.minimumSubtotal) || 0),
       maxDiscount: coupon.maxDiscount == null ? null : Number(coupon.maxDiscount),
       expiration: coupon.expiration ? String(coupon.expiration) : null,
