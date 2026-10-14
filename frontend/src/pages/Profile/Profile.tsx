@@ -103,15 +103,16 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
-    if (restaurantId && user?.role === 'CLIENTE') {
+    const handle = window.setTimeout(() => {
+      if (!active || !restaurantId || user?.role !== 'CLIENTE') return;
       const userId = Number(user.id);
       setPromotionalWalletLoading(true);
       void listMyPromotionalCoupons(restaurantId)
         .then((items) => { if (active) setPromotionalWalletResult({ restaurantId, userId, items }); })
         .catch(() => { if (active) setPromotionalWalletResult({ restaurantId, userId, items: [] }); })
         .finally(() => { if (active) setPromotionalWalletLoading(false); });
-    }
-    return () => { active = false; };
+    }, 0);
+    return () => { active = false; window.clearTimeout(handle); };
   }, [restaurantId, user?.id, user?.role]);
 
   useEffect(() => {

@@ -18,9 +18,10 @@ export function CouponRecipientSelector({
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError('');
     const handle = window.setTimeout(() => {
+      if (!active) return;
+      setLoading(true);
+      setError('');
       void api.get('/coupons/eligible-customers', { params: { search: query.trim() } })
         .then(({ data }) => { if (active) setCustomers(Array.isArray(data) ? data : []); })
         .catch(() => { if (active) { setCustomers([]); setError('Não foi possível carregar os clientes cadastrados.'); } })

@@ -634,11 +634,33 @@ class CreateOrderService {
                   throw new OrderRequestError('Cupom exclusivo para contas de clientes autenticados.');
                 }
                 await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${Number(userId)} FOR UPDATE`;
-                const [previous, lastPaidOrder, targeted] = await Promise.all([tx.order.count({
+                const previous = await tx.order.count({
                   where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
                     paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } },
-                }), tx.order.findFirst({ where: { restaurantId: resolvedRestaurantId, userId: Number(userId), paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } }, orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }], select: { paidAt: true, createdAt: true } }), tx.couponRecipient.findFirst({ where: { restaurantId: resolvedRestaurantId, couponId: pricing.couponId, userId: Number(userId) } })]);
-                if (!isPromotionalAudienceEligible(policy.audience, previous, { lastPaidAt: lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null, inactivityMonths: policy.inactivityMonths, recipient: !!targeted })) throw new OrderRequestError('Cupom não disponível para este cliente.');
+                });
+                const lastPaidOrder = policy.audience === 'INACTIVE_CUSTOMERS'
+                  ? await tx.order.findFirst({
+                      where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
+                        paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } },
+                      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+                      select: { paidAt: true, createdAt: true },
+                    })
+                  : null;
+                const targeted = policy.audience === 'SPECIFIC_CUSTOMERS'
+                  ? await tx.couponRecipient.findFirst({
+                      where: { restaurantId: resolvedRestaurantId, couponId: pricing.couponId, userId: Number(userId) },
+                    })
+                  : null;
+                if (!isPromotionalAudienceEligible(policy.audience, previous, {
+                  lastPaidAt: lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null,
+                  inactivityMonths: policy.inactivityMonths, recipient: Boolean(targeted),
+                })) {
+                  if (policy.audience === 'NEW_CUSTOMERS')
+                    throw new OrderRequestError('Este cupom é exclusivo para a primeira compra.');
+                  if (policy.audience === 'RETURNING_CUSTOMERS')
+                    throw new OrderRequestError('Este cupom é exclusivo para clientes recorrentes.');
+                  throw new OrderRequestError('Cupom não disponível para este cliente.');
+                }
               }
             }
 
