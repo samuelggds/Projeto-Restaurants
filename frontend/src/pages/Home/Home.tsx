@@ -1,3 +1,4 @@
+import { listMyPromotionalCoupons } from '../../Services/publicCouponsService';
 import { CheckoutCouponContent } from './components/CheckoutCouponContent';
 import { resolveCheckoutCouponStatus } from './domain/checkoutCouponStatus';
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -238,7 +239,20 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
-  const promotionalCoupons = usePromotionalCoupons(restaurantId, mesaMode);
+  const publicCoupons = usePromotionalCoupons(restaurantId, mesaMode);
+  const [personalCampaigns, setPersonalCampaigns] = useState<import('../Profile/domain/promotionalWallet').WalletCampaign[]>([]);
+  useEffect(() => {
+    let active = true;
+    setPersonalCampaigns([]);
+    if (!restaurantId || mesaMode || user?.role !== 'CLIENTE') return () => { active = false; };
+    void listMyPromotionalCoupons(restaurantId).then((items) => {
+      if (active) setPersonalCampaigns(items);
+    }).catch(() => { if (active) setPersonalCampaigns([]); });
+    return () => { active = false; };
+  }, [restaurantId, mesaMode, user?.id, user?.role]);
+  const promotionalCoupons = user?.role === 'CLIENTE'
+    ? personalCampaigns.filter((coupon) => coupon.status === 'ACTIVE')
+    : publicCoupons;
   const [selectedPromoCode, setSelectedPromoCode] = useState('');
   const loyalty = useLoyaltyRewards({
     restaurantId,

@@ -29,3 +29,9 @@ export async function listPublicPromotionalCoupons(restaurantId: number): Promis
     }];
   });
 }
+
+export async function listMyPromotionalCoupons(restaurantId: number) {
+  const { normalizeWalletCampaigns } = await import('../pages/Profile/domain/promotionalWallet');
+  const response = await api.get('/coupons/mine', { params: { restaurantId } });
+  return normalizeWalletCampaigns(response.data);
+}

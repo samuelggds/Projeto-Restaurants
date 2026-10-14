@@ -1,3 +1,5 @@
+import { listMyPromotionalCoupons } from '../../Services/publicCouponsService';
+import type { WalletCampaign } from './domain/promotionalWallet';
 import { useOrderHistory } from '../../hooks/useOrderHistory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -49,6 +51,8 @@ export default function Profile() {
   );
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
+  const [promotionalWallet, setPromotionalWallet] = useState<WalletCampaign[]>([]);
+  const [promotionalWalletLoading, setPromotionalWalletLoading] = useState(false);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
   const [loyaltyRedeemingCouponId, setLoyaltyRedeemingCouponId] = useState<number | null>(null);
@@ -91,6 +95,19 @@ export default function Profile() {
       if (requestId === loyaltyRequestSequence.current) setLoyaltyLoading(false);
     }
   }, [restaurantId, user?.role]);
+
+  useEffect(() => {
+    let active = true;
+    setPromotionalWallet([]);
+    if (restaurantId && user?.role === 'CLIENTE') {
+      setPromotionalWalletLoading(true);
+      void listMyPromotionalCoupons(restaurantId)
+        .then((items) => { if (active) setPromotionalWallet(items); })
+        .catch(() => { if (active) setPromotionalWallet([]); })
+        .finally(() => { if (active) setPromotionalWalletLoading(false); });
+    }
+    return () => { active = false; };
+  }, [restaurantId, user?.id, user?.role]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void loadLoyaltyWallet(), 0);
@@ -429,6 +446,11 @@ export default function Profile() {
         onContinuePayment={handleContinuePayment}
         onReorder={handleReorder}
         historyPagination={history}
+        promotionalWallet={promotionalWallet}
+        promotionalWalletLoading={promotionalWalletLoading}
+        onUsePromotionalCoupon={(code) => navigate(restaurantHomePath, {
+          state: { openCart: true, promotionalCode: code },
+        })}
         loyaltySummary={loyaltySummary}
         loyaltyLoading={loyaltyLoading}
         loyaltyError={loyaltyError}
