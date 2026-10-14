@@ -437,7 +437,6 @@ export default function Login() {
     isDarkMode,
     loadGoogleScript,
     login,
-    portalSlug,
     showCustomerSelfService,
     validatePortalAccess,
   ]);
