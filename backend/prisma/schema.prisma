@@ -684,6 +684,7 @@ enum ProductKind {
 enum DiscountKind {
   FIXED
   PERCENTAGE
+  FREE_SHIPPING
 }
 
 model ProductIngredient {
@@ -1919,8 +1920,15 @@ enum CouponKind {
   LOYALTY
 }
 
+enum CouponAudience {
+  ALL
+  NEW_CUSTOMERS
+  RETURNING_CUSTOMERS
+}
+
 model Coupon {
   kind                     CouponKind         @default(LOYALTY)
+  audience                 CouponAudience     @default(ALL)
   usageLimit               Int?
   usageCount               Int                @default(0)
   allowDelivery            Boolean            @default(true)
@@ -1949,6 +1957,7 @@ model Coupon {
   @@unique([restaurantId, code])
   @@index([restaurantId, active, expiration])
   @@index([restaurantId, kind, active, expiration])
+  @@index([restaurantId, kind, audience, active])
 }
 
 model CouponRedemption {

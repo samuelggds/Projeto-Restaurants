@@ -6,13 +6,14 @@ type CreateCouponPayload = {
   code: string;
   discount: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
+  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
   usageLimit?: number | null;
   allowDelivery?: boolean;
   allowPickup?: boolean;
   allowTable?: boolean;
   title?: string;
   description?: string;
-  discountType?: 'FIXED' | 'PERCENTAGE';
+  discountType?: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
   minimumSubtotal?: number;
   maxDiscount?: number | null;
   loyaltyPurchasesRequired?: number;
@@ -38,6 +39,7 @@ export class CreateCouponService {
       coupon = await couponRepository.create({
         code: parsed.code,
         kind: parsed.kind,
+        audience: parsed.audience,
         usageLimit: parsed.usageLimit,
         allowDelivery: parsed.allowDelivery,
         allowPickup: parsed.allowPickup,
