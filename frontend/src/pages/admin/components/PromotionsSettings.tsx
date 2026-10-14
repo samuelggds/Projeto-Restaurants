@@ -65,7 +65,7 @@ const emptyDiscountDraft = (): ProductDiscountDraft => ({
   endsAt: '',
 });
 
-const emptyCouponDraft = (kind: 'PROMOTIONAL' | 'LOYALTY' = 'LOYALTY'): CouponDraft => ({
+const emptyCouponDraft = (kind: 'PROMOTIONAL' | 'LOYALTY'): CouponDraft => ({
   kind,
   audience: 'ALL',
   usageLimit: '',
@@ -158,7 +158,9 @@ export function PromotionsSettings({
   const [discountBusy, setDiscountBusy] = useState<string | null>(null);
   const [discountSearch, setDiscountSearch] = useState('');
   const [discountFilter, setDiscountFilter] = useState<'all' | StatusTone>('all');
-  const [couponDraft, setCouponDraft] = useState<CouponDraft>(emptyCouponDraft);
+  const [couponDraft, setCouponDraft] = useState<CouponDraft>(() =>
+    emptyCouponDraft(mode === 'coupons' ? 'PROMOTIONAL' : 'LOYALTY'),
+  );
   const [couponFeedback, setCouponFeedback] = useState<Feedback>(null);
   const [couponBusy, setCouponBusy] = useState<string | null>(null);
   const [couponSearch, setCouponSearch] = useState('');
@@ -316,7 +318,11 @@ export function PromotionsSettings({
 
   const submitCoupon = async (event: FormEvent) => {
     event.preventDefault();
-    const validation = validateCouponDraft(couponDraft);
+    const validatedDraft: CouponDraft = {
+      ...couponDraft,
+      kind: tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY',
+    };
+    const validation = validateCouponDraft(validatedDraft);
     if (validation.length) {
       setCouponFeedback({ tone: 'error', message: validation[0] });
       return;
@@ -324,7 +330,7 @@ export function PromotionsSettings({
     setCouponBusy('save');
     setCouponFeedback(null);
     try {
-      const payload = couponPayload({ ...couponDraft, kind: tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY' });
+      const payload = couponPayload(validatedDraft);
       if (couponDraft.id) await onUpdateCoupon?.(couponDraft.id, payload);
       else await onCreateCoupon?.(payload);
       setCouponDraft(emptyCouponDraft(tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY'));
@@ -376,7 +382,8 @@ export function PromotionsSettings({
     setCouponFeedback(null);
     try {
       await onDeleteCoupon?.(coupon.id);
-      if (couponDraft.id === coupon.id) setCouponDraft(emptyCouponDraft());
+      if (couponDraft.id === coupon.id)
+        setCouponDraft(emptyCouponDraft(tab === 'promotional' ? 'PROMOTIONAL' : 'LOYALTY'));
       setCouponFeedback({ tone: 'success', message: 'Benefício excluído.' });
     } catch (deleteError) {
       setCouponFeedback({
