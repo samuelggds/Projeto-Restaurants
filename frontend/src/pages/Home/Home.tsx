@@ -920,9 +920,7 @@ export default function Home() {
         data={homeData}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => {
-          setSelectedPromoCode(code);
-          setSelectedRedemptionId(null);
-          openHomeCart();
+          setSelectedPromoCode(code); setSelectedRedemptionId(null); openHomeCart();
         }}
         cartCount={tableClosingRequested ? 0 : cartCount}
         cart={tableClosingRequested ? [] : cart}
