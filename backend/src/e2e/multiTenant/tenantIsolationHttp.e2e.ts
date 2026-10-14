@@ -1,3 +1,4 @@
+import { runShippingCouponPersistenceCase } from './couponShippingPersistenceChecks.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHmac } from 'node:crypto';
@@ -31,6 +32,10 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
   const { baseUrl } = runtime;
 
   try {
+    await t.test('cupom FRETEZERO persiste desconto zero e respeita isolamento entre restaurantes', async () => {
+      await runShippingCouponPersistenceCase(baseUrl, fixture);
+    });
+
     await t.test('criação repetida e concorrente preserva um único pedido', async () => {
       const key = 'e2e-creation-attempt-123456789';
       const payload = { restaurantId: fixture.restaurants.a.id, type: 'RETIRADA', paymentMethod: 'DINHEIRO', items: [{ productId: fixture.products.a.id, quantity: 1 }] };
