@@ -54,9 +54,6 @@ export default function Profile() {
   const [promotionalWalletResult, setPromotionalWalletResult] = useState<{
     restaurantId: number; userId: number; items: WalletCampaign[];
   } | null>(null);
-  const promotionalWallet = promotionalWalletResult?.restaurantId === restaurantId &&
-    promotionalWalletResult?.userId === Number(user?.id)
-    ? promotionalWalletResult.items : [];
   const [promotionalWalletLoading, setPromotionalWalletLoading] = useState(false);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
@@ -77,6 +74,9 @@ export default function Profile() {
     );
     return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
   }, [user]);
+  const promotionalWallet = promotionalWalletResult?.restaurantId === restaurantId &&
+    promotionalWalletResult?.userId === Number(user?.id)
+    ? promotionalWalletResult.items : [];
 
   const loadLoyaltyWallet = useCallback(async () => {
     const requestId = ++loyaltyRequestSequence.current;

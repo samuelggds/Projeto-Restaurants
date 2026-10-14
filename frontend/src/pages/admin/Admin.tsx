@@ -245,7 +245,9 @@ function mapCoupon(value: unknown): AdminCoupon {
     title: String(raw.title ?? ''),
     description: String(raw.description ?? ''),
     discountType: raw.discountType === 'FREE_SHIPPING' ? 'FREE_SHIPPING' : raw.discountType === 'FIXED' ? 'FIXED' : 'PERCENTAGE',
-    audience: raw.audience === 'NEW_CUSTOMERS' || raw.audience === 'RETURNING_CUSTOMERS' ? raw.audience : 'ALL',
+    audience: (['ALL', 'AUTHENTICATED', 'NEW_CUSTOMERS', 'RETURNING_CUSTOMERS', 'INACTIVE_CUSTOMERS', 'SPECIFIC_CUSTOMERS'].includes(String(raw.audience)) ? raw.audience : 'ALL') as AdminCoupon['audience'],
+    inactivityMonths: raw.inactivityMonths == null ? null : Number(raw.inactivityMonths),
+    recipientUserIds: Array.isArray(raw.recipientUserIds) ? raw.recipientUserIds.map(Number) : [],
     discount: Number(raw.discount ?? 0),
     minimumSubtotal: Number(raw.minimumSubtotal ?? 0),
     maxDiscount:

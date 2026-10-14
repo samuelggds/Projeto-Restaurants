@@ -180,7 +180,9 @@ export type ProductDiscountPayload = {
 
 export type AdminCoupon = {
   kind?: 'PROMOTIONAL' | 'LOYALTY';
-  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+  audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+  inactivityMonths?: number | null;
+  recipientUserIds?: number[];
   usageLimit?: number | null;
   usageCount?: number;
   allowDelivery?: boolean;

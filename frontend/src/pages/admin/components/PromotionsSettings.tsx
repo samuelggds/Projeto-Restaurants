@@ -1,3 +1,4 @@
+import { CouponRecipientSelector } from './CouponRecipientSelector';
 import { type FormEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import {
   BadgePercent,
@@ -68,6 +69,8 @@ const emptyDiscountDraft = (): ProductDiscountDraft => ({
 const emptyCouponDraft = (kind: 'PROMOTIONAL' | 'LOYALTY'): CouponDraft => ({
   kind,
   audience: 'ALL',
+  inactivityMonths: '',
+  recipientUserIds: [],
   usageLimit: '',
   allowDelivery: true,
   allowPickup: true,
@@ -918,10 +921,24 @@ export function PromotionsSettings({
                   <select aria-label="Público-alvo do cupom" value={couponDraft.audience || 'ALL'}
                     onChange={(event) => setCouponDraft((current) => ({ ...current, audience: event.target.value as CouponDraft['audience'] }))}>
                     <option value="ALL">Todos os clientes, incluindo visitantes</option>
+                    <option value="AUTHENTICATED">Todos os clientes cadastrados e autenticados</option>
                     <option value="NEW_CUSTOMERS">Somente novos clientes (primeira compra)</option>
                     <option value="RETURNING_CUSTOMERS">Clientes que já realizaram compras</option>
+                    <option value="INACTIVE_CUSTOMERS">Clientes que estão há um tempo sem comprar</option>
+                    <option value="SPECIFIC_CUSTOMERS">Selecionar clientes específicos</option>
                   </select>
                 </S.Field>}
+                {tab === 'promotional' && couponDraft.audience === 'INACTIVE_CUSTOMERS' && (
+                  <S.Field>
+                    <span>Tempo sem comprar (meses)</span>
+                    <input type="number" min="1" max="36" step="1" value={couponDraft.inactivityMonths || ''}
+                      onChange={(event) => setCouponDraft((current) => ({ ...current, inactivityMonths: event.target.value }))} />
+                  </S.Field>
+                )}
+                {tab === 'promotional' && couponDraft.audience === 'SPECIFIC_CUSTOMERS' && (
+                  <CouponRecipientSelector selected={couponDraft.recipientUserIds || []}
+                    onChange={(recipientUserIds) => setCouponDraft((current) => ({ ...current, recipientUserIds }))} />
+                )}
                 <div className="inline-fields full">
                   <S.Field>
                     <span>Tipo de recompensa</span>
