@@ -218,7 +218,8 @@ export type PublicPromotionalCoupon = {
   code: string;
   title: string;
   description: string;
-  discountType: 'FIXED' | 'PERCENTAGE';
+  discountType: 'FIXED' | 'PERCENTAGE' | 'FREE_SHIPPING';
+  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
   discount: number;
   minimumSubtotal: number;
   maxDiscount?: number | null;

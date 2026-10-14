@@ -17,6 +17,7 @@ type Props = {
   cartCount: number;
   subtotal: number;
   couponDiscount: number;
+  shippingCouponDiscount?: number;
   couponLabel?: string;
   deliveryFee: number;
   total: number;
@@ -37,6 +38,7 @@ export function FigmaPaymentCheckout({
   cartCount,
   subtotal,
   couponDiscount,
+  shippingCouponDiscount = 0,
   couponLabel,
   deliveryFee,
   total,
@@ -85,6 +87,7 @@ export function FigmaPaymentCheckout({
             {couponDiscount > 0 ? (
               <div><span>{couponLabel || 'Cupom'}</span><strong>− {money(couponDiscount)}</strong></div>
             ) : null}
+            {shippingCouponDiscount > 0 && <div><span>Frete grátis (cupom)</span><strong>− {money(shippingCouponDiscount)}</strong></div>}
             <div><span>Taxa de entrega</span><strong>{deliveryFee > 0 ? money(deliveryFee) : 'Grátis'}</strong></div>
           </S.MobileRecap>
         </S.MethodColumn>
@@ -106,6 +109,7 @@ export function FigmaPaymentCheckout({
           {couponDiscount > 0 ? (
             <div className="row discount"><span>{couponLabel || 'Cupom'}</span><strong>− {money(couponDiscount)}</strong></div>
           ) : null}
+          {shippingCouponDiscount > 0 && <div className="row discount"><span>Desconto no frete</span><strong>− {money(shippingCouponDiscount)}</strong></div>}
           <div className="row"><span>Taxa de Entrega</span><strong className={deliveryFee <= 0 ? 'free' : ''}>{deliveryFee > 0 ? money(deliveryFee) : 'Grátis'}</strong></div>
           <div className="total"><span>Total</span><strong>{money(total)}</strong></div>
 

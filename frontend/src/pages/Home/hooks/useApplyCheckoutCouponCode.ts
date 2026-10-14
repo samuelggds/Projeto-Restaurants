@@ -20,6 +20,10 @@ export function useApplyCheckoutCouponCode({
     if (!code) return;
     const promo = promotionalCoupons.find((item) => item.code === code);
     if (promo) {
+      if (promo.audience && promo.audience !== 'ALL' && !isLoyaltyCustomer) {
+        notify('info', 'Entre na sua conta', 'Este cupom é exclusivo para clientes autenticados.');
+        return;
+      }
       setSelectedRedemptionId(null);
       setSelectedPromoCode(promo.code);
       return;
