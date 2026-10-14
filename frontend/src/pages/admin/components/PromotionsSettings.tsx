@@ -529,10 +529,9 @@ export function PromotionsSettings({
                     >
                       <option value="PERCENTAGE">Porcentagem (%)</option>
                       <option value="FIXED">Valor em reais (R$)</option>
-                      {tab === 'promotional' && <option value="FREE_SHIPPING">Frete grátis</option>}
                     </select>
                   </S.Field>
-                  {couponDraft.discountType !== 'FREE_SHIPPING' && <S.Field>
+                  <S.Field>
                     <span>Valor do desconto</span>
                     <input
                       aria-label="Valor do desconto"
