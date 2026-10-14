@@ -632,13 +632,19 @@ export const ProductCard = styled.article`
   .product-copy{min-width:0;display:grid;gap:4px}
 
   .featured-badge {
+    position: absolute;
+    z-index: 2;
+    top: 10px;
+    left: 10px;
+    width: fit-content;
+    max-width: calc(100% - 20px);
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
-    align-self: start;
     gap: 5px;
-    padding: 3px 8px;
-    border-radius: 6px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    pointer-events: none;
     background: #ff4b4b;
     color: white;
     font-size: 10px;

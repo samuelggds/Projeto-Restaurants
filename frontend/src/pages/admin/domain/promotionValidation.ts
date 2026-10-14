@@ -20,13 +20,14 @@ export type CouponDraft = {
   id?: string;
   code: string;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
+  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
   usageLimit?: string;
   allowDelivery?: boolean;
   allowPickup?: boolean;
   allowTable?: boolean;
   title: string;
   description: string;
-  discountType: DiscountType;
+  discountType: DiscountType | 'FREE_SHIPPING';
   discount: string;
   minimumSubtotal: string;
   maxDiscount: string;
@@ -125,8 +126,12 @@ export function validateCouponDraft(draft: CouponDraft) {
   if (draft.title.trim().length > 80) errors.push('O título deve ter no máximo 80 caracteres.');
   if (draft.description.trim().length > 240)
     errors.push('A descrição deve ter no máximo 240 caracteres.');
-  if (!Number.isFinite(discount) || discount <= 0)
+  if (draft.discountType !== 'FREE_SHIPPING' && (!Number.isFinite(discount) || discount <= 0))
     errors.push('Informe um valor de desconto maior que zero.');
+  if (draft.discountType === 'FREE_SHIPPING' && (draft.kind !== 'PROMOTIONAL' || draft.allowDelivery === false || draft.allowPickup !== false || draft.allowTable !== false))
+    errors.push('Frete grátis só pode ser aplicado no Delivery promocional.');
+  if (draft.kind === 'LOYALTY' && draft.audience !== undefined && draft.audience !== 'ALL')
+    errors.push('Público-alvo é exclusivo para campanhas promocionais.');
   if (draft.discountType === 'PERCENTAGE' && discount >= 100)
     errors.push('O desconto percentual deve ser menor que 100%.');
   if (!Number.isFinite(minimumSubtotal) || minimumSubtotal < 0)
@@ -154,6 +159,7 @@ export function couponPayload(draft: CouponDraft): CouponPayload {
   return {
     code: normalizeCouponCode(draft.code),
     kind: draft.kind || 'LOYALTY',
+    audience: draft.kind === 'PROMOTIONAL' ? draft.audience || 'ALL' : 'ALL',
     usageLimit: draft.usageLimit?.trim() ? Number(draft.usageLimit) : null,
     allowDelivery: draft.allowDelivery !== false,
     allowPickup: draft.allowPickup !== false,
@@ -161,7 +167,7 @@ export function couponPayload(draft: CouponDraft): CouponPayload {
     title: draft.title.trim(),
     description: draft.description.trim(),
     discountType: draft.discountType,
-    discount: Number(draft.discount),
+    discount: draft.discountType === 'FREE_SHIPPING' ? 0 : Number(draft.discount),
     minimumSubtotal: Number(draft.minimumSubtotal || 0),
     maxDiscount: draft.maxDiscount ? Number(draft.maxDiscount) : null,
     loyaltyPurchasesRequired: Number(draft.loyaltyPurchasesRequired),
@@ -177,6 +183,7 @@ export function couponToDraft(coupon: AdminCoupon): CouponDraft {
     id: coupon.id,
     code: coupon.code,
     kind: coupon.kind || 'LOYALTY',
+    audience: coupon.audience || 'ALL',
     usageLimit: coupon.usageLimit == null ? '' : String(coupon.usageLimit),
     allowDelivery: coupon.allowDelivery !== false,
     allowPickup: coupon.allowPickup !== false,
