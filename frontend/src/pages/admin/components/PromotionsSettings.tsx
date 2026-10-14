@@ -134,8 +134,8 @@ function discountPayloadFromProduct(product: AdminProduct, active: boolean) {
   } satisfies ProductDiscountPayload;
 }
 
-function discountValueLabel(type: DiscountType, value: number) {
-  return type === 'PERCENTAGE' ? `${value}%` : money(value);
+function discountValueLabel(type: DiscountType | 'FREE_SHIPPING', value: number) {
+  return type === 'FREE_SHIPPING' ? 'Frete grátis' : type === 'PERCENTAGE' ? `${value}%` : money(value);
 }
 
 export function PromotionsSettings({
@@ -931,9 +931,10 @@ export function PromotionsSettings({
                     >
                       <option value="PERCENTAGE">Porcentagem (%)</option>
                       <option value="FIXED">Valor em reais (R$)</option>
+                      {tab === 'promotional' && <option value="FREE_SHIPPING">Frete grátis</option>}
                     </select>
                   </S.Field>
-                  <S.Field>
+                  {couponDraft.discountType !== 'FREE_SHIPPING' && <S.Field>
                     <span>Valor do desconto</span>
                     <input
                       type="number"
@@ -1101,7 +1102,7 @@ export function PromotionsSettings({
                       <div className="campaign-meta">
                         <strong>{coupon.code}</strong>
                         <span>
-                          {discountValueLabel(coupon.discountType, coupon.discount)} de desconto
+                          {coupon.discountType === 'FREE_SHIPPING' ? 'Frete grátis' : `${discountValueLabel(coupon.discountType, coupon.discount)} de desconto`}
                         </span>
                         <span>
                           Após {coupon.loyaltyPurchasesRequired} pedidos pagos e entregues
