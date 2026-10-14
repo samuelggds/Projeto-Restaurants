@@ -63,5 +63,7 @@ export async function assertCustomerRestaurantAccess<T extends CustomerAccount>(
   if (!current?.active || current.restaurantId !== restaurantId || current.role !== 'CLIENTE' ||
       (linked.count === 0 && current.authVersion !== account.authVersion + 1))
     throw new Error('Não foi possível confirmar o restaurante desta conta.');
-  return current as T;
+  // Preserve the precise caller shape while updating the two fields changed
+  // during the atomic legacy reconciliation, rather than casting Prisma.User to T.
+  return { ...account, restaurantId, authVersion: current.authVersion };
 }

@@ -249,7 +249,7 @@ export default function Register() {
     } finally {
       googleInitInFlightRef.current = false;
     }
-  }, [destinationAfterGoogle, loadGoogleScript, login, loginPath, navigate]);
+  }, [destinationAfterGoogle, loadGoogleScript, login, loginPath, navigate, pathSlug]);
 
   useEffect(() => {
     googleMountedRef.current = true;

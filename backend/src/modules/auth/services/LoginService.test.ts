@@ -2,6 +2,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import bcrypt from 'bcrypt';
+import prisma from '../../../config/prisma.js';
 import { LoginService } from './LoginService.js';
 import loginLockoutService from './LoginLockoutService.js';
 import loginMfaService from './LoginMfaService.js';
@@ -17,6 +18,7 @@ const originals = {
   refreshToken: authTokenService.createRefreshToken,
   findByEmail: userRepository.findByEmail,
   recordSuccessfulLogin: userRepository.recordSuccessfulLogin,
+  findRestaurant: prisma.restaurant.findUnique,
 };
 
 const loginService = new LoginService({
@@ -32,6 +34,7 @@ afterEach(() => {
   authTokenService.createRefreshToken = originals.refreshToken;
   userRepository.findByEmail = originals.findByEmail;
   userRepository.recordSuccessfulLogin = originals.recordSuccessfulLogin;
+  prisma.restaurant.findUnique = originals.findRestaurant;
 });
 
 async function installSuccessfulPasswordLogin(events: string[], role = 'CLIENTE') {
@@ -47,7 +50,7 @@ async function installSuccessfulPasswordLogin(events: string[], role = 'CLIENTE'
     password: passwordHash,
     role,
     subRole: null,
-    restaurantId: null,
+    restaurantId: 9,
     authVersion: 0,
     active: true,
     mustChangePassword: false,
@@ -64,6 +67,10 @@ async function installSuccessfulPasswordLogin(events: string[], role = 'CLIENTE'
     events.push('refresh-token');
     return 'refresh';
   };
+  prisma.restaurant.findUnique = async ({ where }) => {
+    assert.equal(where.slug, 'pizza-test');
+    return { id: 9, active: true };
+  };
   userRepository.recordSuccessfulLogin = async (userId) => {
     events.push(`last-login:${userId}`);
     return new Date();
@@ -78,6 +85,7 @@ test('registra lastLoginAt somente depois de emitir a sessão completa', async (
 
   const result = await loginService.execute({
     email: 'CLIENTE@PIZZA.TEST',
+    restaurantSlug: 'pizza-test',
     password,
   });
 
@@ -118,10 +126,34 @@ test('não registra lastLoginAt enquanto o MFA ainda está pendente', async () =
 
   const result = await loginService.execute({
     email: 'cliente@pizza.test',
+    restaurantSlug: 'pizza-test',
     password,
   });
 
   assert.equal(result.mfaRequired, true);
+  assert.deepEqual(events, []);
+});
+
+test('nega autenticação de cliente em restaurante diferente, sem emitir tokens', async () => {
+  const events = [];
+  const password = await installSuccessfulPasswordLogin(events);
+  loginMfaService.beginIfRequired = async () => null;
+  prisma.restaurant.findUnique = async () => ({ id: 12, active: true });
+  await assert.rejects(
+    loginService.execute({ email: 'cliente@pizza.test', restaurantSlug: 'outro-restaurante', password }),
+    /conta pertence a outro restaurante/u,
+  );
+  assert.deepEqual(events, []);
+});
+
+test('nega login de cliente sem contexto do restaurante', async () => {
+  const events = [];
+  const password = await installSuccessfulPasswordLogin(events);
+  loginMfaService.beginIfRequired = async () => null;
+  await assert.rejects(
+    loginService.execute({ email: 'cliente@pizza.test', password }),
+    /endereço do restaurante/u,
+  );
   assert.deepEqual(events, []);
 });
 
