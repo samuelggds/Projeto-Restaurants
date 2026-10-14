@@ -383,6 +383,21 @@ export const CartSummarySidebar = styled.aside`
       background-color 180ms ease;
   }
 
+  .coupon-entry:has(.coupon-error) { grid-template-columns: 18px minmax(0, 1fr) auto auto; }
+  .coupon-entry .coupon-error {
+    grid-column: 1 / -1;
+    color: #b91c1c;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+  }
+  .coupon-entry button[aria-label="Remover cupom"] {
+    color: #9b3737;
+    font-size: 11px;
+    padding-inline: 5px;
+  }
+  .coupon-entry button:disabled { opacity: .65; cursor: wait; }
+
   .coupon-entry:focus-within {
     border-color: color-mix(in srgb, var(--checkout-primary) 45%, var(--checkout-line));
     background: #fff;
@@ -585,6 +600,21 @@ export const MobileCartSummary = styled.section`
         box-shadow 180ms ease,
         transform 180ms ease;
     }
+
+    .coupon-entry:has(button[aria-label="Remover cupom"]) {
+      grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    }
+    .coupon-entry .coupon-error {
+      grid-column: 1 / -1;
+      color: #b91c1c;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .coupon-entry button[aria-label="Remover cupom"] {
+      color: #9b3737;
+      font-size: 10px;
+    }
+    .coupon-entry button:disabled { opacity: .65; cursor: wait; }
 
     .coupon-entry:focus-within {
       border-color: color-mix(in srgb, var(--checkout-primary) 45%, var(--checkout-line));
