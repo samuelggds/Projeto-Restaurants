@@ -58,6 +58,7 @@ model User {
   supportChatMessages           SupportChatMessage[]
   addresses                     UserAddress[]
   couponRedemptions             CouponRedemption[]
+  couponRecipients              CouponRecipient[]
   assignedTableServiceCalls     TableServiceCall[]           @relation("AssignedTableServiceCalls")
   resolvedTableServiceCalls     TableServiceCall[]           @relation("ResolvedTableServiceCalls")
   confirmedTablePayments        TablePaymentIntent[]         @relation("ManualTablePaymentConfirmations")
@@ -1922,13 +1923,17 @@ enum CouponKind {
 
 enum CouponAudience {
   ALL
+  AUTHENTICATED
   NEW_CUSTOMERS
   RETURNING_CUSTOMERS
+  INACTIVE_CUSTOMERS
+  SPECIFIC_CUSTOMERS
 }
 
 model Coupon {
   kind                     CouponKind         @default(LOYALTY)
   audience                 CouponAudience     @default(ALL)
+  inactivityMonths         Int?
   usageLimit               Int?
   usageCount               Int                @default(0)
   allowDelivery            Boolean            @default(true)
@@ -1952,12 +1957,27 @@ model Coupon {
   updatedAt                DateTime           @updatedAt
   restaurant               Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   redemptions              CouponRedemption[]
+  recipients               CouponRecipient[]
   orders                   Order[]
 
   @@unique([restaurantId, code])
+  @@unique([id, restaurantId])
   @@index([restaurantId, active, expiration])
   @@index([restaurantId, kind, active, expiration])
   @@index([restaurantId, kind, audience, active])
+}
+
+/// Strict recipient scope: same coupon restaurant and same user restaurant.
+model CouponRecipient {
+  couponId     Int
+  restaurantId Int
+  userId       Int
+  createdAt    DateTime @default(now())
+  coupon       Coupon    @relation(fields: [couponId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+  user         User      @relation(fields: [userId, restaurantId], references: [id, restaurantId], onDelete: Cascade)
+
+  @@id([couponId, userId])
+  @@index([restaurantId, userId])
 }
 
 model CouponRedemption {

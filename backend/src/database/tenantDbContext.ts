@@ -17,6 +17,7 @@ export const TENANT_RLS_TABLES = [
   'CourierSettlement',
   'CourierSettlementItem',
   'CustomerPaymentMethod',
+  'CouponRecipient',
   'EmployeeCompensationPolicy',
   'EmployeeEarning',
   'EmployeeSettlement',
