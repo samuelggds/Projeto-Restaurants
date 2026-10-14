@@ -50,7 +50,8 @@ export async function assertCustomerRestaurantAccess<T extends CustomerAccount>(
       select: { restaurantSlug: true },
     }),
   ]);
-  if ((verification?.restaurantSlug && verification.restaurantSlug !== String(restaurantSlug || '').trim().toLowerCase())
+  if ((!verification?.restaurantSlug && orders.length === 0)
+    || (verification?.restaurantSlug && verification.restaurantSlug !== String(restaurantSlug || '').trim().toLowerCase())
     || orders.some((order) => order.restaurantId !== restaurantId))
     throw new Error('A conta antiga possui vínculo com outro restaurante. Solicite a regularização da conta.');
 

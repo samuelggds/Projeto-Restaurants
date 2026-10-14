@@ -52,14 +52,13 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
     const userId = Number(req.user?.id || 0);
     if (!Number.isSafeInteger(userId) || userId <= 0)
       return res.status(403).json({ error: 'Conta de cliente inválida.' });
-    // Customer accounts are global: registration does not assign restaurantId.
-    // The requested restaurant only scopes coupons/orders; user identity comes
-    // exclusively from the authenticated token, not from request parameters.
+    if (Number(req.user?.restaurantId || 0) !== restaurantId)
+      return res.status(403).json({ error: 'Cliente não pertence a este restaurante.' });
 
     const now = new Date();
     const coupons = await withTenantDbContext(restaurantId, async (db) => {
       const customer = await db.user.findFirst({
-        where: { id: userId, role: 'CLIENTE', active: true,
+        where: { id: userId, restaurantId, role: 'CLIENTE', active: true,
           NOT: { email: { endsWith: '@gastronexa.local' } } },
         select: { id: true },
       });

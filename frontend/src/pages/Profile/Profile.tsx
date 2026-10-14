@@ -67,14 +67,11 @@ export default function Profile() {
   const restaurantId = useMemo(() => {
     const authUser = (user as Record<string, unknown> | null) || {};
     const restaurant = (authUser.restaurant as Record<string, unknown> | null) || {};
-    const rememberedRestaurantId = Number(localStorage.getItem('menuRestaurantId') || 0);
-    const isCustomer = String(authUser.role || '').toUpperCase() === 'CLIENTE';
     const resolved = Number(
-      (isCustomer && rememberedRestaurantId > 0 ? rememberedRestaurantId : null) ||
-        authUser.restaurantId ||
+      authUser.restaurantId ||
         restaurant.id ||
         restaurant.restaurantId ||
-        rememberedRestaurantId ||
+        localStorage.getItem('menuRestaurantId') ||
         0,
     );
     return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
