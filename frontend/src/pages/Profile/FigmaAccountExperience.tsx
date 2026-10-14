@@ -149,7 +149,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     Number(data.activeOrderCount || 0),
   );
   const savedAddressCount = (data.addresses || []).length;
-  const activeCouponCount = activeCoupons.length;
+  const activeCouponCount = activeCoupons.length + (props.promotionalWallet || []).filter((coupon) => coupon.status === 'ACTIVE').length;
   const orderHistory = data.recentOrders;
   const primary = data.brand.primaryColor || '#e85a2b';
   const initials = data.user.fullName
@@ -561,10 +561,23 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     }
 
     if (view === 'coupons') {
-      if (props.loyaltyLoading) return <S.Empty>Carregando seus cupons...</S.Empty>;
+      if (props.loyaltyLoading || props.promotionalWalletLoading) return <S.Empty>Carregando seus cupons...</S.Empty>;
       if (props.loyaltyError) return <S.Empty>{props.loyaltyError}</S.Empty>;
       return (
         <S.Stack>
+          {(props.promotionalWallet || []).map((campaign) => (
+            <S.Coupon key={'promo-' + campaign.id} $muted={campaign.status !== 'ACTIVE'}>
+              <div className="top">
+                <code>{campaign.code}</code>
+                <span className="state">{campaign.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}</span>
+              </div>
+              <h3>{campaign.title}</h3>
+              <span className="discount">{campaign.discountType === 'FREE_SHIPPING' ? 'FRETE GRÁTIS' : campaign.discountType === 'PERCENTAGE' ? campaign.discount + '% OFF' : currency(campaign.discount) + ' OFF'}</span>
+              {campaign.description ? <p>{campaign.description}</p> : null}
+              {campaign.inactiveReason ? <small>{campaign.inactiveReason}</small> : null}
+              {campaign.status === 'ACTIVE' ? <button type="button" onClick={() => props.onUsePromotionalCoupon?.(campaign.code)}>Usar cupom</button> : null}
+            </S.Coupon>
+          ))}
           {[...activeCoupons, ...historyCoupons].map((entry) => {
             const muted = entry.status === 'expired' || entry.status === 'used';
             return (
@@ -601,7 +614,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
               </S.Coupon>
             );
           })}
-          {!coupons.length ? <S.Empty>Nenhum cupom disponível no momento.</S.Empty> : null}
+          {!coupons.length && !props.promotionalWallet?.length ? <S.Empty>Nenhum cupom disponível no momento.</S.Empty> : null}
         </S.Stack>
       );
     }

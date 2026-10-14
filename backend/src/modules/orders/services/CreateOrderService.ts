@@ -1,3 +1,4 @@
+import { isPromotionalAudienceEligible } from '../../coupon/domain/promotionalCampaignEligibility.js';
 import { promotionalCustomerScope } from '../../coupon/utils/promotionalCustomerScope.js';
 import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
@@ -616,7 +617,7 @@ class CreateOrderService {
               });
               const policy = await tx.coupon.findFirst({
                 where: { id: pricing.couponId, restaurantId: resolvedRestaurantId },
-                select: { perCustomerLimit: true, audience: true },
+                select: { perCustomerLimit: true, audience: true, inactivityMonths: true },
               });
               if (!policy || priorUses >= policy.perCustomerLimit) {
                 throw new OrderRequestError('Você atingiu o limite de utilizações deste cupom.');
@@ -626,7 +627,7 @@ class CreateOrderService {
                   throw new OrderRequestError('Entre com sua conta para usar cupons exclusivos.');
                 }
                 const customer = await tx.user.findFirst({
-                  where: { id: Number(userId), role: 'CLIENTE' },
+                  where: { id: Number(userId), role: 'CLIENTE', restaurantId: resolvedRestaurantId, active: true },
                   select: { id: true, email: true },
                 });
                 if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
@@ -635,13 +636,30 @@ class CreateOrderService {
                 await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${Number(userId)} FOR UPDATE`;
                 const previous = await tx.order.count({
                   where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
-                    status: { not: OrderStatus.CANCELADO } },
+                    paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } },
                 });
-                if (policy.audience === 'NEW_CUSTOMERS' && previous > 0) {
-                  throw new OrderRequestError('Este cupom é exclusivo para a primeira compra.');
-                }
-                if (policy.audience === 'RETURNING_CUSTOMERS' && previous === 0) {
-                  throw new OrderRequestError('Este cupom é exclusivo para clientes recorrentes.');
+                const lastPaidOrder = policy.audience === 'INACTIVE_CUSTOMERS'
+                  ? await tx.order.findFirst({
+                      where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
+                        paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } },
+                      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+                      select: { paidAt: true, createdAt: true },
+                    })
+                  : null;
+                const targeted = policy.audience === 'SPECIFIC_CUSTOMERS'
+                  ? await tx.couponRecipient.findFirst({
+                      where: { restaurantId: resolvedRestaurantId, couponId: pricing.couponId, userId: Number(userId) },
+                    })
+                  : null;
+                if (!isPromotionalAudienceEligible(policy.audience, previous, {
+                  lastPaidAt: lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null,
+                  inactivityMonths: policy.inactivityMonths, recipient: Boolean(targeted),
+                })) {
+                  if (policy.audience === 'NEW_CUSTOMERS')
+                    throw new OrderRequestError('Este cupom é exclusivo para a primeira compra.');
+                  if (policy.audience === 'RETURNING_CUSTOMERS')
+                    throw new OrderRequestError('Este cupom é exclusivo para clientes recorrentes.');
+                  throw new OrderRequestError('Cupom não disponível para este cliente.');
                 }
               }
             }

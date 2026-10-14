@@ -1,4 +1,5 @@
 import { OrderRequestError } from '../domain/OrderRequestError.js';
+import { isPromotionalAudienceEligible } from '../../coupon/domain/promotionalCampaignEligibility.js';
 import type { Prisma } from '@prisma/client';
 import { CouponRedemptionStatus, OrderType } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
@@ -255,7 +256,8 @@ class OrderPricingService {
     let selectedCoupon: {
       id: number; code: string; restaurantId: number; kind?: string;
       discount: unknown; discountType: string; minimumSubtotal: unknown; maxDiscount: unknown;
-      audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+      audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+      inactivityMonths?: number | null;
       allowDelivery?: boolean; allowPickup?: boolean; allowTable?: boolean;
     } | null = null;
     if (requestedRedemptionId > 0) {
@@ -316,19 +318,39 @@ class OrderPricingService {
           throw new OrderRequestError('Entre com sua conta para usar este cupom.');
         }
         const customer = await db.user.findFirst({
-          where: { id: authenticatedId, role: 'CLIENTE' },
+          where: { id: authenticatedId, role: 'CLIENTE', restaurantId: normalizedRestaurantId, active: true },
           select: { id: true, email: true },
         });
         if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
           throw new OrderRequestError('Entre com uma conta de cliente autenticada para usar este cupom.');
         }
         const previous = await db.order.count({
-          where: { restaurantId: normalizedRestaurantId, userId: authenticatedId, status: { not: 'CANCELADO' } },
+          where: { restaurantId: normalizedRestaurantId, userId: authenticatedId,
+            paid: true, refundedAt: null, status: { not: 'CANCELADO' } },
         });
-        if (coupon.audience === 'NEW_CUSTOMERS' && previous > 0)
-          throw new OrderRequestError('Cupom exclusivo para sua primeira compra neste restaurante.');
-        if (coupon.audience === 'RETURNING_CUSTOMERS' && previous === 0)
-          throw new OrderRequestError('Cupom exclusivo para clientes que já compraram neste restaurante.');
+        const lastPaidOrder = coupon.audience === 'INACTIVE_CUSTOMERS'
+          ? await db.order.findFirst({
+              where: { restaurantId: normalizedRestaurantId, userId: authenticatedId,
+                paid: true, refundedAt: null, status: { not: 'CANCELADO' } },
+              orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+              select: { paidAt: true, createdAt: true },
+            })
+          : null;
+        const targeted = coupon.audience === 'SPECIFIC_CUSTOMERS'
+          ? await db.couponRecipient.findFirst({
+              where: { couponId: coupon.id, restaurantId: normalizedRestaurantId, userId: authenticatedId },
+            })
+          : null;
+        if (!isPromotionalAudienceEligible(coupon.audience, previous, {
+          lastPaidAt: lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null,
+          inactivityMonths: coupon.inactivityMonths, now, recipient: Boolean(targeted),
+        })) {
+          if (coupon.audience === 'NEW_CUSTOMERS')
+            throw new OrderRequestError('Cupom exclusivo para sua primeira compra neste restaurante.');
+          if (coupon.audience === 'RETURNING_CUSTOMERS')
+            throw new OrderRequestError('Cupom exclusivo para clientes que já compraram neste restaurante.');
+          throw new OrderRequestError('Este cupom não está disponível para esta conta.');
+        }
       }
       if (
         (normalizedType === OrderType.DELIVERY && coupon.allowDelivery === false) ||

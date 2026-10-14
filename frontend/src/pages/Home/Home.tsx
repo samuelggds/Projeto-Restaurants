@@ -27,7 +27,7 @@ import { useHomeNotifications } from './hooks/useHomeNotifications';
 import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
 import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
-import { usePromotionalCoupons } from './hooks/usePromotionalCoupons';
+import { usePersonalPromotionalCoupons } from './hooks/usePersonalPromotionalCoupons';
 import { useApplyCheckoutCouponCode } from './hooks/useApplyCheckoutCouponCode';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
@@ -238,8 +238,10 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
-  const promotionalCoupons = usePromotionalCoupons(restaurantId, mesaMode);
-  const [selectedPromoCode, setSelectedPromoCode] = useState('');
+  const promotionalCoupons = usePersonalPromotionalCoupons({ restaurantId, mesaMode, user, notify });
+  const [selectedPromoCode, setSelectedPromoCode] = useState(() =>
+    typeof navigationState?.promotionalCode === 'string' ? navigationState.promotionalCode : '',
+  );
   const loyalty = useLoyaltyRewards({
     restaurantId,
     enabled: isLoyaltyCustomer,
@@ -918,9 +920,7 @@ export default function Home() {
         data={homeData}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => {
-          setSelectedPromoCode(code);
-          setSelectedRedemptionId(null);
-          openHomeCart();
+          setSelectedPromoCode(code); setSelectedRedemptionId(null); openHomeCart();
         }}
         cartCount={tableClosingRequested ? 0 : cartCount}
         cart={tableClosingRequested ? [] : cart}

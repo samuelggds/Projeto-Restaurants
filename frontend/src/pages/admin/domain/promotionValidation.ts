@@ -20,7 +20,9 @@ export type CouponDraft = {
   id?: string;
   code: string;
   kind?: 'PROMOTIONAL' | 'LOYALTY';
-  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
+  audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS';
+  inactivityMonths?: string;
+  recipientUserIds?: number[];
   usageLimit?: string;
   allowDelivery?: boolean;
   allowPickup?: boolean;
@@ -130,6 +132,8 @@ export function validateCouponDraft(draft: CouponDraft) {
     errors.push('Informe um valor de desconto maior que zero.');
   if (draft.discountType === 'FREE_SHIPPING' && (draft.kind !== 'PROMOTIONAL' || draft.allowDelivery === false || draft.allowPickup !== false || draft.allowTable !== false))
     errors.push('Frete grátis só pode ser aplicado no Delivery promocional.');
+  if (draft.audience === 'INACTIVE_CUSTOMERS' && (!Number.isInteger(Number(draft.inactivityMonths)) || Number(draft.inactivityMonths) < 1 || Number(draft.inactivityMonths) > 36)) errors.push('Informe de 1 a 36 meses sem comprar.');
+  if (draft.audience === 'SPECIFIC_CUSTOMERS' && !draft.recipientUserIds?.length) errors.push('Selecione pelo menos um cliente.');
   if (draft.kind === 'LOYALTY' && draft.audience !== undefined && draft.audience !== 'ALL')
     errors.push('Público-alvo é exclusivo para campanhas promocionais.');
   if (draft.discountType === 'PERCENTAGE' && discount >= 100)
@@ -159,7 +163,7 @@ export function couponPayload(draft: CouponDraft): CouponPayload {
   return {
     code: normalizeCouponCode(draft.code),
     kind: draft.kind || 'LOYALTY',
-    ...(draft.kind === 'PROMOTIONAL' ? { audience: draft.audience || 'ALL' } : {}),
+    ...(draft.kind === 'PROMOTIONAL' ? { audience: draft.audience || 'ALL', inactivityMonths: draft.audience === 'INACTIVE_CUSTOMERS' ? Number(draft.inactivityMonths) : null, recipientUserIds: draft.audience === 'SPECIFIC_CUSTOMERS' ? draft.recipientUserIds || [] : [] } : {}),
     usageLimit: draft.usageLimit?.trim() ? Number(draft.usageLimit) : null,
     allowDelivery: draft.allowDelivery !== false,
     allowPickup: draft.allowPickup !== false,
@@ -184,6 +188,8 @@ export function couponToDraft(coupon: AdminCoupon): CouponDraft {
     code: coupon.code,
     kind: coupon.kind || 'LOYALTY',
     audience: coupon.audience || 'ALL',
+    inactivityMonths: coupon.inactivityMonths == null ? '' : String(coupon.inactivityMonths),
+    recipientUserIds: coupon.recipientUserIds || [],
     usageLimit: coupon.usageLimit == null ? '' : String(coupon.usageLimit),
     allowDelivery: coupon.allowDelivery !== false,
     allowPickup: coupon.allowPickup !== false,

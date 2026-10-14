@@ -12,6 +12,7 @@ export const TENANT_RLS_TABLES = [
   'AiCreditLedgerEntry',
   'AiCreditReservation',
   'AiCreditWallet',
+  'CouponRecipient',
   'CourierCompensationPolicy',
   'CourierCompensationRange',
   'CourierSettlement',

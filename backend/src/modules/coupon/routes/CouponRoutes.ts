@@ -1,6 +1,8 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { promotionalCampaignAvailability, isPromotionalAudienceEligible } from '../domain/promotionalCampaignEligibility.js';
 import { loyaltyRestaurantQuerySchema } from '../../../validators/CouponValidator.js';
 import couponRepository from '../repositories/CouponRepository.js';
 import { presentCoupon } from '../utils/couponPresenter.js';
@@ -30,10 +32,97 @@ router.get('/public', async (req, res) => {
     const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
     const coupons = await couponRepository.findActivePromotionalByRestaurant(restaurantId);
     return res.status(200).json(coupons
+      .filter((coupon) => coupon.audience === 'ALL')
       .filter((coupon) => coupon.usageLimit === null || coupon.usageCount < coupon.usageLimit)
       .map(presentCoupon));
   } catch (error: unknown) {
     return couponControllerError(res, error, 'Não foi possível consultar as campanhas.');
+  }
+});
+
+
+/**
+ * Carteira personalizada: nunca confia em userId vindo do navegador.
+ * Apenas o cliente do tenant solicitado consulta cupons exclusivos e inativos.
+ * Outros segmentos jamais são expostos pelo endpoint público.
+ */
+router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
+  try {
+    const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
+    const userId = Number(req.user?.id || 0);
+    const authenticatedRestaurantId = Number(req.user?.restaurantId || 0);
+    if (!userId || authenticatedRestaurantId !== restaurantId)
+      return res.status(403).json({ error: 'Cliente não pertence a este restaurante.' });
+
+    const now = new Date();
+    const coupons = await withTenantDbContext(restaurantId, async (db) => {
+      const customer = await db.user.findFirst({
+        where: { id: userId, restaurantId, role: 'CLIENTE', active: true },
+        select: { id: true },
+      });
+      if (!customer) return null;
+
+      const [campaigns, paidPurchases, lastPaidOrder] = await Promise.all([
+        db.coupon.findMany({
+          where: { restaurantId, kind: 'PROMOTIONAL' },
+          orderBy: { id: 'desc' },
+        }),
+        db.order.count({
+          where: { restaurantId, userId, paid: true, refundedAt: null, status: { not: 'CANCELADO' } },
+        }),
+        db.order.findFirst({ where: { restaurantId, userId, paid: true, refundedAt: null, status: { not: 'CANCELADO' } }, orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }], select: { paidAt: true, createdAt: true } }),
+      ]);
+      if (!campaigns.length) return [];
+      const usageRows = await db.order.groupBy({
+        by: ['couponId'],
+        where: {
+          restaurantId, userId, status: { not: 'CANCELADO' },
+          couponId: { in: campaigns.map((campaign) => campaign.id) },
+        },
+        _count: { _all: true },
+      });
+      const usesByCouponId = new Map(usageRows.map((usage) => [usage.couponId, usage._count._all]));
+      const targeted = await db.couponRecipient.findMany({ where: { restaurantId, userId, couponId: { in: campaigns.map((c) => c.id) } }, select: { couponId: true } });
+      const recipientIds = new Set(targeted.map((item) => item.couponId));
+      const lastPaidAt = lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null;
+      return campaigns.flatMap((campaign) => {
+        const userUses = usesByCouponId.get(campaign.id) || 0;
+        // Mostrar benefícios para o segmento atual e campanhas já utilizadas
+        // pelo próprio cliente, mesmo quando sua elegibilidade mudou.
+        if (!isPromotionalAudienceEligible(campaign.audience, paidPurchases, { lastPaidAt, inactivityMonths: campaign.inactivityMonths, now, recipient: recipientIds.has(campaign.id) }) && userUses === 0)
+          return [];
+        const availability = promotionalCampaignAvailability(
+          campaign, paidPurchases, userUses, now, { lastPaidAt, recipient: recipientIds.has(campaign.id) },
+        );
+        return [{ ...presentCoupon(campaign), ...availability }];
+      });
+    });
+    if (!coupons) return res.status(403).json({ error: 'Cliente não autorizado.' });
+    return res.status(200).json(coupons);
+  } catch (error: unknown) {
+    return couponControllerError(res, error, 'Não foi possível consultar seus cupons.');
+  }
+});
+
+// Contas reais do tenant, nunca contatos agregados do histórico de pedidos.
+router.get('/eligible-customers', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const restaurantId = Number(req.user?.restaurantId || 0);
+    if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) return res.status(403).json({ error: 'Restaurante não identificado.' });
+    const search = String(req.query.search || '').trim().slice(0, 90);
+    const users = await withTenantDbContext(restaurantId, (db) => db.user.findMany({
+      where: {
+        restaurantId, role: 'CLIENTE', active: true,
+        NOT: { email: { endsWith: '@gastronexa.local' } },
+        ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
+      },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
+      take: 40,
+    }));
+    return res.status(200).json(users);
+  } catch (error: unknown) {
+    return couponControllerError(res, error, 'Não foi possível buscar os clientes cadastrados.');
   }
 });
 

@@ -338,15 +338,15 @@ export const Section = styled.section`
     .homepage-coupon-list > .coupon-card,
     .homepage-coupon-list > .coupon-card:nth-child(n + 3) {
       display: flex;
-      flex: 0 0 clamp(234px, 78vw, 274px);
+      flex: 0 0 clamp(190px, 62vw, 220px);
       max-width: calc(100% - 25px);
       min-height: 0;
       scroll-snap-align: start;
     }
 
     .coupon-card {
-      gap: 7px;
-      padding: 10px 11px 9px;
+      gap: 5px;
+      padding: 7px 8px 7px;
       border-radius: 12px;
     }
 
@@ -379,7 +379,7 @@ export const Section = styled.section`
     }
 
     .coupon-content strong {
-      font-size: 19px;
+      font-size: 16px;
       line-height: 1;
     }
 
@@ -393,15 +393,18 @@ export const Section = styled.section`
       -webkit-line-clamp: 1;
     }
 
+    .coupon-audience { display: none; }
+    .coupon-minimum { font-size: 9px; }
+
     .coupon-actions {
       gap: 6px;
       padding-top: 7px;
     }
 
     .coupon-actions button {
-      min-height: 29px;
-      padding: 5px 8px;
-      font-size: 10px;
+      min-height: 25px;
+      padding: 4px 6px;
+      font-size: 9px;
     }
 
     .coupon-swipe-hint {

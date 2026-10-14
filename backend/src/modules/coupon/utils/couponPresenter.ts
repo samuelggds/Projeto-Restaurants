@@ -1,7 +1,8 @@
 type CouponLike = {
   id: number;
   kind?: 'PROMOTIONAL' | 'LOYALTY' | string;
-  audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | string;
+  audience?: 'ALL' | 'AUTHENTICATED' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS' | 'INACTIVE_CUSTOMERS' | 'SPECIFIC_CUSTOMERS' | string;
+  inactivityMonths?: number | null;
   usageLimit?: number | null;
   usageCount?: number;
   allowDelivery?: boolean;
@@ -44,7 +45,8 @@ export function presentCoupon(coupon: CouponLike) {
   return {
     id: coupon.id,
     kind: coupon.kind === 'PROMOTIONAL' ? 'PROMOTIONAL' : 'LOYALTY',
-    audience: coupon.audience === 'NEW_CUSTOMERS' || coupon.audience === 'RETURNING_CUSTOMERS' ? coupon.audience : 'ALL',
+    audience: ['ALL', 'AUTHENTICATED', 'NEW_CUSTOMERS', 'RETURNING_CUSTOMERS', 'INACTIVE_CUSTOMERS', 'SPECIFIC_CUSTOMERS'].includes(String(coupon.audience)) ? coupon.audience : 'ALL',
+    inactivityMonths: coupon.inactivityMonths ?? null,
     usageLimit: coupon.usageLimit == null ? null : Number(coupon.usageLimit),
     usageCount: Number(coupon.usageCount || 0),
     allowDelivery: coupon.allowDelivery !== false,

@@ -1,3 +1,5 @@
+import { listMyPromotionalCoupons } from '../../Services/publicCouponsService';
+import type { WalletCampaign } from './domain/promotionalWallet';
 import { useOrderHistory } from '../../hooks/useOrderHistory';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -49,6 +51,10 @@ export default function Profile() {
   );
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
+  const [promotionalWalletResult, setPromotionalWalletResult] = useState<{
+    restaurantId: number; userId: number; items: WalletCampaign[];
+  } | null>(null);
+  const [promotionalWalletLoading, setPromotionalWalletLoading] = useState(false);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
   const [loyaltyRedeemingCouponId, setLoyaltyRedeemingCouponId] = useState<number | null>(null);
@@ -68,6 +74,9 @@ export default function Profile() {
     );
     return Number.isInteger(resolved) && resolved > 0 ? resolved : null;
   }, [user]);
+  const promotionalWallet = promotionalWalletResult?.restaurantId === restaurantId &&
+    promotionalWalletResult?.userId === Number(user?.id)
+    ? promotionalWalletResult.items : [];
 
   const loadLoyaltyWallet = useCallback(async () => {
     const requestId = ++loyaltyRequestSequence.current;
@@ -91,6 +100,20 @@ export default function Profile() {
       if (requestId === loyaltyRequestSequence.current) setLoyaltyLoading(false);
     }
   }, [restaurantId, user?.role]);
+
+  useEffect(() => {
+    let active = true;
+    const handle = window.setTimeout(() => {
+      if (!active || !restaurantId || user?.role !== 'CLIENTE') return;
+      const userId = Number(user.id);
+      setPromotionalWalletLoading(true);
+      void listMyPromotionalCoupons(restaurantId)
+        .then((items) => { if (active) setPromotionalWalletResult({ restaurantId, userId, items }); })
+        .catch(() => { if (active) setPromotionalWalletResult({ restaurantId, userId, items: [] }); })
+        .finally(() => { if (active) setPromotionalWalletLoading(false); });
+    }, 0);
+    return () => { active = false; window.clearTimeout(handle); };
+  }, [restaurantId, user?.id, user?.role]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void loadLoyaltyWallet(), 0);
@@ -429,6 +452,11 @@ export default function Profile() {
         onContinuePayment={handleContinuePayment}
         onReorder={handleReorder}
         historyPagination={history}
+        promotionalWallet={promotionalWallet}
+        promotionalWalletLoading={promotionalWalletLoading}
+        onUsePromotionalCoupon={(code) => navigate(restaurantHomePath, {
+          state: { openCart: true, promotionalCode: code },
+        })}
         loyaltySummary={loyaltySummary}
         loyaltyLoading={loyaltyLoading}
         loyaltyError={loyaltyError}

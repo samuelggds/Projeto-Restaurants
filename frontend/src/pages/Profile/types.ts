@@ -1,4 +1,5 @@
 import type { LoyaltySummary } from '../Home/types';
+import type { WalletCampaign } from './domain/promotionalWallet';
 
 export type ProfileBrand = {
   name: string;
@@ -112,6 +113,9 @@ export type ProfilePageProps = {
   onToggleTwoFactor?: (enabled: boolean, currentPassword: string) => Promise<void>;
   onDeactivateAccount?: () => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<void>;
+  promotionalWallet?: WalletCampaign[];
+  promotionalWalletLoading?: boolean;
+  onUsePromotionalCoupon?: (code: string) => void;
   loyaltySummary?: LoyaltySummary | null;
   loyaltyLoading?: boolean;
   loyaltyError?: string;

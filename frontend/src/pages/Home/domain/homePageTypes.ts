@@ -8,4 +8,5 @@ export type HomeNavigationState = {
   openCart?: boolean;
   openSearch?: boolean;
   loyaltyRedemptionId?: number;
+  promotionalCode?: string;
 };
