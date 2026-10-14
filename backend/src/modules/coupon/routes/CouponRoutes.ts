@@ -104,6 +104,28 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
   }
 });
 
+// Contas reais do tenant, nunca contatos agregados do histórico de pedidos.
+router.get('/eligible-customers', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const restaurantId = Number(req.user?.restaurantId || 0);
+    if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0) return res.status(403).json({ error: 'Restaurante não identificado.' });
+    const search = String(req.query.search || '').trim().slice(0, 90);
+    const users = await withTenantDbContext(restaurantId, (db) => db.user.findMany({
+      where: {
+        restaurantId, role: 'CLIENTE', active: true,
+        NOT: { email: { endsWith: '@gastronexa.local' } },
+        ...(search ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }] } : {}),
+      },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: 'asc' },
+      take: 40,
+    }));
+    return res.status(200).json(users);
+  } catch (error: unknown) {
+    return couponControllerError(res, error, 'Não foi possível buscar os clientes cadastrados.');
+  }
+});
+
 router.get('/loyalty', authMiddleware, clientMiddleware, (req, res) =>
   ListLoyaltyCouponsController.handle(req, res),
 );
