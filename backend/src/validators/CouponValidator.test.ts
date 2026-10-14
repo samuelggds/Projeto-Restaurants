@@ -43,3 +43,25 @@ test('aceita limpar validade e interpreta corretamente o booleano falso', () => 
   assert.equal(parsed.expiration, null);
   assert.equal(parsed.active, false);
 });
+
+test('permite frete grátis promocional e público de primeira compra com valor zero', () => {
+  const coupon = createCouponSchema.parse({
+    code: 'FRETEZERO', kind: 'PROMOTIONAL', audience: 'NEW_CUSTOMERS',
+    discountType: 'FREE_SHIPPING', discount: 0,
+    allowDelivery: true, allowPickup: false, allowTable: false,
+    minimumSubtotal: 50, maxDiscount: 15,
+  });
+  assert.equal(coupon.discountType, 'FREE_SHIPPING');
+  assert.equal(coupon.audience, 'NEW_CUSTOMERS');
+  assert.equal(coupon.discount, 0);
+  assert.equal(coupon.maxDiscount, 15);
+});
+
+test('rejeita frete grátis em retirada, fidelidade ou com desconto nos itens', () => {
+  const base = { code: 'FRETEZERO', kind: 'PROMOTIONAL', discountType: 'FREE_SHIPPING',
+    discount: 0, allowDelivery: true, allowPickup: false, allowTable: false } as const;
+  assert.equal(createCouponSchema.safeParse({ ...base, allowPickup: true }).success, false);
+  assert.equal(createCouponSchema.safeParse({ ...base, kind: 'LOYALTY' }).success, false);
+  assert.equal(createCouponSchema.safeParse({ ...base, discount: 10 }).success, false);
+  assert.equal(createCouponSchema.safeParse({ ...base, allowDelivery: false }).success, false);
+});
