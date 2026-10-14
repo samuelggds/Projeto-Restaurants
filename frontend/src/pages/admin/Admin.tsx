@@ -236,6 +236,12 @@ function mapCoupon(value: unknown): AdminCoupon {
   return {
     id: String(raw.id ?? ''),
     code: String(raw.code ?? ''),
+    kind: raw.kind === 'PROMOTIONAL' ? 'PROMOTIONAL' : 'LOYALTY',
+    usageLimit: raw.usageLimit == null ? null : Number(raw.usageLimit),
+    usageCount: Number(raw.usageCount ?? 0),
+    allowDelivery: raw.allowDelivery !== false,
+    allowPickup: raw.allowPickup !== false,
+    allowTable: raw.allowTable !== false,
     title: String(raw.title ?? ''),
     description: String(raw.description ?? ''),
     discountType: raw.discountType === 'FIXED' ? 'FIXED' : 'PERCENTAGE',

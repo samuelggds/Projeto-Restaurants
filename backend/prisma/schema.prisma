@@ -1914,7 +1914,18 @@ model Banner {
   @@index([restaurantId, active, position, id])
 }
 
+enum CouponKind {
+  PROMOTIONAL
+  LOYALTY
+}
+
 model Coupon {
+  kind                     CouponKind         @default(LOYALTY)
+  usageLimit               Int?
+  usageCount               Int                @default(0)
+  allowDelivery            Boolean            @default(true)
+  allowPickup              Boolean            @default(true)
+  allowTable               Boolean            @default(true)
   id                       Int                @id @default(autoincrement())
   code                     String
   title                    String?
@@ -1937,6 +1948,7 @@ model Coupon {
 
   @@unique([restaurantId, code])
   @@index([restaurantId, active, expiration])
+  @@index([restaurantId, kind, active, expiration])
 }
 
 model CouponRedemption {

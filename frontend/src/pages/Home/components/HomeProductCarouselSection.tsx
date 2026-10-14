@@ -117,7 +117,9 @@ export function HomeProductCarouselSection({
               <div className="image">{productImage(product)}</div>
               <div className="copy">
                 <div className="product-copy">
-                  {label ? <span className="product-label">{label}</span> : null}
+                  {className.includes('featured-carousel')
+                    ? <span className="featured-badge"><span className="featured-flame" aria-hidden="true">🔥</span> <span>Destaque</span></span>
+                    : label ? <span className="product-label">{label}</span> : null}
                   <h3>{product.name}</h3>
                   <p>{product.description}</p>
                 </div>

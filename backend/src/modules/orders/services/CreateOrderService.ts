@@ -1,3 +1,4 @@
+import { promotionalCustomerScope } from '../../coupon/utils/promotionalCustomerScope.js';
 import prisma from '../../../config/prisma.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { PaymentCreationUncertainError } from './PaymentCreationUncertainError.js';
@@ -93,6 +94,7 @@ type CreateOrderPayload = {
   guestPasswordHash?: string;
   tableId?: number | string | null;
   couponRedemptionId?: number | string | null;
+  couponCode?: string | null;
   items: OrderItemInput[];
   address?: string;
   number?: string;
@@ -233,6 +235,7 @@ class CreateOrderService {
     customerPhone,
     tableId,
     couponRedemptionId,
+    couponCode,
     items,
     address,
     number,
@@ -370,6 +373,7 @@ class CreateOrderService {
       observation,
       tableId,
       couponRedemptionId,
+      couponCode,
       items,
       address,
       number,
@@ -580,10 +584,44 @@ class CreateOrderService {
               type,
               items,
               couponRedemptionId,
+              couponCode,
               deliveryDistanceMeters,
               db: tx,
             });
             const { products, orderItems } = pricing;
+            // Lock the campaign row atomically before counting per-customer uses.
+            // Order creation and usage reservation share the same transaction.
+            if (pricing.couponId && !pricing.couponRedemptionId) {
+              const consumed = await tx.$executeRaw`
+                UPDATE "Coupon"
+                SET "usageCount" = "usageCount" + 1
+                WHERE "id" = ${pricing.couponId}
+                  AND "restaurantId" = ${resolvedRestaurantId}
+                  AND "kind" = 'PROMOTIONAL'::"CouponKind"
+                  AND "active" = true
+                  AND ("expiration" IS NULL OR "expiration" > NOW())
+                  AND ("usageLimit" IS NULL OR "usageCount" < "usageLimit")
+              `;
+              if (consumed !== 1) {
+                throw new OrderRequestError('Cupom promocional esgotado ou indisponível.');
+              }
+              const priorUses = await tx.order.count({
+                where: promotionalCustomerScope({
+                  restaurantId: resolvedRestaurantId,
+                  couponId: pricing.couponId,
+                  userId: resolvedUserId,
+                  participantId: tableParticipant?.id ?? null,
+                  tableSessionId: type === OrderType.MESA ? Number(tableSessionId) : null,
+                }),
+              });
+              const policy = await tx.coupon.findFirst({
+                where: { id: pricing.couponId, restaurantId: resolvedRestaurantId },
+                select: { perCustomerLimit: true },
+              });
+              if (!policy || priorUses >= policy.perCustomerLimit) {
+                throw new OrderRequestError('Você atingiu o limite de utilizações deste cupom.');
+              }
+            }
 
             if (type === OrderType.MESA) {
               const tableAccountSettings =

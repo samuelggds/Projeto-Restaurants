@@ -21,6 +21,7 @@ import {
   TikTokIcon,
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
+import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
@@ -74,6 +75,8 @@ function categoryImage(image: string, name: string) {
 
 export function FigmaDeliveryExperience({
   data,
+  promotionalCoupons = [],
+  onApplyPromotionalCoupon,
   cartCount = 0,
   initialSearchOpen = false,
   userName,
@@ -880,6 +883,12 @@ export function FigmaDeliveryExperience({
             id="cardapio"
             className={promotionBanners.length ? 'has-banner' : 'no-banner'}
           >
+            {promotionalCoupons.length > 0 && (
+              <HomePromotionalCoupons
+                coupons={promotionalCoupons}
+                onApply={onApplyPromotionalCoupon}
+              />
+            )}
             <S.InfoChips className="desktop-info">
               {data.isOpen && deliveryTimeLabel ? (
                 <span><Clock3 size={16} /> Entrega em <b>{deliveryTimeLabel}</b></span>

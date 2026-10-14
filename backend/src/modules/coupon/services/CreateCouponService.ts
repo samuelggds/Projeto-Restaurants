@@ -5,6 +5,11 @@ import { presentCoupon } from '../utils/couponPresenter.js';
 type CreateCouponPayload = {
   code: string;
   discount: number;
+  kind?: 'PROMOTIONAL' | 'LOYALTY';
+  usageLimit?: number | null;
+  allowDelivery?: boolean;
+  allowPickup?: boolean;
+  allowTable?: boolean;
   title?: string;
   description?: string;
   discountType?: 'FIXED' | 'PERCENTAGE';
@@ -32,6 +37,11 @@ export class CreateCouponService {
     try {
       coupon = await couponRepository.create({
         code: parsed.code,
+        kind: parsed.kind,
+        usageLimit: parsed.usageLimit,
+        allowDelivery: parsed.allowDelivery,
+        allowPickup: parsed.allowPickup,
+        allowTable: parsed.allowTable,
         title: parsed.title || null,
         description: parsed.description || null,
         discountType: parsed.discountType,

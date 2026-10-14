@@ -73,6 +73,7 @@ type Options = {
   cart: CartItem[];
   deliveryAddress?: DeliveryAddress;
   couponRedemptionId: number | null;
+  couponCode?: string | null;
 };
 
 export function useOrderQuote({
@@ -81,6 +82,7 @@ export function useOrderQuote({
   cart,
   deliveryAddress,
   couponRedemptionId,
+  couponCode,
 }: Options) {
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [resolvedKey, setResolvedKey] = useState('');
@@ -124,9 +126,10 @@ export function useOrderQuote({
             cart,
             deliveryAddress: quoteAddress,
             couponRedemptionId,
+            couponCode,
           })
         : null,
-    [cart, couponRedemptionId, quoteAddress, restaurantId, type],
+    [cart, couponCode, couponRedemptionId, quoteAddress, restaurantId, type],
   );
   const requestKey = useMemo(() => JSON.stringify(quotePayload), [quotePayload]);
   const enabled = Boolean(restaurantId && cart.length > 0);

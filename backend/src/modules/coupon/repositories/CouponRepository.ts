@@ -40,6 +40,18 @@ class CouponRepository {
     });
   }
 
+  async findActivePromotionalByRestaurant(restaurantId: number | string, now = new Date()) {
+    return prisma.coupon.findMany({
+      where: {
+        restaurantId: Number(restaurantId),
+        kind: 'PROMOTIONAL',
+        active: true,
+        OR: [{ expiration: null }, { expiration: { gt: now } }],
+      },
+      orderBy: { id: 'desc' },
+    });
+  }
+
   async findActiveById(
     id: number | string,
     restaurantId: number | string,
@@ -60,6 +72,7 @@ class CouponRepository {
       where: {
         restaurantId: Number(restaurantId),
         active: true,
+        kind: 'LOYALTY',
         OR: [{ expiration: null }, { expiration: { gt: now } }],
       },
       orderBy: [{ loyaltyPurchasesRequired: 'asc' }, { id: 'desc' }],

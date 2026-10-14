@@ -218,7 +218,7 @@ test('visão geral administrativa mantém leitura e ações em desktop e mobile'
   await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
 });
 
-test('admin cadastra desconto e benefício de fidelidade com confirmação do sistema', async ({
+test('admin cadastra desconto em Configurações e fidelidade em Gestão de Cupons', async ({
   page,
 }) => {
   const state = initialState();
@@ -230,10 +230,9 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   await captureReadmeScreenshot(page, 'admin-dashboard.png', { fullPage: true });
 
   await page.getByRole('button', { name: 'Configurações' }).click();
-  await page.getByRole('button', { name: 'Descontos e fidelidade' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Descontos que vendem e fidelizam' }),
-  ).toBeVisible();
+  await page.getByRole('button', { name: 'Descontos de produtos' }).click();
+  await expect(page.getByRole('heading', { name: 'Descontos nos produtos' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cupons de Fidelidade' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Salvar alterações' })).toHaveCount(0);
 
   await page.getByLabel('Produto que receberá o desconto').selectOption('101');
@@ -271,7 +270,16 @@ test('admin cadastra desconto e benefício de fidelidade com confirmação do si
   await expect(page.getByText('Ativo na Home')).toBeVisible();
   await expect(page.getByText(/R\$\s*50,00 → R\$\s*40,00/)).toBeVisible();
 
-  await page.getByRole('tab', { name: 'Cupons de fidelidade' }).click();
+  await page
+    .getByRole('navigation', { name: 'Navegação principal do painel' })
+    .getByRole('button', { name: 'Gestão de Cupons' })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Gestão de Cupons', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cupons Promocionais' })).toHaveAttribute(
+    'aria-selected', 'true',
+  );
+  await page.getByRole('tab', { name: 'Cupons de Fidelidade' }).click();
+  await expect(page.getByRole('heading', { name: 'Novo benefício de fidelidade' })).toBeVisible();
   await expect(page.getByText('Pedido é entregue')).toBeVisible();
   await expect(page.getByText('Atinge a meta')).toBeVisible();
   await expect(page.getByText('Resgata o cupom')).toBeVisible();
@@ -322,10 +330,9 @@ test('seletor de configurações e campanhas ficam contidos no celular', async (
   await page.getByRole('button', { name: 'Configurações' }).click();
   const settingsNav = page.getByRole('navigation', { name: 'Seções das configurações' });
   await expect(settingsNav).toBeVisible();
-  await settingsNav.getByRole('button', { name: 'Descontos e fidelidade' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Descontos que vendem e fidelizam' }),
-  ).toBeVisible();
+  await settingsNav.getByRole('button', { name: 'Descontos de produtos' }).click();
+  await expect(page.getByRole('heading', { name: 'Descontos nos produtos' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cupons de Fidelidade' })).toHaveCount(0);
 
   const layout = await page.locator('main').evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -333,7 +340,53 @@ test('seletor de configurações e campanhas ficam contidos no celular', async (
   }));
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
 
-  await page.getByRole('tab', { name: 'Cupons de fidelidade' }).click();
+  await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
+  const mobileMenu = page.getByRole('dialog', { name: 'Opções administrativas' });
+  await expect(mobileMenu.getByRole('button', { name: /Gestão de Cupons/ })).toBeVisible();
+  await mobileMenu.getByRole('button', { name: /Gestão de Cupons/ }).click();
+  await expect(page.getByRole('heading', { name: 'Gestão de Cupons', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cupons Promocionais' })).toHaveAttribute(
+    'aria-selected', 'true',
+  );
+  await page.getByRole('tab', { name: 'Cupons de Fidelidade' }).click();
   await expect(page.getByText('Pedido é entregue')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Salvar benefício' })).toBeVisible();
+});
+
+test('gestão de cupons cria campanha promocional isolada da fidelidade', async ({ page }) => {
+  const state = initialState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await mockAdminApi(page, state);
+  await page.goto('/admin');
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' })
+    .getByRole('button', { name: 'Gestão de Cupons' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Gestão de Cupons', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Cupons Promocionais' })).toHaveAttribute(
+    'aria-selected', 'true',
+  );
+  await expect(page.getByRole('heading', { name: 'Novo cupom promocional' })).toBeVisible();
+  await expect(page.getByText('Pedido é entregue')).toHaveCount(0);
+
+  await page.getByPlaceholder('Ex.: PROMO20').fill('Promo-15');
+  await page.getByPlaceholder('Ex.: Recompensa cliente fiel').fill('Campanha para visitantes');
+  await page.getByRole('spinbutton', { name: 'Pedido mínimo (R$)' }).fill('30');
+  await page.getByRole('spinbutton', { name: 'Limite total de utilizações (opcional)' }).fill('20');
+  await page.getByRole('button', { name: 'Salvar benefício' }).click();
+
+  await expect.poll(() => state.couponPayload).toMatchObject({
+    kind: 'PROMOTIONAL',
+    code: 'PROMO-15',
+    title: 'Campanha para visitantes',
+    minimumSubtotal: 30,
+    usageLimit: 20,
+    allowDelivery: true,
+    allowPickup: true,
+    allowTable: true,
+  });
+  await expect(page.getByText('Campanha para visitantes').first()).toBeVisible();
+  await expect(page.getByText('PROMO-15', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Cupons de Fidelidade' }).click();
+  await expect(page.getByText('Campanha para visitantes')).toHaveCount(0);
+  await expect(page.getByText('Pedido é entregue')).toBeVisible();
 });

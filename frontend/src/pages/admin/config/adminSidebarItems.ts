@@ -1,4 +1,4 @@
-import { CalendarDays, Handshake, Headphones, LayoutGrid, Menu, ReceiptText, Settings2, ShoppingBag, Users, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Handshake, Headphones, LayoutGrid, Menu, TicketPercent, ReceiptText, Settings2, ShoppingBag, Users, type LucideIcon } from 'lucide-react';
 import type { AdminSection } from '../types';
 
 export type AdminNavigationItem = {
@@ -42,6 +42,7 @@ export const operationNavigationItems: AdminNavigationItem[] = [
 ];
 
 export const managementNavigationItems: AdminNavigationItem[] = [
+  { area: 'coupons', label: 'Gestão de Cupons', mobileLabel: 'Cupons', icon: TicketPercent },
   { area: 'reservations', label: 'Reservas', mobileLabel: 'Reservas', icon: CalendarDays },
   {
     area: 'employees',
@@ -80,7 +81,7 @@ export const mobileMoreNavigationItems = [
 
 export const adminSidebarGroups = [
   { id: 'operation', label: 'OPERAÇÃO', areas: ['overview','orders','support','reservations'] },
-  { id: 'business', label: 'CARDÁPIO E CLIENTES', areas: ['catalog','customers'] },
+  { id: 'business', label: 'CARDÁPIO E CLIENTES', areas: ['catalog','customers','coupons'] },
   { id: 'team', label: 'EQUIPE E GESTÃO', areas: ['employees','managed-service'] },
   { id: 'finance', label: 'FINANCEIRO', areas: ['subscriptions'] },
   { id: 'system', label: 'SISTEMA', areas: ['settings'] },

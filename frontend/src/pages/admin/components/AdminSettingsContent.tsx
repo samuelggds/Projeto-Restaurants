@@ -84,6 +84,7 @@ export function AdminSettingsContent(props: Props) {
     if (section === 'promotions')
       return (
         <PromotionsSettings
+          mode="discounts"
           products={props.products}
           coupons={props.coupons}
           loading={props.promotionsLoading}

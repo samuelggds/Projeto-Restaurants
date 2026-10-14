@@ -32,6 +32,7 @@ type QuotePayload = {
   type: OrderType | string;
   items: PricingItemInput[];
   couponRedemptionId?: number | string | null;
+  couponCode?: string | null;
   deliveryDistanceMeters?: number | null;
   now?: Date;
   db?: PrismaClientLike;
@@ -44,6 +45,7 @@ class OrderPricingService {
     type,
     items,
     couponRedemptionId,
+    couponCode: requestedCouponCode,
     deliveryDistanceMeters,
     now = new Date(),
     db = prisma,
@@ -242,6 +244,18 @@ class OrderPricingService {
     let couponId: number | null = null;
     let redemptionId: number | null = null;
     const requestedRedemptionId = Number(couponRedemptionId || 0);
+    const requestedPromotionalCode = String(requestedCouponCode || '').trim().toUpperCase();
+    if (requestedPromotionalCode && couponRedemptionId) {
+      throw new OrderRequestError('Selecione apenas um cupom por pedido.');
+    }
+    if (requestedPromotionalCode && !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(requestedPromotionalCode)) {
+      throw new OrderRequestError('Código promocional inválido.');
+    }
+    let selectedCoupon: {
+      id: number; code: string; restaurantId: number; kind?: string;
+      discount: unknown; discountType: string; minimumSubtotal: unknown; maxDiscount: unknown;
+      allowDelivery?: boolean; allowPickup?: boolean; allowTable?: boolean;
+    } | null = null;
     if (requestedRedemptionId > 0) {
       const normalizedUserId = Number(userId || 0);
       if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
@@ -263,6 +277,44 @@ class OrderPricingService {
       }
 
       const coupon = redemption.coupon;
+      if (coupon.kind === 'PROMOTIONAL') {
+        throw new OrderRequestError('Um cupom promocional não pode ser usado como fidelidade.');
+      }
+      selectedCoupon = coupon;
+      redemptionId = redemption.id;
+    } else if (
+      couponRedemptionId !== null &&
+      couponRedemptionId !== undefined &&
+      couponRedemptionId !== ''
+    ) {
+      throw new OrderRequestError('Cupom resgatado inválido.');
+    } else if (requestedPromotionalCode) {
+      const promotional = await db.coupon.findFirst({
+        where: {
+          restaurantId: normalizedRestaurantId,
+          kind: 'PROMOTIONAL',
+          code: { equals: requestedPromotionalCode, mode: 'insensitive' },
+          active: true,
+          OR: [{ expiration: null }, { expiration: { gt: now } }],
+        },
+      });
+      if (
+        !promotional ||
+        (promotional.usageLimit !== null && promotional.usageCount >= promotional.usageLimit)
+      ) {
+        throw new OrderRequestError('Cupom promocional inválido, expirado ou esgotado.');
+      }
+      selectedCoupon = promotional;
+    }
+    if (selectedCoupon) {
+      const coupon = selectedCoupon;
+      if (
+        (normalizedType === OrderType.DELIVERY && coupon.allowDelivery === false) ||
+        (normalizedType === OrderType.RETIRADA && coupon.allowPickup === false) ||
+        (normalizedType === OrderType.MESA && coupon.allowTable === false)
+      ) {
+        throw new OrderRequestError('Este cupom não permite a modalidade escolhida.');
+      }
       if (itemsSubtotal < Number(coupon.minimumSubtotal || 0)) {
         throw new OrderRequestError(
           `Este cupom exige subtotal mínimo de R$ ${Number(coupon.minimumSubtotal).toFixed(2)}.`,
@@ -289,13 +341,6 @@ class OrderPricingService {
       couponDiscountValue =
         coupon.discountType === 'PERCENTAGE' ? Math.min(configuredDiscount, 100) : configuredDiscount;
       couponId = coupon.id;
-      redemptionId = redemption.id;
-    } else if (
-      couponRedemptionId !== null &&
-      couponRedemptionId !== undefined &&
-      couponRedemptionId !== ''
-    ) {
-      throw new OrderRequestError('Cupom resgatado inválido.');
     }
 
     const total = roundMoney(Math.max(itemsSubtotal - couponDiscount + deliveryFeeAmount, 0));

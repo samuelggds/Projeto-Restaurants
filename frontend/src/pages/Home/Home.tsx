@@ -26,9 +26,12 @@ import { useHomeNotifications } from './hooks/useHomeNotifications';
 import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
 import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
+import { usePromotionalCoupons } from './hooks/usePromotionalCoupons';
+import { useApplyCheckoutCouponCode } from './hooks/useApplyCheckoutCouponCode';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
 import { useOrderQuote } from './hooks/useOrderQuote';
+import { formatCheckoutCouponLabel } from './domain/checkoutCouponLabel';
 import { isUsableLoyaltyRedemption, loyaltyRedemptionEntries } from './domain/loyaltyRedemption';
 import { useLoyaltyExpirationClock } from './hooks/useLoyaltyExpirationClock';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
@@ -234,6 +237,8 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
+  const promotionalCoupons = usePromotionalCoupons(restaurantId, mesaMode);
+  const [selectedPromoCode, setSelectedPromoCode] = useState('');
   const loyalty = useLoyaltyRewards({
     restaurantId,
     enabled: isLoyaltyCustomer,
@@ -258,39 +263,15 @@ export default function Home() {
       ? selectedRedemptionId
       : null;
 
-  const applyCheckoutCouponCode = useCallback(
-    (value: string) => {
-      const code = String(value || '').trim().toUpperCase();
-      if (!code) return;
-
-      if (!isLoyaltyCustomer) {
-        notify(
-          'info',
-          'Entre para usar seu cupom',
-          'Faça login para consultar e aplicar os cupons disponíveis na sua conta.',
-        );
-        return;
-      }
-
-      const match = loyaltyRedemptionEntries(loyalty.summary).find(
-        ({ coupon, redemption }) =>
-          isUsableLoyaltyRedemption(redemption, loyaltyClock) &&
-          String(coupon.code || '').trim().toUpperCase() === code,
-      );
-
-      if (!match) {
-        notify(
-          'warning',
-          'Cupom não disponível',
-          'Confira o código ou escolha um dos cupons disponíveis na sua conta.',
-        );
-        return;
-      }
-
-      setSelectedRedemptionId(match.redemption.id);
-    },
-    [isLoyaltyCustomer, loyalty.summary, loyaltyClock, notify],
-  );
+  const applyCheckoutCouponCode = useApplyCheckoutCouponCode({
+    promotionalCoupons,
+    isLoyaltyCustomer,
+    loyaltySummary: loyalty.summary,
+    loyaltyClock,
+    notify,
+    setSelectedRedemptionId,
+    setSelectedPromoCode,
+  });
 
   const checkoutOrderType = resolveOrderType(mesaMode, availableOrderType);
   const rawCardReturnStatus = String(searchParams.get('cardCheckoutStatus') || '').toLowerCase();
@@ -333,6 +314,7 @@ export default function Home() {
     cart,
     deliveryAddress,
     couponRedemptionId: appliedRedemptionId,
+    couponCode: selectedPromoCode,
   });
   const checkoutSubtotal = orderQuote.quote?.itemsSubtotal ?? cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
@@ -346,19 +328,7 @@ export default function Home() {
         : homeData.freeDeliveryFrom > 0 && checkoutSubtotal >= homeData.freeDeliveryFrom
           ? 0
           : Number(homeData.deliveryFee || 0);
-  const checkoutCouponLabel =
-    orderQuote.quote?.couponDiscountType === 'PERCENTAGE' &&
-    orderQuote.quote.couponDiscountValue !== null
-      ? `Cupom ${orderQuote.quote.couponDiscountValue}%`
-      : orderQuote.quote?.couponDiscountType === 'FIXED' &&
-          orderQuote.quote.couponDiscountValue !== null
-        ? `Cupom ${Number(orderQuote.quote.couponDiscountValue).toLocaleString('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-          })}`
-        : orderQuote.quote?.couponCode
-          ? `Cupom · ${orderQuote.quote.couponCode}`
-          : undefined;
+  const checkoutCouponLabel = formatCheckoutCouponLabel(orderQuote.quote);
   const checkoutRecommendationItems = useMemo(
     () => checkoutRecommendations(homeData.products, cart),
     [cart, homeData.products],
@@ -413,6 +383,7 @@ export default function Home() {
     onPurchased: () => {
       applyPurchasedStockToHome();
       setSelectedRedemptionId(null);
+      setSelectedPromoCode('');
       void loyalty.refresh();
       if (mesaMode) void tableAccount.refresh({ silent: true });
     },
@@ -548,6 +519,7 @@ export default function Home() {
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
+      couponCode: selectedPromoCode,
     });
 
     await executePayment(
@@ -570,6 +542,7 @@ export default function Home() {
       customer,
       deliveryAddress,
       couponRedemptionId: appliedRedemptionId,
+      couponCode: selectedPromoCode,
     });
 
     setTableOrderLoading(true);
@@ -927,6 +900,12 @@ export default function Home() {
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <FigmaDeliveryExperience
         data={homeData}
+        promotionalCoupons={promotionalCoupons}
+        onApplyPromotionalCoupon={(code) => {
+          setSelectedPromoCode(code);
+          setSelectedRedemptionId(null);
+          openHomeCart();
+        }}
         cartCount={tableClosingRequested ? 0 : cartCount}
         cart={tableClosingRequested ? [] : cart}
         cartTotal={tableClosingRequested ? 0 : cartTotal}
@@ -1190,18 +1169,35 @@ export default function Home() {
           }
           onApplyCouponCode={applyCheckoutCouponCode}
           couponContent={
-            <LoyaltyCouponPanel
+            <>
+              {promotionalCoupons.length > 0 && (
+                <div style={{ display: 'grid', gap: 8, padding: 12 }}>
+                  <strong>Cupons promocionais</strong>
+                  {promotionalCoupons.map((coupon) => (
+                    <button key={coupon.id} type="button"
+                      onClick={() => applyCheckoutCouponCode(coupon.code)}>
+                      {coupon.code} — {coupon.title}
+                      {selectedPromoCode === coupon.code ? ' · Aplicado' : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
               loading={loyalty.loading}
               error={loyalty.error}
               summary={loyalty.summary}
               selectedRedemptionId={appliedRedemptionId}
               redeemingCouponId={loyalty.redeemingCouponId}
-              onSelect={(redemptionId) => setSelectedRedemptionId(redemptionId)}
+              onSelect={(redemptionId) => {
+                setSelectedRedemptionId(redemptionId);
+                setSelectedPromoCode('');
+              }}
               onLogin={navigateToLogin}
               onRetry={() => void loyalty.refresh()}
               onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
+            </>
           }
           />
         </Suspense>

@@ -20,6 +20,7 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeDrawer } from './components/EmployeeDrawer';
 import { BrandSettings } from './components/BrandSettings';
 import { AdminSettingsContent } from './components/AdminSettingsContent';
+import { PromotionsSettings } from './components/PromotionsSettings';
 const AdminManagement = lazy(() =>
   import('./components/AdminManagement').then((module) => ({ default: module.AdminManagement })),
 );
@@ -245,6 +246,7 @@ export function AdminPage({
     support: 'Suporte dos pedidos',
     catalog: 'Cardápio',
     customers: 'Clientes',
+    coupons: 'Gestão de Cupons',
     subscriptions: 'Cobranças e assinaturas',
     'managed-service': 'Gestão assistida',
     employees: 'Funcionários',
@@ -742,7 +744,7 @@ export function AdminPage({
           <div>
             <small>
               PAINEL &nbsp;/&nbsp;{' '}
-              {area === 'overview' ? 'OVERVIEW' : area === 'customers' || area === 'employees'
+              {area === 'overview' ? 'OVERVIEW' : area === 'customers' || area === 'employees' || area === 'coupons'
                 ? title.toLocaleUpperCase('pt-BR')
                 : area.toUpperCase()}
             </small>
@@ -821,6 +823,7 @@ export function AdminPage({
         <S.Content
           $wide={
             area === 'catalog' ||
+            area === 'coupons' ||
             area === 'overview' ||
             area === 'orders' ||
             area === 'support' ||
@@ -894,6 +897,18 @@ export function AdminPage({
             ) : area === 'subscriptions' ? (
               <MonthlyBilling
                 initialView={requestedBillingView === 'plans' ? 'plans' : undefined}
+              />
+            ) : area === 'coupons' ? (
+              <PromotionsSettings
+                mode="coupons"
+                products={products}
+                coupons={coupons}
+                loading={promotionsLoading}
+                error={promotionsError}
+                onCreateCoupon={onCreateCoupon}
+                onUpdateCoupon={onUpdateCoupon}
+                onDeleteCoupon={onDeleteCoupon}
+                onReload={onReloadPromotions}
               />
             ) : area === 'managed-service' ? (
               <ManagedServiceArea />
