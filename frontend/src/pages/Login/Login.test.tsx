@@ -292,7 +292,7 @@ describe('Login contextual do cliente', () => {
       await vi.advanceTimersByTimeAsync(700);
     });
 
-    expect(mocks.loginWithGoogle).toHaveBeenCalledWith('google-id-token');
+    expect(mocks.loginWithGoogle).toHaveBeenCalledWith('google-id-token', 'restaurante-teste');
     expect(mocks.persistLogin).toHaveBeenCalledWith(
       { id: 21, name: 'Cliente Google', role: 'CLIENTE' },
       'google-customer-token',
@@ -319,6 +319,7 @@ describe('Login contextual do cliente', () => {
       await vi.advanceTimersByTimeAsync(700);
     });
 
+    expect(mocks.loginWithGoogle).toHaveBeenCalledWith('google-id-token', 'outro-restaurante');
     expect(container.textContent).toContain(SECOND_CUSTOMER_RETURN_PATH);
     expect(container.textContent).not.toContain(TABLE_RETURN_PATH);
   });

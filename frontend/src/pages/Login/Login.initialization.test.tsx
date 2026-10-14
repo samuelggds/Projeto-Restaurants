@@ -161,7 +161,7 @@ describe('inicialização dos campos de login sem sobrescrever digitação', () 
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(mocks.loginRequest).toHaveBeenCalledExactlyOnceWith({
-      email: 'cliente@teste.com', password: 'Senha@regressao123',
+      email: 'cliente@teste.com', restaurantSlug: 'restaurante-teste', password: 'Senha@regressao123',
     });
     expect(container.textContent).toContain('Verificação em duas etapas');
     expect(mocks.verifyLogin2fa).not.toHaveBeenCalled();
