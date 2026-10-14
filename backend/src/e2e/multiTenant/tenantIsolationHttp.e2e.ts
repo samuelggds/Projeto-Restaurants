@@ -1,4 +1,5 @@
 import { runShippingCouponPersistenceCase } from './couponShippingPersistenceChecks.js';
+import { runGlobalCustomerCouponCase } from './couponGlobalCustomerChecks.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHmac } from 'node:crypto';
@@ -32,6 +33,10 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
   const { baseUrl } = runtime;
 
   try {
+    await t.test('conta CLIENTE global consulta apenas campanhas de seu tenant', async () => {
+      await runGlobalCustomerCouponCase(baseUrl, fixture);
+    });
+
     await t.test('cupom FRETEZERO persiste desconto zero e respeita isolamento entre restaurantes', async () => {
       await runShippingCouponPersistenceCase(baseUrl, fixture);
     });
