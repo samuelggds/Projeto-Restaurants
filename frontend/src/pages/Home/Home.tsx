@@ -1,4 +1,5 @@
-import { CheckoutPromotionalCouponPicker } from './components/CheckoutPromotionalCouponPicker';
+import { CheckoutCouponContent } from './components/CheckoutCouponContent';
+import { resolveCheckoutCouponStatus } from './domain/checkoutCouponStatus';
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
@@ -16,7 +17,6 @@ import { useTableAccount } from './hooks/useTableAccount';
 import { useTableOrderNotice } from './hooks/useTableOrderNotice';
 import { buildHomeData } from '../Home/adapters/homeDataAdapter';
 import { TableAccessGate } from './components/TableAccessGate';
-import { LoyaltyCouponPanel } from '../Home/components/LoyaltyCouponPanel';
 import { GuestAddressCheckout } from '../Home/components/GuestAddressCheckout';
 import { AuthenticatedAddressCheckout } from '../Home/components/AuthenticatedAddressCheckout';
 import { AuthenticatedEmptyAddressCheckout } from '../Home/components/AuthenticatedEmptyAddressCheckout';
@@ -317,6 +317,11 @@ export default function Home() {
     couponRedemptionId: appliedRedemptionId,
     couponCode: selectedPromoCode,
   });
+  const couponState = resolveCheckoutCouponStatus({
+    requestedCode: selectedPromoCode,
+    redemptionId: appliedRedemptionId,
+    ...orderQuote,
+  });
   const checkoutSubtotal = orderQuote.quote?.itemsSubtotal ?? cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
   const cartDeliveryFeePending =
@@ -485,6 +490,10 @@ export default function Home() {
       return;
     }
 
+    if (couponState.blocked) {
+      notify('warning', 'Cupom não validado', couponState.error || 'Aguarde a confirmação dos valores do pedido.');
+      return;
+    }
     const customer = {
       ...((user || guestCheckoutDetails) as Record<string, unknown>),
       phone: user ? resolvedCheckoutCustomerPhone : guestCheckoutDetails.phone,
@@ -630,6 +639,10 @@ export default function Home() {
         }
       }
 
+      if (couponState.blocked) {
+        notify('warning', 'Cupom não validado', couponState.error || 'Aguarde a confirmação do cupom.');
+        return;
+      }
       setPaymentMethod(defaultCheckoutPaymentMethod);
       setCheckoutStep('payment');
     },
@@ -638,6 +651,8 @@ export default function Home() {
       availableOrderType,
       cepStatus,
       checkoutOrderType,
+      couponState.blocked,
+      couponState.error,
       confirmDialog,
       defaultCheckoutPaymentMethod,
       deliveryAddress,
@@ -954,8 +969,12 @@ export default function Home() {
           deliveryFeePreview={cartDeliveryFeePreview}
           deliveryFeePending={cartDeliveryFeePending}
           loading={checkoutLoading}
+          requestedCouponCode={selectedPromoCode}
+          couponPending={couponState.pending}
+          couponError={couponState.error}
+          onRemoveCoupon={() => { setSelectedPromoCode(''); setSelectedRedemptionId(null); }}
           canContinue={
-            homeData.isOpen &&
+            homeData.isOpen && !couponState.blocked &&
             (checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable))
           }
           onStepChange={(nextStep) => {
@@ -1171,30 +1190,17 @@ export default function Home() {
           }
           onApplyCouponCode={applyCheckoutCouponCode}
           couponContent={
-            <>
-              {promotionalCoupons.length > 0 && (
-                <CheckoutPromotionalCouponPicker
-                  coupons={promotionalCoupons}
-                  appliedCode={orderQuote.quote?.couponCode || selectedPromoCode}
-                  onApply={applyCheckoutCouponCode}
-                />
-              )}
-              <LoyaltyCouponPanel
+            <CheckoutCouponContent
+              promotionalCoupons={promotionalCoupons}
+              confirmedCode={couponState.confirmedCode}
+              pendingCode={couponState.pending ? selectedPromoCode : null}
+              onApply={applyCheckoutCouponCode}
               loggedIn={isLoyaltyCustomer}
-              loading={loyalty.loading}
-              error={loyalty.error}
-              summary={loyalty.summary}
-              selectedRedemptionId={appliedRedemptionId}
-              redeemingCouponId={loyalty.redeemingCouponId}
-              onSelect={(redemptionId) => {
-                setSelectedRedemptionId(redemptionId);
-                setSelectedPromoCode('');
-              }}
+              loyalty={loyalty}
+              selectedRedemptionId={couponState.confirmed ? appliedRedemptionId : null}
+              onSelectRedemption={(id) => { setSelectedRedemptionId(id); setSelectedPromoCode(''); }}
               onLogin={navigateToLogin}
-              onRetry={() => void loyalty.refresh()}
-              onRedeem={(couponId) => void loyalty.redeem(couponId)}
             />
-            </>
           }
           />
         </Suspense>

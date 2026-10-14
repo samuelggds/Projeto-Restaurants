@@ -47,4 +47,20 @@ describe('seleção de cupons no resumo do carrinho', () => {
     });
     expect(onApply).toHaveBeenCalledWith('FRETEZERO');
   });
+  it('não marca cupom inválido como aplicado enquanto o backend valida', async () => {
+    const onApply = vi.fn();
+    await act(async () => root.render(
+      <CheckoutPromotionalCouponPicker coupons={coupons} appliedCode="" pendingCode="FRETEZERO" onApply={onApply} />,
+    ));
+    const pending = container.querySelector('[aria-label="Aplicar cupom FRETEZERO"]') as HTMLButtonElement;
+    expect(pending.getAttribute('aria-pressed')).toBe('false');
+    expect(pending.getAttribute('aria-busy')).toBe('true');
+    expect(pending.textContent).toContain('Validando...');
+    await act(async () => root.render(
+      <CheckoutPromotionalCouponPicker coupons={coupons} appliedCode="" onApply={onApply} />,
+    ));
+    expect(pending.getAttribute('aria-pressed')).toBe('false');
+    expect(container.textContent).not.toContain('Aplicado');
+  });
+
 });

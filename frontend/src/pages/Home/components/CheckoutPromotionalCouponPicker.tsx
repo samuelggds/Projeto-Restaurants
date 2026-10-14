@@ -136,10 +136,12 @@ function offerLabel(coupon: PublicPromotionalCoupon) {
 export function CheckoutPromotionalCouponPicker({
   coupons,
   appliedCode,
+  pendingCode,
   onApply,
 }: {
   coupons: PublicPromotionalCoupon[];
   appliedCode?: string | null;
+  pendingCode?: string | null;
   onApply: (code: string) => void;
 }) {
   return (
@@ -148,6 +150,7 @@ export function CheckoutPromotionalCouponPicker({
       <div className="picker-options">
         {coupons.map((coupon) => {
           const selected = coupon.code === appliedCode;
+          const pending = !selected && coupon.code === pendingCode;
           const tone = offerKind(coupon);
           return (
             <button
@@ -156,6 +159,7 @@ export function CheckoutPromotionalCouponPicker({
               className={'picker-option picker-option--' + tone + (selected ? ' picker-option--selected' : '')}
               aria-label={'Aplicar cupom ' + coupon.code}
               aria-pressed={selected}
+              aria-busy={pending}
               onClick={() => onApply(coupon.code)}
             >
               <span className="picker-icon">
@@ -168,7 +172,7 @@ export function CheckoutPromotionalCouponPicker({
                 <b>{coupon.code}</b>
                 <small>{coupon.title} · {offerLabel(coupon)}</small>
               </span>
-              <span className="picker-status">{selected ? 'Aplicado' : 'Usar'}</span>
+              <span className="picker-status">{selected ? 'Aplicado' : pending ? 'Validando...' : 'Usar'}</span>
             </button>
           );
         })}
