@@ -228,7 +228,7 @@ class OrderPricingService {
       !deliveryFeeFallbackApplied &&
       freeShippingMinimum > 0 &&
       itemsSubtotal >= freeShippingMinimum;
-    const deliveryFeeAmount = hasFreeShipping ? 0 : configuredDeliveryFeeAmount;
+    let deliveryFeeAmount = hasFreeShipping ? 0 : configuredDeliveryFeeAmount;
 
     const minimumOrder = Math.max(Number(settings?.minimumOrder || 0), 0);
     if (normalizedType === OrderType.DELIVERY && minimumOrder > 0 && itemsSubtotal < minimumOrder) {
@@ -238,6 +238,7 @@ class OrderPricingService {
     }
 
     let couponDiscount = 0;
+    let shippingCouponDiscount = 0;
     let couponCode: string | null = null;
     let couponDiscountType: string | null = null;
     let couponDiscountValue: number | null = null;
@@ -254,6 +255,7 @@ class OrderPricingService {
     let selectedCoupon: {
       id: number; code: string; restaurantId: number; kind?: string;
       discount: unknown; discountType: string; minimumSubtotal: unknown; maxDiscount: unknown;
+      audience?: 'ALL' | 'NEW_CUSTOMERS' | 'RETURNING_CUSTOMERS';
       allowDelivery?: boolean; allowPickup?: boolean; allowTable?: boolean;
     } | null = null;
     if (requestedRedemptionId > 0) {
@@ -308,6 +310,26 @@ class OrderPricingService {
     }
     if (selectedCoupon) {
       const coupon = selectedCoupon;
+      if (coupon.kind === 'PROMOTIONAL' && coupon.audience && coupon.audience !== 'ALL') {
+        const authenticatedId = Number(userId || 0);
+        if (!Number.isSafeInteger(authenticatedId) || authenticatedId <= 0) {
+          throw new OrderRequestError('Entre com sua conta para usar este cupom.');
+        }
+        const customer = await db.user.findFirst({
+          where: { id: authenticatedId, role: 'CLIENTE' },
+          select: { id: true, email: true },
+        });
+        if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
+          throw new OrderRequestError('Entre com uma conta de cliente autenticada para usar este cupom.');
+        }
+        const previous = await db.order.count({
+          where: { restaurantId: normalizedRestaurantId, userId: authenticatedId, status: { not: 'CANCELADO' } },
+        });
+        if (coupon.audience === 'NEW_CUSTOMERS' && previous > 0)
+          throw new OrderRequestError('Cupom exclusivo para sua primeira compra neste restaurante.');
+        if (coupon.audience === 'RETURNING_CUSTOMERS' && previous === 0)
+          throw new OrderRequestError('Cupom exclusivo para clientes que já compraram neste restaurante.');
+      }
       if (
         (normalizedType === OrderType.DELIVERY && coupon.allowDelivery === false) ||
         (normalizedType === OrderType.RETIRADA && coupon.allowPickup === false) ||
@@ -322,19 +344,25 @@ class OrderPricingService {
       }
 
       const configuredDiscount = Number(coupon.discount || 0);
-      const rawDiscount =
-        coupon.discountType === 'PERCENTAGE'
-          ? itemsSubtotal * (Math.min(configuredDiscount, 100) / 100)
-          : configuredDiscount;
-      const limitedDiscount = coupon.maxDiscount
-        ? Math.min(rawDiscount, Number(coupon.maxDiscount))
-        : rawDiscount;
-      const maximumCouponDiscount = Math.max(itemsSubtotal - 0.01, 0);
-      couponDiscount = roundMoney(Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount));
-      if (couponDiscount <= 0) {
-        throw new OrderRequestError(
-          'Este cupom não gera desconto neste pedido. Escolha outro benefício ou aumente o subtotal.',
-        );
+      if (coupon.discountType === 'FREE_SHIPPING') {
+        if (coupon.kind !== 'PROMOTIONAL' || normalizedType !== OrderType.DELIVERY)
+          throw new OrderRequestError('Frete grátis está disponível apenas em Delivery.');
+        if (deliveryFeeFallbackApplied)
+          throw new OrderRequestError('Aguarde o cálculo definitivo do frete para aplicar este cupom.');
+        shippingCouponDiscount = roundMoney(Math.min(deliveryFeeAmount, coupon.maxDiscount
+          ? Number(coupon.maxDiscount) : deliveryFeeAmount));
+        if (shippingCouponDiscount <= 0)
+          throw new OrderRequestError('A entrega deste pedido já está gratuita.');
+        deliveryFeeAmount = roundMoney(deliveryFeeAmount - shippingCouponDiscount);
+      } else {
+        const rawDiscount = coupon.discountType === 'PERCENTAGE'
+          ? itemsSubtotal * (Math.min(configuredDiscount, 100) / 100) : configuredDiscount;
+        const limitedDiscount = coupon.maxDiscount
+          ? Math.min(rawDiscount, Number(coupon.maxDiscount)) : rawDiscount;
+        const maximumCouponDiscount = Math.max(itemsSubtotal - 0.01, 0);
+        couponDiscount = roundMoney(Math.min(Math.max(limitedDiscount, 0), maximumCouponDiscount));
+        if (couponDiscount <= 0)
+          throw new OrderRequestError('Este cupom não gera desconto neste pedido. Escolha outro benefício.');
       }
       couponCode = coupon.code;
       couponDiscountType = coupon.discountType;
@@ -349,6 +377,7 @@ class OrderPricingService {
       itemsSubtotal,
       productDiscountTotal,
       couponDiscount,
+      shippingCouponDiscount,
       deliveryFeeAmount,
       deliveryDistanceMeters:
         normalizedType === OrderType.DELIVERY &&

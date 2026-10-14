@@ -127,6 +127,7 @@ class QuoteOrderController {
         itemsSubtotal: quote.itemsSubtotal,
         productDiscountTotal: quote.productDiscountTotal,
         couponDiscount: quote.couponDiscount,
+        shippingCouponDiscount: quote.shippingCouponDiscount,
         deliveryFeeAmount: quote.deliveryFeeAmount,
         deliveryDistanceMeters: quote.deliveryDistanceMeters,
         deliveryFeeFallbackApplied: quote.deliveryFeeFallbackApplied,
