@@ -316,14 +316,14 @@ class OrderPricingService {
           throw new OrderRequestError('Entre com sua conta para usar este cupom.');
         }
         const customer = await db.user.findFirst({
-          where: { id: authenticatedId, role: 'CLIENTE' },
+          where: { id: authenticatedId, role: 'CLIENTE', restaurantId: normalizedRestaurantId, active: true },
           select: { id: true, email: true },
         });
         if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
           throw new OrderRequestError('Entre com uma conta de cliente autenticada para usar este cupom.');
         }
         const previous = await db.order.count({
-          where: { restaurantId: normalizedRestaurantId, userId: authenticatedId, status: { not: 'CANCELADO' } },
+          where: { restaurantId: normalizedRestaurantId, userId: authenticatedId, paid: true, refundedAt: null, status: { not: 'CANCELADO' } },
         });
         if (coupon.audience === 'NEW_CUSTOMERS' && previous > 0)
           throw new OrderRequestError('Cupom exclusivo para sua primeira compra neste restaurante.');

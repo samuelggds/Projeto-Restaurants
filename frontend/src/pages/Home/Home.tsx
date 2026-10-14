@@ -240,20 +240,27 @@ export default function Home() {
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
   const publicCoupons = usePromotionalCoupons(restaurantId, mesaMode);
-  const [personalCampaigns, setPersonalCampaigns] = useState<import('../Profile/domain/promotionalWallet').WalletCampaign[]>([]);
+  const [personalCampaignResult, setPersonalCampaignResult] = useState<{
+    restaurantId: number; userId: number; campaigns: import('../Profile/domain/promotionalWallet').WalletCampaign[];
+  } | null>(null);
   useEffect(() => {
     let active = true;
-    setPersonalCampaigns([]);
     if (!restaurantId || mesaMode || user?.role !== 'CLIENTE') return () => { active = false; };
+    const userId = Number(user.id);
     void listMyPromotionalCoupons(restaurantId).then((items) => {
-      if (active) setPersonalCampaigns(items);
-    }).catch(() => { if (active) setPersonalCampaigns([]); });
+      if (active) setPersonalCampaignResult({ restaurantId, userId, campaigns: items });
+    }).catch(() => { if (active) setPersonalCampaignResult({ restaurantId, userId, campaigns: [] }); });
     return () => { active = false; };
   }, [restaurantId, mesaMode, user?.id, user?.role]);
   const promotionalCoupons = user?.role === 'CLIENTE'
-    ? personalCampaigns.filter((coupon) => coupon.status === 'ACTIVE')
+    ? (personalCampaignResult?.restaurantId === restaurantId &&
+       personalCampaignResult?.userId === Number(user.id)
+      ? personalCampaignResult.campaigns.filter((coupon) => coupon.status === 'ACTIVE')
+      : [])
     : publicCoupons;
-  const [selectedPromoCode, setSelectedPromoCode] = useState('');
+  const [selectedPromoCode, setSelectedPromoCode] = useState(() =>
+    typeof navigationState?.promotionalCode === 'string' ? navigationState.promotionalCode : '',
+  );
   const loyalty = useLoyaltyRewards({
     restaurantId,
     enabled: isLoyaltyCustomer,

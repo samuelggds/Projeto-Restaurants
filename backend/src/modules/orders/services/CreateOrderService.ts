@@ -626,7 +626,7 @@ class CreateOrderService {
                   throw new OrderRequestError('Entre com sua conta para usar cupons exclusivos.');
                 }
                 const customer = await tx.user.findFirst({
-                  where: { id: Number(userId), role: 'CLIENTE' },
+                  where: { id: Number(userId), role: 'CLIENTE', restaurantId: resolvedRestaurantId, active: true },
                   select: { id: true, email: true },
                 });
                 if (!customer || String(customer.email || '').endsWith('@gastronexa.local')) {
@@ -635,7 +635,7 @@ class CreateOrderService {
                 await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${Number(userId)} FOR UPDATE`;
                 const previous = await tx.order.count({
                   where: { restaurantId: resolvedRestaurantId, userId: Number(userId),
-                    status: { not: OrderStatus.CANCELADO } },
+                    paid: true, refundedAt: null, status: { not: OrderStatus.CANCELADO } },
                 });
                 if (policy.audience === 'NEW_CUSTOMERS' && previous > 0) {
                   throw new OrderRequestError('Este cupom é exclusivo para a primeira compra.');

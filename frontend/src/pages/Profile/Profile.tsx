@@ -51,7 +51,12 @@ export default function Profile() {
   );
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [loyaltySummary, setLoyaltySummary] = useState<LoyaltySummary | null>(null);
-  const [promotionalWallet, setPromotionalWallet] = useState<WalletCampaign[]>([]);
+  const [promotionalWalletResult, setPromotionalWalletResult] = useState<{
+    restaurantId: number; userId: number; items: WalletCampaign[];
+  } | null>(null);
+  const promotionalWallet = promotionalWalletResult?.restaurantId === restaurantId &&
+    promotionalWalletResult?.userId === Number(user?.id)
+    ? promotionalWalletResult.items : [];
   const [promotionalWalletLoading, setPromotionalWalletLoading] = useState(false);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
@@ -98,12 +103,12 @@ export default function Profile() {
 
   useEffect(() => {
     let active = true;
-    setPromotionalWallet([]);
     if (restaurantId && user?.role === 'CLIENTE') {
+      const userId = Number(user.id);
       setPromotionalWalletLoading(true);
       void listMyPromotionalCoupons(restaurantId)
-        .then((items) => { if (active) setPromotionalWallet(items); })
-        .catch(() => { if (active) setPromotionalWallet([]); })
+        .then((items) => { if (active) setPromotionalWalletResult({ restaurantId, userId, items }); })
+        .catch(() => { if (active) setPromotionalWalletResult({ restaurantId, userId, items: [] }); })
         .finally(() => { if (active) setPromotionalWalletLoading(false); });
     }
     return () => { active = false; };
