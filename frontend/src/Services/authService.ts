@@ -55,8 +55,8 @@ class AuthService {
     return response.data;
   }
 
-  async loginWithGoogle(idToken) {
-    const response = await api.post('/auth/google', { idToken });
+  async loginWithGoogle(idToken, restaurantSlug?: string) {
+    const response = await api.post('/auth/google', { idToken, restaurantSlug });
 
     return this.rememberMfaChallenge(response.data);
   }

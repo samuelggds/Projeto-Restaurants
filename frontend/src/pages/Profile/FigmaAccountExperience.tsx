@@ -562,9 +562,15 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
 
     if (view === 'coupons') {
       if (props.loyaltyLoading || props.promotionalWalletLoading) return <S.Empty>Carregando seus cupons...</S.Empty>;
-      if (props.loyaltyError) return <S.Empty>{props.loyaltyError}</S.Empty>;
+      if (props.loyaltyError && !(props.promotionalWallet || []).length) return <S.Empty>{props.loyaltyError}</S.Empty>;
       return (
         <S.Stack>
+          {props.promotionalWalletError ? (
+            <S.Empty role="alert">
+              {props.promotionalWalletError}{' '}
+              <button type="button" onClick={props.onRetryPromotionalWallet}>Tentar novamente</button>
+            </S.Empty>
+          ) : null}
           {(props.promotionalWallet || []).map((campaign) => (
             <S.Coupon key={'promo-' + campaign.id} $muted={campaign.status !== 'ACTIVE'}>
               <div className="top">
@@ -614,7 +620,7 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
               </S.Coupon>
             );
           })}
-          {!coupons.length && !props.promotionalWallet?.length ? <S.Empty>Nenhum cupom disponível no momento.</S.Empty> : null}
+          {!coupons.length && !props.promotionalWallet?.length && !props.promotionalWalletError ? <S.Empty>Nenhum cupom disponível no momento.</S.Empty> : null}
         </S.Stack>
       );
     }

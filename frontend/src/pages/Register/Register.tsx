@@ -207,7 +207,7 @@ export default function Register() {
         client_id: clientId,
         callback: async (response) => {
           try {
-            const authResponse = await authService.loginWithGoogle(response.credential);
+            const authResponse = await authService.loginWithGoogle(response.credential, pathSlug || undefined);
             if (authResponse?.mfaRequired) {
               toast.info('Sua conta usa verificação em duas etapas. Entre para concluir o acesso.');
               navigate(loginPath);
@@ -249,7 +249,7 @@ export default function Register() {
     } finally {
       googleInitInFlightRef.current = false;
     }
-  }, [destinationAfterGoogle, loadGoogleScript, login, loginPath, navigate]);
+  }, [destinationAfterGoogle, loadGoogleScript, login, loginPath, navigate, pathSlug]);
 
   useEffect(() => {
     googleMountedRef.current = true;

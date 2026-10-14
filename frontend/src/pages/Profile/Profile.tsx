@@ -55,6 +55,8 @@ export default function Profile() {
     restaurantId: number; userId: number; items: WalletCampaign[];
   } | null>(null);
   const [promotionalWalletLoading, setPromotionalWalletLoading] = useState(false);
+  const [promotionalWalletError, setPromotionalWalletError] = useState('');
+  const [promotionalWalletRetry, setPromotionalWalletRetry] = useState(0);
   const [loyaltyLoading, setLoyaltyLoading] = useState(false);
   const [loyaltyError, setLoyaltyError] = useState('');
   const [loyaltyRedeemingCouponId, setLoyaltyRedeemingCouponId] = useState<number | null>(null);
@@ -107,13 +109,21 @@ export default function Profile() {
       if (!active || !restaurantId || user?.role !== 'CLIENTE') return;
       const userId = Number(user.id);
       setPromotionalWalletLoading(true);
+      setPromotionalWalletError('');
       void listMyPromotionalCoupons(restaurantId)
-        .then((items) => { if (active) setPromotionalWalletResult({ restaurantId, userId, items }); })
-        .catch(() => { if (active) setPromotionalWalletResult({ restaurantId, userId, items: [] }); })
+        .then((items) => {
+          if (active) setPromotionalWalletResult({ restaurantId, userId, items });
+        })
+        .catch(() => {
+          if (active) {
+            setPromotionalWalletResult({ restaurantId, userId, items: [] });
+            setPromotionalWalletError('Não foi possível consultar seus cupons. Tente novamente.');
+          }
+        })
         .finally(() => { if (active) setPromotionalWalletLoading(false); });
     }, 0);
     return () => { active = false; window.clearTimeout(handle); };
-  }, [restaurantId, user?.id, user?.role]);
+  }, [restaurantId, user?.id, user?.role, promotionalWalletRetry]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void loadLoyaltyWallet(), 0);
@@ -454,6 +464,8 @@ export default function Profile() {
         historyPagination={history}
         promotionalWallet={promotionalWallet}
         promotionalWalletLoading={promotionalWalletLoading}
+        promotionalWalletError={promotionalWalletError}
+        onRetryPromotionalWallet={() => setPromotionalWalletRetry((count) => count + 1)}
         onUsePromotionalCoupon={(code) => navigate(restaurantHomePath, {
           state: { openCart: true, promotionalCode: code },
         })}

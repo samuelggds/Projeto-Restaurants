@@ -144,8 +144,16 @@ export class EmailVerificationService {
     if (!normalizedEmail) return { message: SAFE_RESEND_MESSAGE };
 
     const user = await userRepository.findByEmail(normalizedEmail);
+    const slug = normalizeSlug(restaurantSlug);
+    const matchingRestaurant = !user?.restaurantId || !slug
+      ? false
+      : Boolean(await prisma.restaurant.findFirst({
+          where: { id: user.restaurantId, slug },
+          select: { id: true },
+        }));
     if (
       user &&
+      matchingRestaurant &&
       user.emailVerificationRequired &&
       !user.emailVerifiedAt &&
       user.active

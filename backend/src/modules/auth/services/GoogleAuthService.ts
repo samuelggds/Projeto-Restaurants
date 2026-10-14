@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { assertCustomerRestaurantAccess, resolveCustomerRestaurantId } from './customerRestaurantAccess.js';
 import { OAuth2Client } from 'google-auth-library';
 import { UserRole } from '@prisma/client';
 import userRepository from '../repositories/UserRepository.js';
@@ -32,7 +33,7 @@ function parseGoogleClientIds() {
 export class GoogleAuthService {
   constructor(private readonly platformAccess: PlatformAccess = platformMaintenanceAccessService) {}
 
-  async execute({ idToken }: { idToken: string }) {
+  async execute({ idToken, restaurantSlug }: { idToken: string; restaurantSlug?: string }) {
     if (!idToken) {
       throw new Error('Token do Google não informado');
     }
@@ -69,12 +70,14 @@ export class GoogleAuthService {
       // Contas OAuth recebem uma credencial local aleatória e desconhecida pelo usuário.
       const generatedPassword = generateStrongRandomPassword();
       const passwordHash = await bcrypt.hash(generatedPassword, 10);
+      const restaurantId = await resolveCustomerRestaurantId(restaurantSlug);
 
       user = await userRepository.create({
         name: payload?.name || getSafeNameFromEmail(email),
         email,
         password: passwordHash,
         role: UserRole.CLIENTE,
+        restaurantId,
         emailVerificationRequired: true,
         emailVerifiedAt: new Date(),
       });
@@ -87,6 +90,9 @@ export class GoogleAuthService {
     }
 
     await this.platformAccess.assertRoleAllowed(user.role);
+    if (user.role === 'CLIENTE') {
+      user = await assertCustomerRestaurantAccess(user, restaurantSlug);
+    }
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
     if (mfaChallenge) {

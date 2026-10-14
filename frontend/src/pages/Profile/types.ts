@@ -115,6 +115,8 @@ export type ProfilePageProps = {
   onUploadAvatar?: (file: File) => Promise<void>;
   promotionalWallet?: WalletCampaign[];
   promotionalWalletLoading?: boolean;
+  promotionalWalletError?: string;
+  onRetryPromotionalWallet?: () => void;
   onUsePromotionalCoupon?: (code: string) => void;
   loyaltySummary?: LoyaltySummary | null;
   loyaltyLoading?: boolean;

@@ -251,10 +251,18 @@ export default function Login() {
     [changePasswordPath, navigate, safeNextPath],
   );
   const latestRedirectByRoleRef = useRef(redirectByRole);
+  const latestGoogleRestaurantSlugRef = useRef(portalSlug);
 
   useEffect(() => {
     latestRedirectByRoleRef.current = redirectByRole;
   }, [redirectByRole]);
+
+  // Google One Tap can keep its originally registered callback when the
+  // customer navigates between restaurant login routes. Never send the old
+  // restaurant slug with a new customer's OAuth credential.
+  useEffect(() => {
+    latestGoogleRestaurantSlugRef.current = portalSlug;
+  }, [portalSlug]);
 
   const completeLoginWithMfaIfNeeded = useCallback(async (authResponse) => {
     if (!authResponse?.mfaRequired) {
@@ -377,7 +385,9 @@ export default function Login() {
           client_id: normalizedClientId,
           callback: async (response) => {
             try {
-              const firstStep = await authService.loginWithGoogle(response.credential);
+              const firstStep = await authService.loginWithGoogle(
+                response.credential, latestGoogleRestaurantSlugRef.current || undefined,
+              );
               const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
               const authResponse = await validatePortalAccess(withMfa);
 
@@ -485,7 +495,7 @@ export default function Login() {
       const firstStep = await authService.login(
         isStaffAccess
           ? { username: email.trim().toLowerCase(), restaurantSlug: portalSlug, password }
-          : { email, password },
+          : { email, restaurantSlug: portalSlug || undefined, password },
       );
       const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
       const response = await validatePortalAccess(withMfa);

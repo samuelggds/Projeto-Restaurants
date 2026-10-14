@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { resolveCustomerRestaurantId } from './customerRestaurantAccess.js';
 import userRepository from '../repositories/UserRepository.js';
 import { registerSchema } from '../../../validators/RegisterValidator.js';
 import emailVerificationService from './EmailVerificationService.js';
@@ -27,12 +28,14 @@ class RegisterService {
       throw new Error('Este e-mail já está em uso!');
     }
 
+    const restaurantId = await resolveCustomerRestaurantId(restaurantSlug);
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await userRepository.create({
       name: String(name || '').trim(),
       email: normalizedEmail,
       phone: normalizedPhone,
       password: passwordHash,
+      restaurantId,
       emailVerificationRequired: true,
       emailVerifiedAt: null,
     });

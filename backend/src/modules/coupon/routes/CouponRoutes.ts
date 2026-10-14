@@ -50,14 +50,16 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
   try {
     const { restaurantId } = loyaltyRestaurantQuerySchema.parse(req.query);
     const userId = Number(req.user?.id || 0);
-    const authenticatedRestaurantId = Number(req.user?.restaurantId || 0);
-    if (!userId || authenticatedRestaurantId !== restaurantId)
+    if (!Number.isSafeInteger(userId) || userId <= 0)
+      return res.status(403).json({ error: 'Conta de cliente inválida.' });
+    if (Number(req.user?.restaurantId || 0) !== restaurantId)
       return res.status(403).json({ error: 'Cliente não pertence a este restaurante.' });
 
     const now = new Date();
     const coupons = await withTenantDbContext(restaurantId, async (db) => {
       const customer = await db.user.findFirst({
-        where: { id: userId, restaurantId, role: 'CLIENTE', active: true },
+        where: { id: userId, restaurantId, role: 'CLIENTE', active: true,
+          NOT: { email: { endsWith: '@gastronexa.local' } } },
         select: { id: true },
       });
       if (!customer) return null;
