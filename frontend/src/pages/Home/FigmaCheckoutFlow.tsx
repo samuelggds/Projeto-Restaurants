@@ -72,7 +72,7 @@ function CouponEntry({
   onApply,
 }: CouponEntryProps) {
   const [draft, setDraft] = useState(() => String(requestedCode || appliedCode || ''));
-  useEffect(() => { setDraft(String(requestedCode || appliedCode || '')); }, [requestedCode, appliedCode]);
+  // O componente é reinicializado por key quando a seleção externa muda; digitação local permanece livre.
   const normalizedDraft = draft.trim().toUpperCase();
   const normalizedApplied = String(appliedCode || '').trim().toUpperCase();
   const isApplied = Boolean(normalizedApplied && normalizedDraft === normalizedApplied);
@@ -303,7 +303,7 @@ export function FigmaCheckoutFlow({
             {cartCount > 0 && mobileCart ? (
               <S.MobileCartSummary>
                 <CouponEntry
-                  key={quote?.couponCode || 'mobile-coupon-empty'}
+                  key={`mobile-coupon-${requestedCouponCode || quote?.couponCode || 'empty'}`}
                   appliedCode={quote?.couponCode}
                   requestedCode={requestedCouponCode}
                   pending={couponPending}
@@ -351,7 +351,7 @@ export function FigmaCheckoutFlow({
               <h2>Resumo do Pedido</h2>
 
               <CouponEntry
-                key={quote?.couponCode || 'desktop-coupon-empty'}
+                key={`desktop-coupon-${requestedCouponCode || quote?.couponCode || 'empty'}`}
                 appliedCode={quote?.couponCode}
                   requestedCode={requestedCouponCode}
                   pending={couponPending}
