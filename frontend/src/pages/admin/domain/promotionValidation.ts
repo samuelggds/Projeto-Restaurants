@@ -159,7 +159,7 @@ export function couponPayload(draft: CouponDraft): CouponPayload {
   return {
     code: normalizeCouponCode(draft.code),
     kind: draft.kind || 'LOYALTY',
-    audience: draft.kind === 'PROMOTIONAL' ? draft.audience || 'ALL' : 'ALL',
+    ...(draft.kind === 'PROMOTIONAL' ? { audience: draft.audience || 'ALL' } : {}),
     usageLimit: draft.usageLimit?.trim() ? Number(draft.usageLimit) : null,
     allowDelivery: draft.allowDelivery !== false,
     allowPickup: draft.allowPickup !== false,

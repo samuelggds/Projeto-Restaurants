@@ -140,7 +140,7 @@ describe('validação de cupons de fidelidade', () => {
     };
     expect(validateCouponDraft(draft)).toEqual([]);
     expect(couponPayload(draft)).toMatchObject({
-      kind: 'PROMOTIONAL', usageLimit: 200, allowDelivery: true,
+      kind: 'PROMOTIONAL', audience: 'ALL', usageLimit: 200, allowDelivery: true,
       allowPickup: false, allowTable: false, minimumSubtotal: 30,
     });
     expect(validateCouponDraft({ ...draft, usageLimit: '0' })).toContain(
@@ -149,6 +149,27 @@ describe('validação de cupons de fidelidade', () => {
     expect(validateCouponDraft({ ...draft, allowDelivery: false })).toContain(
       'Escolha pelo menos uma modalidade.',
     );
+  });
+
+  it('envia público-alvo somente para campanhas promocionais', () => {
+    const draft = {
+      code: 'PRIMEIRA10',
+      kind: 'PROMOTIONAL' as const,
+      audience: 'NEW_CUSTOMERS' as const,
+      title: 'Primeira compra',
+      description: 'Benefício para clientes autenticados',
+      discountType: 'FIXED' as const,
+      discount: '10',
+      minimumSubtotal: '30',
+      maxDiscount: '',
+      loyaltyPurchasesRequired: '1',
+      perCustomerLimit: '1',
+      redemptionValidityDays: '30',
+      active: true,
+      expiration: '',
+    };
+    expect(couponPayload(draft)).toHaveProperty('audience', 'NEW_CUSTOMERS');
+    expect(couponPayload({ ...draft, kind: 'LOYALTY' })).not.toHaveProperty('audience');
   });
 
 });
