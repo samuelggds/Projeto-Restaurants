@@ -102,7 +102,7 @@ jobs:
           languages: javascript-typescript
           config-file: ./.github/codeql/codeql-config.yml
       - name: Analyze production source and preserve SARIF
-        uses: github/codeql-action/analyze@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v3
         with:
           output: ${{ runner.temp }}/codeql-sarif
           upload: true
