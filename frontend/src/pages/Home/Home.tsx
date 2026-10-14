@@ -317,6 +317,11 @@ export default function Home() {
     couponRedemptionId: appliedRedemptionId,
     couponCode: selectedPromoCode,
   });
+  const confirmedPromoCode = orderQuote.quote?.couponCode || '';
+  const couponRequested = Boolean(selectedPromoCode || appliedRedemptionId);
+  const couponConfirmed = Boolean(confirmedPromoCode &&
+    (!selectedPromoCode || confirmedPromoCode.toUpperCase() === selectedPromoCode.toUpperCase()));
+  const couponPending = couponRequested && orderQuote.loading;
   const checkoutSubtotal = orderQuote.quote?.itemsSubtotal ?? cartTotal;
   const checkoutTotal = orderQuote.quote?.total ?? cartTotal;
   const cartDeliveryFeePending =
@@ -485,6 +490,10 @@ export default function Home() {
       return;
     }
 
+    if (couponRequested && (!couponConfirmed || orderQuote.loading || orderQuote.error)) {
+      notify('warning', 'Cupom não validado', orderQuote.error || 'Aguarde a confirmação dos valores do pedido.');
+      return;
+    }
     const customer = {
       ...((user || guestCheckoutDetails) as Record<string, unknown>),
       phone: user ? resolvedCheckoutCustomerPhone : guestCheckoutDetails.phone,
@@ -630,6 +639,10 @@ export default function Home() {
         }
       }
 
+      if (couponRequested && (!couponConfirmed || orderQuote.loading || orderQuote.error)) {
+        notify('warning', 'Cupom não validado', orderQuote.error || 'Aguarde a confirmação do cupom.');
+        return;
+      }
       setPaymentMethod(defaultCheckoutPaymentMethod);
       setCheckoutStep('payment');
     },
@@ -638,6 +651,10 @@ export default function Home() {
       availableOrderType,
       cepStatus,
       checkoutOrderType,
+      couponRequested,
+      couponConfirmed,
+      orderQuote.loading,
+      orderQuote.error,
       confirmDialog,
       defaultCheckoutPaymentMethod,
       deliveryAddress,
@@ -954,9 +971,13 @@ export default function Home() {
           deliveryFeePreview={cartDeliveryFeePreview}
           deliveryFeePending={cartDeliveryFeePending}
           loading={checkoutLoading}
+          requestedCouponCode={selectedPromoCode}
+          couponPending={couponPending}
+          couponError={couponRequested ? orderQuote.error : null}
+          onRemoveCoupon={() => { setSelectedPromoCode(''); setSelectedRedemptionId(null); }}
           canContinue={
             homeData.isOpen &&
-            (checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable))
+            (checkoutStep !== 'payment' || (checkoutChannelAvailable && paymentAvailable && !couponPending && (!couponRequested || couponConfirmed)))
           }
           onStepChange={(nextStep) => {
             if (nextStep !== 'cart' && !homeData.isOpen) {
@@ -1175,7 +1196,8 @@ export default function Home() {
               {promotionalCoupons.length > 0 && (
                 <CheckoutPromotionalCouponPicker
                   coupons={promotionalCoupons}
-                  appliedCode={orderQuote.quote?.couponCode || selectedPromoCode}
+                  appliedCode={confirmedPromoCode}
+                  pendingCode={couponPending ? selectedPromoCode : null}
                   onApply={applyCheckoutCouponCode}
                 />
               )}

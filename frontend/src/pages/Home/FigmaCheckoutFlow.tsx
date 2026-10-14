@@ -26,6 +26,10 @@ type Props = {
   loading?: boolean;
   canContinue?: boolean;
   couponContent?: ReactNode;
+  requestedCouponCode?: string;
+  couponPending?: boolean;
+  couponError?: string | null;
+  onRemoveCoupon?: () => void;
   onApplyCouponCode?: (code: string) => void;
   guestAddressScreen?: ReactNode;
   authenticatedAddressScreen?: ReactNode;
@@ -48,6 +52,10 @@ const currency = (value: number) =>
 
 type CouponEntryProps = {
   appliedCode?: string | null;
+  requestedCode?: string;
+  pending?: boolean;
+  error?: string | null;
+  onRemove?: () => void;
   placeholder: string;
   onOpen: () => void;
   onApply?: (code: string) => void;
@@ -55,18 +63,23 @@ type CouponEntryProps = {
 
 function CouponEntry({
   appliedCode,
+  requestedCode,
+  pending = false,
+  error,
+  onRemove,
   placeholder,
   onOpen,
   onApply,
 }: CouponEntryProps) {
-  const [draft, setDraft] = useState(() => String(appliedCode || ''));
+  const [draft, setDraft] = useState(() => String(requestedCode || appliedCode || ''));
+  useEffect(() => { setDraft(String(requestedCode || appliedCode || '')); }, [requestedCode, appliedCode]);
   const normalizedDraft = draft.trim().toUpperCase();
   const normalizedApplied = String(appliedCode || '').trim().toUpperCase();
   const isApplied = Boolean(normalizedApplied && normalizedDraft === normalizedApplied);
 
   const apply = () => {
     onOpen();
-    if (!normalizedDraft || isApplied) return;
+    if (!normalizedDraft || isApplied || pending) return;
     onApply?.(normalizedDraft);
   };
 
@@ -87,9 +100,11 @@ function CouponEntry({
           apply();
         }}
       />
-      <button type="button" onClick={apply}>
-        {isApplied ? 'Aplicado' : 'Aplicar'}
+      <button type="button" onClick={apply} disabled={pending}>
+        {pending ? 'Validando...' : isApplied ? 'Aplicado' : 'Aplicar'}
       </button>
+      {(requestedCode || appliedCode) && onRemove && <button type="button" aria-label="Remover cupom" onClick={onRemove}>Remover</button>}
+      {error && <span className="coupon-error" role="alert">{error}</span>
     </div>
   );
 }
@@ -110,6 +125,10 @@ export function FigmaCheckoutFlow({
   loading = false,
   canContinue = true,
   couponContent,
+  requestedCouponCode = '',
+  couponPending = false,
+  couponError = null,
+  onRemoveCoupon,
   onApplyCouponCode,
   guestAddressScreen,
   authenticatedAddressScreen,
@@ -286,6 +305,10 @@ export function FigmaCheckoutFlow({
                 <CouponEntry
                   key={quote?.couponCode || 'mobile-coupon-empty'}
                   appliedCode={quote?.couponCode}
+                  requestedCode={requestedCouponCode}
+                  pending={couponPending}
+                  error={couponError}
+                  onRemove={onRemoveCoupon}
                   placeholder="Cupom de desconto"
                   onOpen={() => setCouponOpen(true)}
                   onApply={onApplyCouponCode}
@@ -330,6 +353,10 @@ export function FigmaCheckoutFlow({
               <CouponEntry
                 key={quote?.couponCode || 'desktop-coupon-empty'}
                 appliedCode={quote?.couponCode}
+                  requestedCode={requestedCouponCode}
+                  pending={couponPending}
+                  error={couponError}
+                  onRemove={onRemoveCoupon}
                 placeholder="Cupom de desconto..."
                 onOpen={() => setCouponOpen(true)}
                 onApply={onApplyCouponCode}

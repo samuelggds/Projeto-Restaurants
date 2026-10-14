@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import ordersService from '../../../Services/ordersService';
 import { buildOrderQuotePayload, type OrderType } from '../domain/checkout';
 import type { DeliveryAddress } from './useDeliveryAddress';
@@ -89,7 +90,7 @@ export function useOrderQuote({
   const [quote, setQuote] = useState<OrderQuote | null>(null);
   const [resolvedKey, setResolvedKey] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const hasDeliveryAddress = Boolean(deliveryAddress);
   const deliveryStreet = deliveryAddress?.address;
@@ -143,17 +144,21 @@ export function useOrderQuote({
     const timeout = window.setTimeout(async () => {
       if (!active) return;
       setLoading(true);
-      setError(false);
+      setError(null);
       try {
         const response = await ordersService.quoteOrder(quotePayload);
         if (active) {
           setQuote(normalizeOrderQuote(response));
           setResolvedKey(requestKey);
         }
-      } catch {
+      } catch (cause: unknown) {
         if (active) {
           setQuote(null);
-          setError(true);
+          setResolvedKey(requestKey);
+          const apiMessage = axios.isAxiosError(cause) ? cause.response?.data?.error : null;
+          setError(typeof apiMessage === 'string' && apiMessage.trim()
+            ? apiMessage.slice(0, 240)
+            : 'Não foi possível validar o pedido. Tente novamente.');
         }
       } finally {
         if (active) setLoading(false);
@@ -168,7 +173,7 @@ export function useOrderQuote({
 
   return {
     quote: enabled && resolvedKey === requestKey ? quote : null,
-    loading: enabled ? loading : false,
-    error: enabled ? error : false,
+    loading: enabled ? loading || resolvedKey !== requestKey : false,
+    error: enabled && resolvedKey === requestKey ? error : null,
   };
 }
