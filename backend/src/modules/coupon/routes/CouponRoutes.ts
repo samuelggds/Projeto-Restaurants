@@ -62,7 +62,7 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
       });
       if (!customer) return null;
 
-      const [campaigns, paidPurchases] = await Promise.all([
+      const [campaigns, paidPurchases, lastPaidOrder] = await Promise.all([
         db.coupon.findMany({
           where: { restaurantId, kind: 'PROMOTIONAL' },
           orderBy: { id: 'desc' },
@@ -70,6 +70,7 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
         db.order.count({
           where: { restaurantId, userId, paid: true, refundedAt: null, status: { not: 'CANCELADO' } },
         }),
+        db.order.findFirst({ where: { restaurantId, userId, paid: true, refundedAt: null, status: { not: 'CANCELADO' } }, orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }], select: { paidAt: true, createdAt: true } }),
       ]);
       if (!campaigns.length) return [];
       const usageRows = await db.order.groupBy({
@@ -81,14 +82,17 @@ router.get('/mine', authMiddleware, clientMiddleware, async (req, res) => {
         _count: { _all: true },
       });
       const usesByCouponId = new Map(usageRows.map((usage) => [usage.couponId, usage._count._all]));
+      const targeted = await db.couponRecipient.findMany({ where: { restaurantId, userId, couponId: { in: campaigns.map((c) => c.id) } }, select: { couponId: true } });
+      const recipientIds = new Set(targeted.map((item) => item.couponId));
+      const lastPaidAt = lastPaidOrder?.paidAt || lastPaidOrder?.createdAt || null;
       return campaigns.flatMap((campaign) => {
         const userUses = usesByCouponId.get(campaign.id) || 0;
         // Mostrar benefícios para o segmento atual e campanhas já utilizadas
         // pelo próprio cliente, mesmo quando sua elegibilidade mudou.
-        if (!isPromotionalAudienceEligible(campaign.audience, paidPurchases) && userUses === 0)
+        if (!isPromotionalAudienceEligible(campaign.audience, paidPurchases, { lastPaidAt, inactivityMonths: campaign.inactivityMonths, now, recipient: recipientIds.has(campaign.id) }) && userUses === 0)
           return [];
         const availability = promotionalCampaignAvailability(
-          campaign, paidPurchases, userUses, now,
+          campaign, paidPurchases, userUses, now, { lastPaidAt, recipient: recipientIds.has(campaign.id) },
         );
         return [{ ...presentCoupon(campaign), ...availability }];
       });
