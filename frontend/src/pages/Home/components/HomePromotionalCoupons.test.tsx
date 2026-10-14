@@ -60,7 +60,7 @@ describe('mini tickets promocionais da Home', () => {
     expect(strip.querySelectorAll('.coupon-card')).toHaveLength(3);
     expect(strip.querySelector('.coupon-card--welcome')?.textContent).toContain('1ª compra');
     expect(strip.querySelector('.coupon-card--shipping')?.textContent).toContain('FRETE GRÁTIS');
-    expect(strip.querySelector('.coupon-card--shipping')?.textContent).toContain('R$ 50,00');
+    expect(strip.querySelector('.coupon-card--shipping')?.textContent).toMatch(/R\$\s*50,00/u);
 
     await act(async () => {
       (container.querySelector('[aria-label="Usar cupom FRETEZERO"]') as HTMLButtonElement).click();

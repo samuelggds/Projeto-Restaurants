@@ -1,3 +1,4 @@
+import { CheckoutPromotionalCouponPicker } from './components/CheckoutPromotionalCouponPicker';
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/authContext';
@@ -1172,16 +1173,11 @@ export default function Home() {
           couponContent={
             <>
               {promotionalCoupons.length > 0 && (
-                <div style={{ display: 'grid', gap: 8, padding: 12 }}>
-                  <strong>Cupons promocionais</strong>
-                  {promotionalCoupons.map((coupon) => (
-                    <button key={coupon.id} type="button"
-                      onClick={() => applyCheckoutCouponCode(coupon.code)}>
-                      {coupon.code} — {coupon.title}
-                      {selectedPromoCode === coupon.code ? ' · Aplicado' : ''}
-                    </button>
-                  ))}
-                </div>
+                <CheckoutPromotionalCouponPicker
+                  coupons={promotionalCoupons}
+                  appliedCode={orderQuote.quote?.couponCode || selectedPromoCode}
+                  onApply={applyCheckoutCouponCode}
+                />
               )}
               <LoyaltyCouponPanel
               loggedIn={isLoyaltyCustomer}
