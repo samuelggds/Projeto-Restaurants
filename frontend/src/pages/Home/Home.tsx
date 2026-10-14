@@ -1,4 +1,3 @@
-import { listMyPromotionalCoupons } from '../../Services/publicCouponsService';
 import { CheckoutCouponContent } from './components/CheckoutCouponContent';
 import { resolveCheckoutCouponStatus } from './domain/checkoutCouponStatus';
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from 'react';
@@ -28,7 +27,7 @@ import { useHomeNotifications } from './hooks/useHomeNotifications';
 import { useCartBodyScrollLock, useRestaurantAvailabilityClock } from './hooks/useHomePageRuntime';
 import { buildOrderPayload, resolveOrderType, validateCheckout, type CheckoutPaymentMethod } from './domain/checkout';
 import ordersService from '../../Services/ordersService';
-import { usePromotionalCoupons } from './hooks/usePromotionalCoupons';
+import { usePersonalPromotionalCoupons } from './hooks/usePersonalPromotionalCoupons';
 import { useApplyCheckoutCouponCode } from './hooks/useApplyCheckoutCouponCode';
 import waiterCallsService from '../../Services/waiterCallsService';
 import { useLoyaltyRewards } from './hooks/useLoyaltyRewards';
@@ -239,25 +238,7 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
-  const publicCoupons = usePromotionalCoupons(restaurantId, mesaMode);
-  const [personalCampaignResult, setPersonalCampaignResult] = useState<{
-    restaurantId: number; userId: number; campaigns: import('../Profile/domain/promotionalWallet').WalletCampaign[];
-  } | null>(null);
-  useEffect(() => {
-    let active = true;
-    if (!restaurantId || mesaMode || user?.role !== 'CLIENTE') return () => { active = false; };
-    const userId = Number(user.id);
-    void listMyPromotionalCoupons(restaurantId).then((items) => {
-      if (active) setPersonalCampaignResult({ restaurantId, userId, campaigns: items });
-    }).catch(() => { if (active) setPersonalCampaignResult({ restaurantId, userId, campaigns: [] }); });
-    return () => { active = false; };
-  }, [restaurantId, mesaMode, user?.id, user?.role]);
-  const promotionalCoupons = user?.role === 'CLIENTE'
-    ? (personalCampaignResult?.restaurantId === restaurantId &&
-       personalCampaignResult?.userId === Number(user.id)
-      ? personalCampaignResult.campaigns.filter((coupon) => coupon.status === 'ACTIVE')
-      : [])
-    : publicCoupons;
+  const promotionalCoupons = usePersonalPromotionalCoupons({ restaurantId, mesaMode, user, notify });
   const [selectedPromoCode, setSelectedPromoCode] = useState(() =>
     typeof navigationState?.promotionalCode === 'string' ? navigationState.promotionalCode : '',
   );
