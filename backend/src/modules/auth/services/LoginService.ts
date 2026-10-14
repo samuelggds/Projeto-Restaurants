@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { assertCustomerRestaurantAccess } from './customerRestaurantAccess.js';
 import userRepository from '../repositories/UserRepository.js';
 import { loginSchema } from '../../../validators/LoginValidator.js';
 import loginLockoutService from './LoginLockoutService.js';
@@ -44,7 +45,7 @@ export class LoginService {
       throw new Error('Dados inválidos');
     }
 
-    const user = staffLogin
+    let user = staffLogin
       ? await userRepository.findStaffByUsername(normalizedUsername, normalizedRestaurantSlug)
       : await userRepository.findByEmail(normalizedEmail);
 
@@ -74,6 +75,9 @@ export class LoginService {
 
     await loginLockoutService.registerSuccess(loginKey);
     await this.platformAccess.assertRoleAllowed(user.role);
+    if (user.role === 'CLIENTE') {
+      user = await assertCustomerRestaurantAccess(user, normalizedRestaurantSlug);
+    }
 
     const mfaChallenge = await loginMfaService.beginIfRequired(user as any);
     if (mfaChallenge) {

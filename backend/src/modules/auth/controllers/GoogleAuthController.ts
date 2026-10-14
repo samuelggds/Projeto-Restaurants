@@ -9,9 +9,9 @@ import {
 class GoogleAuthController {
   async handle(req: Request, res: Response) {
     try {
-      const { idToken } = req.body;
+      const { idToken, restaurantSlug } = req.body;
 
-      const result = await googleAuthService.execute({ idToken });
+      const result = await googleAuthService.execute({ idToken, restaurantSlug });
 
       return res.json(moveRefreshTokenToCookie(res, result));
     } catch (error: unknown) {

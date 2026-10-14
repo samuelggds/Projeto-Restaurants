@@ -377,7 +377,7 @@ export default function Login() {
           client_id: normalizedClientId,
           callback: async (response) => {
             try {
-              const firstStep = await authService.loginWithGoogle(response.credential);
+              const firstStep = await authService.loginWithGoogle(response.credential, portalSlug || undefined);
               const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
               const authResponse = await validatePortalAccess(withMfa);
 
@@ -485,7 +485,7 @@ export default function Login() {
       const firstStep = await authService.login(
         isStaffAccess
           ? { username: email.trim().toLowerCase(), restaurantSlug: portalSlug, password }
-          : { email, password },
+          : { email, restaurantSlug: portalSlug || undefined, password },
       );
       const withMfa = await completeLoginWithMfaIfNeeded(firstStep);
       const response = await validatePortalAccess(withMfa);
