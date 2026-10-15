@@ -104,3 +104,106 @@ test('cliente não pode usar a fila administrativa e nenhum perfil pode omitir o
     /Restaurante inválido/,
   );
 });
+
+test('admin pagina cronologicamente com desempate por ID e cursor restrito ao restaurante', async () => {
+  const date = new Date('2026-10-15T10:00:00.000Z');
+  let tenantContextApplied = false;
+  const db = {
+    $queryRaw: async (_query: TemplateStringsArray, restaurantId: string) => {
+      assert.equal(restaurantId, '7');
+      tenantContextApplied = true;
+      return [];
+    },
+    order: {
+      findFirst: async (args: { where: unknown; select: unknown }) => {
+        assert.equal(tenantContextApplied, true);
+        assert.deepEqual(args.where, { AND: [{ restaurantId: 7 }, { id: 91 }] });
+        assert.deepEqual(args.select, { id: true, createdAt: true });
+        return { id: 91, createdAt: date };
+      },
+      findMany: async (args: { where: { AND: unknown[] }; orderBy: unknown; take: number }) => {
+        assert.equal(tenantContextApplied, true);
+        assert.deepEqual(args.where.AND[0], { AND: [{ restaurantId: 7 }, queueWhere('ALL')] });
+        assert.deepEqual(args.where.AND[1], {
+          OR: [
+            { createdAt: { lt: date } },
+            { createdAt: date, id: { lt: 91 } },
+          ],
+        });
+        assert.deepEqual(args.orderBy, [{ createdAt: 'desc' }, { id: 'desc' }]);
+        assert.equal(args.take, 2);
+        return [
+          { id: 90, restaurantId: 7, createdAt: date },
+          { id: 88, restaurantId: 7, createdAt: new Date('2026-10-15T09:59:00.000Z') },
+        ];
+      },
+      count: async ({ where }: { where: unknown }) => {
+        assert.deepEqual(where, { AND: [{ restaurantId: 7 }, queueWhere('ALL')] });
+        return 3;
+      },
+      groupBy: async ({ where }: { where: unknown }) => {
+        assert.deepEqual(where, { restaurantId: 7 });
+        return [];
+      },
+    },
+  };
+  prisma.$transaction = (async (callback: (client: typeof db) => unknown) =>
+    callback(db)) as unknown as typeof prisma.$transaction;
+
+  const page = await paginatedOrdersService.staff(
+    { id: 40, restaurantId: 7, role: 'ADMIN' },
+    { queue: 'ALL', limit: 1, cursor: 91 },
+  );
+  assert.equal(page.total, 3);
+  assert.deepEqual(page.orders.map((order) => order.id), [90]);
+  assert.equal(page.hasMore, true);
+  assert.equal(page.nextCursor, 90);
+});
+
+test('admin rejeita cursor de outro restaurante, sem procurar pedidos fora do seu escopo', async () => {
+  const db = {
+    $queryRaw: async () => [],
+    order: {
+      findFirst: async ({ where }: { where: unknown }) => {
+        assert.deepEqual(where, { AND: [{ restaurantId: 7 }, { id: 300 }] });
+        // The foreign order exists in another tenant, but is not visible here.
+        return null;
+      },
+      findMany: async () => { throw new Error('Consulta indevida.'); },
+    },
+  };
+  prisma.$transaction = (async (callback: (client: typeof db) => unknown) =>
+    callback(db)) as unknown as typeof prisma.$transaction;
+  await assert.rejects(
+    paginatedOrdersService.staff(
+      { id: 40, restaurantId: 7, role: 'ADMIN' },
+      { queue: 'ALL', limit: 10, cursor: 300 },
+    ),
+    /Cursor de pedidos inválido/,
+  );
+});
+
+test('fila da cozinha mantém a ordem por ID e a restrição operacional', async () => {
+  const db = {
+    $queryRaw: async () => [],
+    order: {
+      findFirst: async () => { throw new Error('Fila operacional nao usa cursor cronologico.'); },
+      findMany: async (args: { orderBy: unknown; where: { AND: unknown[] } }) => {
+        assert.deepEqual(args.orderBy, { id: 'desc' });
+        assert.deepEqual(args.where.AND[1], { id: { lt: 80 } });
+        assert.deepEqual(args.where.AND[0], {
+          AND: [staffOrderScope({ id: 10, restaurantId: 7, role: 'FUNCIONARIO', subRole: 'COZINHA' }), queueWhere('ACTIVE')],
+        });
+        return [];
+      },
+      count: async () => 0,
+    },
+  };
+  prisma.$transaction = (async (callback: (client: typeof db) => unknown) =>
+    callback(db)) as unknown as typeof prisma.$transaction;
+  const page = await paginatedOrdersService.staff(
+    { id: 10, restaurantId: 7, role: 'FUNCIONARIO', subRole: 'COZINHA' },
+    { queue: 'ACTIVE', limit: 10, cursor: 80 },
+  );
+  assert.deepEqual(page.orders, []);
+});

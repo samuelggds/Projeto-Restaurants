@@ -84,6 +84,41 @@ describe('ordersService paginação', () => {
     });
   });
 
+  it('busca todas as páginas da fila de pagamentos sem carregar a fila operacional inteira', async () => {
+    const orders = Array.from({ length: 105 }, (_, index) => ({
+      id: 300 - index,
+      status: 'PENDENTE',
+      paid: false,
+      paymentMethod: 'PIX',
+    }));
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({
+        data: {
+          orders: orders.slice(0, 100),
+          total: 105,
+          hasMore: true,
+          nextCursor: 201,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          orders: orders.slice(100),
+          total: 105,
+          hasMore: false,
+          nextCursor: null,
+        },
+      });
+
+    const result = await ordersService.listPendingPaymentOrders();
+    expect(result).toHaveLength(105);
+    expect(api.get).toHaveBeenNthCalledWith(1, '/orders', {
+      params: { queue: 'PAYMENT', limit: 100 },
+    });
+    expect(api.get).toHaveBeenNthCalledWith(2, '/orders', {
+      params: { queue: 'PAYMENT', limit: 100, cursor: 201 },
+    });
+  });
+
   it('recusa cursor repetido em vez de retornar uma fila incompleta ou repetir indefinidamente', async () => {
     vi.mocked(api.get).mockResolvedValue({
       data: { orders: [{ id: 90 }], total: 150, hasMore: true, nextCursor: 90 },

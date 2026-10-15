@@ -69,6 +69,9 @@ class PaginatedOrdersService {
           (viewer.role === 'MOTOQUEIRO' || viewer.subRole === 'GARCOM') &&
           !['HISTORY', 'DELIVERED'].includes(query.queue),
         waiter: viewer.role === 'FUNCIONARIO' && viewer.subRole === 'GARCOM',
+        // Only admin uses chronological keyset ordering; operational queues retain
+        // their existing ID order and associated scheduling semantics.
+        chronological: viewer.role === 'ADMIN',
         includeSummary: viewer.role === 'ADMIN',
       });
       if (viewer.role !== 'MOTOQUEIRO') return page;

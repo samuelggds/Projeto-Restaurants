@@ -278,6 +278,19 @@ class OrdersService {
     );
   }
 
+  async listPendingPaymentOrders() {
+    // The admin's manual payment-alert panel needs every unpaid order, not the
+    // entire active kitchen/delivery queue. Keep traversing all pages so an
+    // unpaid online order cannot disappear just because it is beyond page 1.
+    return this.listActivePages((cursor) =>
+      this.listRestaurantOrdersPage({
+        queue: 'PAYMENT',
+        limit: 100,
+        ...(cursor ? { cursor } : {}),
+      }),
+    );
+  }
+
   async listMyOrders(query: RestaurantOrdersPageQuery = {}) {
     const response = await api.get('/orders/my-orders', { params: query });
     return normalizeOrderPage(response.data);

@@ -629,7 +629,10 @@ export default function Admin() {
   }, [settings.soundNotifications]);
 
   const loadOrders = useCallback(async () => {
-    const orderData = await ordersService.listRestaurantOrders();
+    // AdminOverview and AdminOrders fetch their own paginated views. This
+    // parent-level list exists only for the manual online-payment alert.
+    // Keep *all* unpaid pages so pending payments remain visible to admins.
+    const orderData = await ordersService.listPendingPaymentOrders();
     setOrders(orderData.map(mapOrder));
   }, []);
 
