@@ -1202,6 +1202,8 @@ model Order {
   @@unique([id, restaurantId, tableSessionId, participantId])
   @@unique([restaurantId, creationActor, creationRequestKey])
   @@index([restaurantId, status, assignedCourierId])
+  // Supports admin keyset pages ordered by (createdAt DESC, id DESC).
+  @@index([restaurantId, createdAt, id])
   @@index([restaurantId, refundStatus])
   @@index([assignedCourierId, deliveryStartedAt])
   @@index([restaurantId, userId, status, paid, deliveredAt])
