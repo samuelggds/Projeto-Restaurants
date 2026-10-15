@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import type { TenantDbClient } from '../../../database/tenantDbContext.js';
 import { filteredOrderWhere, type OrderListQuery } from '../domain/orderListQuery.js';
+import { OrderRequestError } from '../domain/OrderRequestError.js';
 
 const productSelect = {
   id: true, name: true, image: true, price: true, active: true, stock: true,
@@ -35,12 +36,33 @@ export async function readOrderPage(
   db: TenantDbClient,
   base: Prisma.OrderWhereInput,
   query: OrderListQuery,
-  { ascending = false, waiter = false, includeSummary = false } = {},
+  { ascending = false, waiter = false, includeSummary = false, chronological = false } = {},
 ) {
   const where = filteredOrderWhere(base, query);
+  // Keep the numeric cursor contract. Resolve its timestamp in the viewer's own
+  // access scope before applying the (createdAt, id) keyset filter.
+  const cursorOrder = chronological && query.cursor
+    ? await db.order.findFirst({
+        where: { AND: [base, { id: query.cursor }] },
+        select: { id: true, createdAt: true },
+      })
+    : null;
+  if (chronological && query.cursor && !cursorOrder) {
+    throw new OrderRequestError('Cursor de pedidos inválido.');
+  }
+  const cursorWhere: Prisma.OrderWhereInput | null = cursorOrder
+    ? { OR: [
+        { createdAt: { lt: cursorOrder.createdAt } },
+        { createdAt: cursorOrder.createdAt, id: { lt: cursorOrder.id } },
+      ] }
+    : !chronological && query.cursor
+      ? { id: ascending ? { gt: query.cursor } : { lt: query.cursor } }
+      : null;
   const rows = await db.order.findMany({
-    where: { AND: [where, ...(query.cursor ? [{ id: ascending ? { gt: query.cursor } : { lt: query.cursor } }] : [])] },
-    orderBy: { id: ascending ? 'asc' : 'desc' },
+    where: { AND: [where, ...(cursorWhere ? [cursorWhere] : [])] },
+    orderBy: chronological
+      ? [{ createdAt: 'desc' as const }, { id: 'desc' as const }]
+      : { id: ascending ? 'asc' as const : 'desc' as const },
     take: query.limit + 1,
     omit: privateFields,
     include: waiter ? {
