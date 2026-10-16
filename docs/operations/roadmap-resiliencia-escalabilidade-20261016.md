@@ -76,6 +76,15 @@ Revisar `/ready` e seus indicadores, tratamento de banco indisponível, tempo de
 5. **Kubernetes** só se a complexidade de muitas réplicas/serviços, autoscaling e operação justificar custo e suporte; não é requisito para centenas de restaurantes.
 6. Balanceador, duas réplicas, relay compartilhado, websockets sem polling de transporte, deploy gradual e rollback devem ser homologados em ambiente apropriado antes de escala.
 
+## Testes de queda PostgreSQL e conciliação financeira — especificados
+
+A matriz operacional detalhada contém **11 cenários DB-01 a DB-11**, incluindo pedido já persistido, recusa segura de checkout sem banco, Pix aprovado com confirmação local perdida, timeout do gateway, webhooks concorrentes, crash antes da publicação, reconexão da cozinha, rollback, restauração do S3, retomada de workers e isolamento multi-tenant.
+
+**[Abrir plano de testes com pré-condições, injeção de falhas e critérios PASS/FAIL](./postgresql-outage-payment-recovery-test-plan.md).**  
+Rastreado nas issues [#328](https://github.com/samuelggds/Projeto-Restaurants/issues/328), [#329](https://github.com/samuelggds/Projeto-Restaurants/issues/329), [#331](https://github.com/samuelggds/Projeto-Restaurants/issues/331) e [#332](https://github.com/samuelggds/Projeto-Restaurants/issues/332).
+
+Esses cenários ainda **não foram executados**. A política prevista mantém o checkout indisponível durante ausência de persistência confiável; não confirma novas vendas por memória local. Garantia de pedidos previamente confirmados depende da durabilidade do commit e, diante de perda física dos dados, do RPO/RTO e da restauração do backup. Eventos e pagamentos externos precisam de reconciliação e idempotência próprias.
+
 ## Matriz de testes de falha — obrigatório antes de afirmar confiabilidade
 
 | Cenário | Resultado esperado |
