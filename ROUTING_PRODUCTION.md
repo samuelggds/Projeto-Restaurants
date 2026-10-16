@@ -114,7 +114,9 @@ Depois, faça uma entrega controlada em um celular real:
 
 ## 6. Escala e disponibilidade
 
-Mantenha **exatamente uma réplica do backend** nesta versão. Rooms e throttling do Socket.IO usam memória do processo. Antes de escalar horizontalmente, implemente adapter Redis, coordenação distribuída e afinidade para o transporte de polling, com teste de rolling deploy.
+O Compose atual suporta múltiplas réplicas quando `DISTRIBUTED_STATE=postgres` (padrão) e `API_REPLICA_COUNT` corresponde ao total configurado (padrão: 2). O backend compartilha eventos Socket.IO por relay PostgreSQL e utiliza apenas WebSocket nesse modo; long polling requer configuração alternativa com uma réplica (`DISTRIBUTED_STATE=memory`, `API_REPLICA_COUNT=1`). Os rate limits e leases de jobs também possuem mecanismos PostgreSQL distribuídos. Redis não é pré-requisito para este relay atual.
+
+Antes de aumentar réplicas, teste conexões do motoqueiro e do cliente distribuídas entre instâncias, reconexão e reconsulta após reinício, eventos da cozinha, falhas do relay, limite de conexões ao banco e rolling deploy. O realtime transporta sinais; o banco permanece a fonte de verdade para estado do pedido. Verifique no Lightsail a quantidade realmente executada: o arquivo Compose, isoladamente, não prova a configuração ativa.
 
 Monitore pelo menos:
 
