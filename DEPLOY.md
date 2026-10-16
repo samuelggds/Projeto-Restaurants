@@ -51,7 +51,7 @@ Depois do bootstrap confirmado, remova a senha inicial do ambiente e os containe
 
 ## 4. HTTPS, Socket.IO e GPS
 
-O Caddy usa [deploy/Caddyfile](./deploy/Caddyfile), obtém certificados para os dois domínios e encaminha WebSocket/long polling para o backend. O rastreamento do motoqueiro exige HTTPS em aparelhos reais.
+O Caddy usa [deploy/Caddyfile](./deploy/Caddyfile), obtém certificados para os dois domínios e encaminha WebSocket para o backend. No modo distribuído (`DISTRIBUTED_STATE=postgres`), o Socket.IO aceita somente WebSocket; long polling continua disponível apenas no modo de uma instância em memória. O rastreamento do motoqueiro exige HTTPS em aparelhos reais.
 
 Se optar por Nginx em vez de Caddy, preserve uma rota dedicada para Socket.IO:
 
@@ -92,7 +92,11 @@ server {
 
 ## 5. Escala
 
-Use uma réplica do backend enquanto o Socket.IO utilizar o adapter em memória. Escalar para duas ou mais instâncias sem Redis/sticky sessions pode separar motoqueiro e cliente em processos diferentes. O mesmo cuidado vale para os jobs agendados. A limitação está registrada no runbook de rotas.
+O Compose de produção usa por padrão `DISTRIBUTED_STATE=postgres` e `API_REPLICA_COUNT=2`. Nesse modo, o `PostgresRealtimeTransport` distribui eventos entre réplicas usando PostgreSQL; o Socket.IO aceita somente WebSocket, evitando depender de sticky sessions para long polling. O Caddy descobre e distribui o tráfego entre as réplicas da API. Os rate limits distribuídos e leases de jobs também utilizam PostgreSQL. Não confunda o Redis da Evolution API com um adapter Redis do Socket.IO da GastroNexa.
+
+O modo `DISTRIBUTED_STATE=memory` só é válido com `API_REPLICA_COUNT=1`, pois as salas e eventos ficam na memória do processo. A inicialização rejeita uma configuração com múltiplas réplicas e estado em memória. Ao mudar a quantidade de réplicas, verifique consumo do PostgreSQL, publicação/recepção de eventos entre instâncias, reconexão WebSocket, `/ready`, rate limits, jobs e restauração após reinício. Eventos realtime não equivalem a entrega exatamente uma vez: os clientes devem reconsultar o estado persistido quando necessário.
+
+As configurações reais do Lightsail precisam ser verificadas no servidor antes de afirmar quantas réplicas estão executando. Consulte o [roteiro de validação HTTP e infraestrutura](./docs/operations/http-production-validation.md).
 
 ## 6. Atualização segura
 
@@ -117,7 +121,7 @@ Use a política de baixo custo de manutenção descrita em [TESTING.md](./TESTIN
 ## 7. Observabilidade e backups
 
 - Configure `SENTRY_DSN`, alertas e retenção de logs.
-- Monitore `/ready`, 5xx, 429, latência, conexões Socket.IO e serviços de rota.
+- Monitore `/ready`, 5xx, 429, latência, conexões Socket.IO e serviços de rota. Requisições HTTP lentas ou com erro 5xx geram `[API_REQUEST_TIMING]` com ID, rota, método, status e duração, sem registrar query strings, payloads nem credenciais. Configure `SLOW_REQUEST_THRESHOLD_MS` (padrão: 2000). O log HTTP não substitui métricas individuais do PostgreSQL e dos gateways.
 - Automatize backup do PostgreSQL fora do servidor e teste a restauração.
 - Proteja `.env.production` e nunca o envie ao Git.
 - Rotacione imediatamente qualquer segredo exposto.
@@ -156,7 +160,7 @@ Frontend e backend podem ser publicados separadamente. Configure Geoapify ou OSR
 - frontend: `npm ci && npm run build`; publicação de `dist`;
 - todas as variáveis obrigatórias de `.env.production.example`;
 - healthcheck do backend em `/ready`;
-- uma única instância do backend até existir adapter Redis;
+- uma instância com `DISTRIBUTED_STATE=memory` ou múltiplas com `DISTRIBUTED_STATE=postgres`, PostgreSQL compartilhado e Socket.IO somente WebSocket;
 - proxy com suporte a WebSocket e HTTPS.
 
 Não use os servidores públicos de demonstração do OSRM/Nominatim como dependência de produção.
@@ -174,4 +178,6 @@ Não use os servidores públicos de demonstração do OSRM/Nominatim como depend
 - [ ] Mesa/QR, produto montável, cozinha, garçom, promoção e pagamento validados.
 - [ ] Rastreamento real validado do aparelho do motoqueiro até o cliente.
 - [ ] Alertas, logs e Sentry recebendo eventos.
-- [ ] Uma réplica do backend confirmada.
+- [ ] `API_REPLICA_COUNT` e `DISTRIBUTED_STATE` correspondem às réplicas realmente executadas; realtime, jobs e rate limits verificados entre instâncias.
+- [ ] Respostas privadas, inclusive erros de autenticação e pedidos, retornam `Cache-Control: private, no-store`.
+- [ ] O roteiro de DNS, TLS e infraestrutura foi executado no ambiente real, sem publicar credenciais.
