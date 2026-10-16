@@ -20,7 +20,8 @@ export const requestTimingMiddleware: RequestHandler = (req, res, next) => {
     // Unknown paths may contain personal data, tokens or tenant-specific IDs.
     // A generic label is safer than logging req.path or a best-effort scrub.
     const route = req.route?.path;
-    const routePath = typeof route === 'string' ? `${req.baseUrl}${route}` : '/[unmatched]';
+    // req.baseUrl is the resolved URL and may contain dynamic tenant IDs.
+    const routePath = typeof route === 'string' ? route : '/[unmatched]';
 
     console.warn('[API_REQUEST_TIMING]', {
       requestId: req.requestId,
