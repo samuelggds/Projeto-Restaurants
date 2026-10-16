@@ -198,4 +198,66 @@ describe('KitchenPage data integration', () => {
 
     expect(mocks.reprintKitchenOrder).toHaveBeenCalledWith('8');
   });
+  it('reconcilia todos os pedidos apos reconectar mesmo sem receber eventos perdidos', async () => {
+    mocks.listOrders
+      .mockResolvedValueOnce([rawOrder(31)])
+      .mockResolvedValueOnce([rawOrder(31), rawOrder(32), rawOrder(33)]);
+
+    await act(async () => root.render(<KitchenPage />));
+    await flushUntil(() => mocks.latestProps?.data?.orders.some((order) => order.id === '#31') === true);
+
+    expect(mocks.latestProps?.data?.orders.map((order) => order.id)).toEqual(['#31']);
+    expect(mocks.latestProps?.workspaceState?.realtimeStatus).not.toBe('connected');
+
+    await act(async () => {
+      mocks.socket.connected = true;
+      mocks.socketListeners.get('connect')?.();
+    });
+    await flushUntil(() => mocks.latestProps?.data?.orders.length === 3);
+
+    expect(mocks.latestProps?.workspaceState?.realtimeStatus).toBe('connected');
+    expect(mocks.latestProps?.data?.orders.map((order) => order.id)).toEqual([
+      '#31',
+      '#32',
+      '#33',
+    ]);
+    expect(mocks.listOrders).toHaveBeenCalledTimes(2);
+  });
+
+  it('usa polling de emergencia e volta ao intervalo conservador quando o socket conecta', async () => {
+    const intervals = vi.spyOn(window, 'setInterval');
+    mocks.listOrders
+      .mockResolvedValueOnce([rawOrder(41)])
+      .mockResolvedValueOnce([rawOrder(41), rawOrder(42)])
+      .mockResolvedValue([rawOrder(41), rawOrder(42)]);
+
+    try {
+      await act(async () => root.render(<KitchenPage />));
+      await flushUntil(() => mocks.latestProps?.data?.orders.some((order) => order.id === '#41') === true);
+
+      const emergencyPoll = intervals.mock.calls.find(([, ms]) => ms === 10_000)?.[0];
+      expect(typeof emergencyPoll).toBe('function');
+      await act(async () => {
+        if (typeof emergencyPoll === 'function') emergencyPoll();
+      });
+      await flushUntil(() => mocks.latestProps?.data?.orders.length === 2);
+      expect(mocks.latestProps?.data?.orders.map((order) => order.id)).toEqual(['#41', '#42']);
+
+      await act(async () => {
+        mocks.socket.connected = true;
+        mocks.socketListeners.get('connect')?.();
+      });
+      expect(intervals).toHaveBeenCalledWith(expect.any(Function), 30_000);
+
+      await act(async () => {
+        mocks.socket.connected = false;
+        mocks.socketListeners.get('disconnect')?.();
+      });
+      expect(mocks.latestProps?.workspaceState?.realtimeStatus).toBe('disconnected');
+      expect(intervals.mock.calls.filter(([, ms]) => ms === 10_000).length).toBeGreaterThan(1);
+    } finally {
+      intervals.mockRestore();
+    }
+  });
+
 });
