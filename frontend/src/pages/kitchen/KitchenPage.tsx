@@ -12,6 +12,7 @@ import { mapOperationalOrders, mapRestaurantBrand } from '../operations/orderAda
 import { playKitchenNewOrderSound, primeKitchenAudio } from './kitchenAudio';
 
 const POLL_MS = 30_000;
+const FALLBACK_POLL_MS = 10_000;
 const NEW_ORDER_NOTICE_MS = 5000;
 
 function currentOperationalDayStart() {
@@ -38,7 +39,6 @@ export default function KitchenPage() {
     maxConcurrentOrders: 20,
   });
   const history = useOrderHistory({ refreshSignal: data.orders });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restaurantId = Number((user as Record<string, unknown>)?.restaurantId || 0) || null;
   const accessToken = getAccessToken();
   const mountedRef = useRef(true);
@@ -130,12 +130,19 @@ export default function KitchenPage() {
   useEffect(() => {
     if (!restaurantId) return;
     const initialLoadTimer = window.setTimeout(() => void loadOrders(), 0);
-    intervalRef.current = setInterval(() => void loadOrders(true), POLL_MS);
-    return () => {
-      window.clearTimeout(initialLoadTimer);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    return () => window.clearTimeout(initialLoadTimer);
   }, [restaurantId, loadOrders]);
+
+  // Socket events can be missed between the database commit and event emission.
+  // Poll more often while disconnected, but retain a slower safety net when connected.
+  useEffect(() => {
+    if (!restaurantId) return;
+    const interval = window.setInterval(
+      () => void loadOrders(true),
+      workspaceState.realtimeStatus === 'connected' ? POLL_MS : FALLBACK_POLL_MS,
+    );
+    return () => window.clearInterval(interval);
+  }, [restaurantId, loadOrders, workspaceState.realtimeStatus]);
 
   useEffect(() => {
     if (!accessToken || !restaurantId) return;
@@ -156,8 +163,11 @@ export default function KitchenPage() {
       }, NEW_ORDER_NOTICE_MS);
       void loadOrders(true);
     };
-    const markConnected = () =>
+    const markConnected = () => {
       setWorkspaceState((current) => ({ ...current, realtimeStatus: 'connected' }));
+      // Reconcile the full queue after every connection; Socket.IO does not replay missed events.
+      void loadOrders(true);
+    };
     const markDisconnected = () =>
       setWorkspaceState((current) => ({ ...current, realtimeStatus: 'disconnected' }));
 
