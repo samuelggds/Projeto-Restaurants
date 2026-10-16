@@ -362,6 +362,17 @@ test('isolamento multi-tenant real por HTTP e webhooks', { timeout: 120_000 }, a
       assert.equal(owner.response.status, 200);
       assert.equal(owner.data.id, fixture.orders.b.id);
       assert.equal(owner.data.restaurantId, fixture.restaurants.b.id);
+      assert.equal(owner.response.headers.get('cache-control'), 'private, no-store');
+      for (const field of [
+        'creationActor',
+        'creationRequestKey',
+        'creationFingerprint',
+        'refundIdempotencyKey',
+        'paymentConfirmationPin',
+        'paymentConfirmationPinExpiresAt',
+      ]) {
+        assert.equal(Object.hasOwn(owner.data, field), false, `Campo interno exposto: ${field}`);
+      }
     });
 
     await t.test('status, cancelamento e estorno não alteram pedido de outro tenant', async () => {
