@@ -7,6 +7,8 @@ import { runtimeRealtimeReady } from './runtime/runtimeReadiness.js';
 import routes from './routes/index.js';
 import billingRoutes from './modules/billing/routes/BillingRoutes.js';
 import { requestIdMiddleware } from './middlewares/security/requestIdMiddleware.js';
+import { privateApiCacheMiddleware } from './middlewares/security/privateApiCacheMiddleware.js';
+import { requestTimingMiddleware } from './middlewares/security/requestTimingMiddleware.js';
 import { notFoundMiddleware } from './middlewares/security/notFoundMiddleware.js';
 import { errorHandlerMiddleware } from './middlewares/security/errorHandlerMiddleware.js';
 import { applyCorsAndGlobalRateLimit } from './middlewares/security/httpAccessProtection.js';
@@ -41,6 +43,8 @@ const authRateLimit = rateLimit({
 
 app.set('trust proxy', 1);
 app.use(requestIdMiddleware);
+app.use(requestTimingMiddleware);
+app.use(privateApiCacheMiddleware);
 app.use(
   helmet({
     // This host only serves API/media responses, never the web application's scripts.
