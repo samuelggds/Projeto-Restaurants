@@ -7,7 +7,7 @@ Os jobs de negócio são registrados em `registry.ts`, executados por `WorkerSch
 - `src/worker.ts`: executa billing, reconciliação, fidelidade e limpeza de localização.
 - `src/server.ts`: executa a expiração de pagamentos de mesa e de reservas não atendidas para manter os eventos Socket.IO no runtime da API. O lease distribuído impede execução concorrente da mesma janela.
 
-Não mova um job para o worker apenas alterando `runtime`: jobs que notificam sockets precisam primeiro de um broker compartilhado (por exemplo, Redis adapter) ou de outbox/relay que alcance todas as réplicas.
+No modo `DISTRIBUTED_STATE=postgres`, a aplicação já dispõe de `PostgresRealtimeTransport`, que encaminha eventos às réplicas. No modo `memory`, notificações Socket.IO são locais a uma única API. Não mova um job entre API e worker apenas alterando `runtime`: revise se o publicador foi inicializado, se a emissão ocorre depois do commit, se a reconciliação é idempotente e se há reconsulta para eventos perdidos durante reinícios. A existência do relay não transforma o agendamento em execução exatamente uma vez.
 
 ## Garantias
 
