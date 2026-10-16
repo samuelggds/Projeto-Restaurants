@@ -94,6 +94,18 @@ Revisar `/ready` e seus indicadores, tratamento de banco indisponível, tempo de
 | Cache fica fora do ar | Leituras permitidas usam PostgreSQL sem quebrar escopos ou saturar o banco. |
 | Restauração do backup externo | Banco recuperado em infraestrutura isolada; chaves, tabelas, FKs e RLS validados. |
 
+## Decisões complementares — mensageria, RabbitMQ, Redis e Kubernetes
+
+Além do plano de correção, foi elaborado um **registro de decisão de arquitetura (ADR)** com as perguntas e as respostas discutidas, critérios de adoção das ferramentas e testes exigidos: [Mensageria, cache e escalabilidade](../architecture/adr-20261016-messaging-cache-scaling.md).
+
+- Mensageria assíncrona, workers, ACK, retry, backoff, DLQ, duplicidade e fila PostgreSQL: [issue #332](https://github.com/samuelggds/Projeto-Restaurants/issues/332); a correção da janela de perda no commit continua em [#328](https://github.com/samuelggds/Projeto-Restaurants/issues/328).
+- Redis, catálogo e invalidação de cache por `restaurantId`, fallback e limite de requisições: [issue #330](https://github.com/samuelggds/Projeto-Restaurants/issues/330).
+- Balanceamento, pools, réplicas Node.js, testes de carga, failover e avaliação **condicional** de Kubernetes: [issue #333](https://github.com/samuelggds/Projeto-Restaurants/issues/333).
+- Pagamentos, webhook e concorrência entre workers: [issue #329](https://github.com/samuelggds/Projeto-Restaurants/issues/329).
+- Alertas e recuperação de desastres: [issue #331](https://github.com/samuelggds/Projeto-Restaurants/issues/331).
+
+**Decisão atual:** aproveitar o PostgreSQL/outbox e Docker existentes; não instalar RabbitMQ, Redis ou Kubernetes por antecipação. Essa decisão será revisada com medições de homologação e análise do custo adicional, não por hipótese de carga.
+
 ## Sequência de execução
 
 - [x] Identificar no código proteções existentes e documentação do PR #326.
