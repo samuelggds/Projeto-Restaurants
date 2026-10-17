@@ -12,6 +12,7 @@ import {
 } from './tenantE2EHarness.js';
 import pix from '../../modules/orders/services/OrderPixPaymentService.js';
 import finalizePix from '../../modules/orders/services/FinalizeOrderPixPaymentService.js';
+import getPixRecovery from '../../modules/orders/services/GetOrderPixPaymentRecoveryService.js';
 import finalizeCard from '../../modules/orders/services/FinalizeOrderCardPaymentService.js';
 import { registerRealtimeTransport } from '../../realtime/realtimePublisher.js';
 import cancelOrder from '../../modules/orders/services/CancelOrderWorkflowService.js';
@@ -395,6 +396,107 @@ test(
           } finally {
             if (originalProvider === undefined) delete process.env.CUSTOMER_NOTIFICATION_PROVIDER;
             else process.env.CUSTOMER_NOTIFICATION_PROVIDER = originalProvider;
+          }
+        },
+      );
+      await t.test(
+        'Pix expirado: consulta a cobrança original e não mascara aprovação, inconsistência ou indisponibilidade',
+        async () => {
+          const originalStatus = pix.getPaymentStatus;
+          const originalApproval = pix.ensurePaymentApproved;
+          const originalCreation = pix.createPixPayment;
+          const order = await prisma.order.create({
+            data: {
+              restaurantId,
+              userId: fixture.users.customerA.id,
+              type: 'DELIVERY',
+              status: 'PENDENTE',
+              total: 25,
+              itemsSubtotal: 25,
+              paid: false,
+              paymentMethod: 'PIX',
+              pixPaymentId: '88776655',
+              pixExpiresAt: new Date(Date.now() - 60_000),
+            },
+          });
+          const actor = { userId: fixture.users.customerA.id, role: 'CLIENTE' };
+          let newCharges = 0;
+          let approvalChecks = 0;
+          pix.createPixPayment = async () => {
+            newCharges++;
+            throw new Error('A recuperação não pode iniciar uma cobrança.');
+          };
+          try {
+            pix.getPaymentStatus = async () =>
+              ({
+                isApproved: true,
+                sameRestaurant: true,
+                provider: 'MERCADO_PAGO',
+                status: 'approved',
+              }) as any;
+            pix.ensurePaymentApproved = async (input) => {
+              approvalChecks++;
+              assert.equal(input.paymentId, '88776655');
+              assert.equal(input.restaurantId, restaurantId);
+              assert.equal(input.expectedOrderId, order.id);
+              assert.equal(input.expectedAmount, 25);
+              assert.equal(input.expectedCurrency, 'BRL');
+              return {
+                isApproved: true,
+                sameRestaurant: true,
+                provider: 'MERCADO_PAGO',
+                status: 'approved',
+              } as any;
+            };
+            const approved = await getPixRecovery.execute(order.publicId, actor);
+            assert.equal(approved.isApproved, true);
+            assert.equal(approved.status, 'approved');
+            assert.equal(approved.qrCode, null);
+            assert.equal(approved.requiresStatusCheck, false);
+            assert.equal(approvalChecks, 1);
+            assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).paid, false);
+            assert.equal(newCharges, 0);
+
+            pix.getPaymentStatus = async () =>
+              ({ isApproved: false, sameRestaurant: true, status: 'pending' }) as any;
+            const expired = await getPixRecovery.execute(order.publicId, actor);
+            assert.equal(expired.status, 'expired');
+            assert.equal(expired.isApproved, false);
+            assert.equal(approvalChecks, 1);
+
+            pix.getPaymentStatus = async () =>
+              ({ isApproved: true, sameRestaurant: false }) as any;
+            await assert.rejects(
+              () => getPixRecovery.execute(order.publicId, actor),
+              /não pertence ao restaurante/i,
+            );
+
+            pix.getPaymentStatus = async () =>
+              ({ isApproved: true, sameRestaurant: true }) as any;
+            pix.ensurePaymentApproved = async () => {
+              throw new Error('Referência/valor/moeda divergente.');
+            };
+            await assert.rejects(
+              () => getPixRecovery.execute(order.publicId, actor),
+              /divergente/,
+            );
+
+            pix.getPaymentStatus = async () => {
+              throw new Error('Gateway indisponível.');
+            };
+            await assert.rejects(
+              () => getPixRecovery.execute(order.publicId, actor),
+              /Gateway indisponível/,
+            );
+
+            assert.equal(newCharges, 0);
+            const stored = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+            assert.equal(stored.paid, false);
+            assert.equal(stored.status, 'PENDENTE');
+          } finally {
+            pix.getPaymentStatus = originalStatus;
+            pix.ensurePaymentApproved = originalApproval;
+            pix.createPixPayment = originalCreation;
           }
         },
       );
