@@ -1,4 +1,6 @@
 import { PaymentMethod } from '@prisma/client';
+import { PIX_PROVIDERS } from '../../payments/providers/providerCatalog.js';
+import { efiOpenFinanceOrderReference } from '../../payments/providers/efiOpenFinance.js';
 import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
@@ -82,19 +84,6 @@ class GetOrderPixPaymentRecoveryService {
       };
     }
 
-    if (order.pixExpiresAt && order.pixExpiresAt.getTime() <= Date.now() && !order.paid) {
-      return {
-        ...base,
-        paymentId: order.pixPaymentId || null,
-        provider: null,
-        status: 'expired',
-        isApproved: false,
-        qrCode: null,
-        qrCodeBase64: null,
-        requiresStatusCheck: false,
-      };
-    }
-
     if (order.paid) {
       return {
         ...base,
@@ -113,12 +102,61 @@ class GetOrderPixPaymentRecoveryService {
       throw new Error('O pagamento PIX deste pedido ainda não está disponível.');
     }
 
+    const expired = Boolean(order.pixExpiresAt && order.pixExpiresAt.getTime() <= Date.now());
+    if (expired) {
+      // Uma falha do banco/webhook pode deixar um PIX aprovado externamente
+      // com validade local encerrada. Consultamos a cobrança ORIGINAL, nunca criamos outra.
+      const expiredResult = {
+        ...base,
+        paymentId: paymentId || null,
+        provider: null,
+        status: 'expired',
+        isApproved: false,
+        qrCode: null,
+        qrCodeBase64: null,
+        requiresStatusCheck: false,
+      };
+      if (!paymentId) return expiredResult;
+
+      const remote = await orderPixPaymentService.getPaymentStatus({
+        paymentId,
+        restaurantId: order.restaurantId,
+      });
+      if (!remote.sameRestaurant) {
+        throw new Error('Este pagamento PIX não pertence ao restaurante do pedido.');
+      }
+      if (remote.isApproved !== true) return expiredResult;
+
+      // A aprovação exige comprovação de tenant, referência, valor e moeda.
+      // Uma resposta ambígua do provedor NUNCA habilita uma segunda cobrança.
+      const verified = await orderPixPaymentService.ensurePaymentApproved({
+        paymentId,
+        restaurantId: order.restaurantId,
+        expectedOrderId: order.id,
+        expectedAmount: Number(order.total),
+        expectedCurrency: 'BRL',
+      });
+      return {
+        ...base,
+        paymentId,
+        provider: verified.provider,
+        status: verified.status,
+        isApproved: true,
+        qrCode: null,
+        qrCodeBase64: null,
+        requiresStatusCheck: false,
+      };
+    }
+
     const recovered = await orderPixPaymentService.recoverExistingPixPayment({
       paymentId,
       restaurantId: order.restaurantId,
     });
 
-    const expectedReference = `orderpix:${order.restaurantId}:${order.id}`;
+    const expectedReference =
+      recovered.provider === PIX_PROVIDERS.EFI_OPEN_FINANCE
+        ? efiOpenFinanceOrderReference(order.restaurantId, order.id)
+        : `orderpix:${order.restaurantId}:${order.id}`;
     if (String(recovered.externalReference || '') !== expectedReference) {
       throw new Error('O pagamento PIX não corresponde ao pedido informado.');
     }
