@@ -82,6 +82,35 @@ class CreateOrderOpenFinancePaymentController {
       });
 
 
+      let result;
+      try {
+        result = await openFinanceEfiPaymentService.start({
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId,
+          participantId: String(openFinanceParticipantId || ''),
+          customerCpf: String(customerCpf || ''),
+        });
+      } catch (error) {
+        console.error('[OPEN_FINANCE_PAYMENT_CREATION_UNCERTAIN]', {
+          orderId: order.id,
+          restaurantId: resolvedRestaurantId,
+          errorType: safeErrorName(error),
+        });
+        if (
+          error instanceof Error &&
+          /desativado|configurado pela plataforma|chave Pix|CPF válido|Escolha o banco|inválido|indisponível|já possui outra tentativa/i.test(
+            error.message,
+          )
+        ) {
+          throw new OrderRequestError(
+            error.message,
+            400,
+            'OPEN_FINANCE_REQUEST_REJECTED',
+          );
+        }
+        throw new PaymentCreationUncertainError(order.id, order.publicId);
+      }
+
       const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery = isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
       const guestTrackingToken = isGuestDelivery
