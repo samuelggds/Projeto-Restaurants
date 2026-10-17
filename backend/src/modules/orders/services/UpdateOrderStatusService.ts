@@ -3,6 +3,7 @@ import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js'
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { OrderPermissions } from '../permissions/orderPermissions.js';
 import {
+  Prisma,
   FuncionarioSubRole,
   OrderRefundStatus,
   OrderStatus,
@@ -194,6 +195,24 @@ class UpdateOrderStatusService {
       );
     }
 
+    const enqueueStatusNotice = async (
+      tx: Prisma.TransactionClient,
+      updated: NonNullable<typeof order>,
+    ) => {
+      await notifyCustomerOrderStatusChanged({
+        restaurantId,
+        customerPhone: updated.user?.phone || order.user?.phone,
+        customerName: updated.user?.name || order.user?.name,
+        restaurantName: updated.restaurant?.name || order.restaurant?.name,
+        restaurantWhatsapp: updated.restaurant?.whatsapp || order.restaurant?.whatsapp,
+        orderId: updated.id,
+        publicId: updated.publicId,
+        orderType: updated.type,
+        status: updated.status,
+        deliveryStartedAt: updated.deliveryStartedAt,
+      }, tx);
+    };
+
     let updatedOrder;
     if (status === OrderStatus.CANCELADO) {
       updatedOrder = await prisma.$transaction(async (tx) => {
@@ -206,6 +225,7 @@ class UpdateOrderStatusService {
         );
         await restoreOrderItemsStock(tx, order);
         await releaseCouponRedemptionForOrder(orderId, restaurantId, tx);
+        await enqueueStatusNotice(tx, cancelledOrder);
         return cancelledOrder;
       });
     } else if (isCourierDeliveryCompletion || isAdminDeliveryCompletion) {
@@ -313,6 +333,7 @@ class UpdateOrderStatusService {
             },
           });
         }
+        await enqueueStatusNotice(tx, deliveredOrder);
         return { order: deliveredOrder, changed: true };
       });
 
@@ -341,34 +362,26 @@ class UpdateOrderStatusService {
         });
         if (deliveredOrder?.paid === true)
           await markCouponRedemptionUsedForOrder(orderId, restaurantId, tx);
+        await enqueueStatusNotice(tx, deliveredOrder);
         return deliveredOrder;
       });
     } else {
-      updatedOrder = await orderRepository.updateStatusIfCurrent(orderId, status, restaurantId, {
-        status: currentStatus,
-        paid: order.paid,
+      updatedOrder = await prisma.$transaction(async (tx) => {
+        const changed = await orderRepository.updateStatusIfCurrent(
+          orderId,
+          status,
+          restaurantId,
+          { status: currentStatus, paid: order.paid },
+          tx,
+        );
+        await enqueueStatusNotice(tx, changed);
+        return changed;
       });
     }
 
     if (!updatedOrder)
       throw new Error('O pedido mudou enquanto era atualizado. Atualize a tela e tente novamente.');
 
-    void notifyCustomerOrderStatusChanged({
-      restaurantId,
-      customerPhone: updatedOrder?.user?.phone || order.user?.phone,
-      customerName: updatedOrder?.user?.name || order.user?.name,
-      restaurantName: updatedOrder?.restaurant?.name || order.restaurant?.name,
-      restaurantWhatsapp: updatedOrder?.restaurant?.whatsapp || order.restaurant?.whatsapp,
-      orderId: updatedOrder?.id,
-      publicId: updatedOrder?.publicId,
-      orderType: updatedOrder?.type,
-      status: updatedOrder?.status,
-    }).catch((error: unknown) => {
-      console.error(
-        '[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]',
-        error instanceof Error ? error.message : String(error),
-      );
-    });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`guest-order:${updatedOrder.id}`).emit('order:status-changed', {
