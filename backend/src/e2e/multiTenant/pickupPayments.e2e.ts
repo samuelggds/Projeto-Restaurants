@@ -326,6 +326,75 @@ test(
         },
       );
       await t.test(
+        'Pix/cartão: confirmação e aviso consentido entram no mesmo commit e replay não duplica',
+        async () => {
+          const originalProvider = process.env.CUSTOMER_NOTIFICATION_PROVIDER;
+          process.env.CUSTOMER_NOTIFICATION_PROVIDER = 'whatsapp_webhook';
+          await prisma.restaurant.update({
+            where: { id: restaurantId },
+            data: { whatsapp: '+5511999990000' },
+          });
+          await prisma.restaurantSettings.update({
+            where: { restaurantId },
+            data: { whatsappEnabled: true, receiveStatusNotifications: true },
+          });
+          try {
+            for (const method of ['PIX', 'CARTAO'] as const) {
+              const initial = await newOrder();
+              const order = await prisma.order.update({
+                where: { id: initial.id },
+                data: { type: 'DELIVERY', paymentMethod: method },
+              });
+              await prisma.auditLog.create({
+                data: {
+                  restaurantId,
+                  userId: fixture.users.customerA.id,
+                  userRole: 'CLIENTE',
+                  action: 'WHATSAPP_ORDER_NOTIFICATIONS_OPT_IN',
+                  resource: `Order:${order.id}`,
+                  metadata: { destinationPhone: '11999990000' },
+                },
+              });
+              if (method === 'PIX') {
+                pix.ensurePaymentApproved = async () =>
+                  ({ isApproved: true, status: 'approved' }) as any;
+              }
+              const finalize = () =>
+                method === 'PIX'
+                  ? finalizePix.execute({
+                      orderId: order.id,
+                      restaurantId,
+                      paymentId: String(980000 + order.id),
+                    })
+                  : finalizeCard.execute({
+                      orderId: order.id,
+                      restaurantId,
+                      checkoutSessionId: `card-outbox-${order.id}`,
+                    });
+              const first = await finalize();
+              assert.equal(first?.paid, true);
+              const [queued] = await prisma.$queryRaw<Array<{ count: bigint; payload: string }>>`
+                SELECT COUNT(*)::bigint AS count, MIN("payload") AS payload
+                FROM "NotificationOutbox"
+                WHERE "restaurantId" = ${restaurantId}
+              `;
+              assert.equal(queued.count, BigInt(method === 'PIX' ? 1 : 2));
+              assert.match(queued.payload, /^enc:v1:/u);
+              const replay = await finalize();
+              assert.equal(replay?.paidAt?.toISOString(), first?.paidAt?.toISOString());
+              const [afterReplay] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+                SELECT COUNT(*)::bigint AS count FROM "NotificationOutbox"
+                WHERE "restaurantId" = ${restaurantId}
+              `;
+              assert.equal(afterReplay.count, queued.count);
+            }
+          } finally {
+            if (originalProvider === undefined) delete process.env.CUSTOMER_NOTIFICATION_PROVIDER;
+            else process.env.CUSTOMER_NOTIFICATION_PROVIDER = originalProvider;
+          }
+        },
+      );
+      await t.test(
         'Pix aprovado externamente e falha no commit: retomada sem duplicar pedido ou cobrança',
         async () => {
           assertDisposableTenantDatabase();
