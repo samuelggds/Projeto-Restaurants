@@ -95,6 +95,12 @@ function completionTx({ count = 1, current, cashPending = false }) {
       findFirst: async () => ({ couponRedemptionId: null }),
     },
     user: { findFirst: async () => ({ id: 31 }) },
+    restaurantSettings: {
+      findUnique: async ({ where }) => {
+        assert.deepEqual(where, { restaurantId: 7 });
+        return null; // Sem configurações do WhatsApp neste cenário de entrega.
+      },
+    },
     auditLog: { create: async () => ({ id: 1 }) },
     __current: current,
   };

@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { enqueueWhatsappNotification } from './notificationOutbox.js';
 import { resolveWhatsAppDeliveryProvider } from './whatsappProvider.js';
@@ -7,6 +8,8 @@ import {
   buildAutomaticOrderStatusMessage,
   resolveCustomerOrderLinks,
 } from './customerOrderMessaging.js';
+
+type Database = Prisma.TransactionClient | typeof prisma;
 
 type PaymentConfirmedPayload = {
   restaurantId?: number | string | null;
@@ -71,6 +74,7 @@ function getErrorMessage(error: unknown) {
 
 async function resolveCustomerWhatsappPreference(
   restaurantId: number | string | null | undefined,
+  db: Database = prisma,
 ): Promise<CustomerWhatsappPreference> {
   if (restaurantId === undefined || restaurantId === null || restaurantId === '') {
     return { enabled: true };
@@ -86,7 +90,7 @@ async function resolveCustomerWhatsappPreference(
   }
 
   try {
-    const settings = await prisma.restaurantSettings.findUnique({
+    const settings = await db.restaurantSettings.findUnique({
       where: { restaurantId: normalizedRestaurantId },
       select: {
         whatsappEnabled: true,
@@ -107,6 +111,7 @@ async function resolveCustomerWhatsappPreference(
       restaurantId: normalizedRestaurantId,
       message: getErrorMessage(error),
     });
+    if (db !== prisma) throw error;
     return { enabled: false, reason: 'notification_preference_lookup_failed' };
   }
 }
@@ -114,15 +119,17 @@ async function resolveCustomerWhatsappPreference(
 async function resolveOrderWhatsappDestination(
   restaurantId: number | string | null | undefined,
   orderId: number | string | null | undefined,
+  db: Database = prisma,
 ) {
   try {
-    return await getWhatsappOrderNotificationDestination(restaurantId, orderId);
+    return await getWhatsappOrderNotificationDestination(restaurantId, orderId, db);
   } catch (error) {
     console.error('[CUSTOMER_NOTIFICATION_CONSENT_ERROR]', {
       restaurantId,
       orderId,
       message: getErrorMessage(error),
     });
+    if (db !== prisma) throw error;
     return '';
   }
 }
@@ -201,11 +208,13 @@ async function queueWhatsappMessage({
   destination,
   message,
   metadata,
+  db = prisma,
 }: {
   restaurantWhatsapp?: string | null;
   destination?: string | null;
   message: string;
   metadata: Record<string, unknown>;
+  db?: Database;
 }) {
   const provider = resolveProvider();
   if (provider === 'none') return { sent: false, reason: 'provider_not_configured' } as const;
@@ -224,7 +233,7 @@ async function queueWhatsappMessage({
     to,
     message,
     metadata: { ...metadata, restaurantWhatsapp: from, provider },
-  });
+  }, db);
 }
 
 export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload) {
@@ -262,10 +271,10 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
   }
 }
 
-export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload) {
-  const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
+export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChangedPayload, db: Database = prisma) {
+  const preference = await resolveCustomerWhatsappPreference(payload.restaurantId, db);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
-  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId);
+  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId, db);
   if (!destination) {
     return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
   }
@@ -286,7 +295,7 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
       restaurantId: payload.restaurantId,
       orderId: payload.orderId,
       publicId: payload.publicId,
-    });
+    }, db);
 
     let deliveryConfirmationCode: string | undefined;
     if (
@@ -330,9 +339,11 @@ export async function notifyCustomerOrderStatusChanged(payload: OrderStatusChang
         ...(deliveryConfirmationCode ? { deliveryConfirmationCode } : {}),
         templateParams: [name, String(payload.orderId || ''), restaurant, link],
       },
+      db,
     });
   } catch (error) {
     console.error('[CUSTOMER_STATUS_NOTIFICATION_ERROR]', getErrorMessage(error));
+    if (db !== prisma) throw error;
     return { sent: false, reason: 'send_failed', provider };
   }
 }

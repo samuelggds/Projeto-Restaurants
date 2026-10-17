@@ -278,6 +278,12 @@ test('garçom entrega somente pedido MESA/PRONTO sem confirmar pagamento automat
     items: [{ id: 1, quantity: 1, product: { id: 10, name: 'Produto' } }],
   };
   const tx = {
+    restaurantSettings: {
+      findUnique: async ({ where }) => {
+        assert.deepEqual(where, { restaurantId: 7 });
+        return null;
+      },
+    },
     order: {
       update: async ({ where, data }) => {
         assert.equal(where.id, 101);
