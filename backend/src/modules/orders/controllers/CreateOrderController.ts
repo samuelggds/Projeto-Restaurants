@@ -58,6 +58,7 @@ class CreateOrderController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         tableId,
         couponRedemptionId,
         couponCode,
