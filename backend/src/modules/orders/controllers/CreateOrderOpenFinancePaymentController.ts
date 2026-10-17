@@ -8,7 +8,6 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
-import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 class CreateOrderOpenFinancePaymentController {
@@ -82,50 +81,6 @@ class CreateOrderOpenFinancePaymentController {
         complement,
       });
 
-      if (whatsappOptIn === true && String(order.type || '').toUpperCase() !== 'MESA') {
-        try {
-          await recordWhatsappOrderNotificationOptIn({
-            restaurantId: order.restaurantId,
-            orderId: order.id,
-            userId: order.userId,
-            customerPhone,
-          });
-        } catch (consentError) {
-          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
-            requestId: req.requestId,
-            errorType: safeErrorName(consentError),
-          });
-        }
-      }
-
-      let result;
-      try {
-        result = await openFinanceEfiPaymentService.start({
-          orderId: order.id,
-          restaurantId: resolvedRestaurantId,
-          participantId: String(openFinanceParticipantId || ''),
-          customerCpf: String(customerCpf || ''),
-        });
-      } catch (error) {
-        console.error('[OPEN_FINANCE_PAYMENT_CREATION_UNCERTAIN]', {
-          orderId: order.id,
-          restaurantId: resolvedRestaurantId,
-          errorType: safeErrorName(error),
-        });
-        if (
-          error instanceof Error &&
-          /desativado|configurado pela plataforma|chave Pix|CPF válido|Escolha o banco|inválido|indisponível|já possui outra tentativa/i.test(
-            error.message,
-          )
-        ) {
-          throw new OrderRequestError(
-            error.message,
-            400,
-            'OPEN_FINANCE_REQUEST_REJECTED',
-          );
-        }
-        throw new PaymentCreationUncertainError(order.id, order.publicId);
-      }
 
       const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery = isGuestOrder && String(order.type || '').toUpperCase() === 'DELIVERY';
