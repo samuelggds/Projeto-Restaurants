@@ -132,7 +132,7 @@ test(
                 resource: `Order:${orderId}`,
               },
             });
-            assert.equal(consent?.metadata?.destinationPhone, '11999990000');
+            assert.equal((consent?.metadata as { destinationPhone?: string } | null)?.destinationPhone, '11999990000');
             observed += 1;
           };
           pix.createPixPayment = async (payload) => {
