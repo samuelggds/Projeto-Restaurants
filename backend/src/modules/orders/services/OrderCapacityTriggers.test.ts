@@ -148,6 +148,12 @@ test('concluir entrega de mesa aguarda avanço da fila sem exigir worker separad
         update: async () => ({ ...order, status: 'ENTREGUE' }),
         findFirst: async () => ({ couponRedemptionId: null }),
       },
+      restaurantSettings: {
+        findUnique: async ({ where }) => {
+          assert.deepEqual(where, { restaurantId: 7 });
+          return null;
+        },
+      },
     });
     committed = true;
     return result;
