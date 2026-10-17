@@ -500,6 +500,102 @@ test(
           }
         },
       );
+      await t.test('HTTP recuperação Pix: falha no commit responde pendente e retry confirma sem segunda cobrança', async () => {
+        assertDisposableTenantDatabase();
+        const originalStatus = pix.getPaymentStatus;
+        const originalApproval = pix.ensurePaymentApproved;
+        const originalCreation = pix.createPixPayment;
+        const paymentId = '8811990022';
+        const order = await prisma.order.create({
+          data: {
+            restaurantId,
+            userId: fixture.users.customerA.id,
+            type: 'DELIVERY',
+            status: 'PENDENTE',
+            total: 25,
+            itemsSubtotal: 25,
+            paid: false,
+            paymentMethod: 'PIX',
+            pixPaymentId: paymentId,
+            pixExpiresAt: new Date(Date.now() - 60_000),
+          },
+        });
+        const request = () => apiRequest(
+          app.baseUrl,
+          `/orders/payment/${order.publicId}/pix/confirm`,
+          fixture.tokens.customerA,
+          { method: 'POST' },
+        );
+        const faultFunction = 'tenant_e2e_pix_recovery_commit_interrupt';
+        const faultTrigger = 'tenant_e2e_pix_recovery_commit_interrupt_trigger';
+        let chargeCalls = 0;
+        let approvalCalls = 0;
+        pix.getPaymentStatus = async () => ({
+          isApproved: true, sameRestaurant: true, provider: 'MERCADO_PAGO',
+          status: 'approved',
+        }) as any;
+        pix.ensurePaymentApproved = async () => {
+          approvalCalls += 1;
+          return { isApproved: true, sameRestaurant: true, provider: 'MERCADO_PAGO', status: 'approved' } as any;
+        };
+        pix.createPixPayment = async () => {
+          chargeCalls += 1;
+          throw new Error('Não criar outra cobrança em recuperação.');
+        };
+        try {
+          await prisma.$executeRawUnsafe(`CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $
+            BEGIN
+              IF NEW."id" = ${Number(order.id)} AND NEW."paid" IS TRUE
+                 AND OLD."paid" IS DISTINCT FROM TRUE THEN
+                RAISE EXCEPTION 'tenant_e2e_pix_recovery_commit_failure';
+              END IF;
+              RETURN NEW;
+            END;
+          $ LANGUAGE plpgsql`);
+          try {
+            await prisma.$executeRawUnsafe(
+              `CREATE TRIGGER "${faultTrigger}" BEFORE UPDATE ON "Order"
+               FOR EACH ROW EXECUTE FUNCTION "${faultFunction}"()`,
+            );
+            const failed = await request();
+            assert.equal(failed.response.status, 503, JSON.stringify(failed.data));
+            assert.equal(failed.data.code, 'PIX_PAYMENT_RECONCILIATION_PENDING');
+            assert.equal(failed.data.reconciliationRequired, true);
+            assert.equal(failed.data.orderId, order.id);
+            assert.equal(failed.response.headers.get('retry-after'), '5');
+            assert.ok(!String(failed.data.error).includes('tenant_e2e_pix_recovery_commit_failure'));
+            const pending = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+            assert.equal(pending.paid, false);
+            assert.equal(pending.pixPaymentId, paymentId);
+          } finally {
+            await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${faultTrigger}" ON "Order"`);
+            await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${faultFunction}"()`);
+          }
+          const confirmed = await Promise.all([request(), request()]);
+          for (const response of confirmed) {
+            assert.equal(response.response.status, 200, JSON.stringify(response.data));
+            assert.equal(response.data.paid, true);
+            assert.equal(response.data.status, 'paid');
+          }
+          const persisted = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+          assert.equal(persisted.paid, true);
+          const replay = await request();
+          assert.equal(replay.response.status, 200, JSON.stringify(replay.data));
+          assert.equal(replay.data.paidAt, persisted.paidAt?.toISOString());
+          assert.equal(chargeCalls, 0);
+          assert.ok(approvalCalls >= 3);
+          const otherTenant = await apiRequest(
+            app.baseUrl, `/orders/payment/${order.publicId}/pix/confirm`,
+            fixture.tokens.customerB, { method: 'POST' },
+          );
+          assert.ok([403, 404].includes(otherTenant.response.status));
+          assert.equal(chargeCalls, 0);
+        } finally {
+          pix.getPaymentStatus = originalStatus;
+          pix.ensurePaymentApproved = originalApproval;
+          pix.createPixPayment = originalCreation;
+        }
+      });
       await t.test(
         'Pix aprovado externamente e falha no commit: retomada sem duplicar pedido ou cobrança',
         async () => {
