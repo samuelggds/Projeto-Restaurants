@@ -236,10 +236,10 @@ async function queueWhatsappMessage({
   }, db);
 }
 
-export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload) {
-  const preference = await resolveCustomerWhatsappPreference(payload.restaurantId);
+export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPayload, db: Database = prisma) {
+  const preference = await resolveCustomerWhatsappPreference(payload.restaurantId, db);
   if (!preference.enabled) return { sent: false, reason: preference.reason };
-  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId);
+  const destination = await resolveOrderWhatsappDestination(payload.restaurantId, payload.orderId, db);
   if (!destination) {
     return { sent: false, reason: 'customer_whatsapp_opt_in_missing' } as const;
   }
@@ -264,9 +264,11 @@ export async function notifyCustomerPaymentConfirmed(payload: PaymentConfirmedPa
         event: 'PAYMENT_CONFIRMED',
         templateParams: [name, method, String(payload.orderId || ''), restaurant, total],
       },
+      db,
     });
   } catch (error) {
     console.error('[CUSTOMER_NOTIFICATION_ERROR]', getErrorMessage(error));
+    if (db !== prisma) throw error;
     return { sent: false, reason: 'send_failed', provider };
   }
 }

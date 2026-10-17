@@ -196,9 +196,30 @@ for (const payment of ['PIX', 'CARTAO', 'ADMIN']) {
             return { count: 1 };
           },
         },
-        restaurantSettings: { findUnique: async () => ({ maxConcurrentOrders: 1 }) },
+        restaurantSettings: {
+          findUnique: async ({ where }) => {
+            assert.deepEqual(where, { restaurantId: 7 });
+            return {
+              maxConcurrentOrders: 1,
+              whatsappEnabled: true,
+              receiveStatusNotifications: true,
+            };
+          },
+        },
         user: { findFirst: async () => ({ id: 30, name: 'Admin' }) },
-        auditLog: { create: async () => ({ id: 1 }) },
+        auditLog: {
+          create: async () => ({ id: 1 }),
+          findFirst: async ({ where }) => {
+            assert.deepEqual(where, {
+              restaurantId: 7,
+              action: 'WHATSAPP_ORDER_NOTIFICATIONS_OPT_IN',
+              resource: 'Order:91',
+            });
+            // Sem consentimento explícito, a confirmação financeira continua
+            // e nenhuma mensagem automática deve ser enfileirada.
+            return null;
+          },
+        },
       });
       committed = true;
       return result;
