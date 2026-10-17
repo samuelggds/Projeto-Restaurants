@@ -145,6 +145,16 @@ class FinalizeOrderPixPaymentService {
           tx,
         );
         await markCouponRedemptionUsedForOrder(order.id, order.restaurantId, tx);
+        await notifyCustomerPaymentConfirmed({
+          restaurantId: confirmedOrder.restaurantId,
+          customerPhone: confirmedOrder.user?.phone,
+          customerName: confirmedOrder.user?.name,
+          restaurantName: confirmedOrder.restaurant?.name,
+          restaurantWhatsapp: confirmedOrder.restaurant?.whatsapp,
+          orderId: confirmedOrder.id,
+          total: confirmedOrder.total,
+          paymentMethod: confirmedOrder.paymentMethod,
+        }, tx);
         paymentChanged = true;
         return confirmedOrder;
       });
@@ -229,21 +239,6 @@ class FinalizeOrderPixPaymentService {
     }
     emitTableSessionOrderEvent(io, 'order:status-changed', updatedOrder);
 
-    notifyCustomerPaymentConfirmed({
-      restaurantId: updatedOrder.restaurantId,
-      customerPhone: updatedOrder?.user?.phone,
-      customerName: updatedOrder?.user?.name,
-      restaurantName: updatedOrder?.restaurant?.name,
-      restaurantWhatsapp: updatedOrder?.restaurant?.whatsapp,
-      orderId: updatedOrder?.id,
-      total: updatedOrder?.total,
-      paymentMethod: updatedOrder?.paymentMethod,
-    }).catch((error: unknown) => {
-      console.error(
-        '[CUSTOMER_NOTIFICATION_UNHANDLED]',
-        error instanceof Error ? error.message : String(error),
-      );
-    });
 
     if (queuedForCapacity) {
       const admitted = await orderCapacityQueueService.drainAfterCapacityChange(updatedOrder.restaurantId);
