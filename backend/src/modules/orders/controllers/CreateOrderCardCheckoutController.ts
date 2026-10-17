@@ -113,6 +113,7 @@ class CreateOrderCardCheckoutController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         observation,
         tableId,
         cardProvider,
