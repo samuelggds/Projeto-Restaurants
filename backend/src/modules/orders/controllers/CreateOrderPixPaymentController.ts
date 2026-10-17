@@ -98,6 +98,7 @@ class CreateOrderPixPaymentController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         couponRedemptionId,
         couponCode,
         items,
