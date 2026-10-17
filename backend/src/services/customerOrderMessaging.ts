@@ -1,4 +1,7 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
+
+type Database = Prisma.TransactionClient | typeof prisma;
 import { issueGuestOrderTrackingToken } from '../modules/orders/utils/guestOrderTrackingToken.js';
 import { safeErrorSummary } from './telemetrySanitizer.js';
 
@@ -81,7 +84,7 @@ export async function resolveCustomerOrderLinks({
   restaurantId,
   orderId,
   publicId,
-}: CustomerOrderLinkInput): Promise<CustomerOrderLinks> {
+}: CustomerOrderLinkInput, db: Database = prisma): Promise<CustomerOrderLinks> {
   const normalizedRestaurantId = Number(restaurantId || 0);
   const normalizedOrderId = Number(orderId || 0);
   const normalizedPublicId = String(publicId || '').trim();
@@ -91,7 +94,7 @@ export async function resolveCustomerOrderLinks({
     return {};
   }
 
-  const restaurant = await prisma.restaurant.findUnique({
+  const restaurant = await db.restaurant.findUnique({
     where: { id: normalizedRestaurantId },
     select: { slug: true },
   });
