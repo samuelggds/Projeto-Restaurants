@@ -34,6 +34,7 @@ export type CreateOrderCardCheckoutPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  whatsappOptIn?: boolean;
   tableId?: number | string | null;
   cardProvider?: string;
   items: Array<{

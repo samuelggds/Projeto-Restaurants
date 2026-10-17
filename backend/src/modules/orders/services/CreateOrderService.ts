@@ -28,6 +28,7 @@ import {
   CourierCompensationModel,
 } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
+import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { z } from 'zod';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
@@ -92,6 +93,7 @@ type CreateOrderPayload = {
   customerName?: string;
   customerCpf?: string;
   customerPhone?: string;
+  whatsappOptIn?: boolean;
   guestPasswordHash?: string;
   tableId?: number | string | null;
   couponRedemptionId?: number | string | null;
@@ -234,6 +236,7 @@ class CreateOrderService {
     customerName,
     customerCpf,
     customerPhone,
+    whatsappOptIn,
     tableId,
     couponRedemptionId,
     couponCode,
@@ -792,6 +795,17 @@ class CreateOrderService {
               },
               tx,
             );
+
+            // Persiste a autorização junto com o pedido, antes de iniciar o gateway.
+            // Assim um webhook de pagamento imediato não encontra consentimento ausente.
+            if (whatsappOptIn === true && type !== OrderType.MESA) {
+              await recordWhatsappOrderNotificationOptIn({
+                restaurantId: resolvedRestaurantId,
+                orderId: order.id,
+                userId: resolvedUserId,
+                customerPhone,
+              }, tx);
+            }
 
             await reserveCouponRedemption({
               redemptionId: pricing.couponRedemptionId,

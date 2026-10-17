@@ -8,7 +8,6 @@ import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 import { PaymentCreationUncertainError } from '../services/PaymentCreationUncertainError.js';
-import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
 import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 class CreateOrderOpenFinancePaymentController {
@@ -69,6 +68,7 @@ class CreateOrderOpenFinancePaymentController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         couponRedemptionId,
         couponCode,
         items,
@@ -81,21 +81,6 @@ class CreateOrderOpenFinancePaymentController {
         complement,
       });
 
-      if (whatsappOptIn === true && String(order.type || '').toUpperCase() !== 'MESA') {
-        try {
-          await recordWhatsappOrderNotificationOptIn({
-            restaurantId: order.restaurantId,
-            orderId: order.id,
-            userId: order.userId,
-            customerPhone,
-          });
-        } catch (consentError) {
-          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
-            requestId: req.requestId,
-            errorType: safeErrorName(consentError),
-          });
-        }
-      }
 
       let result;
       try {
