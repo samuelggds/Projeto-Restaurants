@@ -149,3 +149,91 @@ test(
     }
   },
 );
+
+test(
+  'pedido e notificação compartilham commit: rollback não deixa mensagem órfã e replay é único',
+  { timeout: 60_000 },
+  async () => {
+    await resetTenantE2EDatabase();
+    const fixture = await seedTenantE2EFixture();
+    const restaurantId = fixture.restaurants.a.id;
+    const orderId = fixture.orders.a.id;
+    const message = {
+      channel: 'whatsapp' as const,
+      from: '+5511999990000',
+      to: '+5511999990001',
+      message: 'Aviso transacional sintético de pedido em preparo',
+      metadata: {
+        restaurantId,
+        orderId,
+        event: 'ORDER_STATUS_CHANGED',
+        status: 'PREPARANDO',
+        orderType: 'DELIVERY',
+      },
+    };
+
+    // Este teste valida a primitiva transacional da outbox, sem fazer chamadas ao WhatsApp.
+    await assert.rejects(
+      () =>
+        runtimePrisma.$transaction(async (tx) => {
+          const changed = await tx.order.updateMany({
+            where: { id: orderId, restaurantId, status: 'PENDENTE' },
+            data: { status: 'PREPARANDO' },
+          });
+          assert.equal(changed.count, 1);
+          const queued = await enqueueWhatsappNotification(message, tx);
+          assert.equal(queued.queued, true);
+          throw new Error('simulated_process_failure_before_commit');
+        }),
+      /simulated_process_failure_before_commit/u,
+    );
+
+    const rolledBackOrder = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    assert.equal(rolledBackOrder.status, 'PENDENTE');
+    const [rolledBackOutbox] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count FROM "NotificationOutbox"
+      WHERE "restaurantId" = ${restaurantId}
+    `;
+    assert.equal(rolledBackOutbox.count, 0n);
+
+    const committed = await runtimePrisma.$transaction(async (tx) => {
+      const changed = await tx.order.updateMany({
+        where: { id: orderId, restaurantId, status: 'PENDENTE' },
+        data: { status: 'PREPARANDO' },
+      });
+      assert.equal(changed.count, 1);
+      const queued = await enqueueWhatsappNotification(message, tx);
+      assert.equal(queued.queued, true);
+      return queued;
+    });
+    assert.equal(committed.queued, true);
+
+    const persisted = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+    assert.equal(persisted.status, 'PREPARANDO');
+    const rows = await prisma.$queryRaw<
+      Array<{ status: string; payload: string }>
+    >`
+      SELECT "status", "payload" FROM "NotificationOutbox"
+      WHERE "restaurantId" = ${restaurantId}
+    `;
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, 'PENDING');
+    assert.match(rows[0].payload, /^enc:v1:/u);
+    assert.ok(!rows[0].payload.includes(message.to));
+
+    // Duas reentregas não podem produzir nova intenção de envio após o commit.
+    const replays = await Promise.all([
+      enqueueWhatsappNotification(message),
+      enqueueWhatsappNotification(message),
+    ]);
+    for (const replay of replays) {
+      assert.equal(replay.queued, false);
+      assert.equal(replay.duplicate, true);
+    }
+    const [afterReplays] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count FROM "NotificationOutbox"
+      WHERE "restaurantId" = ${restaurantId}
+    `;
+    assert.equal(afterReplays.count, 1n);
+  },
+);
