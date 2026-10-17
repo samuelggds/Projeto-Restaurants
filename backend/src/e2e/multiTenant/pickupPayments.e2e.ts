@@ -6,6 +6,7 @@ import {
   prisma,
   runtimePrisma,
   resetTenantE2EDatabase,
+  assertDisposableTenantDatabase,
   seedTenantE2EFixture,
   startTenantTestApplication,
 } from './tenantE2EHarness.js';
@@ -322,6 +323,87 @@ test(
           } finally {
             unregister();
           }
+        },
+      );
+      await t.test(
+        'Pix aprovado externamente e falha no commit: retomada sem duplicar pedido ou cobrança',
+        async () => {
+          assertDisposableTenantDatabase();
+          const initial = await newOrder();
+          const order = await prisma.order.update({
+            where: { id: initial.id },
+            data: { type: 'DELIVERY', paymentMethod: 'PIX' },
+          });
+          const paymentId = String(970000 + order.id);
+          const originalOrderCount = await prisma.order.count({ where: { restaurantId } });
+          let approvalChecks = 0;
+          let newChargeCalls = 0;
+          pix.ensurePaymentApproved = async () => {
+            approvalChecks += 1;
+            return { isApproved: true, status: 'approved' } as any;
+          };
+          pix.createPixPayment = async () => {
+            newChargeCalls += 1;
+            throw new Error('Não deve iniciar uma nova cobrança para conciliar um Pix aprovado.');
+          };
+
+          const faultFunction = 'tenant_e2e_interrupt_payment_confirmation';
+          const faultTrigger = 'tenant_e2e_interrupt_payment_confirmation_trigger';
+          await prisma.$executeRawUnsafe(
+            `CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $
+              BEGIN
+                IF NEW."id" = ${Number(order.id)} AND NEW."paid" IS TRUE
+                   AND OLD."paid" IS DISTINCT FROM TRUE THEN
+                  RAISE EXCEPTION 'tenant_e2e_payment_write_fail';
+                END IF;
+                RETURN NEW;
+              END;
+            $ LANGUAGE plpgsql`,
+          );
+          try {
+            await prisma.$executeRawUnsafe(
+              `CREATE TRIGGER "${faultTrigger}" BEFORE UPDATE ON "Order"
+                 FOR EACH ROW EXECUTE FUNCTION "${faultFunction}"()`,
+            );
+            await assert.rejects(() =>
+              finalizePix.execute({ orderId: order.id, restaurantId, paymentId }),
+            );
+            const afterFailure = await prisma.order.findUniqueOrThrow({
+              where: { id: order.id },
+            });
+            assert.equal(afterFailure.paid, false);
+            assert.equal(afterFailure.pixPaymentId, null);
+            assert.equal(await prisma.order.count({ where: { restaurantId } }), originalOrderCount);
+            assert.equal(approvalChecks, 1);
+            assert.equal(newChargeCalls, 0);
+          } finally {
+            await prisma.$executeRawUnsafe(
+              `DROP TRIGGER IF EXISTS "${faultTrigger}" ON "Order"`,
+            );
+            await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${faultFunction}"()`);
+          }
+
+          const recovered = await finalizePix.execute({
+            orderId: order.id,
+            restaurantId,
+            paymentId,
+          });
+          assert.equal(recovered?.id, order.id);
+          assert.equal(recovered?.paid, true);
+          assert.equal(recovered?.pixPaymentId, paymentId);
+          const paidAt = recovered?.paidAt?.toISOString();
+          assert.ok(paidAt);
+          const replay = await finalizePix.execute({
+            orderId: order.id,
+            restaurantId,
+            paymentId,
+          });
+          assert.equal(replay?.id, order.id);
+          assert.equal(replay?.paidAt?.toISOString(), paidAt);
+          assert.equal(await prisma.order.count({ where: { restaurantId } }), originalOrderCount);
+          assert.equal(newChargeCalls, 0);
+          assert.equal(approvalChecks, 3);
+          assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: order.id } })).paid, true);
         },
       );
     } finally {
