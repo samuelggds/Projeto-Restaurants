@@ -371,6 +371,10 @@ test(
                       restaurantId,
                       checkoutSessionId: `card-outbox-${order.id}`,
                     });
+              const [baseline] = await prisma.$queryRaw<Array<{ count: bigint }>>`
+                SELECT COUNT(*)::bigint AS count FROM "NotificationOutbox"
+                WHERE "restaurantId" = ${restaurantId}
+              `;
               const first = await finalize();
               assert.equal(first?.paid, true);
               const [queued] = await prisma.$queryRaw<Array<{ count: bigint; payload: string }>>`
@@ -378,7 +382,7 @@ test(
                 FROM "NotificationOutbox"
                 WHERE "restaurantId" = ${restaurantId}
               `;
-              assert.equal(queued.count, BigInt(method === 'PIX' ? 1 : 2));
+              assert.equal(queued.count, baseline.count + 1n);
               assert.match(queued.payload, /^enc:v1:/u);
               const replay = await finalize();
               assert.equal(replay?.paidAt?.toISOString(), first?.paidAt?.toISOString());
