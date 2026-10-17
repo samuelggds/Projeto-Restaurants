@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import getOrderPixPaymentRecoveryService from '../services/GetOrderPixPaymentRecoveryService.js';
 import finalizeOrderPixPaymentService from '../services/FinalizeOrderPixPaymentService.js';
+import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 
 function actorFromRequest(req: Request) {
   return {
@@ -28,19 +29,28 @@ class OrderPixPaymentRecoveryController {
   }
 
   async confirm(req: Request, res: Response) {
+    // A recuperação contém dados financeiros e não deve ficar em caches HTTP.
+    res.setHeader('Cache-Control', 'no-store');
+    let payment: Awaited<ReturnType<typeof getOrderPixPaymentRecoveryService.execute>>;
     try {
-      const payment = await getOrderPixPaymentRecoveryService.execute(
+      payment = await getOrderPixPaymentRecoveryService.execute(
         req.params.publicId,
         actorFromRequest(req),
       );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível recuperar este pagamento PIX.';
+      const status = /não pode acessar|pedido não encontrado|pedido inválido/i.test(message)
+        ? 404
+        : 400;
+      return res.status(status).json({ error: message });
+    }
 
-      if (payment.paid === true) {
-        return res.status(200).json(payment);
-      }
-      if (payment.isApproved !== true || !payment.paymentId) {
-        return res.status(200).json(payment);
-      }
+    if (payment.paid === true || payment.isApproved !== true || !payment.paymentId) {
+      return res.status(200).json(payment);
+    }
 
+    try {
       const order = await finalizeOrderPixPaymentService.execute({
         orderId: payment.orderId,
         paymentId: payment.paymentId,
@@ -56,10 +66,23 @@ class OrderPixPaymentRecoveryController {
         isApproved: order?.paid === true ? true : payment.isApproved,
       });
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Não foi possível confirmar este pagamento PIX.';
-      const status = /não pode acessar|pedido não encontrado|pedido inválido/i.test(message) ? 404 : 400;
-      return res.status(status).json({ error: message });
+      // O provedor pode ter aprovado o pagamento enquanto o PostgreSQL estava
+      // indisponível. Nunca presumir estorno ou induzir a uma nova cobrança.
+      console.error('[PIX_RECOVERY_RECONCILIATION_PENDING]', {
+        orderId: payment.orderId,
+        restaurantId: payment.restaurantId,
+        requestId: req.requestId,
+        errorType: safeErrorName(error),
+      });
+      res.setHeader('Retry-After', '5');
+      return res.status(503).json({
+        error: 'Não foi possível concluir a confirmação agora. Consulte este mesmo pedido novamente, sem iniciar outro pagamento.',
+        code: 'PIX_PAYMENT_RECONCILIATION_PENDING',
+        reconciliationRequired: true,
+        orderId: payment.orderId,
+        orderPublicId: payment.orderPublicId,
+        requestId: req.requestId,
+      });
     }
   }
 }
