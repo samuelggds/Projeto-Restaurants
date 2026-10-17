@@ -350,7 +350,7 @@ test(
           const faultFunction = 'tenant_e2e_interrupt_payment_confirmation';
           const faultTrigger = 'tenant_e2e_interrupt_payment_confirmation_trigger';
           await prisma.$executeRawUnsafe(
-            `CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $
+            `CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $$
               BEGIN
                 IF NEW."id" = ${Number(order.id)} AND NEW."paid" IS TRUE
                    AND OLD."paid" IS DISTINCT FROM TRUE THEN
@@ -358,7 +358,7 @@ test(
                 END IF;
                 RETURN NEW;
               END;
-            $ LANGUAGE plpgsql`,
+            $$ LANGUAGE plpgsql`,
           );
           try {
             await prisma.$executeRawUnsafe(
