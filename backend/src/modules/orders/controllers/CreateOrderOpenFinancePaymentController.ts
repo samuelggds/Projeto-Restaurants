@@ -69,6 +69,7 @@ class CreateOrderOpenFinancePaymentController {
         customerName,
         customerCpf,
         customerPhone,
+        whatsappOptIn,
         couponRedemptionId,
         couponCode,
         items,
