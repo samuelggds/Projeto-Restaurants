@@ -121,6 +121,61 @@ test(
             assert.equal(conflict.data.code, 'IDEMPOTENCY_CONFLICT');
           });
         }
+      await t.test('consentimento fica persistido antes da chamada externa Pix/cartão', async () => {
+        for (const method of ['PIX', 'CARTAO'] as const) {
+          let observed = 0;
+          const verifyConsent = async (orderId: number) => {
+            const consent = await prisma.auditLog.findFirst({
+              where: {
+                restaurantId,
+                action: 'WHATSAPP_ORDER_NOTIFICATIONS_OPT_IN',
+                resource: `Order:${orderId}`,
+              },
+            });
+            assert.equal(consent?.metadata?.destinationPhone, '11999990000');
+            observed += 1;
+          };
+          pix.createPixPayment = async (payload) => {
+            await verifyConsent(Number(payload.orderId));
+            return {
+              paymentId: String(990000 + Number(payload.orderId)),
+              status: 'pending',
+              provider: 'MERCADO_PAGO',
+              totalAmount: 25,
+              qrCode: 'synthetic-qr',
+              qrCodeBase64: null,
+              requiresStatusCheck: true,
+            };
+          };
+          card.createCheckout = async (ctx) => {
+            await verifyConsent(Number(ctx.order.id));
+            return {
+              provider: 'MERCADO_PAGO',
+              sessionId: `consent-test-${ctx.order.id}`,
+              checkoutUrl: 'https://payments.example.test/checkout',
+            };
+          };
+          const response = await apiRequest(
+            app.baseUrl,
+            method === 'PIX' ? '/orders/pix/payment' : '/orders/card/checkout',
+            fixture.tokens.adminA,
+            {
+              method: 'POST',
+              headers: { 'Idempotency-Key': randomUUID() },
+              json: {
+                restaurantId,
+                type: 'RETIRADA',
+                paymentMethod: method,
+                customerPhone: '11999990000',
+                whatsappOptIn: true,
+                items: [{ productId, quantity: 1 }],
+              },
+            },
+          );
+          assert.equal(response.response.status, 201, JSON.stringify(response.data));
+          assert.equal(observed, 1);
+        }
+      });
     } finally {
       pix.createPixPayment = originalPix;
       card.createCheckout = originalCard;
