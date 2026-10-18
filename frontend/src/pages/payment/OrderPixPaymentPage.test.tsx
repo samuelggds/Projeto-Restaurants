@@ -6,7 +6,8 @@ import restaurantSettingsService from '../../Services/restaurantSettingsService'
 import OrderPixPaymentPage from './OrderPixPaymentPage';
 
 vi.mock('../../Services/ordersService', () => ({ default: {
-  recoverPayment: vi.fn(), getCardPaymentStatus: vi.fn(), retryCardPayment: vi.fn(),
+  recoverPayment: vi.fn(), recoverPixPayment: vi.fn(), confirmRecoveredPixPayment: vi.fn(),
+  getCardPaymentStatus: vi.fn(), retryCardPayment: vi.fn(),
 } }));
 vi.mock('../../Services/restaurantSettingsService', () => ({ default: { getPublicSettings: vi.fn() } }));
 vi.mock('react-router-dom', () => ({
@@ -103,5 +104,56 @@ describe('OrderPixPaymentPage card decline diagnostics', () => {
     expect(container.textContent).not.toContain('buyer@example.test');
     expect(container.textContent).not.toContain('private-request-id');
     expect(ordersService.retryCardPayment).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('OrderPixPaymentPage Pix reconciliation', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.useFakeTimers();
+    vi.mocked(restaurantSettingsService.getPublicSettings).mockResolvedValue({});
+    vi.mocked(ordersService.recoverPayment).mockResolvedValue({
+      orderId: 91, orderPublicId: 'order-test', restaurantId: 7,
+      totalAmount: 25, paid: false, paymentMethod: 'PIX',
+    });
+    vi.mocked(ordersService.recoverPixPayment).mockResolvedValue({
+      orderId: 91, orderPublicId: 'order-test', restaurantId: 7,
+      totalAmount: 25, paid: false, isApproved: true,
+      paymentId: 'mp-payment-91', status: 'approved',
+    });
+    vi.mocked(ordersService.confirmRecoveredPixPayment).mockRejectedValue({
+      response: { status: 503, data: {
+        code: 'PIX_PAYMENT_RECONCILIATION_PENDING', reconciliationRequired: true,
+      } },
+    });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.useRealTimers();
+  });
+
+  it('mantém conciliação pendente sem exibir QR nem cobrar novamente e confirma após retry', async () => {
+    await act(async () => root.render(<OrderPixPaymentPage />));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(container.textContent).toContain('Pagamento em conciliação');
+    expect(container.textContent).toContain('Não faça outro pagamento');
+    expect(container.querySelector('svg[aria-label="QR Code PIX"]')).toBeNull();
+    expect(ordersService.confirmRecoveredPixPayment).toHaveBeenCalledTimes(1);
+
+    vi.mocked(ordersService.confirmRecoveredPixPayment).mockResolvedValue({
+      orderId: 91, orderPublicId: 'order-test', restaurantId: 7,
+      totalAmount: 25, paid: true, status: 'paid', isApproved: true,
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(container.textContent).not.toContain('Pagamento em conciliação');
+    expect(ordersService.confirmRecoveredPixPayment).toHaveBeenCalledTimes(2);
   });
 });
