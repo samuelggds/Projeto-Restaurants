@@ -33,6 +33,7 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [observedAt, setObservedAt] = useState(0);
 
   const base = mode === 'super'
     ? '/super-admin/managed-service/restaurants/' + restaurantId + '/setup-access'
@@ -41,7 +42,9 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
   const load = useCallback(async () => {
     try {
       const { data } = await api.get<Grant[]>(base);
+      if (!Array.isArray(data)) throw new Error('Invalid response');
       setGrants(data);
+      setObservedAt(Date.now());
       setError('');
     } catch {
       setError('Não foi possível consultar os acessos. Tente novamente.');
@@ -49,7 +52,12 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
   }, [base]);
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  useEffect(() => {
+    const interval = window.setInterval(() => void load(), 30_000);
+    return () => window.clearInterval(interval);
   }, [load]);
 
   useEffect(() => {
@@ -69,7 +77,7 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
   const active = grants.find((grant) =>
     grant.status === 'APPROVED' &&
     grant.expiresAt !== null &&
-    new Date(grant.expiresAt).getTime() > Date.now(),
+    new Date(grant.expiresAt).getTime() > observedAt,
   );
   const pending = grants.find((grant) => grant.status === 'PENDING');
 
@@ -162,7 +170,7 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
         </div>
         {grants.slice(0, 5).map((grant) => (
           <p key={grant.id}>{dateTime(grant.requestedAt)} — {grant.status === 'PENDING' ? 'Pendente' :
-            grant.status === 'APPROVED' && grant.expiresAt && new Date(grant.expiresAt) <= new Date() ? 'Expirado' :
+            grant.status === 'APPROVED' && grant.expiresAt && new Date(grant.expiresAt).getTime() <= observedAt ? 'Expirado' :
             ({ APPROVED: 'Autorizado', REVOKED: 'Revogado', REJECTED: 'Recusado', EXPIRED: 'Expirado' } as Record<string, string>)[grant.status] || grant.status}</p>
         ))}
         {grants.length === 0 && <p>Nenhuma solicitação registrada.</p>}
