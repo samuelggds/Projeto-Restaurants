@@ -212,8 +212,6 @@ model RestaurantRemoteSupport {
   approvedAt      DateTime? @db.Timestamptz(3)
   expiresAt       DateTime  @db.Timestamptz(3)
   closedAt        DateTime? @db.Timestamptz(3)
-  quickAssistCode String?   @db.VarChar(6)
-  codeExpiresAt   DateTime? @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
   restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   requester       User       @relation("RemoteSupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
