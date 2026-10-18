@@ -30,11 +30,58 @@ export function resolveHomeRestaurantId(input: {
   );
 }
 
+export const CHECKOUT_RECOMMENDATION_GROUPS = [
+  { id: 'sides', label: 'Acompanhamentos' },
+  { id: 'drinks', label: 'Bebidas' },
+  { id: 'desserts', label: 'Sobremesas' },
+  { id: 'extras', label: 'Adicionais' },
+  { id: 'other', label: 'Mais opções' },
+] as const;
+
+export type CheckoutRecommendationGroupId = (typeof CHECKOUT_RECOMMENDATION_GROUPS)[number]['id'];
+
+export function getCheckoutRecommendationGroup(product: Pick<HomeProduct, 'categoryId'>): CheckoutRecommendationGroupId {
+  const category = String(product.categoryId || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+  if (/(acompanh|porcao|porcoes|guarnic|entrada|petisco|aperitivo|fritas|batata|salada|side)/.test(category)) return 'sides';
+  if (/(bebida|refrigerante|suco|agua|cafe|cha|cerveja|chopp|drink|coquetel|milk.?shake|vinho|energetico)/.test(category)) return 'drinks';
+  if (/(sobremesa|doce|acai|sorvete|gelad|pudim|bolo|torta|brigadeiro|mousse|churros)/.test(category)) return 'desserts';
+  if (/(adicion|extra|molho|cobertura|complemento)/.test(category)) return 'extras';
+  return 'other';
+}
+
+/** Recomendações derivadas exclusivamente do cardápio público do restaurante atual. */
 export function checkoutRecommendations(products: HomeProduct[], cart: CartItem[]) {
   const cartProductIds = new Set(cart.map((item) => String(item.productId)));
-  return products
-    .filter((product) => product.available && !cartProductIds.has(String(product.id)))
-    .slice(0, 3);
+  const seen = new Set<string>();
+  const groups = new Map<CheckoutRecommendationGroupId, HomeProduct[]>(
+    CHECKOUT_RECOMMENDATION_GROUPS.map(({ id }) => [id, []]),
+  );
+
+  for (const product of products) {
+    const id = String(product.id).trim();
+    if (
+      !id ||
+      seen.has(id) ||
+      cartProductIds.has(id) ||
+      !product.available ||
+      !product.name.trim() ||
+      !Number.isFinite(product.price) ||
+      product.price <= 0 ||
+      (product.stock != null && (!Number.isFinite(product.stock) || product.stock <= 0))
+    ) {
+      continue;
+    }
+
+    seen.add(id);
+    const group = groups.get(getCheckoutRecommendationGroup(product));
+    if (group && group.length < 12) group.push(product);
+  }
+
+  return CHECKOUT_RECOMMENDATION_GROUPS.flatMap(({ id }) => groups.get(id) || []);
 }
 
 export function collectPurchasedProductQuantities(cart: CartItem[], products: HomeProduct[]) {
