@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
 import { ManagedRestaurantWorkspace } from '../components/ManagedRestaurantWorkspace';
+import { SetupAccessPanel } from '../../../features/setup-access/SetupAccessPanel';
+import { RemoteSupportPanel } from '../../../features/setup-access/RemoteSupportPanel';
 import * as S from './ManagedServicePage.styles';
 
 type Implementation = {
@@ -112,6 +114,7 @@ export function ManagedServicePage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [workspaceRestaurantId, setWorkspaceRestaurantId] = useState<number | null>(null);
+  const [authorizedWorkspaceId, setAuthorizedWorkspaceId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -372,10 +375,23 @@ export function ManagedServicePage() {
         </S.List>
       )}
       {workspaceRestaurantId ? (
+        <S.List>
+          <SetupAccessPanel
+            restaurantId={workspaceRestaurantId}
+            mode="super"
+            onAuthorized={() => setAuthorizedWorkspaceId(workspaceRestaurantId)}
+          />
+          <RemoteSupportPanel restaurantId={workspaceRestaurantId} mode="super" />
+          <button type="button" onClick={() => { setWorkspaceRestaurantId(null); setAuthorizedWorkspaceId(null); }}>
+            Fechar atendimento
+          </button>
+        </S.List>
+      ) : null}
+      {authorizedWorkspaceId === workspaceRestaurantId && authorizedWorkspaceId ? (
         <ManagedRestaurantWorkspace
-          restaurantId={workspaceRestaurantId}
+          restaurantId={authorizedWorkspaceId}
           onClose={() => {
-            setWorkspaceRestaurantId(null);
+            setAuthorizedWorkspaceId(null);
             void load();
           }}
         />

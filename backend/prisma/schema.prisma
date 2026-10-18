@@ -80,6 +80,10 @@ model User {
   requestedExternalDeliveryOnboardings RestaurantExternalDeliveryOnboarding[] @relation("ExternalDeliveryOnboardingRequester")
   managedUpdateRequestsRequested RestaurantManagedUpdateRequest[] @relation("ManagedUpdateRequester")
   managedUpdateRequestsHandled   RestaurantManagedUpdateRequest[] @relation("ManagedUpdateHandler")
+  setupAccessRequests             RestaurantSetupAccess[] @relation("SetupAccessRequester")
+  setupAccessDecisions            RestaurantSetupAccess[] @relation("SetupAccessDecider")
+  remoteSupportRequested          RestaurantRemoteSupport[] @relation("RemoteSupportRequester")
+  remoteSupportApproved           RestaurantRemoteSupport[] @relation("RemoteSupportApprover")
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, username])
@@ -172,6 +176,49 @@ model RestaurantManagedUpdateRequest {
 
   @@index([restaurantId, status, createdAt])
   @@index([status, createdAt])
+}
+
+
+model RestaurantSetupAccess {
+  id                String   @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  requesterId       Int
+  decidedById       Int?
+  status            String   @default("PENDING") @db.VarChar(16)
+  reason            String   @db.VarChar(500)
+  requestedAt       DateTime @default(now()) @db.Timestamptz(3)
+  approvedAt        DateTime? @db.Timestamptz(3)
+  expiresAt         DateTime? @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  requester         User @relation("SetupAccessRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  decidedBy         User? @relation("SetupAccessDecider", fields: [decidedById, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@index([restaurantId, status, expiresAt])
+  @@index([requesterId, status])
+}
+
+
+model RestaurantRemoteSupport {
+  id              String    @id @default(uuid()) @db.Uuid
+  restaurantId    Int
+  requesterId     Int
+  approverId      Int?
+  reason          String    @db.VarChar(500)
+  device          String    @default("WINDOWS") @db.VarChar(24)
+  status          String    @default("PENDING") @db.VarChar(16)
+  requestedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  approvedAt      DateTime? @db.Timestamptz(3)
+  expiresAt       DateTime  @db.Timestamptz(3)
+  closedAt        DateTime? @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  requester       User       @relation("RemoteSupportRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  approver        User?      @relation("RemoteSupportApprover", fields: [approverId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@index([restaurantId, status, expiresAt])
+  @@index([requesterId, requestedAt])
 }
 
 model PlatformPlan {
@@ -370,6 +417,8 @@ model Restaurant {
   implementation                RestaurantImplementation?
   customDomain                  RestaurantCustomDomain?
   managedUpdateRequests         RestaurantManagedUpdateRequest[]
+  setupAccessRequests           RestaurantSetupAccess[]
+  remoteSupportSessions         RestaurantRemoteSupport[]
   subscription                  Subscription?
   tables                        Table[]
   users                         User[]

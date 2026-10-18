@@ -1,5 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { CircleHelp, Headphones, MessageCircle, Send } from 'lucide-react';
+import { useAuth } from '../../../contexts/authContext';
+import { RemoteSupportPanel } from '../../../features/setup-access/RemoteSupportPanel';
+import { SetupAccessPanel } from '../../../features/setup-access/SetupAccessPanel';
 import { toast } from 'react-toastify';
 import * as S from './HelpCenter.styles';
 import supportChatService from '../../../Services/supportChatService';
@@ -31,6 +34,8 @@ type PlatformSupportMessage = {
 
 export function HelpCenter({ onReport }: HelpCenterProps) {
   const { confirmDialog } = useAppDialog();
+  const { user } = useAuth();
+  const restaurantId = Number(user?.restaurantId || 0);
   const [subject, setSubject] = useState('Dúvida sobre o sistema');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
@@ -183,6 +188,13 @@ export function HelpCenter({ onReport }: HelpCenterProps) {
           e o administrador fala com o Super Admin da plataforma.
         </p>
       </S.Hero>
+
+      {restaurantId > 0 ? (
+        <>
+          <SetupAccessPanel restaurantId={restaurantId} mode="admin" />
+          <RemoteSupportPanel restaurantId={restaurantId} mode="admin" />
+        </>
+      ) : null}
 
       <S.ReportCard>
         <div className="heading">

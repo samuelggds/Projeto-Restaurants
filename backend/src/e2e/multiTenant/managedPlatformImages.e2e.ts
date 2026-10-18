@@ -53,6 +53,27 @@ test('imagens assistidas: plataforma paga, autorização e auditoria isoladas po
   const app = await startTenantTestApplication();
   t.after(async () => app.close());
 
+  // Authorize the real workflow using an authenticated tenant ADMIN; no test-only bypass.
+  for (const [restaurantId, adminToken] of [
+    [fixture.restaurants.a.id, fixture.tokens.adminA],
+    [fixture.restaurants.b.id, fixture.tokens.adminB],
+  ] as const) {
+    const requested = await apiRequest(
+      app.baseUrl,
+      '/super-admin/managed-service/restaurants/' + restaurantId + '/setup-access',
+      token,
+      { method: 'POST', json: { reason: 'Autorização E2E explícita para configurar o restaurante.' } },
+    );
+    assert.equal(requested.response.status, 201, JSON.stringify(requested.data));
+    const decision = await apiRequest(
+      app.baseUrl,
+      '/managed-service/setup-access/' + restaurantId + '/' + requested.data.id,
+      adminToken,
+      { method: 'PATCH', json: { approve: true, hours: 2 } },
+    );
+    assert.equal(decision.response.status, 200, JSON.stringify(decision.data));
+  }
+
   await t.test('registro durável aceita o retorno do lock e mantém idempotência por tenant', async () => {
     const attempt = {
       restaurantId: a,

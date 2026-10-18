@@ -5,8 +5,22 @@ import ManagedServiceController from '../controllers/ManagedServiceController.js
 import SuperAdminManagedRestaurantController from '../controllers/SuperAdminManagedRestaurantController.js';
 import { enhanceManagedImage, managedImageRateLimits } from '../controllers/ManagedImageEnhancementController.js';
 
+import { requestSetupAccess, listSetupAccess, requireSetupConsent } from '../controllers/RestaurantSetupAccessController.js';
+
+import { listRemoteSupport, requestRemoteSupport, closeRemoteSupport } from '../controllers/RestaurantRemoteSupportController.js';
+
 const router = Router();
 router.use(authMiddleware, superAdminMiddleware);
+
+router.get('/restaurants/:restaurantId/remote-support', listRemoteSupport);
+router.post('/restaurants/:restaurantId/remote-support', requestRemoteSupport);
+router.post('/restaurants/:restaurantId/remote-support/:sessionId/close', closeRemoteSupport);
+
+router.post('/restaurants/:restaurantId/setup-access', requestSetupAccess);
+router.get('/restaurants/:restaurantId/setup-access', listSetupAccess);
+
+// Access is checked at each workspace request; SUPER_ADMIN never inherits the tenant ADMIN role.
+router.use('/restaurants/:restaurantId', requireSetupConsent);
 
 router.get('/', (req, res, next) => ManagedServiceController.superQueue(req, res, next));
 router.get('/restaurants/:restaurantId/workspace', (req, res, next) =>
