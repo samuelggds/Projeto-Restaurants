@@ -5,6 +5,7 @@ import reconcileRecurringCardBillingService from '../modules/billing/services/Re
 import loyaltyRedemptionExpirationJob from '../modules/coupon/jobs/LoyaltyRedemptionExpirationJob.js';
 import deliveryLocationCleanupJob from '../modules/orders/jobs/DeliveryLocationCleanupJob.js';
 import orderPixPaymentExpirationJob from '../modules/orders/jobs/OrderPixPaymentExpirationJob.js';
+import orderPendingPixPaymentReconciliationJob from '../modules/orders/jobs/OrderPendingPixPaymentReconciliationJob.js';
 import orderCapacityQueueJob from '../modules/orders/jobs/OrderCapacityQueueJob.js';
 import tablePaymentReservationExpirationJob from '../modules/tableAccount/jobs/TablePaymentReservationExpirationJob.js';
 import tableReservationNoShowExpirationJob from '../modules/tableReservations/jobs/TableReservationNoShowExpirationJob.js';
@@ -174,6 +175,17 @@ export function createJobDefinitions(env: Environment = process.env): JobDefinit
       failureBackoffMs: 10_000,
       runOnStart: true,
       execute: () => orderCapacityQueueJob.execute(),
+    },
+    {
+      key: 'orders.pending-pix-payment-reconciliation',
+      description: 'Conciliação automática de Pix ativos pela cobrança original',
+      runtime: 'worker',
+      schedule: { kind: 'interval', intervalMs: 60_000 },
+      leaseDurationMs: 2 * 60 * 1000,
+      successCooldownMs: 50_000,
+      failureBackoffMs: 30_000,
+      runOnStart: true,
+      execute: () => orderPendingPixPaymentReconciliationJob.execute(),
     },
     {
       key: 'orders.pix-payment-expiration',
