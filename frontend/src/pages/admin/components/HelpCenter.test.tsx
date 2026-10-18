@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   socketOff: vi.fn(),
 }));
 
+vi.mock('../../../contexts/authContext', () => ({ useAuth: () => ({ user: { id: 9, role: 'ADMIN', restaurantId: 9 } }) }));
+
 vi.mock('react-toastify', () => ({
   toast: {
     info: vi.fn(),
