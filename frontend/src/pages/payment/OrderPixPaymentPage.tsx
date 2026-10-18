@@ -232,6 +232,7 @@ export default function OrderPixPaymentPage() {
   const [status, setStatus] = useState<PixPaymentStatus>('WAITING');
   const [error, setError] = useState('');
   const [reconciliationPending, setReconciliationPending] = useState(false);
+  const reconciliationPendingRef = useRef(false);
   const [primaryColor, setPrimaryColor] = useState('#bd4b1d');
   const [restaurantBrand, setRestaurantBrand] = useState<{ name: string; logoUrl: string }>({
     name: '',
@@ -250,6 +251,7 @@ export default function OrderPixPaymentPage() {
       try {
         const base = (await ordersService.recoverPayment(orderPublicId)) as RecoveryPayload;
         if (base.paymentMethod === 'CARTAO') {
+          reconciliationPendingRef.current = false;
           setReconciliationPending(false);
           let resolved = base;
           if (base.paid !== true) {
@@ -292,12 +294,14 @@ export default function OrderPixPaymentPage() {
             // A aprovação remota não equivale a um commit local. Não mostrar QR ou
             // resultado final enquanto o banco ainda precisa reconciliar.
             setPayment({ ...base, ...recovered, paymentMethod: 'PIX' });
+            reconciliationPendingRef.current = true;
             setReconciliationPending(true);
             setStatus('PENDING');
             setError('');
             return;
           }
         }
+        reconciliationPendingRef.current = false;
         setReconciliationPending(false);
         setPayment({ ...base, ...recovered, paymentMethod: 'PIX' });
         setStatus(normalizeStatus(recovered));
@@ -308,10 +312,10 @@ export default function OrderPixPaymentPage() {
           typed.message ||
           'Não foi possível recuperar o pagamento deste pedido.';
         setError(message);
-        if (background && !reconciliationPending) setStatus('ERROR');
+        if (background && !reconciliationPendingRef.current) setStatus('ERROR');
       }
     },
-    [orderPublicId, reconciliationPending],
+    [orderPublicId],
   );
 
   useEffect(() => {
