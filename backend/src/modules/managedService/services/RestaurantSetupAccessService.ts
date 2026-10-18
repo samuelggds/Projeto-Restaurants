@@ -1,4 +1,5 @@
 import prisma from '../../../config/prisma.js';
+import type { Prisma } from '@prisma/client';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import { managedBadRequest, managedConflict, managedForbidden, managedNotFound } from '../domain/managedServiceErrors.js';
 
@@ -6,7 +7,7 @@ const MAX_HOURS = 24;
 const active = (row: { status: string; expiresAt: Date | null }) =>
   row.status === 'APPROVED' && row.expiresAt !== null && row.expiresAt > new Date();
 
-async function audit(db: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], restaurantId: number, userId: number, action: string, id: string) {
+async function audit(db: Prisma.TransactionClient, restaurantId: number, userId: number, action: string, id: string) {
   await db.auditLog.create({ data: { restaurantId, userId, action, resource: 'RestaurantSetupAccess:' + id, metadata: { scope: 'OPERATIONAL_SETUP' } } });
 }
 
