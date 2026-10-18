@@ -768,7 +768,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
                   const change = (update: Partial<typeof entry>) => setSettings((current) => ({
                     ...current,
                     businessHours: (['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const).map((key) => ({
-                      ...current.businessHours.find((day) => day.id === key) || { id: key, enabled: false, openingTime: '08:00', closingTime: '22:00' },
+                      ...(current.businessHours.find((day) => day.id === key) || { id: key, enabled: false, openingTime: '08:00', closingTime: '22:00' }),
                       ...(key === id ? update : {}),
                     })),
                   }));
