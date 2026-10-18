@@ -231,6 +231,7 @@ export default function OrderPixPaymentPage() {
   const [payment, setPayment] = useState<RecoveryPayload | null>(null);
   const [status, setStatus] = useState<PixPaymentStatus>('WAITING');
   const [error, setError] = useState('');
+  const [reconciliationPending, setReconciliationPending] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#bd4b1d');
   const [restaurantBrand, setRestaurantBrand] = useState<{ name: string; logoUrl: string }>({
     name: '',
@@ -249,6 +250,7 @@ export default function OrderPixPaymentPage() {
       try {
         const base = (await ordersService.recoverPayment(orderPublicId)) as RecoveryPayload;
         if (base.paymentMethod === 'CARTAO') {
+          setReconciliationPending(false);
           let resolved = base;
           if (base.paid !== true) {
             try {
@@ -277,10 +279,26 @@ export default function OrderPixPaymentPage() {
 
         let recovered = (await ordersService.recoverPixPayment(orderPublicId)) as RecoveryPayload;
         if (recovered.isApproved === true && recovered.paid !== true) {
-          recovered = (await ordersService.confirmRecoveredPixPayment(
-            orderPublicId,
-          )) as RecoveryPayload;
+          try {
+            recovered = (await ordersService.confirmRecoveredPixPayment(
+              orderPublicId,
+            )) as RecoveryPayload;
+          } catch (confirmationError: unknown) {
+            const data = (confirmationError as {
+              response?: { data?: { code?: string; reconciliationRequired?: boolean } };
+            })?.response?.data;
+            if (data?.code !== 'PIX_PAYMENT_RECONCILIATION_PENDING' ||
+                data.reconciliationRequired !== true) throw confirmationError;
+            // A aprovação remota não equivale a um commit local. Não mostrar QR ou
+            // resultado final enquanto o banco ainda precisa reconciliar.
+            setPayment({ ...base, ...recovered, paymentMethod: 'PIX' });
+            setReconciliationPending(true);
+            setStatus('PENDING');
+            setError('');
+            return;
+          }
         }
+        setReconciliationPending(false);
         setPayment({ ...base, ...recovered, paymentMethod: 'PIX' });
         setStatus(normalizeStatus(recovered));
       } catch (requestError: unknown) {
@@ -290,10 +308,10 @@ export default function OrderPixPaymentPage() {
           typed.message ||
           'Não foi possível recuperar o pagamento deste pedido.';
         setError(message);
-        if (background) setStatus('ERROR');
+        if (background && !reconciliationPending) setStatus('ERROR');
       }
     },
-    [orderPublicId],
+    [orderPublicId, reconciliationPending],
   );
 
   useEffect(() => {
@@ -330,14 +348,14 @@ export default function OrderPixPaymentPage() {
     if (!payment) return undefined;
     const pixPending =
       payment.paymentMethod !== 'CARTAO' &&
-      !['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(status);
+      (reconciliationPending || !['PAID', 'FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'].includes(status));
     const cardPending = payment.paymentMethod === 'CARTAO' && !payment.paid && !cardFailed;
     if (!pixPending && !cardPending) return undefined;
     const interval = window.setInterval(() => {
       if (!document.hidden) void loadPayment(true);
     }, 5000);
     return () => window.clearInterval(interval);
-  }, [cardFailed, loadPayment, payment, status]);
+  }, [cardFailed, loadPayment, payment, reconciliationPending, status]);
 
   if (!payment && !error) {
     return (
@@ -488,6 +506,22 @@ export default function OrderPixPaymentPage() {
           )}
         </section>
       </CardRecovery>
+    );
+  }
+
+  if (reconciliationPending && payment) {
+    return (
+      <ErrorCard>
+        <section role="status" aria-live="polite">
+          <h1>Pagamento em conciliação</h1>
+          <p>Seu Pix foi identificado pelo provedor, mas a confirmação no pedido ainda está pendente. Não faça outro pagamento. Estamos verificando automaticamente o mesmo pedido.</p>
+          <p>Pedido #{payment.orderId}</p>
+          {error ? <p>Não foi possível consultar agora. Continuaremos tentando.</p> : null}
+          <button type="button" onClick={() => void loadPayment()}>
+            Verificar novamente
+          </button>
+        </section>
+      </ErrorCard>
     );
   }
 
