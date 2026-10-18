@@ -53,6 +53,14 @@ class SuperAdminManagedRestaurantController {
     try { return res.json(await service.updateBanner(req.params.restaurantId, req.params.bannerId, req.body, actor(req))); }
     catch (error) { return next(normalizeManagedServiceError(error)); }
   }
+  async printing(req: Request, res: Response, next: NextFunction) {
+    try { return res.json(await service.getSafePrinting(req.params.restaurantId, actor(req))); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
+  }
+  async updatePrinting(req: Request, res: Response, next: NextFunction) {
+    try { return res.json(await service.updateSafePrinting(req.params.restaurantId, req.body, actor(req))); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
+  }
   async updateSettings(req: Request, res: Response, next: NextFunction) {
     try { return res.json(await service.updateSafeSettings(req.params.restaurantId, req.body, actor(req))); }
     catch (error) { return next(normalizeManagedServiceError(error)); }
