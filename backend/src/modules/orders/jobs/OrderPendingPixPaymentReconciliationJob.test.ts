@@ -47,7 +47,12 @@ test('worker consulta somente Pix ativos e aprova somente pelo finalizador segur
 
 test('worker preserva pedidos diante de tenant incorreto e erro isolado do gateway', async (t) => {
   const originalFind = prisma.order.findMany;
-  t.after(() => { prisma.order.findMany = originalFind; });
+  const originalCount = prisma.order.count;
+  prisma.order.count = async () => 3;
+  t.after(() => {
+    prisma.order.findMany = originalFind;
+    prisma.order.count = originalCount;
+  });
   prisma.order.findMany = async () => [
     { id: 91, restaurantId: 7, pixPaymentId: 'wrong-tenant' },
     { id: 92, restaurantId: 8, pixPaymentId: 'offline' },
