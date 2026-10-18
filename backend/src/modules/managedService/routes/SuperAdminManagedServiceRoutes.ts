@@ -7,8 +7,14 @@ import { enhanceManagedImage, managedImageRateLimits } from '../controllers/Mana
 
 import { requestSetupAccess, listSetupAccess, requireSetupConsent } from '../controllers/RestaurantSetupAccessController.js';
 
+import { listRemoteSupport, requestRemoteSupport, closeRemoteSupport } from '../controllers/RestaurantRemoteSupportController.js';
+
 const router = Router();
 router.use(authMiddleware, superAdminMiddleware);
+
+router.get('/restaurants/:restaurantId/remote-support', listRemoteSupport);
+router.post('/restaurants/:restaurantId/remote-support', requestRemoteSupport);
+router.post('/restaurants/:restaurantId/remote-support/:sessionId/close', closeRemoteSupport);
 
 router.post('/restaurants/:restaurantId/setup-access', requestSetupAccess);
 router.get('/restaurants/:restaurantId/setup-access', listSetupAccess);
