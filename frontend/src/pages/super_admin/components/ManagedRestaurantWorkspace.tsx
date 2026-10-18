@@ -94,6 +94,8 @@ type Workspace = {
 
 type Tab = 'products' | 'categories' | 'combos' | 'banners' | 'settings' | 'printing';
 
+type ManagedBusinessHour = { id: string; enabled: boolean; openingTime: string; closingTime: string };
+
 function requestError(error: unknown) {
   return (
     (error as { response?: { data?: { error?: string; message?: string } } })?.response?.data
@@ -197,7 +199,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
     maxConcurrentOrders: '20',
     acceptsDelivery: true,
     acceptsPickup: true,
-    businessHours: [] as Array<{ id: string; enabled: boolean; openingTime: string; closingTime: string }>,
+    businessHours: [] as ManagedBusinessHour[],
   });
 
   const load = useCallback(async () => {
@@ -239,7 +241,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
         maxConcurrentOrders: String(raw.maxConcurrentOrders ?? 20),
         acceptsDelivery: raw.acceptsDelivery !== false,
         acceptsPickup: raw.acceptsPickup !== false,
-        businessHours: Array.isArray(raw.businessHours) ? (raw.businessHours as typeof settings.businessHours) : [],
+        businessHours: Array.isArray(raw.businessHours) ? (raw.businessHours as ManagedBusinessHour[]) : [],
       });
     } catch (requestFailure) {
       setError(requestError(requestFailure));
