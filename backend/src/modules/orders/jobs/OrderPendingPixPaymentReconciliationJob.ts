@@ -11,8 +11,7 @@ const MAX_PAYMENTS_PER_RUN = 40;
 
 class OrderPendingPixPaymentReconciliationJob {
   async execute(now = new Date()) {
-    const candidates = await prisma.order.findMany({
-      where: {
+    const where = {
         status: OrderStatus.PENDENTE,
         paid: false,
         payOnDelivery: false,
@@ -20,15 +19,25 @@ class OrderPendingPixPaymentReconciliationJob {
         pixPaymentId: { not: null },
         createdAt: { lte: new Date(now.getTime() - MINIMUM_ORDER_AGE_MS) },
         pixExpiresAt: { gt: now },
-      },
+      } as const;
+    const eligibleCount = await prisma.order.count({ where });
+    if (eligibleCount === 0) return { checkedCount: 0, confirmedCount: 0 };
+
+    // O relógio e a janela fixa tornam a rotação reproduzível entre reinícios.
+    // Selecionar sempre os mais recentes deixava cobranças antigas sem consulta.
+    const slot = Math.floor(now.getTime() / 60_000);
+    const pageCount = Math.ceil(eligibleCount / MAX_PAYMENTS_PER_RUN);
+    const page = slot % pageCount;
+    const candidates = await prisma.order.findMany({
+      where,
+      skip: page * MAX_PAYMENTS_PER_RUN,
       select: {
         id: true,
         restaurantId: true,
         pixPaymentId: true,
       },
-      // Prioriza cobranças recentes, que ainda podem ser entregues rapidamente
-      // à cozinha. O sweep de expiração continua cobrindo os pedidos mais antigos.
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // Páginas contíguas, ordenadas de forma estável: a cada minuto roda outra.
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: MAX_PAYMENTS_PER_RUN,
     });
 
