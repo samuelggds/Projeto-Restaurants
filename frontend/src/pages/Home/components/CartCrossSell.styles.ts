@@ -145,10 +145,10 @@ export const Card = styled.article`
   }
 
   @media (max-width: 760px) {
-    width: 168px;
-    min-height: 72px;
-    padding: 8px;
-    flex: 0 0 168px;
+    width: 238px;
+    min-height: 92px;
+    padding: 10px;
+    flex: 0 0 238px;
     flex-direction: row;
     align-items: center;
     gap: 9px;
@@ -196,9 +196,9 @@ export const Image = styled.div`
   }
 
   @media (max-width: 760px) {
-    width: 54px;
-    height: 54px;
-    flex: 0 0 54px;
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
     border-radius: 11px;
 
     svg {
@@ -229,7 +229,11 @@ export const Copy = styled.div`
     font-weight: 700;
     line-height: normal;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
   }
 
   small {
@@ -384,4 +388,54 @@ export const Dots = styled.div`
       transition: none;
     }
   }
+`;
+
+export const CategoryTabs = styled.div`
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  min-width: 0;
+  padding: 2px 0 5px;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+`;
+
+export const CategoryButton = styled.button`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 9px;
+  border: 1px solid #e7e4df;
+  padding: 8px 12px;
+  background: #faf8f5;
+  color: #514e49;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  &.active {
+    color: var(--checkout-primary);
+    background: color-mix(in srgb, var(--checkout-primary) 10%, white);
+    border-color: color-mix(in srgb, var(--checkout-primary) 35%, white);
+  }
+  &:focus-visible { outline: 2px solid var(--checkout-primary); outline-offset: 2px; }
+  small { font-size: 10px; opacity: .85; }
+`;
+
+export const CategoryLabel = styled.span`
+  color: #69645f;
+  font-size: 12px;
+  font-weight: 700;
+`;
+
+export const ShowAll = styled.button`
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  padding: 3px 0;
+  color: var(--checkout-primary);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  &:focus-visible { outline: 2px solid var(--checkout-primary); outline-offset: 2px; }
 `;
