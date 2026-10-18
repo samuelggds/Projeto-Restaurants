@@ -5,8 +5,14 @@ import ManagedServiceController from '../controllers/ManagedServiceController.js
 
 import { listSetupAccess, decideSetupAccess, revokeSetupAccess } from '../controllers/RestaurantSetupAccessController.js';
 
+import { listRemoteSupport, decideRemoteSupport, closeRemoteSupport } from '../controllers/RestaurantRemoteSupportController.js';
+
 const router = Router();
 router.use(authMiddleware, adminMiddleware);
+
+router.get('/remote-support/:restaurantId', listRemoteSupport);
+router.patch('/remote-support/:restaurantId/:sessionId', decideRemoteSupport);
+router.post('/remote-support/:restaurantId/:sessionId/close', closeRemoteSupport);
 
 router.get('/setup-access/:restaurantId', listSetupAccess);
 router.patch('/setup-access/:restaurantId/:id', decideSetupAccess);
