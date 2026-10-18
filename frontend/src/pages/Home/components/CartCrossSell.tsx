@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Plus, UtensilsCrossed } from 'lucide-react';
+import { CHECKOUT_RECOMMENDATION_GROUPS, getCheckoutRecommendationGroup, type CheckoutRecommendationGroupId } from '../domain/homePageHelpers';
 import type { HomeProduct } from '../types';
 import * as S from './CartCrossSell.styles';
 
@@ -14,10 +15,18 @@ type Props = {
 export function CartCrossSell({ products, onAdd }: Props) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedGroup, setSelectedGroup] = useState<CheckoutRecommendationGroupId | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const groups = CHECKOUT_RECOMMENDATION_GROUPS.map(({ id, label }) => ({
+    id, label, items: products.filter((product) => getCheckoutRecommendationGroup(product) === id),
+  })).filter((group) => group.items.length > 0);
+  const activeGroup = groups.find((group) => group.id === selectedGroup) || groups[0];
+  const activeProducts = activeGroup?.items || [];
+  const displayedProducts = showAll ? activeProducts : activeProducts.slice(0, 4);
 
   const syncActiveIndex = () => {
     const row = rowRef.current;
-    if (!row || products.length < 2) return;
+    if (!row || displayedProducts.length < 2) return;
 
     const cards = Array.from(row.children) as HTMLElement[];
     const viewportLeft = row.getBoundingClientRect().left;
@@ -39,21 +48,42 @@ export function CartCrossSell({ products, onAdd }: Props) {
     const row = rowRef.current;
     const card = row?.children[index] as HTMLElement | undefined;
     if (!row || !card) return;
-    row.scrollTo({ left: card.offsetLeft - row.offsetLeft, behavior: 'smooth' });
+    if (typeof row.scrollTo === 'function') row.scrollTo({ left: card.offsetLeft - row.offsetLeft, behavior: 'smooth' });
     setActiveIndex(index);
   };
 
-  if (!products.length) return null;
+  if (!activeGroup) return null;
+
+  const selectCategory = (id: CheckoutRecommendationGroupId) => {
+    setSelectedGroup(id);
+    setShowAll(false);
+    setActiveIndex(0);
+  };
 
   return (
-    <S.Section aria-label="Você também vai querer">
+    <S.Section aria-label="Sugestões para completar o pedido">
       <S.Header>
-        <strong>Você também vai querer</strong>
+        <strong>Complete seu pedido</strong>
         <span aria-hidden="true">✨</span>
       </S.Header>
-
-      <S.Row ref={rowRef} onScroll={syncActiveIndex}>
-        {products.map((product) => (
+      {groups.length > 1 ? (
+        <S.CategoryTabs aria-label="Categorias de recomendações">
+          {groups.map((group) => (
+            <S.CategoryButton key={group.id} type="button" aria-pressed={activeGroup.id === group.id}
+              className={activeGroup.id === group.id ? 'active' : ''}
+              onClick={() => selectCategory(group.id)}>
+              {group.label} <small>{group.items.length}</small>
+            </S.CategoryButton>
+          ))}
+        </S.CategoryTabs>
+      ) : <S.CategoryLabel>{activeGroup.label}</S.CategoryLabel>}
+      {activeProducts.length > 4 ? (
+        <S.ShowAll type="button" aria-expanded={showAll} onClick={() => { setShowAll(!showAll); setActiveIndex(0); }}>
+          {showAll ? 'Ver menos' : 'Ver todos'}
+        </S.ShowAll>
+      ) : null}
+      <S.Row key={activeGroup.id + String(showAll)} ref={rowRef} onScroll={syncActiveIndex}>
+        {displayedProducts.map((product) => (
           <S.Card key={product.id} data-cross-sell-card>
             <S.Image>
               {product.image ? (
@@ -64,9 +94,9 @@ export function CartCrossSell({ products, onAdd }: Props) {
             </S.Image>
 
             <S.Copy>
-              <b>{product.name}</b>
+              <b title={product.name}>{product.name}</b>
               {product.description ? <small>{product.description}</small> : null}
-              <strong>{money(product.price)}</strong>
+              <strong>{product.pricingMode === 'HIGHEST_OPTION' ? `A partir de ${money(product.price)}` : money(product.price)}</strong>
             </S.Copy>
 
             <S.AddButton
@@ -86,13 +116,13 @@ export function CartCrossSell({ products, onAdd }: Props) {
         ))}
       </S.Row>
 
-      {products.length > 1 ? (
+      {displayedProducts.length > 1 ? (
         <S.Dots aria-label="Posição do carrossel">
-          {products.map((product, index) => (
+          {displayedProducts.map((product, index) => (
             <button
               key={product.id}
               type="button"
-              className={index === activeIndex ? 'active' : ''}
+              className={index === Math.min(activeIndex, displayedProducts.length - 1) ? 'active' : ''}
               aria-label={`Mostrar recomendação ${index + 1}`}
               aria-current={index === activeIndex ? 'true' : undefined}
               onClick={() => goToProduct(index)}
