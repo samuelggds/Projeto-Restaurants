@@ -543,7 +543,7 @@ test(
           throw new Error('Não criar outra cobrança em recuperação.');
         };
         try {
-          await prisma.$executeRawUnsafe(`CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $
+          await prisma.$executeRawUnsafe(`CREATE FUNCTION "${faultFunction}"() RETURNS trigger AS $$
             BEGIN
               IF NEW."id" = ${Number(order.id)} AND NEW."paid" IS TRUE
                  AND OLD."paid" IS DISTINCT FROM TRUE THEN
@@ -551,7 +551,7 @@ test(
               END IF;
               RETURN NEW;
             END;
-          $ LANGUAGE plpgsql`);
+          $$ LANGUAGE plpgsql`);
           try {
             await prisma.$executeRawUnsafe(
               `CREATE TRIGGER "${faultTrigger}" BEFORE UPDATE ON "Order"
