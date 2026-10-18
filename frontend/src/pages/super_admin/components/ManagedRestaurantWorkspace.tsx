@@ -31,6 +31,7 @@ import type {
   AdminProductPortionConfiguration,
 } from '../../admin/types';
 import * as S from './ManagedRestaurantWorkspace.styles';
+import { ManagedPrinterSettings } from './ManagedPrinterSettings';
 
 type Product = {
   id: number;
@@ -91,7 +92,7 @@ type Workspace = {
   settings: Record<string, unknown> | null;
 };
 
-type Tab = 'products' | 'categories' | 'combos' | 'banners' | 'settings';
+type Tab = 'products' | 'categories' | 'combos' | 'banners' | 'settings' | 'printing';
 
 function requestError(error: unknown) {
   return (
@@ -628,6 +629,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
           <button className={tab === 'combos' ? 'active' : ''} onClick={() => setTab('combos')}><Boxes />Combos</button>
           <button className={tab === 'banners' ? 'active' : ''} onClick={() => setTab('banners')}><Image />Banners</button>
           <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><Settings2 />Configurações</button>
+          <button className={tab === 'printing' ? 'active' : ''} onClick={() => setTab('printing')}><Settings2 />Impressão</button>
         </S.Tabs>
 
         {error ? <S.Alert $error role="alert">{error}</S.Alert> : null}
@@ -726,6 +728,8 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
                   <S.FormActions>{banner.id ? <button type="button" onClick={() => setBanner({ id: 0, title: '', highlight: '', description: '', buttonLabel: 'Ver cardápio', image: '', active: true })}>Novo</button> : null}<button className="primary" disabled={saving}><Save />Salvar banner</button></S.FormActions>
                 </S.Form>
               </S.Split>
+            ) : tab === 'printing' ? (
+              <ManagedPrinterSettings restaurantId={restaurantId} />
             ) : (
               <S.Form className="settings" onSubmit={saveSettings}>
                 <S.SectionTitle><div><small>DADOS SEGUROS</small><h3>Configurações do restaurante</h3></div></S.SectionTitle>
