@@ -10,8 +10,6 @@ CREATE TABLE "RestaurantRemoteSupport" (
   "approvedAt" TIMESTAMPTZ(3),
   "expiresAt" TIMESTAMPTZ(3) NOT NULL,
   "closedAt" TIMESTAMPTZ(3),
-  "quickAssistCode" VARCHAR(6),
-  "codeExpiresAt" TIMESTAMPTZ(3),
   "updatedAt" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "RestaurantRemoteSupport_pkey" PRIMARY KEY ("id")
 );
