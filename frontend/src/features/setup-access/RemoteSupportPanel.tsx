@@ -24,10 +24,10 @@ export function RemoteSupportPanel({ restaurantId, mode }: Props) {
   const [busy, setBusy] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(0);
   const load = useCallback(async () => {
-    try { const response = await api.get<Session[]>(base); setItems(response.data); setError(''); setUpdatedAt(Date.now()); }
+    try { const response = await api.get<Session[]>(base); if (!Array.isArray(response.data)) throw new Error('Invalid response'); setItems(response.data); setError(''); setUpdatedAt(Date.now()); }
     catch { setError('Não foi possível consultar o suporte remoto.'); }
   }, [base]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
@@ -45,8 +45,8 @@ export function RemoteSupportPanel({ restaurantId, mode }: Props) {
     }, 30_000);
     return () => window.clearInterval(interval);
   }, [load, updatedAt]);
-  const pending = items.find(item => item.status === 'PENDING' && new Date(item.expiresAt).getTime() > Date.now());
-  const approved = items.find(item => item.status === 'APPROVED' && new Date(item.expiresAt).getTime() > Date.now());
+  const pending = items.find(item => item.status === 'PENDING' && new Date(item.expiresAt).getTime() > updatedAt);
+  const approved = items.find(item => item.status === 'APPROVED' && new Date(item.expiresAt).getTime() > updatedAt);
   const execute = async (operation: () => Promise<unknown>) => {
     if (busy) return;
     setBusy(true);
