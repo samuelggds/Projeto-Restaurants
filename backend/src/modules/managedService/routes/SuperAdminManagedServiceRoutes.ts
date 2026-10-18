@@ -54,6 +54,12 @@ router.post('/restaurants/:restaurantId/banners', (req, res, next) =>
 router.patch('/restaurants/:restaurantId/banners/:bannerId', (req, res, next) =>
   SuperAdminManagedRestaurantController.updateBanner(req, res, next),
 );
+router.get('/restaurants/:restaurantId/printing', (req, res, next) =>
+  SuperAdminManagedRestaurantController.printing(req, res, next),
+);
+router.patch('/restaurants/:restaurantId/printing', (req, res, next) =>
+  SuperAdminManagedRestaurantController.updatePrinting(req, res, next),
+);
 router.patch('/restaurants/:restaurantId/settings', (req, res, next) =>
   SuperAdminManagedRestaurantController.updateSettings(req, res, next),
 );

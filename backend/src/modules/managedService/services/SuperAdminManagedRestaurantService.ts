@@ -17,6 +17,8 @@ import createBannerService from '../../banner/services/CreateBannerService.js';
 import updateBannerService from '../../banner/services/UpdateBannerService.js';
 import listBannerService from '../../banner/services/ListBannerService.js';
 import updateRestaurantSettingsService from '../../restaurantSettings/services/UpdateRestaurantSettingsService.js';
+import kitchenPrintingAdminService from '../../kitchenPrinting/services/KitchenPrintingAdminService.js';
+import { updatePrinterSettingsSchema } from '../../kitchenPrinting/domain/kitchenPrintingSchemas.js';
 import { createProductSchema, updateProductSchema } from '../../../validators/ProductValidator.js';
 import { createCategorySchema } from '../../../validators/CategoryValidator.js';
 import { createIngredientSchema } from '../../../validators/IngredientValidator.js';
@@ -501,6 +503,33 @@ class SuperAdminManagedRestaurantService {
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_BANNER_UPDATED', `Banner:${bannerId}`, {
       fields: Object.keys(bannerInput),
     });
+    return result;
+  }
+
+  async getSafePrinting(restaurantIdInput: unknown, actor: Actor) {
+    await assertSuperAdmin(actor);
+    const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
+    await assertManagedAccess(restaurantId);
+    const printer = await kitchenPrintingAdminService.getConfiguration(restaurantId);
+    return {
+      settings: printer.settings,
+      agent: printer.agent ? {
+        name: printer.agent.name,
+        printerName: printer.agent.printerName,
+        online: printer.agent.online,
+        lastSeenAt: printer.agent.lastSeenAt,
+      } : null,
+    };
+  }
+
+  async updateSafePrinting(restaurantIdInput: unknown, input: unknown, actor: Actor) {
+    await assertSuperAdmin(actor);
+    const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
+    const restaurant = await assertManagedAccess(restaurantId);
+    const parsed = updatePrinterSettingsSchema.parse(input);
+    const result = await managedMutation(() => kitchenPrintingAdminService.updateSettings(restaurantId, parsed));
+    await audit(restaurantId, restaurant.name, actor, 'MANAGED_PRINT_SETTINGS_UPDATED',
+      'RestaurantPrinterSettings:' + restaurantId, { fields: Object.keys(parsed) });
     return result;
   }
 

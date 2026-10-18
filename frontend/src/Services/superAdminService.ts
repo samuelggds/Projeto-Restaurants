@@ -211,6 +211,16 @@ class SuperAdminService {
     return response.data;
   }
 
+  async getManagedPrinterSettings(restaurantId: number) {
+    const response = await api.get(`/super-admin/managed-service/restaurants/${restaurantId}/printing`);
+    return response.data;
+  }
+
+  async updateManagedPrinterSettings(restaurantId: number, input: Record<string, unknown>) {
+    const response = await api.patch(`/super-admin/managed-service/restaurants/${restaurantId}/printing`, input);
+    return response.data;
+  }
+
   async getManagedRestaurantWorkspace(restaurantId: number) {
     const response = await api.get(
       `/super-admin/managed-service/restaurants/${restaurantId}/workspace`,
