@@ -8,9 +8,12 @@ import finalizePix from '../services/FinalizeOrderPixPaymentService.js';
 
 test('worker consulta somente Pix ativos e aprova somente pelo finalizador seguro', async (t) => {
   const originalFind = prisma.order.findMany;
-  t.after(() => { prisma.order.findMany = originalFind; });
+  const originalCount = prisma.order.count;
+  prisma.order.count = async () => 2;
+  t.after(() => { prisma.order.findMany = originalFind; prisma.order.count = originalCount; });
   const now = new Date('2026-10-18T12:00:00Z');
-  prisma.order.findMany = async ({ where, take, orderBy }) => {
+  prisma.order.findMany = async ({ where, take, orderBy, skip }) => {
+    assert.equal(skip, 0);
     assert.equal(where.status, 'PENDENTE');
     assert.equal(where.paid, false);
     assert.equal(where.payOnDelivery, false);
@@ -18,7 +21,7 @@ test('worker consulta somente Pix ativos e aprova somente pelo finalizador segur
     assert.deepEqual(where.pixPaymentId, { not: null });
     assert.deepEqual(where.pixExpiresAt, { gt: now });
     assert.equal(take, 40);
-    assert.deepEqual(orderBy, [{ createdAt: 'desc' }, { id: 'desc' }]);
+    assert.deepEqual(orderBy, [{ createdAt: 'asc' }, { id: 'asc' }]);
     return [
       { id: 91, restaurantId: 7, pixPaymentId: 'pay-91' },
       { id: 92, restaurantId: 8, pixPaymentId: 'pay-92' },
@@ -68,4 +71,24 @@ test('worker preserva pedidos diante de tenant incorreto e erro isolado do gatew
   } finally {
     console.error = originalError;
   }
+});
+
+test('lotes rotativos permitem que pagamentos antigos entrem na varredura', async (t) => {
+  const oldFind = prisma.order.findMany;
+  const oldCount = prisma.order.count;
+  t.after(() => { prisma.order.findMany = oldFind; prisma.order.count = oldCount; });
+  prisma.order.count = async () => 81;
+  const offsets = [];
+  prisma.order.findMany = async ({ skip, take, orderBy }) => {
+    offsets.push(skip);
+    assert.equal(take, 40);
+    assert.deepEqual(orderBy, [{ createdAt: 'asc' }, { id: 'asc' }]);
+    return [];
+  };
+  const start = new Date('2026-10-18T12:00:00Z');
+  await job.execute(start);
+  await job.execute(new Date(start.getTime() + 60_000));
+  await job.execute(new Date(start.getTime() + 120_000));
+  assert.equal(new Set(offsets).size, 3);
+  assert.deepEqual([...offsets].sort((a, b) => a - b), [0, 40, 80]);
 });
