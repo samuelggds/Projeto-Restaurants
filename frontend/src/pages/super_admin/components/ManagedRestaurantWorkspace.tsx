@@ -185,6 +185,18 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
     whatsapp: '',
     instagram: '',
     primaryColor: '#FF4B4B',
+    facebook: '',
+    tiktok: '',
+    youtube: '',
+    fontFamily: 'Inter',
+    seoTitle: '',
+    seoDescription: '',
+    isOpenForOrders: true,
+    autoAcceptOrders: false,
+    maxConcurrentOrders: '20',
+    acceptsDelivery: true,
+    acceptsPickup: true,
+    businessHours: [] as Array<{ id: string; enabled: boolean; openingTime: string; closingTime: string }>,
   });
 
   const load = useCallback(async () => {
@@ -215,6 +227,18 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
         whatsapp: String(raw.whatsapp || ''),
         instagram: String(raw.instagram || ''),
         primaryColor: String(raw.primaryColor || '#FF4B4B'),
+        facebook: String(raw.facebook || ''),
+        tiktok: String(raw.tiktok || ''),
+        youtube: String(raw.youtube || ''),
+        fontFamily: String(raw.fontFamily || 'Inter'),
+        seoTitle: String(raw.seoTitle || ''),
+        seoDescription: String(raw.seoDescription || ''),
+        isOpenForOrders: raw.isOpenForOrders !== false,
+        autoAcceptOrders: raw.autoAcceptOrders === true,
+        maxConcurrentOrders: String(raw.maxConcurrentOrders ?? 20),
+        acceptsDelivery: raw.acceptsDelivery !== false,
+        acceptsPickup: raw.acceptsPickup !== false,
+        businessHours: Array.isArray(raw.businessHours) ? (raw.businessHours as typeof settings.businessHours) : [],
       });
     } catch (requestFailure) {
       setError(requestError(requestFailure));
@@ -530,6 +554,18 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
       whatsapp: settings.whatsapp.trim() || null,
       instagram: settings.instagram.trim() || null,
       primaryColor: settings.primaryColor.trim(),
+      facebook: settings.facebook.trim() || null,
+      tiktok: settings.tiktok.trim() || null,
+      youtube: settings.youtube.trim() || null,
+      fontFamily: settings.fontFamily.trim(),
+      seoTitle: settings.seoTitle.trim() || null,
+      seoDescription: settings.seoDescription.trim() || null,
+      isOpenForOrders: settings.isOpenForOrders,
+      autoAcceptOrders: settings.autoAcceptOrders,
+      maxConcurrentOrders: Number(settings.maxConcurrentOrders),
+      acceptsDelivery: settings.acceptsDelivery,
+      acceptsPickup: settings.acceptsPickup,
+      ...(settings.businessHours.length === 7 ? { businessHours: settings.businessHours } : {}),
     };
     // Do not resend unchanged large images or overwrite them on unrelated saves.
     if (settings.restaurantLogo !== String(data?.settings?.restaurantLogo || '')) payload.restaurantLogo = settings.restaurantLogo.trim() || null;
@@ -716,6 +752,43 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
                   <label>Cor principal<input type="color" value={settings.primaryColor} onChange={(e) => setSettings((x) => ({ ...x, primaryColor: e.target.value }))} /></label>
                 </S.Two>
                 <label>Instagram<input value={settings.instagram} onChange={(e) => setSettings((x) => ({ ...x, instagram: e.target.value }))} /></label>
+                <S.SectionTitle><div><small>OPERAÇÃO</small><h3>Funcionamento e pedidos</h3></div></S.SectionTitle>
+                <S.Checks>
+                  <label><input type="checkbox" checked={settings.isOpenForOrders} onChange={(e) => setSettings((x) => ({ ...x, isOpenForOrders: e.target.checked }))} />Aberto para pedidos</label>
+                  <label><input type="checkbox" checked={settings.autoAcceptOrders} onChange={(e) => setSettings((x) => ({ ...x, autoAcceptOrders: e.target.checked }))} />Aceitar pedidos automaticamente</label>
+                  <label><input type="checkbox" checked={settings.acceptsDelivery} onChange={(e) => setSettings((x) => ({ ...x, acceptsDelivery: e.target.checked }))} />Permitir delivery</label>
+                  <label><input type="checkbox" checked={settings.acceptsPickup} onChange={(e) => setSettings((x) => ({ ...x, acceptsPickup: e.target.checked }))} />Permitir retirada</label>
+                </S.Checks>
+                <label>Máximo de pedidos simultâneos<input type="number" min="1" max="500" required value={settings.maxConcurrentOrders} onChange={(e) => setSettings((x) => ({ ...x, maxConcurrentOrders: e.target.value }))} /></label>
+                <S.SectionTitle><div><small>FUNCIONAMENTO</small><h3>Horários da semana</h3></div></S.SectionTitle>
+                <p>Defina os horários de atendimento. Os dias desativados permanecerão fechados. Salvar os sete dias ativa a programação semanal.</p>
+                {(['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const).map((id, index) => {
+                  const names = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+                  const entry = settings.businessHours.find((day) => day.id === id) || { id, enabled: false, openingTime: '08:00', closingTime: '22:00' };
+                  const change = (update: Partial<typeof entry>) => setSettings((current) => ({
+                    ...current,
+                    businessHours: (['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const).map((key) => ({
+                      ...current.businessHours.find((day) => day.id === key) || { id: key, enabled: false, openingTime: '08:00', closingTime: '22:00' },
+                      ...(key === id ? update : {}),
+                    })),
+                  }));
+                  return <S.Two key={id}>
+                    <label><input type="checkbox" checked={entry.enabled} onChange={(e) => change({ enabled: e.target.checked })} /> {names[index]}</label>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <label>Abertura<input type="time" value={entry.openingTime} onChange={(e) => change({ openingTime: e.target.value })} /></label>
+                      <label>Fechamento<input type="time" value={entry.closingTime} onChange={(e) => change({ closingTime: e.target.value })} /></label>
+                    </div>
+                  </S.Two>;
+                })}
+                <S.SectionTitle><div><small>MARKETING</small><h3>Redes sociais e busca</h3></div></S.SectionTitle>
+                <S.Two>
+                  <label>Facebook<input value={settings.facebook} onChange={(e) => setSettings((x) => ({ ...x, facebook: e.target.value }))} /></label>
+                  <label>TikTok<input value={settings.tiktok} onChange={(e) => setSettings((x) => ({ ...x, tiktok: e.target.value }))} /></label>
+                  <label>YouTube<input value={settings.youtube} onChange={(e) => setSettings((x) => ({ ...x, youtube: e.target.value }))} /></label>
+                  <label>Fonte<input value={settings.fontFamily} onChange={(e) => setSettings((x) => ({ ...x, fontFamily: e.target.value }))} /></label>
+                  <label>Título SEO<input maxLength={120} value={settings.seoTitle} onChange={(e) => setSettings((x) => ({ ...x, seoTitle: e.target.value }))} /></label>
+                  <label>Descrição SEO<input maxLength={300} value={settings.seoDescription} onChange={(e) => setSettings((x) => ({ ...x, seoDescription: e.target.value }))} /></label>
+                </S.Two>
                 <S.FormActions><button className="primary" disabled={saving}><Save />{saving ? 'Salvando...' : 'Salvar configurações'}</button></S.FormActions>
               </S.Form>
             )}
