@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   CheckCircle2, Clock3, Laptop, LifeBuoy, Monitor, RefreshCw, ShieldCheck,
-  ShieldX, Smartphone, Square, XCircle,
+  Smartphone, Square, XCircle,
 } from 'lucide-react';
 import api from '../../Services/api';
 import { getAccessToken } from '../../modules/auth/session/authSession';
