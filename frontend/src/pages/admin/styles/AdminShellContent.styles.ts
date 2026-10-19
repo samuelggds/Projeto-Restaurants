@@ -917,6 +917,9 @@ export const Overlay = styled.div`
     inset: 0 0 0 236px;
     justify-content: center;
     background: #f9f8f5;
+    /* The wizard's clickable choices must remain in a stable containing
+       block while Safari computes hit targets (no animated ancestor). */
+    animation: none;
   }
   @media (max-width: 1080px) {
     &.product-editor-overlay {
