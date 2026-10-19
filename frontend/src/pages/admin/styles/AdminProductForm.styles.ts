@@ -23,13 +23,9 @@ export const ProductFormDrawer = styled.form`
     #f7f5f2;
   border-radius: 0;
   box-shadow: none;
-  /* Keep the form and its choice buttons spatially stable while the lazy
-     product editor becomes available, especially in WebKit. */
-  animation: drawer-enter 200ms ease-out both;
-  @keyframes drawer-enter {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  /* The product wizard must be immediately actionable and have stationary
+     hit targets in WebKit. The overlay supplies the required visual separation. */
+  animation: none;
   button:focus-visible,
   input:focus-visible,
   select:focus-visible,

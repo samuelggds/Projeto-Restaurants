@@ -59,12 +59,10 @@ import {
   type UnsavedSettingsDialogPhase,
 } from './components/UnsavedSettingsDialog';
 import type { ProductDrawerHandle } from './components/ProductDrawer.types';
+import { ProductDrawer, usePreloadProductDrawer } from './components/productDrawerLoader';
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
-const ProductDrawer = lazy(() =>
-  import('./components/ProductDrawer').then((module) => ({ default: module.ProductDrawer })),
-);
 const EmployeeList = lazy(() =>
   import('./components/EmployeeList').then((module) => ({ default: module.EmployeeList })),
 );
@@ -211,6 +209,8 @@ export function AdminPage({
   );
   const logoInput = useRef<HTMLInputElement>(null);
   const productDrawerRef = useRef<ProductDrawerHandle>(null);
+
+  usePreloadProductDrawer(area === 'catalog');
 
   useEffect(() => {
     if (!mobile) return undefined;
@@ -821,6 +821,7 @@ export function AdminPage({
           </S.MobileSettingsNav>
         )}
         <S.Content
+          $catalog={area === 'catalog'}
           $wide={
             area === 'catalog' ||
             area === 'coupons' ||
