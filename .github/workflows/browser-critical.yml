@@ -199,6 +199,17 @@ jobs:
       - name: Install WebKit and Linux dependencies
         working-directory: frontend
         run: npx playwright install --with-deps webkit
+      - name: Enable WebKit crash diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH:-default}"
+          ulimit -c unlimited || true
+          echo "Runner operating system and memory"
+          uname -a
+          free -m
+          echo "Kernel crash indicators before run"
+          (dmesg | tail -35) || true
       - name: Verify mobile catalog three times in isolated Playwright processes
         working-directory: frontend
         shell: bash
@@ -225,6 +236,8 @@ jobs:
             echo "Runner memory after iteration ${iteration}"
             free -m
             ps -eo pid,ppid,rss,stat,comm --sort=-rss | head -25 || true
+            echo "Relevant process crash reports"
+            (journalctl -k --no-pager -n 45 || true) | grep -Ei 'webkit|oom|segfault|killed process|memory' || true
             echo "::endgroup::"
           done
           test "$failures" -eq 0
