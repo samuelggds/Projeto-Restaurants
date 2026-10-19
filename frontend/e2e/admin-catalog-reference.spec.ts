@@ -297,7 +297,7 @@ async function mockCatalog(page: Page) {
   await mockAuthRefresh(page, 9, 'catalog-reference-token');
 }
 
-test('Cardápio e importação seguem a composição visual de referência no desktop', async ({
+test('Cardápio mantém grade e categorias responsivas na referência visual', async ({
   page,
 }, testInfo) => {
   await mockCatalog(page);
@@ -348,6 +348,13 @@ test('Cardápio e importação seguem a composição visual de referência no de
     fullPage: true,
   });
   await page.setViewportSize({ width: 1365, height: 768 });
+});
+
+test('Ingredientes e wizard mantêm layout e retornam ao catálogo', async ({ page }, testInfo) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.getByText('Como funciona?')).toBeVisible();
@@ -402,11 +409,24 @@ test('Cardápio e importação seguem a composição visual de referência no de
   await ingredientWizard.getByRole('button', { name: 'Fechar cadastro de ingrediente' }).click();
 
   await page.getByRole('button', { name: 'Produtos', exact: true }).click();
+  const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
   // Confirm that the re-mounted product cards are geometrically stable before
   // interacting. Waiting for all descendant Animation.playState values is not
   // reliable in WebKit even when there is no grid/card entrance animation.
   await waitForStableProductGrid(productCards);
+});
+
+test('Editor de pizza mantém escolhas e prévia do cliente', async ({ page }, testInfo) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+
+  const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
+  await expect(productCards).toHaveCount(5);
+  await waitForStableProductGrid(productCards);
+
   const productActions = productCards.first().getByRole('button', {
     name: 'Opções de Pizza Calabresa',
   });
@@ -456,6 +476,17 @@ test('Cardápio e importação seguem a composição visual de referência no de
     });
   });
   await productEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
+});
+
+test('Editor do produto sem opções permite configurar a primeira etapa', async ({ page }, testInfo) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+
+  const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
+  await expect(productCards).toHaveCount(5);
+  await waitForStableProductGrid(productCards);
 
   await productCards.nth(2).getByRole('button', { name: 'Opções de X-Bacon' }).click();
   const editXbacon = page.getByRole('button', { name: 'Editar produto' });
@@ -490,6 +521,16 @@ test('Cardápio e importação seguem a composição visual de referência no de
   ).toBeVisible();
   await emptyCustomizationEditor.getByRole('button', { name: 'Fechar cadastro' }).click();
   await page.getByRole('button', { name: 'Descartar alterações', exact: true }).click();
+});
+
+test('Importação iFood atualiza produtos sem causar overflow', async ({ page }, testInfo) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 1365, height: 768 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+
+  const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
+  await expect(productCards).toHaveCount(5);
 
   await page.getByRole('button', { name: 'Importar cardápio' }).click();
   await expect(page.getByRole('heading', { name: 'Importar cardápio' })).toBeVisible();
@@ -517,6 +558,8 @@ test('Cardápio e importação seguem a composição visual de referência no de
   }));
   expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
 });
+
+
 
 test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ page }) => {
   await mockCatalog(page);
