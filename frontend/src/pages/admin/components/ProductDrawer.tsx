@@ -1231,6 +1231,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
               ) : (
                 <button
                   className="primary"
+                  aria-label="Continuar"
                   disabled={busy}
                   type="button"
                   onClick={(event) => {
