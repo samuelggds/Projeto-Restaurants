@@ -84,8 +84,9 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
-    // The wizard must finish its initial focus/scroll lifecycle before a user
-    // interacts with a card; this also detects regressions in keyboard focus.
+    // Mounting the editor must not depend on a lazy module arriving after click.
+    await expect(page.getByText('Carregando editor de produto...')).toHaveCount(0);
+    await expect(editor).toBeVisible();
     await expect(editor.getByRole('heading', { name: 'O que você quer cadastrar?' })).toBeFocused();
     const customMode = editor.getByRole('radio', { name: /Produto personalizável/ });
     await expect(customMode).toBeVisible();
