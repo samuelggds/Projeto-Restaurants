@@ -252,6 +252,63 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  webkit-version-comparison:
+    name: WebKit version comparison - ${{ matrix.playwright }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # Browser engine comparison only; do not modify project lockfiles.
+        playwright: ['1.64.1', '1.65.0-alpha-2026-10-15']
+    env:
+      PLAYWRIGHT_ALL_BROWSERS: 'true'
+      PLAYWRIGHT_PROBE_VERSION: ${{ matrix.playwright }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install alternative browser driver without changing committed dependencies
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --package-lock=false --ignore-scripts --no-fund "@playwright/test@${PLAYWRIGHT_PROBE_VERSION}"
+          node -e 'const got=require("@playwright/test/package.json").version; if(got!==process.env.PLAYWRIGHT_PROBE_VERSION) { console.error("Unexpected Playwright version: "+got); process.exit(1) }'
+          git diff --exit-code -- package.json package-lock.json
+          npx playwright --version
+      - name: Install matching WebKit and system dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps webkit
+      - name: Compare unmodified mobile product journey across five fresh contexts
+        working-directory: frontend
+        shell: bash
+        env:
+          DEBUG: pw:browser
+        run: |
+          set -euo pipefail
+          npx playwright test e2e/admin-catalog-reference.spec.ts \
+            --project=webkit \
+            --grep='preço meio a meio dispensa valor fixo no cadastro em 390px' \
+            --repeat-each=5 \
+            2>&1 | tee "../webkit-version-${PLAYWRIGHT_PROBE_VERSION}.log"
+      - name: Preserve comparison browser logs and traces
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: webkit-version-${{ matrix.playwright }}-${{ github.sha }}
+          path: |
+            webkit-version-*.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
   cross-browser-validation:
     name: Cross-browser Critical Validation
     if: ${{ always() }}
