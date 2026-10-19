@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ArrowLeft, ArrowRight, Check, Copy, PackageOpen, Plus, Trash2, X } from 'lucide-react';
+import { Check, Copy, PackageOpen, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import productConfigurationTemplatesService from '../../../Services/productConfigurationTemplatesService';
@@ -28,6 +28,7 @@ import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './Pro
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
 import { useProductWizardStepFocus } from './useProductWizardStepFocus';
 import { ProductWizardScrollBody } from './ProductWizardScrollBody.styles';
+import { ProductWizardFooter } from './ProductWizardFooter';
 import type {
   AdminIngredient,
   AdminProductCompositionItem,
@@ -1206,45 +1207,17 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             )}
           </ProductWizardScrollBody>
 
-          <footer className="drawer-footer">
-            <div className="footer-summary">
-              <span className="footer-summary-icon">
-                <PackageOpen />
-              </span>
-              <span>
-                <b>{name || (product ? 'Produto em edição' : 'Novo produto')}</b>
-                <small>
-                  {saleMode === 'BUILDABLE'
-                    ? `${optionGroups.length} etapa(s) · ${linkedOptionCount} opção(ões) vinculada(s)`
-                    : 'Produto pronto · sem etapas de montagem'}
-                </small>
-              </span>
-            </div>
-            <div className="footer-actions">
-              <button
-                disabled={currentStep === 'TYPE' || busy}
-                type="button"
-                onClick={returnWizard}
-              >
-                <ArrowLeft /> Voltar
-              </button>
-              {currentStep === 'REVIEW' ? (
-                <button className="primary" disabled={busy} type="submit">
-                  {busy ? 'Salvando produto...' : product ? 'Salvar alterações' : 'Criar produto'}
-                </button>
-              ) : (
-                <button
-                  className="primary"
-                  aria-label="Continuar"
-                  disabled={busy}
-                  type="button"
-                  onClick={continueWizard}
-                >
-                  Continuar <ArrowRight />
-                </button>
-              )}
-            </div>
-          </footer>
+          <ProductWizardFooter
+            busy={busy}
+            currentStep={currentStep}
+            editing={Boolean(product)}
+            linkedOptionCount={linkedOptionCount}
+            name={name}
+            optionGroupCount={optionGroups.length}
+            saleMode={saleMode}
+            onBack={returnWizard}
+            onContinue={continueWizard}
+          />
         </S.ProductFormDrawer>
         {ingredientWizardTarget && createIngredient && (
           <IngredientWizard

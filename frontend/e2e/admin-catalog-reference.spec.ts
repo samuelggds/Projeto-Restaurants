@@ -164,6 +164,9 @@ for (const width of [1440, 390]) {
     await editor.getByLabel('Adicionar produto ao meio a meio').last().selectOption('2');
     await next();
     await next();
+    // Entering review must not activate the submit button implicitly.
+    expect(saved).toBeUndefined();
+    await expect(editor.getByRole('button', { name: 'Criar produto', exact: true })).toBeVisible();
     await expect(editor.getByText('Preço conforme as escolhas').first()).toBeVisible();
     await editor.getByRole('button', { name: /Criar produto/ }).click();
     await expect
