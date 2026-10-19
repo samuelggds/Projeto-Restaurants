@@ -59,7 +59,7 @@ import {
   type UnsavedSettingsDialogPhase,
 } from './components/UnsavedSettingsDialog';
 import type { ProductDrawerHandle } from './components/ProductDrawer.types';
-import { ProductDrawer, usePreloadProductDrawer } from './components/productDrawerLoader';
+import { ProductDrawer } from './components/ProductDrawer';
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
@@ -209,8 +209,6 @@ export function AdminPage({
   );
   const logoInput = useRef<HTMLInputElement>(null);
   const productDrawerRef = useRef<ProductDrawerHandle>(null);
-
-  usePreloadProductDrawer(area === 'catalog');
 
   useEffect(() => {
     if (!mobile) return undefined;
@@ -1185,31 +1183,19 @@ export function AdminPage({
         />
       )}{' '}
       {editingProduct !== undefined && (
-        <Suspense
-          fallback={
-            <S.Overlay>
-              <S.Drawer as="div" role="status" aria-live="polite">
-                <header>
-                  <strong>Carregando editor de produto...</strong>
-                </header>
-              </S.Drawer>
-            </S.Overlay>
-          }
-        >
-          <ProductDrawer
-            ref={productDrawerRef}
-            product={editingProduct}
-            categories={categories}
-            ingredients={ingredients}
-            products={products}
-            createIngredient={async (ingredient) => onCreateIngredient?.(ingredient)}
-            close={() => setEditingProduct(undefined)}
-            save={async (product) => {
-              await onSaveProduct?.(product);
-              setEditingProduct(undefined);
-            }}
-          />
-        </Suspense>
+        <ProductDrawer
+          ref={productDrawerRef}
+          product={editingProduct}
+          categories={categories}
+          ingredients={ingredients}
+          products={products}
+          createIngredient={async (ingredient) => onCreateIngredient?.(ingredient)}
+          close={() => setEditingProduct(undefined)}
+          save={async (product) => {
+            await onSaveProduct?.(product);
+            setEditingProduct(undefined);
+          }}
+        />
       )}
     </S.Root>
   );
