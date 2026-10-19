@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ArrowLeft, ArrowRight, Check, Copy, PackageOpen, Plus, Trash2, X } from 'lucide-react';
+import { Check, Copy, PackageOpen, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from '../../../components/AppDialog/context';
 import { createPersistentImageDataUrl } from '../../../utils/persistentImage';
 import productConfigurationTemplatesService from '../../../Services/productConfigurationTemplatesService';
@@ -27,6 +27,8 @@ import {
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
 import { useProductWizardStepFocus } from './useProductWizardStepFocus';
+import { ProductWizardScrollBody } from './ProductWizardScrollBody.styles';
+import { ProductWizardFooter } from './ProductWizardFooter';
 import type {
   AdminIngredient,
   AdminProductCompositionItem,
@@ -94,6 +96,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
     const [showCustomerPreview, setShowCustomerPreview] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<ProductFieldErrors>({});
     const drawerRef = useRef<HTMLFormElement>(null);
+    const wizardBodyRef = useRef<HTMLDivElement>(null);
     const stepHeadingRef = useRef<HTMLHeadingElement>(null);
     const [optionGroups, setOptionGroups] = useState<AdminProductOptionGroup[]>(
       () =>
@@ -195,7 +198,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       };
     }, [enableTemplates]);
 
-    useProductWizardStepFocus(currentStep, drawerRef, stepHeadingRef);
+    useProductWizardStepFocus(currentStep, wizardBodyRef, stepHeadingRef);
 
     const requestClose = useCallback(async () => {
       if (!hasUnsavedChanges) {
@@ -817,432 +820,404 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
             </button>
           </header>
 
-          <S.ProductWizardProgress aria-label="Progresso do cadastro do produto">
-            <div className="wizard-progress-copy" aria-live="polite">
-              <b>
-                {currentStepIndex + 1} de {wizardSequence.length}
-              </b>
-            </div>
-            <div
-              aria-valuemax={wizardSequence.length}
-              aria-valuemin={1}
-              aria-valuenow={currentStepIndex + 1}
-              className="wizard-progress-track"
-              role="progressbar"
-            >
-              <i style={{ width: `${((currentStepIndex + 1) / wizardSequence.length) * 100}%` }} />
-            </div>
-          </S.ProductWizardProgress>
-
-          {error && <S.ProductFormError role="alert">{error}</S.ProductFormError>}
-
-          {currentStep === 'TYPE' && (
-            <ProductTypeStep
-              confirmDiscardConfiguration={confirmDiscardConfiguration}
-              hasPersistedConfiguration={hasPersistedConfiguration}
-              headingRef={stepHeadingRef}
-              saleMode={saleMode}
-              onConfirmDiscardConfigurationChange={setConfirmDiscardConfiguration}
-              onSaleModeChange={(nextSaleMode) => {
-                setSaleMode(nextSaleMode);
-                if (nextSaleMode === 'COMPLETE') setPricingMode('BASE');
-                if (nextSaleMode === 'BUILDABLE') setConfirmDiscardConfiguration(false);
-                setError('');
-              }}
-            />
-          )}
-
-          {currentStep === 'BASIC' && (
-            <ProductBasicStep
-              categories={categories}
-              categoryId={categoryId}
-              fieldErrors={fieldErrors}
-              headingRef={stepHeadingRef}
-              name={name}
-              onCategoryIdChange={setCategoryId}
-              onClearFieldError={clearFieldError}
-              onNameChange={setName}
-            />
-          )}
-
-          {currentStep === 'PRICE' && (
-            <ProductPriceStep
-              fieldErrors={fieldErrors}
-              headingRef={stepHeadingRef}
-              price={price}
-              saleMode={saleMode}
-              onClearFieldError={clearFieldError}
-              onPriceChange={setPrice}
-              pricingMode={pricingMode}
-              onPricingModeChange={(mode) => {
-                setPricingMode(mode);
-                clearFieldError('price');
-                setError('');
-                if (mode === 'HIGHEST_OPTION' && !optionGroups.length) {
-                  setOptionGroups([
-                    { ...emptyGroup(), name: 'Primeira metade' },
-                    { ...emptyGroup(), name: 'Segunda metade' },
-                  ]);
-                  setGroupCategories(['Meio a Meio', 'Meio a Meio']);
-                  setEditingGroupIndex(0);
-                }
-              }}
-            />
-          )}
-
-          {currentStep === 'APPEARANCE' && (
-            <ProductAppearanceStep
-              dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
-              description={description}
-              headingRef={stepHeadingRef}
-              featured={featured}
-              image={image}
-              name={name}
-              price={price}
-              selectedProductCategory={selectedProductCategory}
-              onDescriptionChange={setDescription}
-              onFeaturedChange={setFeatured}
-              onUploadImage={(file) => void uploadImage(file)}
-            />
-          )}
-
-          {currentStep === 'CUSTOMIZATION' && (
-            <S.ProductWizardStepSection aria-labelledby="product-step-customization">
-              <div className="section-heading customization-heading">
-                <span>5</span>
-                <div>
-                  <small>PERSONALIZAÇÃO</small>
-                  <h3 id="product-step-customization" ref={stepHeadingRef} tabIndex={-1}>
-                    Como o cliente poderá personalizar?
-                  </h3>
-                  <p>Organize as escolhas na mesma ordem em que aparecerão para o cliente.</p>
-                </div>
+          <ProductWizardScrollBody className="drawer-body" ref={wizardBodyRef}>
+            <S.ProductWizardProgress aria-label="Progresso do cadastro do produto">
+              <div className="wizard-progress-copy" aria-live="polite">
+                <b>
+                  {currentStepIndex + 1} de {wizardSequence.length}
+                </b>
               </div>
+              <div
+                aria-valuemax={wizardSequence.length}
+                aria-valuemin={1}
+                aria-valuenow={currentStepIndex + 1}
+                className="wizard-progress-track"
+                role="progressbar"
+              >
+                <i style={{ width: `${((currentStepIndex + 1) / wizardSequence.length) * 100}%` }} />
+              </div>
+            </S.ProductWizardProgress>
 
-              {saleMode === 'BUILDABLE' && (
-                <>
-                  <div className="customization-overview">
-                    <header>
-                      <small>CONFIGURE EM 3 PASSOS</small>
-                      <h4>Monte uma decisão de cada vez</h4>
-                      <p>
-                        Cada etapa vira uma pergunta simples no cardápio, como “Qual tamanho?” ou
-                        “Deseja adicionais?”.
-                      </p>
-                    </header>
-                    <ol
-                      className="customization-steps"
-                      aria-label="Etapas para configurar a personalização"
-                    >
-                      <li className={hasCustomizationStages ? 'complete' : 'active'}>
-                        <i>{hasCustomizationStages ? <Check /> : '1'}</i>
-                        <span>
-                          <b>Crie uma etapa</b>
-                          <small>Escolha o tipo de pergunta.</small>
-                        </span>
-                      </li>
-                      <li
-                        className={
-                          customizationRulesReady
-                            ? 'complete'
-                            : hasCustomizationStages
-                              ? 'active'
-                              : ''
-                        }
-                      >
-                        <i>{customizationRulesReady ? <Check /> : '2'}</i>
-                        <span>
-                          <b>Defina a regra</b>
-                          <small>Diga como o cliente escolhe.</small>
-                        </span>
-                      </li>
-                      <li
-                        className={
-                          customizationOptionsReady
-                            ? 'complete'
-                            : customizationRulesReady
-                              ? 'active'
-                              : ''
-                        }
-                      >
-                        <i>{customizationOptionsReady ? <Check /> : '3'}</i>
-                        <span>
-                          <b>Marque as opções</b>
-                          <small>Selecione o que será exibido.</small>
-                        </span>
-                      </li>
-                    </ol>
+            {error && <S.ProductFormError role="alert">{error}</S.ProductFormError>}
+
+            {currentStep === 'TYPE' && (
+              <ProductTypeStep
+                confirmDiscardConfiguration={confirmDiscardConfiguration}
+                hasPersistedConfiguration={hasPersistedConfiguration}
+                headingRef={stepHeadingRef}
+                saleMode={saleMode}
+                onConfirmDiscardConfigurationChange={setConfirmDiscardConfiguration}
+                onSaleModeChange={(nextSaleMode) => {
+                  setSaleMode(nextSaleMode);
+                  if (nextSaleMode === 'COMPLETE') setPricingMode('BASE');
+                  if (nextSaleMode === 'BUILDABLE') setConfirmDiscardConfiguration(false);
+                  setError('');
+                }}
+              />
+            )}
+
+            {currentStep === 'BASIC' && (
+              <ProductBasicStep
+                categories={categories}
+                categoryId={categoryId}
+                fieldErrors={fieldErrors}
+                headingRef={stepHeadingRef}
+                name={name}
+                onCategoryIdChange={setCategoryId}
+                onClearFieldError={clearFieldError}
+                onNameChange={setName}
+              />
+            )}
+
+            {currentStep === 'PRICE' && (
+              <ProductPriceStep
+                fieldErrors={fieldErrors}
+                headingRef={stepHeadingRef}
+                price={price}
+                saleMode={saleMode}
+                onClearFieldError={clearFieldError}
+                onPriceChange={setPrice}
+                pricingMode={pricingMode}
+                onPricingModeChange={(mode) => {
+                  setPricingMode(mode);
+                  clearFieldError('price');
+                  setError('');
+                  if (mode === 'HIGHEST_OPTION' && !optionGroups.length) {
+                    setOptionGroups([
+                      { ...emptyGroup(), name: 'Primeira metade' },
+                      { ...emptyGroup(), name: 'Segunda metade' },
+                    ]);
+                    setGroupCategories(['Meio a Meio', 'Meio a Meio']);
+                    setEditingGroupIndex(0);
+                  }
+                }}
+              />
+            )}
+
+            {currentStep === 'APPEARANCE' && (
+              <ProductAppearanceStep
+                dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
+                description={description}
+                headingRef={stepHeadingRef}
+                featured={featured}
+                image={image}
+                name={name}
+                price={price}
+                selectedProductCategory={selectedProductCategory}
+                onDescriptionChange={setDescription}
+                onFeaturedChange={setFeatured}
+                onUploadImage={(file) => void uploadImage(file)}
+              />
+            )}
+
+            {currentStep === 'CUSTOMIZATION' && (
+              <S.ProductWizardStepSection aria-labelledby="product-step-customization">
+                <div className="section-heading customization-heading">
+                  <span>5</span>
+                  <div>
+                    <small>PERSONALIZAÇÃO</small>
+                    <h3 id="product-step-customization" ref={stepHeadingRef} tabIndex={-1}>
+                      Como o cliente poderá personalizar?
+                    </h3>
+                    <p>Organize as escolhas na mesma ordem em que aparecerão para o cliente.</p>
                   </div>
+                </div>
 
-                  {!canConfigureOptions && (
-                    <S.ProductCustomizationEmpty className="customization-prerequisite">
-                      <PackageOpen />
-                      <div>
-                        <b>Cadastre as opções antes de criar uma etapa</b>
-                        <p>
-                          Ingredientes são as opções que o cliente poderá escolher, como tamanhos,
-                          massas, bordas e adicionais. Cadastre pelo menos um ingrediente ou um
-                          produto com preço fixo no cardápio para continuar.
-                        </p>
-                      </div>
-                    </S.ProductCustomizationEmpty>
-                  )}
-
-                  {canConfigureOptions && !hasCustomizationStages && (
-                    <div className="customization-start">
+                {saleMode === 'BUILDABLE' && (
+                  <>
+                    <div className="customization-overview">
                       <header>
-                        <small>PASSO 1</small>
-                        <h4>O que o cliente escolherá primeiro?</h4>
-                        <p>Selecione o exemplo mais parecido. Você poderá alterar tudo depois.</p>
+                        <small>CONFIGURE EM 3 PASSOS</small>
+                        <h4>Monte uma decisão de cada vez</h4>
+                        <p>
+                          Cada etapa vira uma pergunta simples no cardápio, como “Qual tamanho?” ou
+                          “Deseja adicionais?”.
+                        </p>
                       </header>
-                      <S.ProductPresetGrid aria-label="Tipos de etapa de personalização">
-                        <button type="button" onClick={() => addPreset('SINGLE')}>
-                          <i>1</i>
+                      <ol
+                        className="customization-steps"
+                        aria-label="Etapas para configurar a personalização"
+                      >
+                        <li className={hasCustomizationStages ? 'complete' : 'active'}>
+                          <i>{hasCustomizationStages ? <Check /> : '1'}</i>
                           <span>
-                            <b>Uma única opção</b>
-                            <small>O cliente seleciona somente uma alternativa.</small>
-                            <em>Ex.: tamanho, massa ou sabor</em>
+                            <b>Crie uma etapa</b>
+                            <small>Escolha o tipo de pergunta.</small>
                           </span>
-                          <Plus />
-                        </button>
-                        <button type="button" onClick={() => addPreset('EXTRAS')}>
-                          <i>+</i>
+                        </li>
+                        <li
+                          className={
+                            customizationRulesReady
+                              ? 'complete'
+                              : hasCustomizationStages
+                                ? 'active'
+                                : ''
+                          }
+                        >
+                          <i>{customizationRulesReady ? <Check /> : '2'}</i>
                           <span>
-                            <b>Vários adicionais</b>
-                            <small>O cliente pode marcar mais de uma alternativa.</small>
-                            <em>Ex.: bacon, queijo extra ou molhos</em>
+                            <b>Defina a regra</b>
+                            <small>Diga como o cliente escolhe.</small>
                           </span>
-                          <Plus />
-                        </button>
-                        <button type="button" onClick={() => addPreset('PORTIONS')}>
-                          <i>½</i>
+                        </li>
+                        <li
+                          className={
+                            customizationOptionsReady
+                              ? 'complete'
+                              : customizationRulesReady
+                                ? 'active'
+                                : ''
+                          }
+                        >
+                          <i>{customizationOptionsReady ? <Check /> : '3'}</i>
                           <span>
-                            <b>Dividir em partes</b>
-                            <small>O cliente combina opções no mesmo produto.</small>
-                            <em>Ex.: pizza meio a meio</em>
+                            <b>Marque as opções</b>
+                            <small>Selecione o que será exibido.</small>
                           </span>
-                          <Plus />
-                        </button>
-                      </S.ProductPresetGrid>
-                      <div className="customization-start-footer">
-                        <span>Nenhum exemplo combina com o seu produto?</span>
-                        <button type="button" onClick={addGroup}>
-                          Criar etapa do zero
-                        </button>
-                      </div>
+                        </li>
+                      </ol>
                     </div>
-                  )}
 
-                  {canConfigureOptions && hasCustomizationStages && (
-                    <div className="customization-actions">
-                      <div>
-                        <small>ETAPAS DO CLIENTE</small>
-                        <b>
-                          {optionGroups.length}{' '}
-                          {optionGroups.length === 1 ? 'etapa criada' : 'etapas criadas'}
-                        </b>
-                        <span>Abra uma etapa para editar. O cliente seguirá a ordem abaixo.</span>
-                      </div>
-                      <button className="add-group" type="button" onClick={addGroup}>
-                        <Plus /> Adicionar etapa
-                      </button>
-                    </div>
-                  )}
+                    {!canConfigureOptions && (
+                      <S.ProductCustomizationEmpty className="customization-prerequisite">
+                        <PackageOpen />
+                        <div>
+                          <b>Cadastre as opções antes de criar uma etapa</b>
+                          <p>
+                            Ingredientes são as opções que o cliente poderá escolher, como tamanhos,
+                            massas, bordas e adicionais. Cadastre pelo menos um ingrediente ou um
+                            produto com preço fixo no cardápio para continuar.
+                          </p>
+                        </div>
+                      </S.ProductCustomizationEmpty>
+                    )}
 
-                  {canConfigureOptions && hasCustomizationStages && (
-                    <ProductConfigurationWorkspace
-                      dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
-                      name={name}
-                      description={description}
-                      image={image}
-                      price={price}
-                      showComposition={false}
-                      ingredients={ingredients}
-                      products={products.filter(
-                        (candidate) =>
-                          candidate.active !== false &&
-                          candidate.kind !== 'COMBO' &&
-                          candidate.id !== product?.id,
-                      )}
-                      activeIngredients={activeIngredients}
-                      activeIngredientSections={activeIngredientSections}
-                      ingredientCategories={ingredientCategories}
-                      optionGroups={optionGroups}
-                      editingGroupIndex={editingGroupIndex}
-                      setEditingGroupIndex={setEditingGroupIndex}
-                      groupCategories={groupCategories}
-                      compositionItems={compositionItems}
-                      portionConfiguration={portionConfiguration}
-                      pendingCategoryChange={pendingCategoryChange}
-                      canCreateIngredient={Boolean(createIngredient)}
-                      openIngredientWizard={(groupIndex) =>
-                        setIngredientWizardTarget({ kind: 'OPTION', groupIndex })
-                      }
-                      updateGroup={updateGroup}
-                      updateGroupOption={updateGroupOption}
-                      moveGroup={moveGroup}
-                      removeGroup={removeGroup}
-                      selectGroupCategory={selectGroupCategory}
-                      confirmGroupCategoryChange={confirmGroupCategoryChange}
-                      toggleGroupIngredient={toggleGroupIngredient}
-                      addHalfHalfProduct={addHalfHalfProduct}
-                      removeHalfHalfProduct={removeHalfHalfProduct}
-                      toggleCompositionIngredient={toggleCompositionIngredient}
-                      setPendingCategoryChange={setPendingCategoryChange}
-                      setCompositionItems={setCompositionItems}
-                      setPortionConfiguration={setPortionConfiguration}
-                    />
-                  )}
-
-                  {enableTemplates && hasCustomizationStages && (
-                    <details className="advanced-template-settings">
-                      <summary>
-                        Configurações avançadas e modelos
-                        <span>{templates.length} salvo(s)</span>
-                      </summary>
-                      <S.ProductTemplateLibrary>
+                    {canConfigureOptions && !hasCustomizationStages && (
+                      <div className="customization-start">
                         <header>
-                          <div>
-                            <Copy />
-                            <span>
-                              <b>Modelos reutilizáveis</b>
-                              <small>
-                                Aplicar um modelo cria uma cópia independente neste produto.
-                              </small>
-                            </span>
-                          </div>
-                          <span>{templates.length} salvo(s)</span>
+                          <small>PASSO 1</small>
+                          <h4>O que o cliente escolherá primeiro?</h4>
+                          <p>Selecione o exemplo mais parecido. Você poderá alterar tudo depois.</p>
                         </header>
-                        {!!templates.length && (
-                          <div className="template-list">
-                            {templates.map((template) => (
-                              <article key={template.id}>
-                                <span>
-                                  <b>{template.name}</b>
-                                  <small>
-                                    {template.configuration.optionGroups.length} etapa(s) ·{' '}
-                                    {template.configuration.compositionItems.length} item(ns) na
-                                    composição
-                                  </small>
-                                </span>
-                                <button type="button" onClick={() => applyTemplate(template)}>
-                                  Aplicar
-                                </button>
-                                <button
-                                  aria-label={`Remover modelo ${template.name}`}
-                                  className="delete-template"
-                                  disabled={templateBusy}
-                                  type="button"
-                                  onClick={() => void deactivateTemplate(template.id)}
-                                >
-                                  <Trash2 />
-                                </button>
-                              </article>
-                            ))}
-                          </div>
-                        )}
-                        <div className="save-template">
-                          <label>
-                            Nome do novo modelo
-                            <input
-                              maxLength={80}
-                              value={templateName}
-                              onChange={(event) => setTemplateName(event.target.value)}
-                              placeholder="Ex.: Montagem padrão da casa"
-                            />
-                          </label>
-                          <button
-                            disabled={templateBusy || !templateName.trim() || !optionGroups.length}
-                            type="button"
-                            onClick={() => void saveTemplate()}
-                          >
-                            {templateBusy ? 'Salvando...' : 'Salvar configuração atual'}
+                        <S.ProductPresetGrid aria-label="Tipos de etapa de personalização">
+                          <button type="button" onClick={() => addPreset('SINGLE')}>
+                            <i>1</i>
+                            <span>
+                              <b>Uma única opção</b>
+                              <small>O cliente seleciona somente uma alternativa.</small>
+                              <em>Ex.: tamanho, massa ou sabor</em>
+                            </span>
+                            <Plus />
+                          </button>
+                          <button type="button" onClick={() => addPreset('EXTRAS')}>
+                            <i>+</i>
+                            <span>
+                              <b>Vários adicionais</b>
+                              <small>O cliente pode marcar mais de uma alternativa.</small>
+                              <em>Ex.: bacon, queijo extra ou molhos</em>
+                            </span>
+                            <Plus />
+                          </button>
+                          <button type="button" onClick={() => addPreset('PORTIONS')}>
+                            <i>½</i>
+                            <span>
+                              <b>Dividir em partes</b>
+                              <small>O cliente combina opções no mesmo produto.</small>
+                              <em>Ex.: pizza meio a meio</em>
+                            </span>
+                            <Plus />
+                          </button>
+                        </S.ProductPresetGrid>
+                        <div className="customization-start-footer">
+                          <span>Nenhum exemplo combina com o seu produto?</span>
+                          <button type="button" onClick={addGroup}>
+                            Criar etapa do zero
                           </button>
                         </div>
-                      </S.ProductTemplateLibrary>
-                    </details>
-                  )}
-                </>
-              )}
-            </S.ProductWizardStepSection>
-          )}
+                      </div>
+                    )}
 
-          {currentStep === 'AVAILABILITY' && (
-            <ProductAvailabilityStep
-              fieldErrors={fieldErrors}
-              headingRef={stepHeadingRef}
-              preparationTime={preparationTime}
-              stock={stock}
-              unlimitedStock={unlimitedStock}
-              onClearFieldError={clearFieldError}
-              onPreparationTimeChange={setPreparationTime}
-              onStockChange={setStock}
-              onUnlimitedStockChange={setUnlimitedStock}
-            />
-          )}
+                    {canConfigureOptions && hasCustomizationStages && (
+                      <div className="customization-actions">
+                        <div>
+                          <small>ETAPAS DO CLIENTE</small>
+                          <b>
+                            {optionGroups.length}{' '}
+                            {optionGroups.length === 1 ? 'etapa criada' : 'etapas criadas'}
+                          </b>
+                          <span>Abra uma etapa para editar. O cliente seguirá a ordem abaixo.</span>
+                        </div>
+                        <button className="add-group" type="button" onClick={addGroup}>
+                          <Plus /> Adicionar etapa
+                        </button>
+                      </div>
+                    )}
 
-          {currentStep === 'REVIEW' && (
-            <ProductReviewStep
-              dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
-              description={description}
-              featured={featured}
-              headingRef={stepHeadingRef}
-              image={image}
-              name={name}
-              optionGroups={optionGroups}
-              preparationTime={preparationTime}
-              price={price}
-              saleMode={saleMode}
-              selectedProductCategory={selectedProductCategory}
-              showCustomerPreview={showCustomerPreview}
-              stock={stock}
-              unlimitedStock={unlimitedStock}
-              onEdit={setCurrentStep}
-              onToggleCustomerPreview={() => setShowCustomerPreview((current) => !current)}
-            />
-          )}
+                    {canConfigureOptions && hasCustomizationStages && (
+                      <ProductConfigurationWorkspace
+                        dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
+                        name={name}
+                        description={description}
+                        image={image}
+                        price={price}
+                        showComposition={false}
+                        ingredients={ingredients}
+                        products={products.filter(
+                          (candidate) =>
+                            candidate.active !== false &&
+                            candidate.kind !== 'COMBO' &&
+                            candidate.id !== product?.id,
+                        )}
+                        activeIngredients={activeIngredients}
+                        activeIngredientSections={activeIngredientSections}
+                        ingredientCategories={ingredientCategories}
+                        optionGroups={optionGroups}
+                        editingGroupIndex={editingGroupIndex}
+                        setEditingGroupIndex={setEditingGroupIndex}
+                        groupCategories={groupCategories}
+                        compositionItems={compositionItems}
+                        portionConfiguration={portionConfiguration}
+                        pendingCategoryChange={pendingCategoryChange}
+                        canCreateIngredient={Boolean(createIngredient)}
+                        openIngredientWizard={(groupIndex) =>
+                          setIngredientWizardTarget({ kind: 'OPTION', groupIndex })
+                        }
+                        updateGroup={updateGroup}
+                        updateGroupOption={updateGroupOption}
+                        moveGroup={moveGroup}
+                        removeGroup={removeGroup}
+                        selectGroupCategory={selectGroupCategory}
+                        confirmGroupCategoryChange={confirmGroupCategoryChange}
+                        toggleGroupIngredient={toggleGroupIngredient}
+                        addHalfHalfProduct={addHalfHalfProduct}
+                        removeHalfHalfProduct={removeHalfHalfProduct}
+                        toggleCompositionIngredient={toggleCompositionIngredient}
+                        setPendingCategoryChange={setPendingCategoryChange}
+                        setCompositionItems={setCompositionItems}
+                        setPortionConfiguration={setPortionConfiguration}
+                      />
+                    )}
 
-          <footer className="drawer-footer">
-            <div className="footer-summary">
-              <span className="footer-summary-icon">
-                <PackageOpen />
-              </span>
-              <span>
-                <b>{name || (product ? 'Produto em edição' : 'Novo produto')}</b>
-                <small>
-                  {saleMode === 'BUILDABLE'
-                    ? `${optionGroups.length} etapa(s) · ${linkedOptionCount} opção(ões) vinculada(s)`
-                    : 'Produto pronto · sem etapas de montagem'}
-                </small>
-              </span>
-            </div>
-            <div className="footer-actions">
-              <button
-                disabled={currentStep === 'TYPE' || busy}
-                type="button"
-                onClick={returnWizard}
-              >
-                <ArrowLeft /> Voltar
-              </button>
-              {currentStep === 'REVIEW' ? (
-                <button className="primary" disabled={busy} type="submit">
-                  {busy ? 'Salvando produto...' : product ? 'Salvar alterações' : 'Criar produto'}
-                </button>
-              ) : (
-                <button
-                  className="primary"
-                  disabled={busy}
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    continueWizard();
-                  }}
-                >
-                  Continuar <ArrowRight />
-                </button>
-              )}
-            </div>
-          </footer>
+                    {enableTemplates && hasCustomizationStages && (
+                      <details className="advanced-template-settings">
+                        <summary>
+                          Configurações avançadas e modelos
+                          <span>{templates.length} salvo(s)</span>
+                        </summary>
+                        <S.ProductTemplateLibrary>
+                          <header>
+                            <div>
+                              <Copy />
+                              <span>
+                                <b>Modelos reutilizáveis</b>
+                                <small>
+                                  Aplicar um modelo cria uma cópia independente neste produto.
+                                </small>
+                              </span>
+                            </div>
+                            <span>{templates.length} salvo(s)</span>
+                          </header>
+                          {!!templates.length && (
+                            <div className="template-list">
+                              {templates.map((template) => (
+                                <article key={template.id}>
+                                  <span>
+                                    <b>{template.name}</b>
+                                    <small>
+                                      {template.configuration.optionGroups.length} etapa(s) ·{' '}
+                                      {template.configuration.compositionItems.length} item(ns) na
+                                      composição
+                                    </small>
+                                  </span>
+                                  <button type="button" onClick={() => applyTemplate(template)}>
+                                    Aplicar
+                                  </button>
+                                  <button
+                                    aria-label={`Remover modelo ${template.name}`}
+                                    className="delete-template"
+                                    disabled={templateBusy}
+                                    type="button"
+                                    onClick={() => void deactivateTemplate(template.id)}
+                                  >
+                                    <Trash2 />
+                                  </button>
+                                </article>
+                              ))}
+                            </div>
+                          )}
+                          <div className="save-template">
+                            <label>
+                              Nome do novo modelo
+                              <input
+                                maxLength={80}
+                                value={templateName}
+                                onChange={(event) => setTemplateName(event.target.value)}
+                                placeholder="Ex.: Montagem padrão da casa"
+                              />
+                            </label>
+                            <button
+                              disabled={templateBusy || !templateName.trim() || !optionGroups.length}
+                              type="button"
+                              onClick={() => void saveTemplate()}
+                            >
+                              {templateBusy ? 'Salvando...' : 'Salvar configuração atual'}
+                            </button>
+                          </div>
+                        </S.ProductTemplateLibrary>
+                      </details>
+                    )}
+                  </>
+                )}
+              </S.ProductWizardStepSection>
+            )}
+
+            {currentStep === 'AVAILABILITY' && (
+              <ProductAvailabilityStep
+                fieldErrors={fieldErrors}
+                headingRef={stepHeadingRef}
+                preparationTime={preparationTime}
+                stock={stock}
+                unlimitedStock={unlimitedStock}
+                onClearFieldError={clearFieldError}
+                onPreparationTimeChange={setPreparationTime}
+                onStockChange={setStock}
+                onUnlimitedStockChange={setUnlimitedStock}
+              />
+            )}
+
+            {currentStep === 'REVIEW' && (
+              <ProductReviewStep
+                dynamicPrice={pricingMode === 'HIGHEST_OPTION'}
+                description={description}
+                featured={featured}
+                headingRef={stepHeadingRef}
+                image={image}
+                name={name}
+                optionGroups={optionGroups}
+                preparationTime={preparationTime}
+                price={price}
+                saleMode={saleMode}
+                selectedProductCategory={selectedProductCategory}
+                showCustomerPreview={showCustomerPreview}
+                stock={stock}
+                unlimitedStock={unlimitedStock}
+                onEdit={setCurrentStep}
+                onToggleCustomerPreview={() => setShowCustomerPreview((current) => !current)}
+              />
+            )}
+          </ProductWizardScrollBody>
+
+          <ProductWizardFooter
+            busy={busy}
+            currentStep={currentStep}
+            editing={Boolean(product)}
+            linkedOptionCount={linkedOptionCount}
+            name={name}
+            optionGroupCount={optionGroups.length}
+            saleMode={saleMode}
+            onBack={returnWizard}
+            onContinue={continueWizard}
+          />
         </S.ProductFormDrawer>
         {ingredientWizardTarget && createIngredient && (
           <IngredientWizard
