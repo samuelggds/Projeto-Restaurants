@@ -582,8 +582,21 @@ for (const viewport of [
       await tabIntoSecureField('billing-card-number');
       await tabIntoSecureField('billing-card-expiration');
       await tabIntoSecureField('billing-card-security');
+      const taxIdField = dialog.getByLabel('CPF do titular');
       await page.keyboard.press('Tab');
-      await expect(dialog.getByLabel('CPF do titular')).toBeFocused();
+      // Firefox can expose one additional native focus stop when leaving the
+      // sandboxed CVV iframe. It must remain inside the dialog and still allow
+      // the CPF field to be reached by keyboard, without scripted focus.
+      if (
+        browserName === 'firefox' &&
+        !(await taxIdField.evaluate((element) => element.ownerDocument.activeElement === element))
+      ) {
+        await expect
+          .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+          .toBe(true);
+        await page.keyboard.press('Tab');
+      }
+      await expect(taxIdField).toBeFocused();
     }
     const number = dialog.frameLocator('#billing-card-number iframe').getByRole('textbox');
     await number.fill('4111111111111111');
