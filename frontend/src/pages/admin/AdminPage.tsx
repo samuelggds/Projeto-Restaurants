@@ -62,8 +62,11 @@ import type { ProductDrawerHandle } from './components/ProductDrawer.types';
 
 const DECISION_PROGRESS_MS = 1200;
 const RESULT_MODAL_MS = 1400;
+// Start fetching the editor as soon as the catalog is opened. The actual
+// editor remains lazy so other admin areas do not load its large chunk.
+const loadProductDrawerModule = () => import('./components/ProductDrawer');
 const ProductDrawer = lazy(() =>
-  import('./components/ProductDrawer').then((module) => ({ default: module.ProductDrawer })),
+  loadProductDrawerModule().then((module) => ({ default: module.ProductDrawer })),
 );
 const EmployeeList = lazy(() =>
   import('./components/EmployeeList').then((module) => ({ default: module.EmployeeList })),
@@ -211,6 +214,13 @@ export function AdminPage({
   );
   const logoInput = useRef<HTMLInputElement>(null);
   const productDrawerRef = useRef<ProductDrawerHandle>(null);
+
+  useEffect(() => {
+    if (area !== 'catalog') return;
+    // The module is cached by the browser; a transient preload error is still
+    // handled by the existing lazy Suspense boundary when the editor opens.
+    void loadProductDrawerModule().catch(() => undefined);
+  }, [area]);
 
   useEffect(() => {
     if (!mobile) return undefined;
@@ -821,6 +831,7 @@ export function AdminPage({
           </S.MobileSettingsNav>
         )}
         <S.Content
+          $catalog={area === 'catalog'}
           $wide={
             area === 'catalog' ||
             area === 'coupons' ||
