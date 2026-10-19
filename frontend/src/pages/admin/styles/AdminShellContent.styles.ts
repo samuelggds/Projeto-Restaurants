@@ -160,13 +160,17 @@ export const TopActions = styled.div`
   }
 `;
 
-export const Content = styled.div<{ $wide?: boolean }>`
+export const Content = styled.div<{ $wide?: boolean; $catalog?: boolean }>`
   width: 100%;
   max-width: ${({ $wide }) => ($wide ? '1480px' : '1160px')};
   margin: auto;
   padding: 30px 34px 84px;
   > * {
-    animation: admin-content-enter 260ms cubic-bezier(0.22, 0.8, 0.35, 1) both;
+    /* The catalog contains interactive cards and a modal product wizard.
+       Prevent animated ancestor transforms from continuously shifting their
+       hit targets and measured geometry in Safari/WebKit. */
+    animation: ${({ $catalog }) =>
+      $catalog ? 'none' : 'admin-content-enter 260ms cubic-bezier(0.22, 0.8, 0.35, 1) both'};
   }
   @keyframes admin-content-enter {
     from {
