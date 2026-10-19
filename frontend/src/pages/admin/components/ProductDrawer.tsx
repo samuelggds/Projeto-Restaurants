@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -194,8 +195,12 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       };
     }, [enableTemplates]);
 
-    useEffect(() => {
-      stepHeadingRef.current?.focus();
+    // Focus the active step before paint. On WebKit, focus() after the lazy
+    // editor first appears can initiate an implicit scroll while a user is
+    // clicking a mode card, leaving its hit target unstable.
+    useLayoutEffect(() => {
+      if (drawerRef.current) drawerRef.current.scrollTop = 0;
+      stepHeadingRef.current?.focus({ preventScroll: true });
     }, [currentStep]);
 
     const requestClose = useCallback(async () => {
