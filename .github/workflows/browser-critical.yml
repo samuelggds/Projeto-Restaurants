@@ -100,17 +100,101 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  catalog-other-engines:
+    name: Catalog product wizard and grid - ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    env:
+      PLAYWRIGHT_ALL_BROWSERS: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install selected browser engine
+        working-directory: frontend
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify full catalog workflow in selected browser
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test e2e/admin-catalog-reference.spec.ts --project='${{ matrix.browser }}' 2>&1 | tee "../catalog-${{ matrix.browser }}.log"
+      - name: Preserve catalog browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: catalog-${{ matrix.browser }}-${{ github.sha }}
+          path: |
+            catalog-${{ matrix.browser }}.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
+  catalog-repeatability:
+    name: WebKit catalog and billing repeatability
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PLAYWRIGHT_ALL_BROWSERS: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - name: Install WebKit and its Linux dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps webkit
+      - name: Exercise previously unstable catalog and sidebar interactions three times
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test e2e/admin-catalog-reference.spec.ts e2e/admin-billing-ux.spec.ts \
+            --project=webkit \
+            --grep='preço meio a meio dispensa valor fixo|menu lateral da Central Financeira recolhe e reabre|central financeira mantém navegação e layout mobile' \
+            --repeat-each=3 \
+            2>&1 | tee ../webkit-repeatability.log
+      - name: Preserve WebKit repeatability traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: webkit-repeatability-${{ github.sha }}
+          path: |
+            webkit-repeatability.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
+
   cross-browser-validation:
     name: Cross-browser Critical Validation
     if: ${{ always() }}
-    needs: [portable-browser, catalog-webkit-regression]
+    needs: [portable-browser, catalog-webkit-regression, catalog-other-engines, catalog-repeatability]
     runs-on: ubuntu-latest
     steps:
       - name: Require all browser engines to pass
         env:
           PORTABLE_RESULT: ${{ needs.portable-browser.result }}
           CATALOG_RESULT: ${{ needs.catalog-webkit-regression.result }}
+          CATALOG_OTHER_ENGINES_RESULT: ${{ needs.catalog-other-engines.result }}
+          CATALOG_REPEATABILITY_RESULT: ${{ needs.catalog-repeatability.result }}
         run: |
           set -euo pipefail
           test "$PORTABLE_RESULT" = 'success'
           test "$CATALOG_RESULT" = 'success'
+          test "$CATALOG_OTHER_ENGINES_RESULT" = 'success'
+          test "$CATALOG_REPEATABILITY_RESULT" = 'success'
