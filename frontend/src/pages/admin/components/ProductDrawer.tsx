@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,6 +26,7 @@ import {
 } from './ProductWizardSteps';
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
+import { useProductWizardStepFocus } from './useProductWizardStepFocus';
 import type {
   AdminIngredient,
   AdminProductCompositionItem,
@@ -195,13 +195,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       };
     }, [enableTemplates]);
 
-    // Focus the active step before paint. On WebKit, focus() after the lazy
-    // editor first appears can initiate an implicit scroll while a user is
-    // clicking a mode card, leaving its hit target unstable.
-    useLayoutEffect(() => {
-      if (drawerRef.current) drawerRef.current.scrollTop = 0;
-      stepHeadingRef.current?.focus({ preventScroll: true });
-    }, [currentStep]);
+    useProductWizardStepFocus(currentStep, drawerRef, stepHeadingRef);
 
     const requestClose = useCallback(async () => {
       if (!hasUnsavedChanges) {
