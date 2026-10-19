@@ -566,24 +566,22 @@ for (const viewport of [
       await expect(close).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(dialog.getByLabel('Nome do titular')).toBeFocused();
-      await page.keyboard.press('Tab');
-      if (browserName === 'firefox') {
-        // Firefox first focuses the isolated frame document before entering its
-        // textbox. Keep the sandbox and verify both native keyboard stops.
-        await expect(dialog.locator('#billing-card-number iframe')).toBeFocused();
+      // Each sandboxed provider iframe has its own native keyboard-entry
+      // stop in Firefox: focus the frame, then Tab into the secure input.
+      // Check every stop rather than skipping fields or focusing inputs via JS.
+      const tabIntoSecureField = async (hostId: string) => {
         await page.keyboard.press('Tab');
-      }
-      await expect(
-        dialog.frameLocator('#billing-card-number iframe').getByRole('textbox'),
-      ).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(
-        dialog.frameLocator('#billing-card-expiration iframe').getByRole('textbox'),
-      ).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(
-        dialog.frameLocator('#billing-card-security iframe').getByRole('textbox'),
-      ).toBeFocused();
+        if (browserName === 'firefox') {
+          await expect(dialog.locator(`#${hostId} iframe`)).toBeFocused();
+          await page.keyboard.press('Tab');
+        }
+        await expect(
+          dialog.frameLocator(`#${hostId} iframe`).getByRole('textbox'),
+        ).toBeFocused();
+      };
+      await tabIntoSecureField('billing-card-number');
+      await tabIntoSecureField('billing-card-expiration');
+      await tabIntoSecureField('billing-card-security');
       await page.keyboard.press('Tab');
       await expect(dialog.getByLabel('CPF do titular')).toBeFocused();
     }
