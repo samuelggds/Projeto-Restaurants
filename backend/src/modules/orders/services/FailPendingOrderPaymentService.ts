@@ -3,6 +3,12 @@ import prisma from '../../../config/prisma.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { releaseCouponRedemptionForOrder } from './couponRedemptionLifecycle.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import {
+  releaseTableOrderingInTransaction,
+  publishTableOrderingRelease,
+  reconcileTableOrderingAfterCommit,
+} from './tableOrderingLifecycle.js';
 
 type FailPendingOrderPaymentPayload = {
   orderId?: number | string | null;
@@ -38,7 +44,9 @@ class FailPendingOrderPaymentService {
             )
           : null;
 
-    if (!order || order.paid === true || order.status === OrderStatus.CANCELADO) {
+    if (!order || order.paid === true) return order;
+    if (order.status === OrderStatus.CANCELADO) {
+      await reconcileTableOrderingAfterCommit(order, 'PAYMENT_CANCELED');
       return order;
     }
 
@@ -49,6 +57,7 @@ class FailPendingOrderPaymentService {
     }
 
     const cancelledOrder = await prisma.$transaction(async (tx) => {
+      await setTenantDbContext(tx, order.restaurantId);
       const updated = await orderRepository.updateStatusIfCurrent(
         order.id,
         OrderStatus.CANCELADO,
@@ -58,9 +67,11 @@ class FailPendingOrderPaymentService {
       );
       await restoreOrderItemsStock(tx, order);
       await releaseCouponRedemptionForOrder(order.id, order.restaurantId, tx);
+      await releaseTableOrderingInTransaction(tx, updated);
       return updated;
     });
 
+    await publishTableOrderingRelease(cancelledOrder, 'PAYMENT_CANCELED');
     return cancelledOrder;
   }
 }

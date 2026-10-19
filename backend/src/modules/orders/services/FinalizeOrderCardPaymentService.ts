@@ -9,6 +9,12 @@ import {
   emitWaiterTableOrderEvent,
 } from '../utils/waiterOrderRealtime.js';
 import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
+import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import {
+  releaseTableOrderingInTransaction,
+  publishTableOrderingRelease,
+  reconcileTableOrderingAfterCommit,
+} from './tableOrderingLifecycle.js';
 import {
   isOrderCapacityQueued,
   queueDigitalOrderBeforePaymentConfirmation,
@@ -62,6 +68,7 @@ class FinalizeOrderCardPaymentService {
     }
 
     if (order.paid === true) {
+      await reconcileTableOrderingAfterCommit(order, 'PAYMENT_SETTLED');
       return order;
     }
 
@@ -69,6 +76,7 @@ class FinalizeOrderCardPaymentService {
     let paymentChanged = false;
     try {
       updatedOrder = await prisma.$transaction(async (tx) => {
+        await setTenantDbContext(tx, order.restaurantId);
         const locked = await tx.$queryRaw<Array<{ paid: boolean }>>`
           SELECT "paid" FROM "Order" WHERE "id" = ${order.id}
             AND "restaurantId" = ${order.restaurantId} FOR UPDATE
@@ -96,6 +104,7 @@ class FinalizeOrderCardPaymentService {
           total: confirmedOrder.total,
           paymentMethod: confirmedOrder.paymentMethod,
         }, tx);
+        await releaseTableOrderingInTransaction(tx, confirmedOrder);
         paymentChanged = true;
         return confirmedOrder;
       });
@@ -112,6 +121,12 @@ class FinalizeOrderCardPaymentService {
         return orderRepository.findById(latest.id, latest.restaurantId);
       }
       throw error;
+    }
+
+    if (paymentChanged) {
+      await publishTableOrderingRelease(updatedOrder, 'PAYMENT_SETTLED');
+    } else {
+      await reconcileTableOrderingAfterCommit(updatedOrder, 'PAYMENT_SETTLED');
     }
 
     if (!paymentChanged) return updatedOrder;

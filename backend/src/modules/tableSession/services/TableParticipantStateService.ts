@@ -157,7 +157,7 @@ export class TableParticipantStateService {
     const restaurantId = normalizePositiveInteger(input.restaurantId, 'Restaurante');
     const now = input.now || new Date();
 
-    await db.$executeRaw(Prisma.sql`
+    return db.$executeRaw(Prisma.sql`
       UPDATE "TableParticipantState"
       SET
         "orderingBlockedAt" = NULL,
