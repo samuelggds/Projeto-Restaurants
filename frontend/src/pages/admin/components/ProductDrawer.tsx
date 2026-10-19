@@ -26,6 +26,7 @@ import {
 } from './ProductWizardSteps';
 import { ProductAppearanceStep, ProductBasicStep, ProductPriceStep } from './ProductGuidedSteps';
 import { emptyGroup, groupPreset } from './ProductDrawerGroups';
+import { useProductWizardStepFocus } from './useProductWizardStepFocus';
 import type {
   AdminIngredient,
   AdminProductCompositionItem,
@@ -194,9 +195,7 @@ export const ProductDrawer = forwardRef<ProductDrawerHandle, ProductDrawerProps>
       };
     }, [enableTemplates]);
 
-    useEffect(() => {
-      stepHeadingRef.current?.focus();
-    }, [currentStep]);
+    useProductWizardStepFocus(currentStep, drawerRef, stepHeadingRef);
 
     const requestClose = useCallback(async () => {
       if (!hasUnsavedChanges) {

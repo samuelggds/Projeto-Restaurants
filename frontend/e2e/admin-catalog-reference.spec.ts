@@ -84,8 +84,41 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
+    // The wizard must finish its initial focus/scroll lifecycle before a user
+    // interacts with a card; this also detects regressions in keyboard focus.
+    await expect(editor.getByRole('heading', { name: 'O que você quer cadastrar?' })).toBeFocused();
     const customMode = editor.getByRole('radio', { name: /Produto personalizável/ });
     await expect(customMode).toBeVisible();
+    // Verify the rendered hit target rather than WebKit's IntersectionObserver
+    // viewport result. The ordinary click below still tests real actionability.
+    await expect
+      .poll(
+        () =>
+          customMode.evaluate(async (element) => {
+            const measure = () => element.getBoundingClientRect();
+            const first = measure();
+            await new Promise<void>((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+            );
+            const second = measure();
+            const x = second.left + second.width / 2;
+            const y = second.top + second.height / 2;
+            const hitTarget = document.elementFromPoint(x, y);
+            return (
+              second.width > 0 &&
+              second.height > 0 &&
+              x >= 0 &&
+              y >= 0 &&
+              x < window.innerWidth &&
+              y < window.innerHeight &&
+              Math.abs(first.x - second.x) <= 0.5 &&
+              Math.abs(first.y - second.y) <= 0.5 &&
+              (hitTarget === element || element.contains(hitTarget))
+            );
+          }),
+        { message: 'Product mode choice must have a stable, unobstructed hit target' },
+      )
+      .toBe(true);
     await customMode.click();
     await expect(customMode).toHaveAttribute('aria-checked', 'true');
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
