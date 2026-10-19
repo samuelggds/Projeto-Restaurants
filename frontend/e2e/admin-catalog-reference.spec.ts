@@ -122,6 +122,23 @@ for (const width of [1440, 390]) {
       .toBe(true);
     await customMode.click();
     await expect(customMode).toHaveAttribute('aria-checked', 'true');
+    const footerLayout = await editor.evaluate((dialog) => {
+      const footer = dialog.querySelector<HTMLElement>('.drawer-footer');
+      const scrollBody = dialog.querySelector<HTMLElement>('.drawer-body');
+      if (!footer || !scrollBody) return null;
+      const footerBox = footer.getBoundingClientRect();
+      const bodyBox = scrollBody.getBoundingClientRect();
+      return {
+        footerAnchored: Math.abs(footerBox.bottom - window.innerHeight) <= 2,
+        bodyAboveFooter: bodyBox.bottom <= footerBox.top + 2,
+        independentScroll: getComputedStyle(scrollBody).overflowY === 'auto',
+      };
+    });
+    expect(footerLayout).toEqual({
+      footerAnchored: true,
+      bodyAboveFooter: true,
+      independentScroll: true,
+    });
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
     await next();
     await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
@@ -155,6 +172,33 @@ for (const width of [1440, 390]) {
     expect((saved?.optionGroups as unknown[]).length).toBe(2);
   });
 }
+
+test('cadastro mobile mantém o rodapé acessível ao rolar o conteúdo', async ({ page }) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
+  const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
+  const body = editor.locator('.drawer-body');
+  const footer = editor.locator('.drawer-footer');
+  const continueButton = editor.getByRole('button', { name: 'Continuar', exact: true });
+  await expect(continueButton).toBeVisible();
+  await expect.poll(() => body.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+    true,
+  );
+  const initialFooterBounds = await footer.boundingBox();
+  expect(initialFooterBounds).not.toBeNull();
+  await body.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  const scrolledFooterBounds = await footer.boundingBox();
+  expect(scrolledFooterBounds).not.toBeNull();
+  expect(Math.abs(scrolledFooterBounds!.y - initialFooterBounds!.y)).toBeLessThanOrEqual(2);
+  await continueButton.click();
+  await expect(editor.getByLabel('Nome do produto')).toBeVisible();
+});
 
 const products = [
   ['1', 'Pizza Calabresa', 49.9, 'Pizzas', 'BUILDABLE'],

@@ -7,11 +7,10 @@ export const ProductFormDrawer = styled.form`
   height: 100dvh;
   min-width: 0;
   margin: 0;
-  overflow-y: auto;
-  scroll-behavior: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   padding: 0 28px;
   color: #24201d;
   background:
@@ -38,9 +37,9 @@ export const ProductFormDrawer = styled.form`
     outline-offset: 2px;
   }
   .drawer-header {
-    position: sticky;
+    position: relative;
     z-index: 20;
-    top: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -383,9 +382,9 @@ export const ProductFormDrawer = styled.form`
     white-space: nowrap;
   }
   .drawer-footer {
-    position: sticky;
+    position: relative;
     z-index: 20;
-    bottom: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;

@@ -7,11 +7,11 @@ import type { ProductWizardStep } from '../domain/productWizard';
  */
 export function useProductWizardStepFocus(
   step: ProductWizardStep,
-  drawerRef: RefObject<HTMLFormElement | null>,
+  scrollBodyRef: RefObject<HTMLDivElement | null>,
   headingRef: RefObject<HTMLHeadingElement | null>,
 ) {
   useLayoutEffect(() => {
-    if (drawerRef.current) drawerRef.current.scrollTop = 0;
+    if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
     headingRef.current?.focus({ preventScroll: true });
-  }, [step, drawerRef, headingRef]);
+  }, [step, scrollBodyRef, headingRef]);
 }
