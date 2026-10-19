@@ -385,11 +385,28 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
   await expect(managedPlan).toContainText('299,90');
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test('menu lateral da Central Financeira recolhe e reabre no desktop', async ({ page }) => {
+  const state = createState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await openBilling(page, state);
+  const desktopNavigation = page.getByRole('navigation', {
+    name: 'Navegação principal do painel',
+  });
+  await expect(desktopNavigation).toBeVisible();
   await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
   await expect(desktopNavigation).not.toBeVisible();
   await page.getByRole('button', { name: 'Expandir menu lateral' }).click();
   await expect(desktopNavigation).toBeVisible();
+});
 
+test('central financeira mantém navegação e layout mobile', async ({ page }) => {
+  const state = createState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await openBilling(page, state);
+  await page.getByRole('tab', { name: /^Planos/ }).click();
+  await expect(page.getByRole('heading', { name: 'Encontre o plano certo para sua operação' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
   const mobileNavigation = page.getByRole('navigation', {
