@@ -12,7 +12,6 @@ import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
-import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
@@ -406,7 +405,23 @@ class CreateOrderService {
           }),
         );
 
-        return orderRepository.findById(order.id, resolvedRestaurantId, tx);
+        const persistedOrder = await orderRepository.findById(order.id, resolvedRestaurantId, tx);
+        if (!persistedOrder) throw new Error('Pedido não encontrado após a criação.');
+        // Compatibilidade: eventual criação interna já paga compartilha o
+        // commit com a notificação, sem chamar o provedor dentro da transação.
+        if (shouldMarkAsPaid) {
+          await notifyCustomerPaymentConfirmed({
+            restaurantId: persistedOrder.restaurantId,
+            customerPhone: persistedOrder.user?.phone || customerPhone,
+            customerName: persistedOrder.user?.name || customerName,
+            restaurantName: persistedOrder.restaurant?.name,
+            restaurantWhatsapp: persistedOrder.restaurant?.whatsapp,
+            orderId: persistedOrder.id,
+            total: persistedOrder.total,
+            paymentMethod: normalizedPaymentMethod,
+          }, tx);
+        }
+        return persistedOrder;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -429,20 +444,6 @@ class CreateOrderService {
         status: createdOrder.status,
       });
 
-      notifyCustomerPaymentConfirmed({
-        restaurantId: createdOrder.restaurantId,
-        customerPhone: createdOrder?.user?.phone || customerPhone,
-        customerName: createdOrder?.user?.name || customerName,
-        restaurantName: createdOrder?.restaurant?.name,
-        restaurantWhatsapp: createdOrder?.restaurant?.whatsapp,
-        orderId: createdOrder?.id,
-        total: createdOrder?.total,
-        paymentMethod: normalizedPaymentMethod,
-      }).catch((error: unknown) => {
-        console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
-          error: safeErrorSummary(error),
-        });
-      });
     }
 
     return createdOrder;
