@@ -35,6 +35,11 @@ test('evento terminal cancela pedido pendente e libera apenas a reserva vinculad
   });
   prisma.$transaction = async (callback) =>
     callback({
+      $queryRaw: async (statement, ...values) => {
+        assert.match(statement.join('?'), /set_config\('app.restaurant_id'/u);
+        assert.equal(values[0], '7', 'a transação deve usar o tenant do pedido');
+        return [];
+      },
       order: {
         findFirst: async () => ({ couponRedemptionId: 99 }),
         updateMany: async () => ({ count: 1 }),
