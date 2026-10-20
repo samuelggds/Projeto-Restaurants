@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - name: Prepare and verify targeted lockfiles in the disposable workspace
+      - name: Prepare targeted lockfiles without unrelated npm pruning
         shell: bash
         run: |
           node --input-type=module <<'NODE'
@@ -38,23 +38,26 @@ jobs:
             writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
             const update = spawnSync('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: dir, stdio: 'inherit' });
             assert.equal(update.status, 0, `${dir}: lock regeneration failed`);
-            const after = JSON.parse(readFileSync(lockPath, 'utf8'));
-            const paths = new Set([...Object.keys(before.packages), ...Object.keys(after.packages)]);
+            const generated = JSON.parse(readFileSync(lockPath, 'utf8'));
+            const repaired = structuredClone(before);
             let patched = 0;
-            for (const path of paths) {
-              if (!path) continue;
-              if (path.endsWith('node_modules/follow-redirects')) {
-                assert.equal(after.packages[path]?.version, '1.16.1');
-                assert.ok(after.packages[path].integrity);
-                console.log('PATCHED_PACKAGE', dir, path, JSON.stringify(after.packages[path]));
-                patched++;
-              } else {
-                assert.equal(after.packages[path]?.version, before.packages[path]?.version, `Unrelated dependency changed: ${dir}/${path}`);
-                assert.equal(after.packages[path]?.resolved, before.packages[path]?.resolved, `Unrelated source changed: ${dir}/${path}`);
-                assert.equal(after.packages[path]?.integrity, before.packages[path]?.integrity, `Unrelated integrity changed: ${dir}/${path}`);
-              }
+            for (const [path, previous] of Object.entries(before.packages)) {
+              if (!path.endsWith('node_modules/follow-redirects')) continue;
+              const next = generated.packages[path];
+              assert.equal(next?.version, '1.16.1');
+              assert.ok(next.integrity?.startsWith('sha512-'));
+              assert.equal(next.resolved, 'https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.1.tgz');
+              assert.deepEqual(next.dependencies, previous.dependencies);
+              repaired.packages[path] = { ...previous, version: next.version, resolved: next.resolved, integrity: next.integrity };
+              console.log('PATCHED_PACKAGE', dir, path, JSON.stringify(repaired.packages[path]));
+              patched++;
             }
             assert.ok(patched > 0, `${dir}: package not found`);
+            for (const [path, entry] of Object.entries(before.packages)) {
+              if (!path.endsWith('node_modules/follow-redirects')) assert.deepEqual(repaired.packages[path], entry);
+            }
+            assert.deepEqual(Object.keys(repaired.packages), Object.keys(before.packages));
+            writeFileSync(lockPath, JSON.stringify(repaired, null, 2) + '\n');
           }
           NODE
       - name: Validate reproducible installations without lifecycle scripts
@@ -70,13 +73,15 @@ jobs:
             node scripts/auditNpmLockfile.mjs "$project/package-lock.json" --omit-dev --audit-level=high
           done
       - name: Record the exact patch
+        if: always()
         run: |
           git diff --check
           git diff -- backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json > dependency-repair.patch
           cat dependency-repair.patch
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
-          name: validated-dependency-lockfiles-${{ github.sha }}
+          name: dependency-lockfiles-${{ github.sha }}
           path: |
             dependency-repair.patch
             backend/package.json
