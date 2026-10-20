@@ -84,10 +84,61 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
+    // Mounting the editor must not depend on a lazy module arriving after click.
+    await expect(page.getByText('Carregando editor de produto...')).toHaveCount(0);
+    await expect(editor).toBeVisible();
+    await expect(editor.getByRole('heading', { name: 'O que você quer cadastrar?' })).toBeFocused();
     const customMode = editor.getByRole('radio', { name: /Produto personalizável/ });
     await expect(customMode).toBeVisible();
+    // Verify the rendered hit target rather than WebKit's IntersectionObserver
+    // viewport result. The ordinary click below still tests real actionability.
+    await expect
+      .poll(
+        () =>
+          customMode.evaluate(async (element) => {
+            const measure = () => element.getBoundingClientRect();
+            const first = measure();
+            await new Promise<void>((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+            );
+            const second = measure();
+            const x = second.left + second.width / 2;
+            const y = second.top + second.height / 2;
+            const hitTarget = document.elementFromPoint(x, y);
+            return (
+              second.width > 0 &&
+              second.height > 0 &&
+              x >= 0 &&
+              y >= 0 &&
+              x < window.innerWidth &&
+              y < window.innerHeight &&
+              Math.abs(first.x - second.x) <= 0.5 &&
+              Math.abs(first.y - second.y) <= 0.5 &&
+              (hitTarget === element || element.contains(hitTarget))
+            );
+          }),
+        { message: 'Product mode choice must have a stable, unobstructed hit target' },
+      )
+      .toBe(true);
     await customMode.click();
     await expect(customMode).toHaveAttribute('aria-checked', 'true');
+    const footerLayout = await editor.evaluate((dialog) => {
+      const footer = dialog.querySelector<HTMLElement>('.drawer-footer');
+      const scrollBody = dialog.querySelector<HTMLElement>('.drawer-body');
+      if (!footer || !scrollBody) return null;
+      const footerBox = footer.getBoundingClientRect();
+      const bodyBox = scrollBody.getBoundingClientRect();
+      return {
+        footerAnchored: Math.abs(footerBox.bottom - window.innerHeight) <= 2,
+        bodyAboveFooter: bodyBox.bottom <= footerBox.top + 2,
+        independentScroll: getComputedStyle(scrollBody).overflowY === 'auto',
+      };
+    });
+    expect(footerLayout).toEqual({
+      footerAnchored: true,
+      bodyAboveFooter: true,
+      independentScroll: true,
+    });
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
     await next();
     await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
@@ -113,6 +164,9 @@ for (const width of [1440, 390]) {
     await editor.getByLabel('Adicionar produto ao meio a meio').last().selectOption('2');
     await next();
     await next();
+    // Entering review must not activate the submit button implicitly.
+    expect(saved).toBeUndefined();
+    await expect(editor.getByRole('button', { name: 'Criar produto', exact: true })).toBeVisible();
     await expect(editor.getByText('Preço conforme as escolhas').first()).toBeVisible();
     await editor.getByRole('button', { name: /Criar produto/ }).click();
     await expect
@@ -121,6 +175,33 @@ for (const width of [1440, 390]) {
     expect((saved?.optionGroups as unknown[]).length).toBe(2);
   });
 }
+
+test('cadastro mobile mantém o rodapé acessível ao rolar o conteúdo', async ({ page }) => {
+  await mockCatalog(page);
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/admin');
+  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
+  const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
+  const body = editor.locator('.drawer-body');
+  const footer = editor.locator('.drawer-footer');
+  const continueButton = editor.getByRole('button', { name: 'Continuar', exact: true });
+  await expect(continueButton).toBeVisible();
+  await expect.poll(() => body.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(
+    true,
+  );
+  const initialFooterBounds = await footer.boundingBox();
+  expect(initialFooterBounds).not.toBeNull();
+  await body.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  const scrolledFooterBounds = await footer.boundingBox();
+  expect(scrolledFooterBounds).not.toBeNull();
+  expect(Math.abs(scrolledFooterBounds!.y - initialFooterBounds!.y)).toBeLessThanOrEqual(2);
+  await continueButton.click();
+  await expect(editor.getByLabel('Nome do produto')).toBeVisible();
+});
 
 const products = [
   ['1', 'Pizza Calabresa', 49.9, 'Pizzas', 'BUILDABLE'],

@@ -7,11 +7,10 @@ export const ProductFormDrawer = styled.form`
   height: 100dvh;
   min-width: 0;
   margin: 0;
-  overflow-y: auto;
-  scroll-behavior: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   padding: 0 28px;
   color: #24201d;
   background:
@@ -38,9 +37,9 @@ export const ProductFormDrawer = styled.form`
     outline-offset: 2px;
   }
   .drawer-header {
-    position: sticky;
+    position: relative;
     z-index: 20;
-    top: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -48,8 +47,8 @@ export const ProductFormDrawer = styled.form`
     margin: 0 -28px;
     padding: 20px 28px 18px;
     border-bottom: 1px solid rgba(218, 209, 201, 0.82);
-    background: rgba(255, 253, 250, 0.94);
-    backdrop-filter: blur(16px);
+    /* Opaque surfaces avoid WebKit backdrop recomposition while scrolling. */
+    background: #fffdfa;
   }
   .drawer-title > span {
     display: flex;
@@ -383,9 +382,9 @@ export const ProductFormDrawer = styled.form`
     white-space: nowrap;
   }
   .drawer-footer {
-    position: sticky;
+    position: relative;
     z-index: 20;
-    bottom: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -393,9 +392,8 @@ export const ProductFormDrawer = styled.form`
     margin: 0 -28px;
     padding: 14px 28px max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid rgba(213, 202, 193, 0.9);
-    background: rgba(255, 253, 250, 0.95);
+    background: #fffdfa;
     box-shadow: 0 -12px 30px rgba(48, 35, 25, 0.07);
-    backdrop-filter: blur(16px);
   }
   .footer-summary {
     min-width: 0;

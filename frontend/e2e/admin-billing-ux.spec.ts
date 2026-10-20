@@ -385,11 +385,28 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
   await expect(managedPlan).toContainText('299,90');
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
+});
+
+test('menu lateral da Central Financeira recolhe e reabre no desktop', async ({ page }) => {
+  const state = createState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await openBilling(page, state);
+  const desktopNavigation = page.getByRole('navigation', {
+    name: 'Navegação principal do painel',
+  });
+  await expect(desktopNavigation).toBeVisible();
   await page.getByRole('button', { name: 'Recolher menu lateral' }).click();
   await expect(desktopNavigation).not.toBeVisible();
   await page.getByRole('button', { name: 'Expandir menu lateral' }).click();
   await expect(desktopNavigation).toBeVisible();
+});
 
+test('central financeira mantém navegação e layout mobile', async ({ page }) => {
+  const state = createState();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await openBilling(page, state);
+  await page.getByRole('tab', { name: /^Planos/ }).click();
+  await expect(page.getByRole('heading', { name: 'Encontre o plano certo para sua operação' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('heading', { name: 'Sua assinatura está em dia' })).toBeVisible();
   const mobileNavigation = page.getByRole('navigation', {
@@ -549,26 +566,37 @@ for (const viewport of [
       await expect(close).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(dialog.getByLabel('Nome do titular')).toBeFocused();
+      // Each sandboxed provider iframe has its own native keyboard-entry
+      // stop in Firefox: focus the frame, then Tab into the secure input.
+      // Check every stop rather than skipping fields or focusing inputs via JS.
+      const tabIntoSecureField = async (hostId: string) => {
+        await page.keyboard.press('Tab');
+        if (browserName === 'firefox') {
+          await expect(dialog.locator(`#${hostId} iframe`)).toBeFocused();
+          await page.keyboard.press('Tab');
+        }
+        await expect(
+          dialog.frameLocator(`#${hostId} iframe`).getByRole('textbox'),
+        ).toBeFocused();
+      };
+      await tabIntoSecureField('billing-card-number');
+      await tabIntoSecureField('billing-card-expiration');
+      await tabIntoSecureField('billing-card-security');
+      const taxIdField = dialog.getByLabel('CPF do titular');
       await page.keyboard.press('Tab');
-      if (browserName === 'firefox') {
-        // Firefox first focuses the isolated frame document before entering its
-        // textbox. Keep the sandbox and verify both native keyboard stops.
-        await expect(dialog.locator('#billing-card-number iframe')).toBeFocused();
+      // Firefox can expose one additional native focus stop when leaving the
+      // sandboxed CVV iframe. It must remain inside the dialog and still allow
+      // the CPF field to be reached by keyboard, without scripted focus.
+      if (
+        browserName === 'firefox' &&
+        !(await taxIdField.evaluate((element) => element.ownerDocument.activeElement === element))
+      ) {
+        await expect
+          .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+          .toBe(true);
         await page.keyboard.press('Tab');
       }
-      await expect(
-        dialog.frameLocator('#billing-card-number iframe').getByRole('textbox'),
-      ).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(
-        dialog.frameLocator('#billing-card-expiration iframe').getByRole('textbox'),
-      ).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(
-        dialog.frameLocator('#billing-card-security iframe').getByRole('textbox'),
-      ).toBeFocused();
-      await page.keyboard.press('Tab');
-      await expect(dialog.getByLabel('CPF do titular')).toBeFocused();
+      await expect(taxIdField).toBeFocused();
     }
     const number = dialog.frameLocator('#billing-card-number iframe').getByRole('textbox');
     await number.fill('4111111111111111');
