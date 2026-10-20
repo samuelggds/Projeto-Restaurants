@@ -47,8 +47,8 @@ export const ProductFormDrawer = styled.form`
     margin: 0 -28px;
     padding: 20px 28px 18px;
     border-bottom: 1px solid rgba(218, 209, 201, 0.82);
-    background: rgba(255, 253, 250, 0.94);
-    backdrop-filter: blur(16px);
+    /* Opaque surfaces avoid WebKit backdrop recomposition while scrolling. */
+    background: #fffdfa;
   }
   .drawer-title > span {
     display: flex;
@@ -392,9 +392,8 @@ export const ProductFormDrawer = styled.form`
     margin: 0 -28px;
     padding: 14px 28px max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid rgba(213, 202, 193, 0.9);
-    background: rgba(255, 253, 250, 0.95);
+    background: #fffdfa;
     box-shadow: 0 -12px 30px rgba(48, 35, 25, 0.07);
-    backdrop-filter: blur(16px);
   }
   .footer-summary {
     min-width: 0;

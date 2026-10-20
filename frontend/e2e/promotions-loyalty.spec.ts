@@ -519,14 +519,39 @@ test('campanha criada com a Home aberta aparece ao entrar no programa de fidelid
     );
   });
   await mockAuthRefresh(page, 22, 'e2e-customer-token');
+
+  const isLoyaltyResponse = (response: { url(): string; request(): { method(): string } }) =>
+    new URL(response.url()).pathname === '/coupons/loyalty' &&
+    response.request().method() === 'GET';
+
+  // Establish the genuine "Home was already open" precondition: its first
+  // wallet request must complete while the campaign is still unpublished.
+  // Without this barrier the mock could publish before Home fetches at all,
+  // making an otherwise-correct UI fail a request-count assertion.
+  const initialWalletResponse = page.waitForResponse(isLoyaltyResponse);
   await page.goto('/restaurante-teste');
+  const initialWallet = await initialWalletResponse;
+  expect(initialWallet.ok()).toBe(true);
+  expect((await initialWallet.json()).rewards).toEqual([]);
+  const requestsBeforePublish = loyaltyRequests;
+  expect(requestsBeforePublish).toBeGreaterThan(0);
 
   campaignPublished = true;
+  // Profile refreshes the wallet on mount, before its inner loyalty tab opens.
+  // Observe that response, not an arbitrary timer or a screenshot-only state.
+  const updatedWalletResponse = page.waitForResponse(isLoyaltyResponse);
   await page.getByRole('button', { name: 'Minha conta' }).click();
+  const updatedWallet = await updatedWalletResponse;
+  expect(updatedWallet.ok()).toBe(true);
+  expect((await updatedWallet.json()).rewards).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ coupon: expect.objectContaining({ code: 'FIEL10' }) }),
+    ]),
+  );
+  await expect.poll(() => loyaltyRequests).toBeGreaterThan(requestsBeforePublish);
+
   const visibleProfile = page.locator('main:visible');
   await visibleProfile.getByRole('button', { name: 'Programa de Fidelidade' }).click();
-
-  await expect.poll(() => loyaltyRequests).toBeGreaterThan(1);
   await expect(
     visibleProfile.getByRole('heading', { name: 'Programa de Fidelidade' }),
   ).toBeVisible();
