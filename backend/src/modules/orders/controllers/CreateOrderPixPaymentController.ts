@@ -10,8 +10,6 @@ import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
-import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
-import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { tableParticipantStateEvents } from '../../tableSession/realtime/tableParticipantStateEvents.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
@@ -114,15 +112,10 @@ class CreateOrderPixPaymentController {
       if (
         String(order.type || '').toUpperCase() === 'MESA' &&
         req.tableParticipant?.id &&
-        req.tableSession?.id
+        req.tableSession?.id &&
+        String(order.settlementMode || '').toUpperCase() === 'PAY_NOW'
       ) {
-        await withTenantDbContext(resolvedRestaurantId, (db) =>
-          tableParticipantStateService.blockOrderingUntilPayment(db, {
-            participantId: req.tableParticipant!.id,
-            tableSessionId: req.tableSession!.id,
-            restaurantId: resolvedRestaurantId,
-          }),
-        );
+        // A reserva foi gravada junto com o pedido, antes deste evento realtime.
         await tableParticipantStateEvents.orderingUpdated({
           restaurantId: resolvedRestaurantId,
           tableId: Number(req.tableSession.tableId),

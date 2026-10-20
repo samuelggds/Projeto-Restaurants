@@ -14,6 +14,7 @@ import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { createOrderSchema } from '../../../validators/OrderValidator.js';
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
+import tableParticipantStateService from '../../tableSession/services/TableParticipantStateService.js';
 import orderPixPaymentService from './OrderPixPaymentService.js';
 import {
   PaymentMethod,
@@ -968,6 +969,19 @@ class CreateOrderService {
             );
             if (!persistedOrder)
               throw new Error('Pedido criado não foi encontrado na transação.');
+            // O bloqueio do checkout de mesa participa do mesmo commit de
+            // pedido, estoque, cupons e itens; não há janela após o commit.
+            if (
+              type === OrderType.MESA &&
+              tableContinuation?.settlementMode === TableOrderSettlementMode.PAY_NOW
+            ) {
+              if (!tableParticipant) throw new OrderRequestError('Participante da mesa não encontrado.');
+              await tableParticipantStateService.blockOrderingUntilPayment(tx, {
+                participantId: tableParticipant.id,
+                tableSessionId: Number(tableSessionId),
+                restaurantId: resolvedRestaurantId,
+              });
+            }
             return { order: persistedOrder, replayed: false };
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

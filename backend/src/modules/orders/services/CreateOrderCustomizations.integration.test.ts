@@ -820,8 +820,15 @@ test('pagamento imediato mantém Pix no pedido e reserva as unidades como PROCES
     expiresAt: new Date(Date.now() + 60_000),
     table: { id: 91, number: 1, active: true, restaurantId: 7 },
   };
+  let orderingBlockInTransaction = false;
   const tx = {
     $queryRaw: async () => [],
+    $executeRaw: async (statement) => {
+      assert.match(statement.strings.join('?'), /INSERT INTO "TableParticipantState"/u);
+      assert.deepEqual(statement.values.slice(0, 3), [80, 7, 55]);
+      orderingBlockInTransaction = true;
+      return 1;
+    },
     order: {
       count: async () => 0,
       findFirst: async () => null,
@@ -953,4 +960,5 @@ test('pagamento imediato mantém Pix no pedido e reserva as unidades como PROCES
   assert.equal(persistedBillItems[0].restaurantId, 7);
   assert.equal(persistedBillItems[0].tableSessionId, 55);
   assert.equal(persistedBillItems[0].participantId, 80);
+  assert.equal(orderingBlockInTransaction, true, 'o bloqueio deve ocorrer antes do commit');
 });
