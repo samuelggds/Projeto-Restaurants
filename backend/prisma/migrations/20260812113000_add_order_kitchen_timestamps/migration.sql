@@ -1,3 +1,0 @@
-ALTER TABLE "Order"
-ADD COLUMN "preparationStartedAt" TIMESTAMP(3),
-ADD COLUMN "readyAt" TIMESTAMP(3);

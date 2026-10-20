@@ -1,4 +1,0 @@
-
-> backend@1.0.0 dev
-> node ./scripts/runTsxWithOsUserInfoFallback.cjs watch src/server.ts
-

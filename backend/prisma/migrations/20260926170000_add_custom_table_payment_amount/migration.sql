@@ -1,1 +1,0 @@
-ALTER TYPE "TablePaymentSelectionMode" ADD VALUE IF NOT EXISTS 'CUSTOM_AMOUNT';
