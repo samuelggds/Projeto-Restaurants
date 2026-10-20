@@ -6,7 +6,6 @@ import { notifyCustomerOrderStatusChanged } from '../../../services/customerNoti
 import { validateDeliveryLocationPayload } from '../../../socket/deliveryLocationPayload.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import courierAccessService from './CourierAccessService.js';
-import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 
 type StartRouteInput = {
   orderId: number | string;
@@ -156,29 +155,28 @@ class StartCourierRouteService {
 
       const startedOrder = await orderRepository.findById(normalizedOrderId, restaurantId, tx);
       if (!startedOrder) throw new Error('Não foi possível carregar a entrega iniciada.');
+
+      // A notificação deve ser gravada no mesmo commit da nova rota.
+      // Nenhum envio externo ocorre aqui: o worker entrega a linha da outbox depois.
+      await notifyCustomerOrderStatusChanged({
+        restaurantId,
+        customerPhone: startedOrder.user?.phone,
+        customerName: startedOrder.user?.name,
+        restaurantName: startedOrder.restaurant?.name,
+        restaurantWhatsapp: startedOrder.restaurant?.whatsapp,
+        orderId: startedOrder.id,
+        publicId: startedOrder.publicId,
+        orderType: startedOrder.type,
+        status: startedOrder.status,
+        deliveryStartedAt: startedOrder.deliveryStartedAt,
+      }, tx);
+
       return { order: startedOrder, location, savedLocation, changed: true };
     });
 
     if (!result.changed) return result.order;
 
     const { order, location, savedLocation } = result;
-    void notifyCustomerOrderStatusChanged({
-      restaurantId,
-      customerPhone: order.user?.phone,
-      customerName: order.user?.name,
-      restaurantName: order.restaurant?.name,
-      restaurantWhatsapp: order.restaurant?.whatsapp,
-      orderId: order.id,
-      publicId: order.publicId,
-      orderType: order.type,
-      status: order.status,
-      deliveryStartedAt: order.deliveryStartedAt,
-    }).catch((error: unknown) => {
-      console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', {
-        error: safeErrorSummary(error),
-      });
-    });
-
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', order);
     io.to(`guest-order:${order.id}`).emit('order:status-changed', {
       id: order.id,

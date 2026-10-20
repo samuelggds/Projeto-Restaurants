@@ -8,7 +8,6 @@ import {
   retryOrderTransaction,
   type OrderCreationContext,
 } from './orderCreationRequest.js';
-import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
@@ -982,6 +981,20 @@ class CreateOrderService {
                 restaurantId: resolvedRestaurantId,
               });
             }
+            // Defesa para fluxos internos legados de criação já paga. O
+            // checkout público continua proibido de definir paid=true.
+            if (shouldMarkAsPaid) {
+              await notifyCustomerPaymentConfirmed({
+                restaurantId: persistedOrder.restaurantId,
+                customerPhone,
+                customerName: persistedOrder.user?.name || persistedOrder.participant?.displayName || customerName,
+                restaurantName: persistedOrder.restaurant?.name,
+                restaurantWhatsapp: persistedOrder.restaurant?.whatsapp,
+                orderId: persistedOrder.id,
+                total: persistedOrder.total,
+                paymentMethod: normalizedPaymentMethod,
+              }, tx);
+            }
             return { order: persistedOrder, replayed: false };
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -1030,21 +1043,6 @@ class CreateOrderService {
           paid: true,
           status: createdOrder.status,
         });
-      notifyCustomerPaymentConfirmed({
-        restaurantId: createdOrder.restaurantId,
-        customerPhone: customerPhone,
-        customerName:
-          createdOrder?.user?.name || createdOrder?.participant?.displayName || customerName,
-        restaurantName: createdOrder?.restaurant?.name,
-        restaurantWhatsapp: createdOrder?.restaurant?.whatsapp,
-        orderId: createdOrder?.id,
-        total: createdOrder?.total,
-        paymentMethod: normalizedPaymentMethod,
-      }).catch((error: unknown) => {
-        console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
-          error: safeErrorSummary(error),
-        });
-      });
     }
     if (queuedForCapacity && !shouldDeferRealtimeUntilPaid) {
       const admitted = await orderCapacityQueueService.drainAfterCapacityChange(createdOrder.restaurantId);

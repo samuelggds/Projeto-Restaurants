@@ -6,10 +6,8 @@ import { PaymentCreationUncertainError } from '../services/PaymentCreationUncert
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
-import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { safeErrorName, safeErrorSummary } from '../../../services/telemetrySanitizer.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
-import orderRepository from '../repositories/OrderRepository.js';
 import { ActiveOnlinePaymentError } from '../domain/ActiveOnlinePaymentError.js';
 
 async function recordUncertainCheckoutWhatsappOptIn(
@@ -142,41 +140,9 @@ class CreateOrderCardCheckoutController {
           String(req.user?.role || 'CLIENTE').toUpperCase() === 'CLIENTE',
       });
 
-      if (whatsappOptIn === true && String(type || '').toUpperCase() !== 'MESA') {
-        try {
-          const consentRecorded = await recordWhatsappOrderNotificationOptIn({
-            restaurantId: resolvedRestaurantId,
-            orderId: result.orderId,
-            userId,
-            customerPhone,
-          });
-
-          if (consentRecorded && result.paid === true) {
-            const paidOrder = await orderRepository.findById(result.orderId, resolvedRestaurantId);
-            if (paidOrder) {
-              void notifyCustomerPaymentConfirmed({
-                restaurantId: paidOrder.restaurantId,
-                customerPhone,
-                customerName: paidOrder.user?.name || customerName,
-                restaurantName: paidOrder.restaurant?.name,
-                restaurantWhatsapp: paidOrder.restaurant?.whatsapp,
-                orderId: paidOrder.id,
-                total: paidOrder.total,
-                paymentMethod: paidOrder.paymentMethod,
-              }).catch((notificationError: unknown) => {
-                console.error('[CUSTOMER_NOTIFICATION_UNHANDLED]', {
-                  error: safeErrorSummary(notificationError),
-                });
-              });
-            }
-          }
-        } catch (consentError) {
-          console.warn('[WHATSAPP_ORDER_OPT_IN_RECORD_FAILED]', {
-            requestId: req.requestId,
-            errorType: safeErrorName(consentError),
-          });
-        }
-      }
+      // O consentimento já foi gravado na transação de criação do pedido.
+      // A confirmação síncrona do cartão enfileira o aviso na transação do
+      // finalizador; re-enfileirar aqui após o commit abriria uma janela de perda.
 
       const isGuestOrder = req.user?.isGuest === true;
       const isGuestDelivery = isGuestOrder && String(type || '').toUpperCase() === 'DELIVERY';
