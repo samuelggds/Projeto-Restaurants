@@ -47,7 +47,9 @@ export function ProductBasicStep({
           <input
             aria-describedby={fieldErrors.name ? 'product-name-error' : 'product-name-help'}
             aria-invalid={Boolean(fieldErrors.name)}
-            autoFocus
+            // A etapa direciona o foco ao titulo via useProductWizardStepFocus.
+            // Dois focos concorrentes no mesmo commit podem interromper
+            // a digitacao do nome no WebKit.
             maxLength={100}
             placeholder="Ex.: Macarrão de Carne"
             required

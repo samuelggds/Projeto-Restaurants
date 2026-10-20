@@ -141,8 +141,18 @@ for (const width of [1440, 390]) {
     });
     const next = () => editor.getByRole('button', { name: 'Continuar', exact: true }).click();
     await next();
-    await editor.getByLabel('Nome do produto').fill('Pizza Meio a Meio');
+    // O foco do titulo sinaliza que a etapa BASIC foi efetivamente montada.
+    // Digitacao real evita interagir enquanto um autoFocus concorre com
+    // o foco programado do wizard no Safari/WebKit.
+    await expect(editor.getByRole('heading', { name: 'Qual é o produto?' })).toBeFocused();
+    const productName = editor.getByLabel('Nome do produto');
+    await productName.click();
+    await productName.pressSequentially('Pizza Meio a Meio');
+    await expect(productName).toHaveValue('Pizza Meio a Meio');
+    // Verifica o estado controlado pelo React, nao somente o valor no DOM.
+    await expect(editor.locator('.drawer-footer')).toContainText('Pizza Meio a Meio');
     await next();
+    await expect(editor.getByRole('heading', { name: 'Quanto custa?' })).toBeVisible();
     await editor.getByRole('radio', { name: /Meio a meio/ }).check();
     await expect(editor.locator('input[type="number"]')).toHaveCount(0);
     await expect(editor.getByText('Preço definido pelas escolhas do cliente')).toBeVisible();
@@ -171,7 +181,12 @@ for (const width of [1440, 390]) {
     await editor.getByRole('button', { name: /Criar produto/ }).click();
     await expect
       .poll(() => saved)
-      .toMatchObject({ pricingMode: 'HIGHEST_OPTION', price: 0, saleMode: 'BUILDABLE' });
+      .toMatchObject({
+        name: 'Pizza Meio a Meio',
+        pricingMode: 'HIGHEST_OPTION',
+        price: 0,
+        saleMode: 'BUILDABLE',
+      });
     expect((saved?.optionGroups as unknown[]).length).toBe(2);
   });
 }
