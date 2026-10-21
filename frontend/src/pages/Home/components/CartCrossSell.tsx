@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { Plus, UtensilsCrossed } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, UtensilsCrossed } from 'lucide-react';
 import { CHECKOUT_RECOMMENDATION_GROUPS, getCheckoutRecommendationGroup, type CheckoutRecommendationGroupId } from '../domain/homePageHelpers';
 import type { HomeProduct } from '../types';
 import * as S from './CartCrossSell.styles';
@@ -15,6 +15,7 @@ type Props = {
 export function CartCrossSell({ products, onAdd }: Props) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [scrollEdges, setScrollEdges] = useState({ hasPrevious: false, hasNext: false });
   const [selectedGroup, setSelectedGroup] = useState<CheckoutRecommendationGroupId | null>(null);
   const [showAll, setShowAll] = useState(false);
   const groups = CHECKOUT_RECOMMENDATION_GROUPS.map(({ id, label }) => ({
@@ -24,7 +25,34 @@ export function CartCrossSell({ products, onAdd }: Props) {
   const activeProducts = activeGroup?.items || [];
   const displayedProducts = showAll ? activeProducts : activeProducts.slice(0, 4);
 
+  const updateScrollEdges = useCallback(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const maxScroll = Math.max(0, row.scrollWidth - row.clientWidth);
+    const hasPrevious = row.scrollLeft > 1;
+    const hasNext = row.scrollLeft < maxScroll - 1;
+    setScrollEdges((previous) =>
+      previous.hasPrevious === hasPrevious && previous.hasNext === hasNext
+        ? previous
+        : { hasPrevious, hasNext },
+    );
+  }, []);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    updateScrollEdges();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateScrollEdges);
+    observer?.observe(row);
+    window.addEventListener('resize', updateScrollEdges);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateScrollEdges);
+    };
+  }, [activeGroup?.id, displayedProducts.length, showAll, updateScrollEdges]);
+
   const syncActiveIndex = () => {
+    updateScrollEdges();
     const row = rowRef.current;
     if (!row || displayedProducts.length < 2) return;
 
@@ -50,6 +78,19 @@ export function CartCrossSell({ products, onAdd }: Props) {
     if (!row || !card) return;
     if (typeof row.scrollTo === 'function') row.scrollTo({ left: card.offsetLeft - row.offsetLeft, behavior: 'smooth' });
     setActiveIndex(index);
+  };
+
+  const scrollDesktop = (direction: -1 | 1) => {
+    const row = rowRef.current;
+    const card = row?.querySelector<HTMLElement>('[data-cross-sell-card]');
+    if (!row || !card) return;
+    const gap = Number.parseFloat(getComputedStyle(row).columnGap) || 0;
+    const cardStep = card.getBoundingClientRect().width + gap;
+    const maxScroll = Math.max(0, row.scrollWidth - row.clientWidth);
+    const left = Math.max(0, Math.min(maxScroll, row.scrollLeft + direction * cardStep));
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row.scrollTo({ left, behavior: reducedMotion ? 'instant' : 'smooth' });
+    if (reducedMotion) updateScrollEdges();
   };
 
   if (!activeGroup) return null;
@@ -82,7 +123,7 @@ export function CartCrossSell({ products, onAdd }: Props) {
           {showAll ? 'Ver menos' : 'Ver todos'}
         </S.ShowAll>
       ) : null}
-      <S.Row key={activeGroup.id + String(showAll)} ref={rowRef} onScroll={syncActiveIndex}>
+      <S.Row key={activeGroup.id + String(showAll)} data-cross-sell-track ref={rowRef} onScroll={syncActiveIndex}>
         {displayedProducts.map((product) => (
           <S.Card key={product.id} data-cross-sell-card>
             <S.Image>
@@ -115,6 +156,27 @@ export function CartCrossSell({ products, onAdd }: Props) {
           </S.Card>
         ))}
       </S.Row>
+
+      {displayedProducts.length > 3 ? (
+        <S.DesktopNavigation aria-label="Navegação dos produtos sugeridos">
+          <button
+            type="button"
+            aria-label="Produtos anteriores"
+            disabled={!scrollEdges.hasPrevious}
+            onClick={() => scrollDesktop(-1)}
+          >
+            <ChevronLeft aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Próximos produtos"
+            disabled={!scrollEdges.hasNext}
+            onClick={() => scrollDesktop(1)}
+          >
+            <ChevronRight aria-hidden="true" />
+          </button>
+        </S.DesktopNavigation>
+      ) : null}
 
       {displayedProducts.length > 1 ? (
         <S.Dots aria-label="Posição do carrossel">

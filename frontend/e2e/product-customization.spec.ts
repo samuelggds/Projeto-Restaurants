@@ -712,6 +712,90 @@ test('resumo do carrinho não fica fixo e permite limpar todos os itens', async 
   await expect(page.getByRole('button', { name: /Meu Carrinho, [1-9]\d* (?:item|itens)/ })).toHaveCount(0);
 });
 
+test('Complete seu pedido: desktop rola sem invadir o resumo e mobile conserva o carrossel', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockStorefront(page);
+  const beverageProducts = Array.from({ length: 6 }, (_, index) => ({
+    ...completeProduct,
+    id: 900 + index,
+    name: `Bebida sugerida ${index + 1}`,
+    category: { name: 'Bebidas' },
+    price: 4 + index,
+  }));
+  const catalog = { products: [completeProduct, ...beverageProducts] };
+  await page.route('**/products?*', (route) => route.fulfill({ json: catalog }));
+  await page.route('**/products', (route) => route.fulfill({ json: catalog }));
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1024, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto('/restaurante-teste');
+    await enterMenu(page);
+    await confirmReadyProduct(page, 'Refrigerante pronto');
+    const cart = await openCartWithoutFlyAssertion(page);
+    const recommendations = cart.getByRole('region', { name: 'Sugestões para completar o pedido' });
+    await expect(recommendations).toBeVisible();
+    const track = recommendations.locator('[data-cross-sell-track]');
+    await expect(track.locator('[data-cross-sell-card]')).toHaveCount(4);
+
+    const layout = await track.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const section = element.closest('section')!.getBoundingClientRect();
+      return {
+        overflowX: getComputedStyle(element).overflowX,
+        overflow: element.scrollWidth - element.clientWidth,
+        right: rect.right,
+        sectionRight: section.right,
+        docOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      };
+    });
+    expect(layout.overflowX).toBe('auto');
+    expect(layout.overflow).toBeGreaterThan(20);
+    expect(layout.right).toBeLessThanOrEqual(layout.sectionRight + 1);
+    expect(layout.docOverflow).toBeLessThanOrEqual(1);
+
+    const next = recommendations.getByRole('button', { name: 'Próximos produtos' });
+    const previous = recommendations.getByRole('button', { name: 'Produtos anteriores' });
+    if (viewport.width > 760) {
+      const summary = cart.locator('aside').filter({ hasText: 'Resumo do Pedido' });
+      await expect(summary).toBeVisible();
+      const summaryBox = await summary.boundingBox();
+      expect(summaryBox).not.toBeNull();
+      expect(layout.right).toBeLessThanOrEqual(summaryBox!.x);
+
+      await expect(next).toBeVisible();
+      await expect(next).toBeEnabled();
+      await expect(previous).toBeDisabled();
+      await next.click();
+      await expect.poll(() => track.evaluate((element) => element.scrollLeft)).toBeGreaterThan(20);
+      const lastVisible = await track.evaluate((element) => {
+        const trackRight = element.getBoundingClientRect().right;
+        const last = element.querySelectorAll('[data-cross-sell-card]')[3];
+        return last.getBoundingClientRect().right <= trackRight + 1;
+      });
+      expect(lastVisible).toBe(true);
+      await expect(previous).toBeEnabled();
+      await previous.click();
+      await expect.poll(() => track.evaluate((element) => element.scrollLeft)).toBeLessThan(2);
+      await recommendations.getByRole('button', { name: 'Ver todos' }).click();
+      await expect(track.locator('[data-cross-sell-card]')).toHaveCount(6);
+      await expect(next).toBeEnabled();
+    } else {
+      await expect(next).toBeHidden();
+      await expect(previous).toBeHidden();
+      await track.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+      await expect.poll(() => track.evaluate((element) => element.scrollLeft)).toBeGreaterThan(20);
+      await expect(recommendations.getByRole('button', { name: 'Mostrar recomendação 4' })).toBeVisible();
+    }
+
+    await page.keyboard.press('Escape');
+    await expect(cart).toBeHidden();
+  }
+});
+
 test('barra inferior da home do delivery fica fixa somente no mobile', async ({ page }) => {
   await mockStorefront(page);
 

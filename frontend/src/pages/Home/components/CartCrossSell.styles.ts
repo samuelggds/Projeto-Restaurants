@@ -88,6 +88,18 @@ export const Row = styled.div`
   display: flex;
   align-items: stretch;
   gap: 16px;
+  // Keep the fourth card inside the desktop cart column instead of drawing
+  // over the order summary. Mobile retains its existing mandatory snapping.
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   @media (max-width: 760px) {
     margin: -2px -2px 0;
@@ -129,6 +141,7 @@ export const Card = styled.article`
     box-shadow 180ms ease,
     border-color 180ms ease;
   animation: ${cardEnter} 320ms ease both;
+  scroll-snap-align: start;
 
   &:nth-child(2) {
     animation-delay: 45ms;
@@ -346,6 +359,58 @@ export const AddButton = styled.button`
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+`;
+
+export const DesktopNavigation = styled.nav`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: -4px;
+
+  button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid #e7e1d9;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--checkout-primary);
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+  }
+
+  button:hover:not(:disabled) {
+    background: #fdf2ec;
+    border-color: var(--checkout-primary);
+  }
+
+  button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--checkout-primary) 24%, transparent);
+    outline-offset: 2px;
+  }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  @media (max-width: 760px) {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
   }
 `;
 
