@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import superAdminService from '../../../Services/superAdminService';
 import { ProductDrawer } from '../../admin/components/ProductDrawer';
+import { useCategoryCardReorder } from '../../admin/hooks/useCategoryCardReorder';
 import { ManagedCustomProductWizard } from './ManagedCustomProductWizard';
 import { ManagedImageEditor } from './ManagedImageEditor';
 import type { ManagedImagePurpose } from '../../../Services/managedImageEnhancementService';
@@ -62,6 +63,7 @@ type Category = {
   name: string;
   description?: string | null;
   active?: boolean;
+  sortOrder?: number;
 };
 
 type Banner = {
@@ -270,6 +272,25 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
     [data?.categories],
   );
 
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [categoryFeedback, setCategoryFeedback] = useState('');
+  const {
+    orderedCategories,
+    draggingCategoryId,
+    beginCategoryDrag,
+    moveCategoryWithKeyboard,
+    setCategoryCardRef,
+  } = useCategoryCardReorder({
+    categories: managedCategories,
+    busy: categoryBusy || saving,
+    onReorderCategories: async (categoryIds) => {
+      await superAdminService.reorderManagedCategories(restaurantId, categoryIds);
+      await load();
+    },
+    setBusy: setCategoryBusy,
+    setFeedback: setCategoryFeedback,
+  });
+
   const managedIngredients = useMemo<AdminIngredient[]>(
     () =>
       (data?.ingredients || []).map((item) => ({
@@ -313,7 +334,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
   );
 
   async function persist(action: () => Promise<unknown>, message: string) {
-    if (saving) return;
+    if (saving || categoryBusy) return;
     setSaving(true);
     setError('');
     setSuccess('');
@@ -687,14 +708,48 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
               <S.Split>
                 <S.List>
                   <S.SectionTitle><div><small>ORGANIZAÇÃO</small><h3>Categorias</h3></div><span>{data.categories.length}</span></S.SectionTitle>
-                  {data.categories.map((item) => <button key={item.id} type="button" onClick={() => setCategory({ id: item.id, name: item.name, description: item.description || '', active: item.active !== false })}><span><b>{item.name}</b><small>{item.active === false ? 'Inativa' : 'Ativa'}</small></span></button>)}
+                  <S.CategoryHint>Arraste as categorias para definir a sequência do cardápio ou use as setas do teclado.</S.CategoryHint>
+                  {categoryFeedback ? <S.CategoryFeedback role={categoryFeedback.startsWith('Categorias reorganizadas') ? 'status' : 'alert'}>{categoryFeedback}</S.CategoryFeedback> : null}
+                  {orderedCategories.map((item) => (
+                    <S.ReorderableCategory
+                      key={item.id}
+                      data-category-card
+                      data-category-id={item.id}
+                      data-drag-source={draggingCategoryId === item.id ? 'true' : undefined}
+                      tabIndex={0}
+                      aria-label={`Categoria ${item.name}. Arraste para reorganizar ou use as setas.`}
+                      aria-disabled={categoryBusy || saving}
+                      onPointerDown={(event) => beginCategoryDrag(event, item.id)}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+                          event.preventDefault();
+                          void moveCategoryWithKeyboard(item.id, -1);
+                        }
+                        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+                          event.preventDefault();
+                          void moveCategoryWithKeyboard(item.id, 1);
+                        }
+                      }}
+                      onDragStart={(event) => event.preventDefault()}
+                      ref={(element) => setCategoryCardRef(item.id, element)}
+                    >
+                      <span><b>{item.name}</b><small>{item.active === false ? 'Inativa' : 'Ativa'}</small></span>
+                      <button
+                        type="button"
+                        data-no-category-drag
+                        disabled={categoryBusy || saving}
+                        onClick={() => setCategory({ id: item.id, name: item.name, description: item.description || '', active: item.active !== false })}
+                      >Editar</button>
+                    </S.ReorderableCategory>
+                  ))}
                 </S.List>
                 <S.Form onSubmit={saveCategory}>
                   <h3>{category.id ? 'Editar categoria' : 'Nova categoria'}</h3>
                   <label>Nome<input required maxLength={50} value={category.name} onChange={(e) => setCategory((x) => ({ ...x, name: e.target.value }))} /></label>
                   <label>Descrição<textarea rows={4} maxLength={255} value={category.description} onChange={(e) => setCategory((x) => ({ ...x, description: e.target.value }))} /></label>
                   <S.Checks><label><input type="checkbox" checked={category.active} onChange={(e) => setCategory((x) => ({ ...x, active: e.target.checked }))} />Ativa</label></S.Checks>
-                  <S.FormActions>{category.id ? <button type="button" onClick={() => setCategory({ id: 0, name: '', description: '', active: true })}>Nova</button> : null}<button className="primary" disabled={saving}><Save />Salvar categoria</button></S.FormActions>
+                  <S.FormActions>{category.id ? <button type="button" onClick={() => setCategory({ id: 0, name: '', description: '', active: true })}>Nova</button> : null}<button className="primary" disabled={saving || categoryBusy}><Save />Salvar categoria</button></S.FormActions>
                 </S.Form>
               </S.Split>
             ) : tab === 'combos' ? (
