@@ -150,6 +150,18 @@ export class CreateRestaurantService {
         });
 
         if (persistedActor) {
+          // Only a verified platform operator may provision the first-access window.
+          // The window is a one-time onboarding privilege, not a tenant ADMIN session.
+          if (persistedActor.role === 'SUPER_ADMIN') {
+            await tx.restaurantImplementation.create({
+              data: {
+                restaurantId: createdRestaurant.id,
+                status: 'AGUARDANDO_MATERIAL',
+                productLimit: parsedPayload.plan === PlanType.GESTAO_TOTAL ? null : parsedPayload.plan === PlanType.BASICO ? 50 : 100,
+                initialSetupExpiresAt: new Date(today.getTime() + 7 * 86_400_000),
+              },
+            });
+          }
           await tx.auditLog.create({
             data: {
               userId: persistedActor.id,
