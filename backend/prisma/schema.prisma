@@ -126,6 +126,9 @@ model RestaurantImplementation {
   notes        String?  @db.VarChar(2000)
   startedAt    DateTime?
   completedAt  DateTime?
+  // Only provisioned on new platform-created restaurants; null for all legacy tenants.
+  initialSetupExpiresAt DateTime?
+  initialSetupClosedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
