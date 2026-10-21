@@ -46,6 +46,44 @@ async function waitForStableProductGrid(cards: Locator) {
     .toBe(true);
 }
 
+// All positions must be sampled in one browser frame. Sequential
+// locator.boundingBox() calls can straddle the 360ms workspace entrance
+// animation, producing a false row misalignment in Firefox.
+async function waitForStableCategoryRow(cards: Locator) {
+  await expect(cards).toHaveCount(6);
+  await expect
+    .poll(
+      () =>
+        cards.evaluateAll(async (elements) => {
+          const measure = () =>
+            elements.slice(0, 3).map((element) => {
+              const { x, y, width, height } = element.getBoundingClientRect();
+              return [x, y, width, height];
+            });
+          const first = measure();
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+          const second = measure();
+          return (
+            first.length === 3 &&
+            first.every((bounds, index) =>
+              bounds.every(
+                (value, dimension) =>
+                  Number.isFinite(value) &&
+                  (dimension < 2 || value > 0) &&
+                  Math.abs(value - second[index][dimension]) <= 0.5,
+              ),
+            ) &&
+            Math.max(...second.map((bounds) => bounds[1])) -
+              Math.min(...second.map((bounds) => bounds[1])) < 2
+          );
+        }),
+      { message: 'Category cards must settle and the first grid row must stay aligned' },
+    )
+    .toBe(true);
+}
+
 // Do not await Animation.finished promises: an infinite or WebKit-held animation
 // can leave such a promise pending until the entire test times out.
 // Poll actual finite animations instead; layout, CSS and screenshot assertions
@@ -423,11 +461,14 @@ test('Cardápio mantém grade e categorias responsivas na referência visual', a
   const emptyCategory = categoryCards.filter({ hasText: 'Entradas' });
   await expect(emptyCategory.locator('img')).toHaveCount(0);
   await expect(emptyCategory.getByText('0 produtos', { exact: true })).toBeVisible();
-  const firstCategoryBox = await categoryCards.first().boundingBox();
-  const thirdCategoryBox = await categoryCards.nth(2).boundingBox();
-  expect(firstCategoryBox).not.toBeNull();
-  expect(thirdCategoryBox).not.toBeNull();
-  expect(Math.abs(Number(firstCategoryBox?.y) - Number(thirdCategoryBox?.y))).toBeLessThan(2);
+  await waitForStableCategoryRow(categoryCards);
+  // One atomic layout snapshot; assert all three desktop columns, without
+  // changing the original strict 2px alignment tolerance.
+  const firstRowY = await categoryCards.evaluateAll((cards) =>
+    cards.slice(0, 3).map((card) => card.getBoundingClientRect().y),
+  );
+  expect(firstRowY).toHaveLength(3);
+  expect(Math.max(...firstRowY) - Math.min(...firstRowY)).toBeLessThan(2);
   await page.screenshot({ path: testInfo.outputPath('catalog-categories.png'), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
