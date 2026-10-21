@@ -37,6 +37,10 @@ class SuperAdminManagedRestaurantController {
     try { return res.json(await service.updateCategory(req.params.restaurantId, req.params.categoryId, req.body, actor(req))); }
     catch (error) { return next(normalizeManagedServiceError(error)); }
   }
+  async reorderCategories(req: Request, res: Response, next: NextFunction) {
+    try { return res.json(await service.reorderCategories(req.params.restaurantId, req.body, actor(req))); }
+    catch (error) { return next(normalizeManagedServiceError(error)); }
+  }
   async createCombo(req: Request, res: Response, next: NextFunction) {
     try { return res.status(201).json(await service.saveCombo(req.params.restaurantId, null, req.body, actor(req))); }
     catch (error) { return next(normalizeManagedServiceError(error)); }
