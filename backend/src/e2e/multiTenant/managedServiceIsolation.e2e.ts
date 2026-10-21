@@ -382,6 +382,53 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
     assert.equal(settingsAfter.mercadoPagoAccessToken, 'TEST-tenant-e2e-mercado-pago-a');
   });
 
+  await t.test('SUPER_ADMIN reorganiza apenas categorias do restaurante autorizado', async () => {
+    const base = `/super-admin/managed-service/restaurants/${fixture.restaurants.a.id}/categories/reorder`;
+    const created = await prisma.category.create({
+      data: { restaurantId: fixture.restaurants.a.id, name: 'Bebidas E2E', sortOrder: 1 },
+    });
+    const original = await prisma.category.findMany({
+      where: { restaurantId: fixture.restaurants.a.id },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }],
+    });
+    const desired = [...original.map((category) => category.id)].reverse();
+    const success = await apiRequest(app.baseUrl, base, superToken, {
+      method: 'PUT', json: { categoryIds: desired },
+    });
+    assert.equal(success.response.status, 200, JSON.stringify(success.data));
+    assert.deepEqual(success.data.categories.map((category: { id: number }) => category.id), desired);
+
+    const persisted = await prisma.category.findMany({
+      where: { restaurantId: fixture.restaurants.a.id }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    });
+    assert.deepEqual(persisted.map((category) => category.id), desired);
+    assert.equal(persisted[0]?.id, created.id);
+
+    const forbidden = await apiRequest(app.baseUrl, base, fixture.tokens.adminA, {
+      method: 'PUT', json: { categoryIds: [...desired].reverse() },
+    });
+    assert.equal(forbidden.response.status, 403, JSON.stringify(forbidden.data));
+
+    for (const invalid of [
+      { categoryIds: [fixture.categories.b.id, ...desired] },
+      { categoryIds: [desired[0], desired[0]] },
+      { categoryIds: desired.slice(1) },
+    ]) {
+      const denied = await apiRequest(app.baseUrl, base, superToken, {
+        method: 'PUT', json: invalid,
+      });
+      assert.ok([400, 409].includes(denied.response.status), JSON.stringify(denied.data));
+    }
+    const unaffected = await prisma.category.findMany({
+      where: { restaurantId: fixture.restaurants.b.id },
+    });
+    assert.ok(unaffected.some((category) => category.id === fixture.categories.b.id));
+    const unchanged = await prisma.category.findMany({
+      where: { restaurantId: fixture.restaurants.a.id }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+    });
+    assert.deepEqual(unchanged.map((category) => category.id), desired);
+  });
+
   await t.test('Básico recebe implantação inicial com limite 50 e perde workspace ao concluir', async () => {
     await prisma.subscription.update({
       where: { restaurantId: fixture.restaurants.b.id },
