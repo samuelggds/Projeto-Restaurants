@@ -210,6 +210,7 @@ export type CouponPayload = Omit<AdminCoupon, 'id'> & {
 export type AdminCategory = {
   id: number;
   name: string;
+  description?: string | null;
   active?: boolean;
   image?: string | null;
   sortOrder?: number;
