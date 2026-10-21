@@ -40,6 +40,9 @@ router.post('/restaurants/:restaurantId/ingredients', (req, res, next) =>
 router.post('/restaurants/:restaurantId/categories', (req, res, next) =>
   SuperAdminManagedRestaurantController.createCategory(req, res, next),
 );
+router.put('/restaurants/:restaurantId/categories/reorder', (req, res, next) =>
+  SuperAdminManagedRestaurantController.reorderCategories(req, res, next),
+);
 router.patch('/restaurants/:restaurantId/categories/:categoryId', (req, res, next) =>
   SuperAdminManagedRestaurantController.updateCategory(req, res, next),
 );
