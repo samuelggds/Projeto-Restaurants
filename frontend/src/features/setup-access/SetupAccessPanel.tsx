@@ -28,6 +28,7 @@ const dateTime = (value: string | null) => value
 
 export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
   const [grants, setGrants] = useState<Grant[]>([]);
+  const [initial, setInitial] = useState<{ authorized: boolean; expiresAt: string | null; closedAt: string | null } | null>(null);
   const [reason, setReason] = useState('Preparação e configuração operacional do restaurante para iniciar as vendas.');
   const [hours, setHours] = useState(2);
   const [busy, setBusy] = useState(false);
@@ -44,12 +45,18 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
       const { data } = await api.get<Grant[]>(base);
       if (!Array.isArray(data)) throw new Error('Invalid response');
       setGrants(data);
+      if (mode === 'super') {
+        const initialResponse = await api.get<{ authorized: boolean; expiresAt: string | null; closedAt: string | null }>(
+          '/super-admin/managed-service/restaurants/' + restaurantId + '/initial-setup',
+        );
+        setInitial(initialResponse.data);
+      }
       setObservedAt(Date.now());
       setError('');
     } catch {
       setError('Não foi possível consultar os acessos. Tente novamente.');
     }
-  }, [base]);
+  }, [base, mode, restaurantId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -109,7 +116,13 @@ export function SetupAccessPanel({ restaurantId, mode, onAuthorized }: Props) {
       </header>
       {error && <p role="alert" className="error">{error}</p>}
       {notice && <p role="status" className="notice">{notice}</p>}
-      {active ? (
+      {mode === 'super' && initial?.authorized && !active ? (
+        <S.Grant>
+          <strong><ShieldCheck aria-hidden="true" /> Implantação inicial liberada</strong>
+          <p>Acesso operacional inicial disponível até {dateTime(initial.expiresAt)}. Ao concluir a implantação, novos acessos exigirão autorização do cliente.</p>
+          <button type="button" onClick={onAuthorized}>Abrir configurações do restaurante</button>
+        </S.Grant>
+      ) : active ? (
         <S.Grant>
           <strong>Acesso autorizado até {dateTime(active.expiresAt)}</strong>
           <p>O administrador pode revogar esta permissão a qualquer momento.</p>

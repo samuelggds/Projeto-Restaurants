@@ -57,6 +57,12 @@ test('usa trial do plano, senha forte de oito caracteres e auditoria no mesmo co
         role: 'SUPER_ADMIN',
       }),
     },
+    restaurantImplementation: {
+      create: async ({ data }) => {
+        state.implementation = data;
+        return { id: 'initial-test-id', ...data };
+      },
+    },
     auditLog: {
       create: async ({ data }) => {
         state.audit = data;
@@ -66,6 +72,7 @@ test('usa trial do plano, senha forte de oito caracteres e auditoria no mesmo co
   };
   const state = {
     subscription: null,
+    implementation: null,
     admin: null,
     audit: null,
     planDatabase: null,
@@ -126,6 +133,8 @@ test('usa trial do plano, senha forte de oito caracteres e auditoria no mesmo co
     ),
     45,
   );
+  assert.equal(state.implementation.restaurantId, 51);
+  assert.equal(state.implementation.initialSetupExpiresAt instanceof Date, true);
   assert.equal(state.audit.userId, 2);
   assert.equal(state.audit.userName, 'Desenvolvedor da Plataforma');
   assert.equal(state.audit.userRole, 'SUPER_ADMIN');

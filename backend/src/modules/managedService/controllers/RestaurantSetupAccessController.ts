@@ -13,6 +13,7 @@ const handle = (operation: (req: Request) => Promise<unknown>, status = 200) =>
   };
 
 export const requestSetupAccess = handle((req) => service.request(rid(req), actor(req), req.body?.reason), 201);
+export const initialSetupStatus = handle((req) => service.initialSetupStatus(rid(req), actor(req)));
 export const listSetupAccess = handle((req) => service.list(rid(req), actor(req), String(req.user?.role || '')));
 export const decideSetupAccess = handle((req) => service.decide(actor(req), rid(req), String(first(req.params.id)), req.body?.approve === true, Number(req.body?.hours ?? 2)));
 export const revokeSetupAccess = handle((req) => service.revoke(actor(req), rid(req), String(first(req.params.id))));

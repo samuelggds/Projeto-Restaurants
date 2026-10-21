@@ -36,6 +36,29 @@ export function hasContinuousManagementAccess(
   );
 }
 
+/** Automatic initial access is issued only during creation of a new restaurant.
+ * It expires, closes irreversibly on completion/revocation, and never applies to
+ * legacy restaurants or reactivated/subsequently upgraded subscriptions.
+ */
+export function hasInitialSetupAccess(
+  plan: ManagedServicePlan | null | undefined,
+  subscriptionStatus: ManagedServiceSubscriptionStatus | null | undefined,
+  implementation: {
+    status: string;
+    initialSetupExpiresAt: Date | null;
+    initialSetupClosedAt: Date | null;
+  } | null | undefined,
+  now: Date = new Date(),
+) {
+  if (!hasImplementationAccess(plan, subscriptionStatus) || !implementation) return false;
+  if (['CONCLUIDA', 'CANCELADA'].includes(String(implementation.status).toUpperCase())) return false;
+  return (
+    implementation.initialSetupClosedAt === null &&
+    implementation.initialSetupExpiresAt instanceof Date &&
+    implementation.initialSetupExpiresAt.getTime() > now.getTime()
+  );
+}
+
 export function hasManagedWorkspaceAccess(
   plan: ManagedServicePlan | null | undefined,
   status: ManagedServiceSubscriptionStatus | null | undefined,

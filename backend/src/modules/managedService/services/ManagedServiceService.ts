@@ -329,7 +329,9 @@ export class ManagedServiceService {
           status: parsed.status,
           notes: parsed.notes,
           ...(parsed.status === 'EM_IMPLANTACAO' && !before?.startedAt ? { startedAt: now } : {}),
-          completedAt: parsed.status === 'CONCLUIDA' ? now : null,
+          completedAt: parsed.status === 'CONCLUIDA' ? now : before?.completedAt ?? null,
+          ...(before?.initialSetupExpiresAt && (parsed.status === 'CONCLUIDA' || parsed.status === 'CANCELADA')
+            ? { initialSetupClosedAt: before.initialSetupClosedAt ?? now } : {}),
         },
       });
 
