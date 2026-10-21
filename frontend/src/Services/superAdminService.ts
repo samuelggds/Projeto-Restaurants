@@ -276,6 +276,14 @@ class SuperAdminService {
     return response.data;
   }
 
+  async reorderManagedCategories(restaurantId: number, categoryIds: number[]) {
+    const response = await api.put(
+      `/super-admin/managed-service/restaurants/${restaurantId}/categories/reorder`,
+      { categoryIds },
+    );
+    return response.data;
+  }
+
   async createManagedCombo(restaurantId: number, input: Record<string, unknown>) {
     const response = await api.post(
       `/super-admin/managed-service/restaurants/${restaurantId}/combos`,
