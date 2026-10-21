@@ -1,4 +1,5 @@
 import prisma from '../../../config/prisma.js';
+import { hasInitialSetupAccess } from '../domain/managedServicePolicy.js';
 import type { Prisma } from '@prisma/client';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import { managedBadRequest, managedConflict, managedForbidden, managedNotFound } from '../domain/managedServiceErrors.js';
@@ -83,13 +84,40 @@ export class RestaurantSetupAccessService {
     return prisma.restaurantSetupAccess.findMany({ where: { restaurantId }, orderBy: { requestedAt: 'desc' }, take: 20, select: { id: true, restaurantId: true, status: true, reason: true, requestedAt: true, approvedAt: true, expiresAt: true, revokedAt: true, requesterId: true, decidedById: true } });
   }
 
+  async initialSetupStatus(restaurantIdRaw: unknown, actorId: number) {
+    const restaurantId = validId(restaurantIdRaw);
+    const actor = await prisma.user.findFirst({ where: { id: actorId, role: 'SUPER_ADMIN', active: true }, select: { id: true } });
+    if (!actor) throw managedForbidden('Identidade de plataforma inválida.');
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { subscription: { select: { plan: true, status: true } }, implementation: { select: {
+        status: true, initialSetupExpiresAt: true, initialSetupClosedAt: true,
+      } } },
+    });
+    if (!restaurant) throw managedNotFound('Restaurante não encontrado.');
+    return {
+      authorized: hasInitialSetupAccess(restaurant.subscription?.plan, restaurant.subscription?.status, restaurant.implementation),
+      expiresAt: restaurant.implementation?.initialSetupExpiresAt ?? null,
+      closedAt: restaurant.implementation?.initialSetupClosedAt ?? null,
+    };
+  }
+
   async assertAuthorized(restaurantIdRaw: unknown, actorId: number) {
     const restaurantId = validId(restaurantIdRaw);
     const actor = await prisma.user.findFirst({ where: { id: actorId, role: 'SUPER_ADMIN', active: true }, select: { id: true } });
     if (!actor) throw managedForbidden('Identidade de plataforma inválida.');
     const grant = await prisma.restaurantSetupAccess.findFirst({ where: { restaurantId, requesterId: actor.id, status: 'APPROVED', revokedAt: null, expiresAt: { gt: new Date() } }, select: { id: true } });
-    if (!grant) throw managedForbidden('O administrador ainda não autorizou este acesso ou ele expirou.', 'SETUP_ACCESS_CONSENT_REQUIRED');
-    return grant.id;
+    if (grant) return grant.id;
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { subscription: { select: { plan: true, status: true } }, implementation: { select: {
+        status: true, initialSetupExpiresAt: true, initialSetupClosedAt: true,
+      } } },
+    });
+    if (restaurant && hasInitialSetupAccess(restaurant.subscription?.plan, restaurant.subscription?.status, restaurant.implementation)) {
+      return 'INITIAL_SETUP';
+    }
+    throw managedForbidden('O administrador ainda não autorizou este acesso ou ele expirou.', 'SETUP_ACCESS_CONSENT_REQUIRED');
   }
 }
 
