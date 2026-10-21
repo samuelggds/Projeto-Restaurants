@@ -267,6 +267,7 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
       (data?.categories || []).map((item) => ({
         id: item.id,
         name: item.name,
+        description: item.description ?? null,
         active: item.active !== false,
       })),
     [data?.categories],
