@@ -92,6 +92,7 @@
   "overrides": {
     "deepmerge-ts": "8.0.2",
     "esbuild": "0.28.1",
-    "undici": "7.29.1"
+    "undici": "7.29.1",
+    "follow-redirects": "1.16.1"
   }
 }
