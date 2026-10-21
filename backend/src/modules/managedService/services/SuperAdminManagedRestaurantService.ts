@@ -7,6 +7,7 @@ import updateProductService from '../../products/services/UpdateProductService.j
 import listProductService from '../../products/services/ListProductService.js';
 import createCategoryService from '../../categories/services/CreateCategoryService.js';
 import updateCategoryService from '../../categories/services/UpdateCategoryService.js';
+import reorderCategoryService from '../../categories/services/ReorderCategoryService.js';
 import listCategoryService from '../../categories/services/ListCategoryService.js';
 import {
   createIngredientService,
@@ -20,7 +21,7 @@ import updateRestaurantSettingsService from '../../restaurantSettings/services/U
 import kitchenPrintingAdminService from '../../kitchenPrinting/services/KitchenPrintingAdminService.js';
 import { updatePrinterSettingsSchema } from '../../kitchenPrinting/domain/kitchenPrintingSchemas.js';
 import { createProductSchema, updateProductSchema } from '../../../validators/ProductValidator.js';
-import { createCategorySchema } from '../../../validators/CategoryValidator.js';
+import { createCategorySchema, reorderCategoriesSchema } from '../../../validators/CategoryValidator.js';
 import { createIngredientSchema } from '../../../validators/IngredientValidator.js';
 import { comboInputSchema } from '../../productCombos/services/ProductComboService.js';
 import {
@@ -419,6 +420,21 @@ class SuperAdminManagedRestaurantService {
     );
     await audit(restaurantId, restaurant.name, actor, 'MANAGED_CATEGORY_UPDATED', `Category:${categoryId}`, {
       fields: Object.keys(parsed),
+    });
+    return result;
+  }
+
+  async reorderCategories(restaurantIdInput: unknown, input: unknown, actor: Actor) {
+    await assertSuperAdmin(actor);
+    const restaurantId = positiveId(restaurantIdInput, 'Restaurante');
+    const restaurant = await assertManagedAccess(restaurantId);
+    const parsed = reorderCategoriesSchema.parse(input);
+    // Reuse the ADMIN transaction and its tenant ownership/complete-list validation.
+    const result = await managedMutation(() =>
+      reorderCategoryService.execute(parsed, restaurantId),
+    );
+    await audit(restaurantId, restaurant.name, actor, 'MANAGED_CATEGORIES_REORDERED', 'Category', {
+      categoryIds: parsed.categoryIds,
     });
     return result;
   }
