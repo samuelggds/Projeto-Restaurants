@@ -17,6 +17,9 @@ jobs:
   portable-browser:
     name: Portable critical - ${{ matrix.browser }}
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -24,6 +27,8 @@ jobs:
         browser: [chromium, firefox, webkit]
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
+      # The official image runs as root; Firefox requires an owned HOME.
+      HOME: /root
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -36,7 +41,7 @@ jobs:
       - run: npm --prefix frontend ci
       - name: Install selected browser engine
         working-directory: frontend
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        run: npx playwright install ${{ matrix.browser }}
       - name: Run portable critical journeys
         working-directory: frontend
         shell: bash
@@ -67,6 +72,9 @@ jobs:
   catalog-webkit-regression:
     name: Catalog product wizard and grid - WebKit
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 25
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
@@ -82,7 +90,7 @@ jobs:
       - run: npm --prefix frontend ci
       - name: Install WebKit and its Linux dependencies
         working-directory: frontend
-        run: npx playwright install --with-deps webkit
+        run: npx playwright install webkit
       - name: Verify catalog wizard and card layout without skipping tests
         working-directory: frontend
         shell: bash
@@ -103,6 +111,9 @@ jobs:
   catalog-other-engines:
     name: Catalog product wizard and grid - ${{ matrix.browser }}
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -110,6 +121,8 @@ jobs:
         browser: [chromium, firefox]
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
+      # The official image runs as root; Firefox requires an owned HOME.
+      HOME: /root
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -122,7 +135,7 @@ jobs:
       - run: npm --prefix frontend ci
       - name: Install selected browser engine
         working-directory: frontend
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        run: npx playwright install ${{ matrix.browser }}
       - name: Verify full catalog workflow in selected browser
         working-directory: frontend
         shell: bash
@@ -143,6 +156,9 @@ jobs:
   catalog-repeatability:
     name: WebKit catalog and billing repeatability
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 25
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
@@ -158,7 +174,7 @@ jobs:
       - run: npm --prefix frontend ci
       - name: Install WebKit and its Linux dependencies
         working-directory: frontend
-        run: npx playwright install --with-deps webkit
+        run: npx playwright install webkit
       - name: Exercise previously unstable catalog and sidebar interactions three times
         working-directory: frontend
         shell: bash
@@ -183,6 +199,9 @@ jobs:
   webkit-mobile-crash-isolation:
     name: WebKit mobile catalog - isolated processes
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 25
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
@@ -198,7 +217,7 @@ jobs:
       - run: npm --prefix frontend ci
       - name: Install WebKit and Linux dependencies
         working-directory: frontend
-        run: npx playwright install --with-deps webkit
+        run: npx playwright install webkit
       - name: Enable WebKit crash diagnostics
         shell: bash
         run: |
@@ -255,6 +274,9 @@ jobs:
   webkit-version-comparison:
     name: WebKit version comparison - ${{ matrix.playwright }}
     runs-on: ubuntu-latest
+    # Preinstalled Linux browser dependencies; keep browser tests and versions intact.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -281,11 +303,14 @@ jobs:
           set -euo pipefail
           npm install --no-save --package-lock=false --ignore-scripts --no-fund "@playwright/test@${PLAYWRIGHT_PROBE_VERSION}"
           node -e 'const got=require("@playwright/test/package.json").version; if(got!==process.env.PLAYWRIGHT_PROBE_VERSION) { console.error("Unexpected Playwright version: "+got); process.exit(1) }'
-          git diff --exit-code -- package.json package-lock.json
+          # Checkout's temporary HOME does not persist as a trusted Git path
+          # in container steps; make the ownership exception explicit and scoped.
+          test "$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+          git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code -- package.json package-lock.json
           npx playwright --version
       - name: Install matching WebKit and system dependencies
         working-directory: frontend
-        run: npx playwright install --with-deps webkit
+        run: npx playwright install webkit
       # The experimental WebKit's first browser.newPage() can take >20 seconds
       # on a cold Linux runner. Run a bounded, independently failing browser
       # health probe before Playwright begins its 30-second application tests.
