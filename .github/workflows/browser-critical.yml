@@ -286,6 +286,38 @@ jobs:
       - name: Install matching WebKit and system dependencies
         working-directory: frontend
         run: npx playwright install --with-deps webkit
+      # The experimental WebKit's first browser.newPage() can take >20 seconds
+      # on a cold Linux runner. Run a bounded, independently failing browser
+      # health probe before Playwright begins its 30-second application tests.
+      # The actual five tests retain their original timeout, assertions and
+      # no-retry policy; a failing cold startup cannot silently pass.
+      - name: Validate cold WebKit page startup separately
+        working-directory: frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 60s node --input-type=module <<'NODE'
+          import { webkit } from '@playwright/test';
+
+          const startedAt = performance.now();
+          const browser = await webkit.launch({ timeout: 45_000 });
+          try {
+            const context = await browser.newContext();
+            try {
+              const page = await context.newPage();
+              await page.goto('about:blank');
+              const ready = await page.evaluate(() => document.readyState);
+              if (ready !== 'complete') {
+                throw new Error(`WebKit cold startup did not finish: ${ready}`);
+              }
+              console.log(`WebKit cold browser/page startup: ${Math.round(performance.now() - startedAt)}ms`);
+            } finally {
+              await context.close();
+            }
+          } finally {
+            await browser.close();
+          }
+          NODE
       - name: Compare unmodified mobile product journey across five fresh contexts
         working-directory: frontend
         shell: bash
