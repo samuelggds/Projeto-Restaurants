@@ -27,6 +27,8 @@ jobs:
         browser: [chromium, firefox, webkit]
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
+      # The official image runs as root; Firefox requires an owned HOME.
+      HOME: /root
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -119,6 +121,8 @@ jobs:
         browser: [chromium, firefox]
     env:
       PLAYWRIGHT_ALL_BROWSERS: 'true'
+      # The official image runs as root; Firefox requires an owned HOME.
+      HOME: /root
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -299,7 +303,10 @@ jobs:
           set -euo pipefail
           npm install --no-save --package-lock=false --ignore-scripts --no-fund "@playwright/test@${PLAYWRIGHT_PROBE_VERSION}"
           node -e 'const got=require("@playwright/test/package.json").version; if(got!==process.env.PLAYWRIGHT_PROBE_VERSION) { console.error("Unexpected Playwright version: "+got); process.exit(1) }'
-          git diff --exit-code -- package.json package-lock.json
+          # Checkout's temporary HOME does not persist as a trusted Git path
+          # in container steps; make the ownership exception explicit and scoped.
+          test "$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse --show-toplevel)" = "$GITHUB_WORKSPACE"
+          git -c safe.directory="$GITHUB_WORKSPACE" diff --exit-code -- package.json package-lock.json
           npx playwright --version
       - name: Install matching WebKit and system dependencies
         working-directory: frontend
