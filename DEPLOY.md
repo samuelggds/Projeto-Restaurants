@@ -141,7 +141,7 @@ export BACKUP_AGE_IDENTITY_FILE='/caminho/privado/para/identity.agekey'
 bash scripts/restore-drill-production.sh
 ```
 
-A chave privada `age` deve permanecer fora do repositório e fora do servidor de aplicação quando não estiver sendo usada para recuperação. O restore drill cria um PostgreSQL temporário isolado, valida checksum, restaura o dump, confirma histórico de migrations e tabelas públicas e remove o ambiente temporário ao finalizar. Faça o drill periodicamente e depois de mudanças relevantes no processo de backup.
+A chave privada `age` deve permanecer fora do repositório e fora do servidor de aplicação quando não estiver sendo usada para recuperação. O restore drill cria um PostgreSQL temporário isolado, valida checksum, restaura o dump, confirma histórico de migrations, tabelas públicas, foreign keys, políticas RLS e negação de leitura sem contexto tenant, e remove o ambiente temporário ao finalizar. Faça o drill periodicamente e depois de mudanças relevantes no processo de backup. O tempo do drill não equivale a RTO de um incidente; RPO e RTO continuam explicitamente não verificados. O CI utiliza somente comandos sintéticos e não acessa backups reais do S3. A chave privada age permanece fora do CI e do repositório.
 
 ## 8. Pagamentos e OAuth
 
