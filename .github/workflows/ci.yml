@@ -56,8 +56,9 @@ jobs:
       - name: Validate offsite backup controls
         shell: bash
         run: |
-          bash -n scripts/backup-production.sh scripts/restore-backup-drill.sh
+          bash -n scripts/backup-production.sh scripts/restore-backup-drill.sh scripts/restore-drill-production.sh scripts/test-restore-drill-production.sh
           bash scripts/test-backup-production.sh
+          bash scripts/test-restore-drill-production.sh
           node --test scripts/checkCodeqlSarif.test.mjs
 
   lint:

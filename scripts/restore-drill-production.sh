@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
+drill_started_epoch=$(date -u +%s)
 
 : "${BACKUP_BUCKET:?Configure the private S3 bucket}"
 : "${BACKUP_BUCKET_OWNER:?Configure the AWS account ID}"
@@ -100,7 +101,43 @@ table_count=$(docker exec "$container" psql -U postgres -d restorecheck -Atc \
   exit 1
 }
 
-printf '{"verified":true,"backupKey":"%s","migrations":%s,"publicTables":%s,"verifiedAt":"%s"}\n' \
-  "$BACKUP_KEY" "$migration_count" "$table_count" "$(date -u +%FT%TZ)"
 
-echo 'Restore drill completed successfully. Production database was not touched.'
+# Extra integrity verification runs exclusively in the --network none temporary container.
+docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d restorecheck <<'SQL'
+DO $$
+DECLARE
+  required_tables text[] := ARRAY['Restaurant','User','Order','RestaurantSettings','NotificationOutbox'];
+  protected_tables text[] := ARRAY['AiCreditWallet','AiCreditLedgerEntry','AiCreditReservation','OrderIssueThread'];
+BEGIN
+  IF (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind IN ('r','p') AND c.relname=ANY(required_tables)) <> cardinality(required_tables)
+  THEN RAISE EXCEPTION 'Required tables missing'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace)
+  THEN RAISE EXCEPTION 'Missing foreign keys'; END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace AND NOT convalidated)
+  THEN RAISE EXCEPTION 'Unvalidated foreign keys'; END IF;
+  IF (SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname=ANY(protected_tables)
+      AND c.relrowsecurity AND c.relforcerowsecurity) <> cardinality(protected_tables)
+  THEN RAISE EXCEPTION 'RLS absent or disabled'; END IF;
+  IF (SELECT COUNT(DISTINCT tablename) FROM pg_policies
+      WHERE schemaname='public' AND tablename=ANY(protected_tables)) <> cardinality(protected_tables)
+  THEN RAISE EXCEPTION 'RLS policies missing'; END IF;
+END $$;
+CREATE ROLE restore_drill_probe NOLOGIN NOSUPERUSER NOBYPASSRLS;
+GRANT USAGE ON SCHEMA public TO restore_drill_probe;
+GRANT SELECT ON "AiCreditWallet","AiCreditLedgerEntry","AiCreditReservation","OrderIssueThread" TO restore_drill_probe;
+SET ROLE restore_drill_probe;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM "AiCreditWallet") OR EXISTS (SELECT 1 FROM "AiCreditLedgerEntry")
+    OR EXISTS (SELECT 1 FROM "AiCreditReservation") OR EXISTS (SELECT 1 FROM "OrderIssueThread")
+  THEN RAISE EXCEPTION 'RLS leaks cross-tenant data'; END IF;
+END $$;
+RESET ROLE;
+SQL
+
+drill_duration_seconds=$(( $(date -u +%s) - drill_started_epoch ))
+printf '{"verified":true,"backupKey":"%s","migrations":%s,"publicTables":%s,"drillDurationSeconds":%s,"foreignKeysValidated":true,"rlsValidated":true,"rpoVerified":false,"rtoVerified":false,"verifiedAt":"%s"}\n' \
+  "$BACKUP_KEY" "$migration_count" "$table_count" "$drill_duration_seconds" "$(date -u +%FT%TZ)"
+echo 'Isolated restore verified; RPO/RTO require separate evidence.'
