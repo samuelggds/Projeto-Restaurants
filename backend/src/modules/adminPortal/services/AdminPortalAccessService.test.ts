@@ -125,3 +125,37 @@ test('o link privado não contorna suspensão manual, inatividade sem motivo ou 
   revoked = true;
   await assert.rejects(() => service.verifyGrant('north-pizza', result.grant), { statusCode: 404 });
 });
+
+
+test('branding do ADMIN com BILLING retorna somente identidade após grant válido', async () => {
+  const key = 'f'.repeat(43);
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+  prisma.restaurant.findUnique = async ({ where, select }) => {
+    if (where.slug) return { id: 7, slug: 'north-pizza', active: false, accessBlockReason: 'BILLING' };
+    if (select.settings) return {
+      id: 7, slug: 'north-pizza', name: 'North Pizza',
+      description: 'Pizza artesanal',
+      logo: 'data:image/png;base64,YWJj',
+      coverImage: 'data:image/webp;base64,YWJj',
+      settings: { primaryColor: '#ab482a' },
+    };
+    return { id: 7, slug: 'north-pizza', active: false, accessBlockReason: 'BILLING' };
+  };
+  prisma.auditLog.findFirst = async () => ({
+    id: 130, action: 'ADMIN_PORTAL_KEY_ROTATED', metadata: { keyHash },
+  });
+  const issued = await service.exchange('north-pizza', key);
+  const result = await service.getBranding('north-pizza', issued.grant);
+  assert.deepEqual(result, {
+    restaurant: {
+      name: 'North Pizza', description: 'Pizza artesanal',
+      logo: 'data:image/png;base64,YWJj',
+      coverImage: 'data:image/webp;base64,YWJj',
+    },
+    primaryColor: '#ab482a',
+  });
+  assert.equal('active' in result, false);
+  assert.equal('invoice' in result, false);
+  assert.equal('restaurantId' in result, false);
+  await assert.rejects(() => service.getBranding('outro-restaurante', issued.grant), { statusCode: 404 });
+});

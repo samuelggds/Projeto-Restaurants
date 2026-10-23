@@ -43,5 +43,8 @@ router.post('/:slug/exchange', exchangeLimiter, (req, res, next) =>
 router.post('/:slug/verify', verifyLimiter, (req, res, next) =>
   AdminPortalController.verify(req, res, next),
 );
+router.post('/:slug/branding', verifyLimiter, (req, res, next) =>
+  AdminPortalController.branding(req, res, next),
+);
 
 export default router;
