@@ -125,6 +125,17 @@ export function RestaurantDetailsSecure({
             <dd>{formatDate(restaurant.nextBillingAt)}</dd>
           </div>
           <div>
+            <dt>{restaurant.billingGraceSource === 'ESTIMATED' ? 'Fim previsto da tolerância' : 'Fim da tolerância de pagamento'}</dt>
+            <dd>{formatDate(restaurant.billingGraceEndsAt, true)}</dd>
+            <small style={{ display: 'block', marginTop: 7, fontSize: 11, lineHeight: 1.5, color: 'var(--muted)' }}>
+              {restaurant.billingGraceSource === 'OPEN_INVOICE'
+                ? 'Calculado pela fatura em aberto mais antiga, com 5 dias úteis após o vencimento.'
+                : restaurant.billingGraceSource === 'ESTIMATED'
+                  ? 'Previsão baseada no ciclo da assinatura. A emissão da fatura ainda não está confirmada.'
+                  : 'Não há vencimento disponível para calcular a tolerância.'}
+            </small>
+          </div>
+          <div>
             <dt>Volume de pedidos no mês</dt>
             <dd>{formatCurrency(restaurant.monthlyOrderRevenue)}</dd>
           </div>
