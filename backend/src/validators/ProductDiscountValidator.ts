@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const optionalDate = z
   .union([z.string().datetime({ offset: true }), z.date(), z.null()])

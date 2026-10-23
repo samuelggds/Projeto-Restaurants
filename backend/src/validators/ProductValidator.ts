@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const ingredientSchema = z.object({
   id: z.number().int().positive().optional(),

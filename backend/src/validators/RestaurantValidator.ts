@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
 import { optionalNormalizedBrazilPhoneSchema } from './PhoneValidator.js';
 
