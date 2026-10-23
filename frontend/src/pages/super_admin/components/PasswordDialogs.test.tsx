@@ -16,6 +16,8 @@ const restaurant: RestaurantTenant = {
   createdAt: '2026-08-28T00:00:00.000Z',
   lastAccessAt: null,
   nextBillingAt: null,
+  billingGraceEndsAt: null,
+  billingGraceSource: null,
   monthlyFee: 0,
   monthlyOrderRevenue: 0,
   primaryAdmin: null,
