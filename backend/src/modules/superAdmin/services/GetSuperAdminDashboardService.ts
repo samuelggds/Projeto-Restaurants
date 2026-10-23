@@ -8,6 +8,8 @@ import {
   toIso,
 } from '../domain/superAdminMappings.js';
 import { getPublicSystemPolicies } from '../domain/systemPolicies.js';
+import { getGraceLimitDate } from '../../billing/utils/billingRules.js';
+import { resolveSubscriptionDueDate } from '../../billing/utils/billingCycle.js';
 import superAdminRepository, {
   type SuperAdminRepository,
 } from '../repositories/SuperAdminRepository.js';
@@ -35,6 +37,9 @@ export class GetSuperAdminDashboardService {
     const feesByPlan = new Map(
       snapshot.plans.map((plan) => [plan.code, decimalToNumber(plan.monthlyFee)]),
     );
+    const openInvoiceDueDates = new Map(
+      snapshot.openInvoiceDueDatesByRestaurant.map((row) => [row.restaurantId, row._min.dueDate]),
+    );
     const planCounts = new Map<string, number>();
     const monthlyRevenueByRestaurant = new Map(
       snapshot.monthlyOrdersByRestaurant.map((row) => [
@@ -45,6 +50,23 @@ export class GetSuperAdminDashboardService {
 
     const restaurants = snapshot.restaurants.map((restaurant) => {
       const subscription = restaurant.subscription;
+      // A tolerância legal da fatura parte do vencimento mais antigo em aberto.
+      // Sem fatura, a mesma conta é apenas uma previsão do próximo ciclo,
+      // nunca prova de cobrança emitida ou bloqueio.
+      const openInvoiceDueDate = openInvoiceDueDates.get(restaurant.id) ?? null;
+      const estimatedDueDate =
+        !openInvoiceDueDate && ['ATIVA', 'TESTE'].includes(subscription?.status ?? '')
+          ? resolveSubscriptionDueDate(subscription ?? {})
+          : null;
+      const graceDueDate = openInvoiceDueDate ?? estimatedDueDate;
+      const billingGraceEndsAt = graceDueDate
+        ? toIso(getGraceLimitDate(graceDueDate))
+        : null;
+      const billingGraceSource = openInvoiceDueDate
+        ? 'OPEN_INVOICE'
+        : estimatedDueDate
+          ? 'ESTIMATED'
+          : null;
       if (subscription?.plan) {
         planCounts.set(subscription.plan, (planCounts.get(subscription.plan) ?? 0) + 1);
       }
@@ -71,6 +93,8 @@ export class GetSuperAdminDashboardService {
         createdAt: restaurant.createdAt.toISOString(),
         lastAccessAt: toIso(lastAccess),
         nextBillingAt: toIso(subscription?.currentPeriodEnd),
+        billingGraceEndsAt,
+        billingGraceSource,
         monthlyFee: subscription ? (feesByPlan.get(subscription.plan) ?? 0) : 0,
         monthlyOrderRevenue: monthlyRevenueByRestaurant.get(restaurant.id) ?? 0,
         primaryAdmin: primaryAdmin ? presentAdministrator(primaryAdmin, restaurant.name) : null,
