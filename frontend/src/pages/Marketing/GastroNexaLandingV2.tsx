@@ -8,6 +8,11 @@ import { ApprovedMarketingPlans } from './landing/ApprovedMarketingPlans';
 type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
 type MountTargets = { lead: Element; plans: Element };
 
+// Keep the dangerouslySetInnerHTML prop referentially stable. React updates
+// innerHTML when this object is replaced; recreating it after setMounts()
+// would detach both portal targets, leaving the form and plans invisible.
+const stableApprovedMarkup = { __html: approvedLandingMarkup };
+
 const descriptions: Record<string, { title: string; desc: string; note: string }> = {
   cardapio: {
     title: 'Um cardápio que valoriza seu negócio.',
@@ -96,7 +101,7 @@ export default function GastroNexaLandingV2() {
       <div
         ref={attachApprovedMarkup}
         onClick={handleMarkupClick}
-        dangerouslySetInnerHTML={{ __html: approvedLandingMarkup }}
+        dangerouslySetInnerHTML={stableApprovedMarkup}
       />
       {mounts
         ? createPortal(
