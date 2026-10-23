@@ -307,7 +307,7 @@ export function MfaVerificationModal<T>({
       setSelectionRequired(Boolean(result.channelSelectionRequired));
       setDigits(Array(6).fill(''));
       setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
-      setMessage(`Código enviado para ${result.destination || activeDestination}.`);
+      setMessage(`Envio solicitado para ${result.destination || activeDestination}. A entrega pode atrasar; aguarde antes de solicitar outro código.`);
       window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
     } catch (error) {
       setState('error');
@@ -333,7 +333,7 @@ export function MfaVerificationModal<T>({
       setActiveDestination(result.destination || activeDestination);
       setDigits(Array(6).fill(''));
       setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
-      setMessage(`Novo código enviado para ${result.destination || activeDestination}.`);
+      setMessage(`Novo envio solicitado para ${result.destination || activeDestination}. A entrega pode atrasar; o código anterior foi substituído.`);
       window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
     } catch (error) {
       const response = (error as {
