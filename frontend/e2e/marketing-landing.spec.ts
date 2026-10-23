@@ -102,7 +102,7 @@ for (const viewport of [
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
     await expect(page.locator('header').first()).toContainText('GastroNexa');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Seu restaurante vende mais. Sua operação fica mais simples.',
+      'Seu restaurante mais organizado. Suas vendas em outro nível.',
     );
 
     const heroImage = page.getByTestId('marketing-hero-image');
@@ -136,7 +136,18 @@ for (const viewport of [
   });
 }
 
-test('menu mobile representa a navegação do novo Figma', async ({ page }) => {
+test('formulário comercial está disponível imediatamente na capa', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  const hero = page.locator('#solucoes');
+  const form = hero.getByRole('form', { name: 'Contato comercial' });
+  await expect(form).toBeVisible();
+  await expect(page.getByRole('form', { name: 'Contato comercial' })).toHaveCount(1);
+  await expect(hero.getByText('Pedido recebido!')).toBeVisible();
+  await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
+});
+
+test('menu mobile representa a navegação comercial atual', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
@@ -147,10 +158,10 @@ test('menu mobile representa a navegação do novo Figma', async ({ page }) => {
   await expect(navigation).toBeVisible();
 
   for (const [label, anchor] of [
-    ['Soluções', '#solucoes'],
-    ['Para redes', '#redes'],
+    ['Funcionalidades', '#recursos'],
+    ['A plataforma', '#produto'],
     ['Como funciona', '#como-funciona'],
-    ['Recursos', '#recursos'],
+    ['Planos', '#planos'],
     ['Dúvidas', '#duvidas'],
   ]) {
     if (!(await navigation.isVisible())) await openMenu.click();
@@ -206,11 +217,11 @@ test('FAQ é acessível por teclado e mantém as respostas do novo layout', asyn
   await expect(second.locator('p')).toBeVisible();
 });
 
-test('galeria usa assets locais do produto e seção multi-tenant está presente', async ({ page }) => {
+test('showcase e galeria usam assets locais e seção multi-tenant está presente', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
 
-  const product = page.locator('#produto');
+  const product = page.locator('#galeria');
   await expect(product.getByText('Pedido personalizado', { exact: true })).toBeVisible();
   for (const image of await product.locator('figure img').all()) {
     await expect(image).toHaveAttribute('src', /^\/marketing-v3\//);
