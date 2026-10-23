@@ -73,6 +73,47 @@ describe('api auth session', () => {
     expect(localStorage.getItem('user')).toBeNull();
   });
 
+  it.each([
+    ['/north-pizza/admin/' + 'a'.repeat(43), 'BILLING_BLOCKED'],
+    ['/north-pizza/admin/' + 'a'.repeat(43), 'RESTAURANT_ACCESS_BLOCKED'],
+    ['/north-pizza/admin', 'BILLING_BLOCKED'],
+    ['/north-pizza/admin', 'RESTAURANT_ACCESS_BLOCKED'],
+  ])('não sequestra entrada ADMIN %s diante de %s antes da validação da sessão', async (pathname, code) => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { hostname: 'localhost', protocol: 'http:', pathname, assign },
+      localStorage, dispatchEvent: vi.fn(),
+    });
+    await expect(api.get('/restaurants/7/availability', {
+      adapter: async (config) => {
+        throw new AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, {
+          data: { code, restaurantId: 7 },
+          status: 403, statusText: 'Forbidden', headers: {}, config,
+        });
+      },
+    })).rejects.toMatchObject({ response: { status: 403 } });
+    expect(assign).not.toHaveBeenCalled();
+    const blocked = JSON.parse(localStorage.getItem('system_block_state') || 'null');
+    expect(blocked.reason).toBe(code === 'BILLING_BLOCKED' ? 'BILLING' : 'MANUAL');
+  });
+
+  it('mantém redirecionamento protetivo em rota operacional sem sessão', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { hostname: 'localhost', protocol: 'http:', pathname: '/kitchen', assign },
+      localStorage, dispatchEvent: vi.fn(),
+    });
+    await expect(api.get('/orders', {
+      adapter: async (config) => {
+        throw new AxiosError('Forbidden', 'ERR_BAD_REQUEST', config, undefined, {
+          data: { code: 'BILLING_BLOCKED', restaurantId: 7 },
+          status: 403, statusText: 'Forbidden', headers: {}, config,
+        });
+      },
+    })).rejects.toMatchObject({ response: { status: 403 } });
+    expect(assign).toHaveBeenCalledWith('/system-maintenance');
+  });
+
   it('prioriza o proxy same-origin do Vite em desenvolvimento', () => {
     expect(api.defaults.baseURL).toBe(`${window.location.origin}/api`);
   });

@@ -9,7 +9,7 @@ import {
   readSessionUserRaw,
 } from '../modules/auth/session/authSession';
 import { setSystemBlockState } from './systemBlock';
-import { setPlatformMaintenanceState } from './platformMaintenance';
+import { isAlwaysAvailableLoginPath, setPlatformMaintenanceState } from './platformMaintenance';
 import { buildLoginUrl } from '../shared/navigation/authNavigation';
 import { publicApiError } from '../shared/errors/publicApiError';
 
@@ -366,7 +366,14 @@ api.interceptors.response.use(
 
         const currentPath = window.location.pathname;
         const adminCanUseBillingOnly = role === 'ADMIN' && !blockedByManualRestriction;
-        if (!adminCanUseBillingOnly && currentPath !== '/system-maintenance') {
+        // Never redirect an authentication entry away before its tenant
+        // key exchange / role check completes. The original 403 still reaches
+        // its caller; this exception does not enable protected operations.
+        if (
+          !adminCanUseBillingOnly &&
+          !isAlwaysAvailableLoginPath(currentPath) &&
+          currentPath !== '/system-maintenance'
+        ) {
           window.location.assign('/system-maintenance');
         }
       }

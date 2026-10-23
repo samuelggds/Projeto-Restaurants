@@ -45,6 +45,7 @@ describe('estados locais de disponibilidade', () => {
       '/pizzaria/login/',
       '/pizzaria/team',
       '/pizzaria/admin',
+      '/pizzaria/admin/' + 'a'.repeat(43),
       '/super_admin/login',
     ]) {
       expect(isAlwaysAvailableLoginPath(path), path).toBe(true);
