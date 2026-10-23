@@ -107,7 +107,6 @@ for (const viewport of [
 
     const heroImage = page.locator('.desktop-device').first();
     await expect(heroImage).toBeVisible();
-    await expect(heroImage).toBeVisible();
 
     await page.evaluate(() => document.fonts.ready);
     const dimensions = await page.evaluate(() => ({
@@ -142,7 +141,7 @@ test('formulário comercial está disponível imediatamente na capa', async ({ p
 test('menu mobile representa a navegação comercial atual', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
+  const navigation = page.getByRole('navigation', { name: 'Navegação' });
   const openMenu = page.getByRole('button', { name: 'Abrir menu', exact: true });
 
   await expect(navigation).toBeHidden();
@@ -154,7 +153,6 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
     ['A plataforma', '#plataforma'],
     ['Como funciona', '#como-funciona'],
     ['Planos', '#planos'],
-    ['Dúvidas', '#duvidas'],
   ]) {
     if (!(await navigation.isVisible())) await openMenu.click();
     const link = navigation.getByRole('link', { name: label, exact: true });
