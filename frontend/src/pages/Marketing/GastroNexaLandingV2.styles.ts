@@ -31,6 +31,8 @@ export const Page = styled.div`
   .skip-link:focus{top:12px}
   a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(244,91,42,.38);outline-offset:3px}
   main>section{scroll-margin-top:80px}
+  @keyframes gx-float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+  @keyframes gx-reveal { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: translateY(0) } }
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 `;
 
@@ -71,9 +73,9 @@ export const ShowcaseSection = styled.section`
 `;
 
 export const Brand = styled.a<{ $light?: boolean }>`
-  display:inline-flex;align-items:center;gap:10px;min-width:0;color:#fff;
+  display:inline-flex;align-items:center;gap:10px;min-width:0;color:${({$light})=>$light?'#fff':'var(--ink)'};
   font-family:'Manrope','Inter',sans-serif;font-size:20px;font-weight:800;white-space:nowrap;
-  img{width:36px;height:36px;object-fit:contain;filter:brightness(0) invert(1)}
+  img{width:36px;height:36px;object-fit:contain;filter:${({$light})=>$light?'brightness(0) invert(1)':'none'}}
   strong{color:var(--orange)}
 `;
 
@@ -317,13 +319,3 @@ export const Plan = styled.article<{ $featured:boolean }>`
   ({$featured})=>!$featured&&'.plan-benefits{border-top-color:#e8e3dc}.benefit-section h4{color:#437c58}.plan-gift-label{color:#377d4b}.plan-gift>svg{color:#377d4b}'
   @media(max-width:760px){padding:24px;gap:16px}
 `;
-
-/* A marca oficial GX permanece em fundo transparente; branco nos fundos escuros. */
-
-
-/* Ajustes da capa comercial, sem interferir na identidade dos restaurantes. */
-
-
-@keyframes gx-float{0%,100%{translate:0 0}50%{translate:0 -6px}}
-@keyframes gx-reveal{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-
