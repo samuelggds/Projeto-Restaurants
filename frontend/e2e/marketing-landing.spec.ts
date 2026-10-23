@@ -233,3 +233,21 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 });
 
+
+test('impressora térmica da oferta apresenta corpo, bobina e saída no desktop e mobile', async ({ page }) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const printer = page.locator('.offer .printer-illustration');
+    const body = printer.locator('.printer-body');
+    await expect(printer).toBeVisible();
+    await expect(body).toBeVisible();
+    await expect(printer.locator('.printer-paper')).toBeVisible();
+    await expect(printer.locator('.printer-led')).toBeVisible();
+    await expect(printer.locator('.printer-58mm')).toContainText('58 mm');
+    const bodyWidth = await body.evaluate((element) => element.getBoundingClientRect().width);
+    expect(bodyWidth).toBeGreaterThan(150);
+    const bg = await body.evaluate((element) => getComputedStyle(element).backgroundImage);
+    expect(bg).toContain('gradient');
+  }
+});
