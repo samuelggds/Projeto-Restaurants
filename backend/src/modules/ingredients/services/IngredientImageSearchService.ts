@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import pexelsProvider from '../images/PexelsIngredientImageSearchProvider.js';
 import {
