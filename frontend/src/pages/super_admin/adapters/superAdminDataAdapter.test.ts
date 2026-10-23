@@ -39,6 +39,18 @@ describe('superAdminDataAdapter', () => {
     });
   });
 
+  it('preserva a origem verificada ou estimada da tolerância', () => {
+    const effective = mapRestaurantTenant({
+      id: 1, billingGraceEndsAt: '2026-10-23T12:00:00.000Z',
+      billingGraceSource: 'OPEN_INVOICE',
+    });
+    expect(effective.billingGraceEndsAt).toBe('2026-10-23T12:00:00.000Z');
+    expect(effective.billingGraceSource).toBe('OPEN_INVOICE');
+    const unknown = mapRestaurantTenant({ id: 2, billingGraceSource: 'INVALID' });
+    expect(unknown.billingGraceSource).toBeNull();
+    expect(unknown.billingGraceEndsAt).toBeNull();
+  });
+
   it('preserva status desconhecido para não apresentar acesso saudável indevidamente', () => {
     expect(mapTenantStatus('STATUS_NOVO')).toBe('UNKNOWN');
   });
