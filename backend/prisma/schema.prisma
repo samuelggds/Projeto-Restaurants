@@ -293,6 +293,7 @@ model PlatformWhatsappConnection {
   connectedAt             DateTime? @db.Timestamptz(3)
   disconnectedAt          DateTime? @db.Timestamptz(3)
   lastWebhookAt           DateTime? @db.Timestamptz(3)
+  nextAutomaticSendAt     DateTime? @db.Timestamptz(3)
   createdAt               DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt               DateTime  @updatedAt @db.Timestamptz(3)
 }
