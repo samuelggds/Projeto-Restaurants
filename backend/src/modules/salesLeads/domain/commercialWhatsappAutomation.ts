@@ -1,4 +1,4 @@
-export const COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS = 5_000;
+export const COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS = 15_000;
 export const COMMERCIAL_WHATSAPP_CLOSED_COOLDOWN_MS = 30 * 60 * 1_000;
 
 export type CommercialWhatsappConversationMode = 'BOT' | 'HUMAN' | 'CLOSED';
@@ -7,6 +7,20 @@ const INBOUND_AUTO_REPLY_KINDS = new Set(['GREETING', 'HANDOFF', 'FORM_GREETING'
 
 export function commercialWhatsappAutoReplyAvailableAt(now = new Date()) {
   return new Date(now.getTime() + COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS);
+}
+
+/**
+ * A worker that loses the atomic platform-wide send reservation retries just
+ * after the reservation expires, without counting the deferral as an error.
+ */
+export function commercialWhatsappAutoReplyRetryAt(
+  now: Date,
+  nextAutomaticSendAt: Date | null | undefined,
+) {
+  if (nextAutomaticSendAt && nextAutomaticSendAt.getTime() > now.getTime()) {
+    return new Date(nextAutomaticSendAt.getTime() + 100);
+  }
+  return commercialWhatsappAutoReplyAvailableAt(now);
 }
 
 export function shouldReopenCommercialWhatsappCycle(input: {
