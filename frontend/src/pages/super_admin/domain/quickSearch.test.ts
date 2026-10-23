@@ -15,6 +15,8 @@ function restaurant(id = 17, name = 'Pizzaria São João'): RestaurantTenant {
     createdAt: '2026-09-10T12:00:00Z',
     lastAccessAt: null,
     nextBillingAt: null,
+    billingGraceEndsAt: null,
+    billingGraceSource: null,
     monthlyFee: 149,
     monthlyOrderRevenue: 0,
     primaryAdmin: null,
