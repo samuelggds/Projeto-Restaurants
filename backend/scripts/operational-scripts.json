@@ -27,6 +27,7 @@
     "listPaidCardOrders.ts",
     "listRestaurants.ts",
     "listSubscriptions.mjs",
+    "operationalHealthSnapshot.mjs",
     "tmpCheckAsaasSettings.ts",
     "tmpCheckOrderState.ts",
     "tmpGetRestaurantSlug.ts",
