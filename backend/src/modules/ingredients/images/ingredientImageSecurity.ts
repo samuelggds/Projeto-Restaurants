@@ -4,7 +4,7 @@ import { lookup as dnsLookup } from 'node:dns/promises';
 import type { IncomingHttpHeaders } from 'node:http';
 import * as https from 'node:https';
 import { isIP } from 'node:net';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 import {
   createPinnedLookup,

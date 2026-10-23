@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import tableAccountRepository from '../modules/tableAccount/repositories/TableAccountRepository.js';
 
 const sessionPublicIdSchema = z.string().uuid();

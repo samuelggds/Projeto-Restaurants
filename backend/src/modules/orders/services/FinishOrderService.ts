@@ -7,7 +7,7 @@ import { buildOrderItemCustomizationSnapshot } from '../utils/productIngredients
 import tableSessionRepository from '../../tableSession/repositories/TableSessionRepository.js';
 import { PaymentMethod, Prisma, TableSessionStatus, OrderType } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';
 import bcrypt from 'bcrypt';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';

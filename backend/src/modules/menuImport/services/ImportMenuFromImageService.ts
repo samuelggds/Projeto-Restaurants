@@ -1,6 +1,6 @@
 import { paidChatCompletion } from '../../aiSupport/services/budgetedOpenAi.js';
 import OpenAI from 'openai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';

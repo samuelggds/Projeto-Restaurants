@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import {
   credentialEncryptionContext, decryptCredential,

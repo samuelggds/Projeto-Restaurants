@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { passwordSchema } from './PasswordValidator.js';
 import { brazilPhoneSchema } from './PhoneValidator.js';
 

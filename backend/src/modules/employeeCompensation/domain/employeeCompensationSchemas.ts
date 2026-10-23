@@ -7,7 +7,7 @@ import {
   EmployeeSettlementStatus,
   EmployeeWorkEntryStatus,
 } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 export const positiveIdSchema = z.coerce.number().int().positive();
 export const uuidSchema = z.string().uuid();

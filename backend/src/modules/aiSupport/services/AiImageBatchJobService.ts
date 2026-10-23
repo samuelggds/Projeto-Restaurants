@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import generateImportedProductImageService from '../../menuImport/services/GenerateImportedProductImageService.js';

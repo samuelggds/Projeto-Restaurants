@@ -1,6 +1,6 @@
 import { paidChatCompletion } from './budgetedOpenAi.js';
 import OpenAI from 'openai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import adminRestaurantContextService from './AdminRestaurantContextService.js';
 import adminRestaurantFallbackSnapshotService from './AdminRestaurantFallbackSnapshotService.js';

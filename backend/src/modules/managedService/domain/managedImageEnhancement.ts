@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { getImageEnhancementProfile } from '../../imageEnhancement/services/EnhanceRestaurantImageService.js';
 
 export const MANAGED_IMAGE_MODEL = 'gpt-image-2';

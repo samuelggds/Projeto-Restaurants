@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 import { publicAiFailure } from '../../aiSupport/services/publicAiFailure.js';
 import productComboService from '../services/ProductComboService.js';
 import aiCreditService, {

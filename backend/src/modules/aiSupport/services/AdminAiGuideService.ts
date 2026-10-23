@@ -1,6 +1,6 @@
 import { paidChatCompletion } from './budgetedOpenAi.js';
 import OpenAI from 'openai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import aiCreditService from './AiCreditService.js';
 import {
   ADMIN_AI_SECURITY_RULES,

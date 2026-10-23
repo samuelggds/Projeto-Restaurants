@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { ZodType } from 'zod/v3';
+import type { ZodType } from 'zod';
 import { SuperAdminError } from '../domain/superAdminErrors.js';
 import type {
   AuditContext,

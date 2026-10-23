@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import googleAddressGeocodingService, {
   type AddressLocation,
 } from '../services/GoogleAddressGeocodingService.js';

@@ -1,5 +1,5 @@
 import type { Response } from 'express';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 import { couponValidationMessage } from '../../../validators/CouponValidator.js';
 
 export function couponControllerError(res: Response, error: unknown, fallback: string) {

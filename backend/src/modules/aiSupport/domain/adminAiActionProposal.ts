@@ -1,5 +1,5 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { clearableBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();

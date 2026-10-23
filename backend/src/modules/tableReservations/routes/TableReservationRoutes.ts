@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { reservationManagementMiddleware } from '../middlewares/reservationManagementMiddleware.js';
 import { premiumTablePlanMiddleware } from '../../../middlewares/premiumTablePlanMiddleware.js';

@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { OrderType, PaymentMethod } from '@prisma/client';
 import { isBrazilPhoneWithOptionalDdi, normalizedBrazilPhoneSchema } from './PhoneValidator.js';
 

@@ -1,6 +1,6 @@
 import categoryRepository from '../repositories/CategoryRepository.js';
 import { createCategorySchema } from '../../../validators/CategoryValidator.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 

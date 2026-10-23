@@ -29,7 +29,7 @@ import {
 } from '@prisma/client';
 import { notifyCustomerPaymentConfirmed } from '../../../services/customerNotifier.js';
 import { recordWhatsappOrderNotificationOptIn } from '../../../services/whatsappOrderConsent.js';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { assertRestaurantIsOpenForOrders } from '../utils/restaurantAvailability.js';
 import {

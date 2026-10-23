@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { safeErrorSummary } from '../../../services/telemetrySanitizer.js';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 import refundTablePaymentService from '../services/RefundTablePaymentService.js';
 import { TablePaymentError } from '../services/tablePaymentSupport.js';
 

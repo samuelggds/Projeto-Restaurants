@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { createSmtpTransporter } from '../../../services/smtpTransport.js';
 
 export function salesLeadEmailConfiguration(env: NodeJS.ProcessEnv = process.env) {

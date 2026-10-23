@@ -1,7 +1,7 @@
 import { paidChatCompletion } from '../../aiSupport/services/budgetedOpenAi.js';
 import OpenAI from 'openai';
 import { Prisma } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import createProductService from '../../products/services/CreateProductService.js';

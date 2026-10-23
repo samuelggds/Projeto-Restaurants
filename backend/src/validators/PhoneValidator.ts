@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 export const BRAZIL_PHONE_WITH_DDD_MESSAGE =
   'Informe DDD + número; o +55 é opcional (ex.: 85999999999 ou +5585999999999).';

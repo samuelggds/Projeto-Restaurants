@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import categoryRepository from '../repositories/CategoryRepository.js';
 import { reorderCategoriesSchema } from '../../../validators/CategoryValidator.js';
 

@@ -1,7 +1,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Request, Response } from 'express';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import controller from './CreateOrderController.js';
 import service from '../services/CreateOrderService.js';
 import { OrderRequestError } from '../domain/OrderRequestError.js';

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { OrderType } from '@prisma/client';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 import orderPricingService from '../services/OrderPricingService.js';
 import resolveDeliveryDistanceService from '../services/ResolveDeliveryDistanceService.js';
 import { resolveOrderRestaurantId } from '../utils/orderTenant.js';

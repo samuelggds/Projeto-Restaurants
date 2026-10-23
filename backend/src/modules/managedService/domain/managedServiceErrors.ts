@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 
 export class ManagedServiceError extends Error {
   status: number;

@@ -1,4 +1,4 @@
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 const managedSensitivePatterns = [
   /\b(?:access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|secret[_ -]?key|api[_ -]?key|private[_ -]?key|webhook[_ -]?secret|password|senha)\s*[:=]\s*\S{4,}/iu,

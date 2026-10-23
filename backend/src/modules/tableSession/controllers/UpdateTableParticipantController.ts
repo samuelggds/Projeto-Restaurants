@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { ZodError } from 'zod/v3';
+import { ZodError } from 'zod';
 import updateTableParticipantService from '../services/UpdateTableParticipantService.js';
 
 class UpdateTableParticipantController {
