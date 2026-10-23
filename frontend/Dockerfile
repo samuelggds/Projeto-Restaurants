@@ -1,5 +1,5 @@
 ARG NODE_BASE_IMAGE=node:22-alpine
-ARG NGINX_BASE_IMAGE=nginx:1.30.4-alpine
+ARG NGINX_BASE_IMAGE=nginx:1.30.6-alpine
 FROM ${NODE_BASE_IMAGE} AS build
 
 WORKDIR /app
