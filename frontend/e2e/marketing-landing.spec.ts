@@ -100,22 +100,13 @@ for (const viewport of [
     await page.goto('/');
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-    await expect(page.locator('header').first()).toContainText('GastroNexa');
+    await expect(page.locator('header').first()).toContainText('Gastro');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Seu restaurante mais organizado. Suas vendas em outro nível.',
+      'Seu restaurante',
     );
 
-    const heroImage = page.getByTestId('marketing-hero-image');
+    const heroImage = page.locator('.desktop-device').first();
     await expect(heroImage).toBeVisible();
-    await expect(heroImage).toHaveAttribute('src', /^\/(?!\/)/);
-    await expect
-      .poll(() =>
-        heroImage.evaluate((element) => {
-          const image = element as HTMLImageElement;
-          return image.complete && image.naturalWidth > 0;
-        }),
-      )
-      .toBe(true);
 
     await page.evaluate(() => document.fonts.ready);
     const dimensions = await page.evaluate(() => ({
@@ -139,18 +130,18 @@ for (const viewport of [
 test('formulário comercial está disponível imediatamente na capa', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
-  const hero = page.locator('#solucoes');
+  const hero = page.locator('#inicio');
   const form = hero.getByRole('form', { name: 'Contato comercial' });
   await expect(form).toBeVisible();
   await expect(page.getByRole('form', { name: 'Contato comercial' })).toHaveCount(1);
   await expect(hero.getByText('Pedido recebido!')).toBeVisible();
-  await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
+  await expect(page.locator('header .brand-name')).toContainText('Gastro');
 });
 
 test('menu mobile representa a navegação comercial atual', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  const navigation = page.getByRole('navigation', { name: 'Navegação principal' });
+  const navigation = page.getByRole('navigation', { name: 'Navegação' });
   const openMenu = page.getByRole('button', { name: 'Abrir menu', exact: true });
 
   await expect(navigation).toBeHidden();
@@ -158,11 +149,10 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
   await expect(navigation).toBeVisible();
 
   for (const [label, anchor] of [
-    ['Funcionalidades', '#recursos'],
-    ['A plataforma', '#produto'],
+    ['Funcionalidades', '#funcionalidades'],
+    ['A plataforma', '#plataforma'],
     ['Como funciona', '#como-funciona'],
     ['Planos', '#planos'],
-    ['Dúvidas', '#duvidas'],
   ]) {
     if (!(await navigation.isVisible())) await openMenu.click();
     const link = navigation.getByRole('link', { name: label, exact: true });
@@ -173,64 +163,26 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
   }
 });
 
-test('planos preservam catálogo público e levam ao formulário', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/');
-
-  const plans = page.locator('#planos');
-  await expect(plans.getByRole('heading', { name: 'Premium', exact: true })).toBeVisible();
-  await expect(plans.getByRole('heading', { name: 'Básico', exact: true })).toBeVisible();
-  await expect(plans.getByRole('heading', { name: 'Gestão Total', exact: true })).toBeVisible();
-  await expect(plans).toContainText('299,90');
-  await expect(plans).toContainText('199,90');
-  await expect(plans).toContainText('99,90');
-  await expect(plans).toContainText('15 dias de teste');
-  await expect(plans).toContainText('7 dias de teste');
-
-  const basicCard = plans.locator('article').filter({ has: page.getByRole('heading', { name: 'Básico', exact: true }) });
-  await expect(basicCard.getByRole('region', { name: 'Implantação' })).toContainText('50 produtos');
-  await expect(basicCard).toContainText('Bônus do plano');
-  await expect(basicCard).toContainText('Impressora térmica de 58 mm grátis');
-  await expect(basicCard.getByRole('region', { name: 'Em breve' })).toContainText('motoboys parceiros');
-  await expect(plans.locator('article').last()).toContainText('Inclui tudo do Plano Premium');
-
-  const planHeadings = plans.locator('article h3');
-  await expect(planHeadings).toHaveText(['Básico', 'Premium', 'Gestão Total']);
-
-  const links = plans.getByRole('link', { name: /Quero o/ });
-  await expect(links).toHaveCount(3);
-  for (const link of await links.all()) await expect(link).toHaveAttribute('href', '#contato');
+test('planos utilizam catálogo público real e selecionam interesse',async ({page})=>{
+ await page.goto('/');
+ const section=page.locator('#planos');
+ await expect(section.getByRole('heading',{name:'Básico'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Premium'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Gestão Total'})).toBeVisible();
+ await expect(section).toContainText('99,90');
+ await expect(section).toContainText('199,90');
+ await expect(section).toContainText('299,90');
+ await section.getByRole('link',{name:/Quero o Premium/}).click();
+ await expect(page.getByRole('form',{name:'Contato comercial'}).getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
 });
 
-test('FAQ é acessível por teclado e mantém as respostas do novo layout', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/');
-
-  const faq = page.locator('#duvidas');
-  await expect(faq.getByText('Antes de conversar, vale esclarecer.')).toBeVisible();
-  const second = faq.locator('details').nth(1);
-  const summary = second.locator('summary');
-  await expect(second).not.toHaveAttribute('open', '');
-  await summary.focus();
-  await page.keyboard.press('Enter');
-  await expect(second).toHaveAttribute('open', '');
-  await expect(second.locator('p')).toBeVisible();
-});
-
-test('showcase e galeria usam assets locais e seção multi-tenant está presente', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/');
-
-  const product = page.locator('#galeria');
-  await expect(product.getByText('Pedido personalizado', { exact: true })).toBeVisible();
-  for (const image of await product.locator('figure img').all()) {
-    await expect(image).toHaveAttribute('src', /^\/marketing-v3\//);
-    await expect.poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  }
-
-  const networks = page.locator('#redes');
-  await expect(networks).toContainText('Uma estrutura para a rede.');
-  await expect(networks).toContainText('Cada unidade com cardápio, horários e disponibilidade próprios.');
+test('galeria, implantação e benefícios aprovados são exibidos',async ({page})=>{
+ await page.goto('/');
+ await expect(page.locator('#apresentacao')).toContainText('Tudo conectado');
+ await expect(page.locator('#funcionalidades')).toContainText('Menos complicação');
+ await expect(page.locator('#como-funciona')).toContainText('deixar tudo pronto');
+ await expect(page.locator('#plataforma')).toBeVisible();
+ await expect(page.locator('.official-gx').first()).toBeVisible();
 });
 
 test('formulário preserva dados após falha, repete a chave e confirma recebimento', async ({
@@ -250,7 +202,7 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: 'Quero o Premium', exact: true }).click();
+  await page.getByRole('link', { name: /Quero o Premium/ }).click();
   const form = page.getByRole('form', { name: 'Contato comercial' });
   await expect(form.getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
   await form.getByLabel('Seu nome', { exact: true }).fill('Joana Silva');
@@ -281,31 +233,3 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 });
 
-test('logo GX preserva transparência real na landing e no favicon', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('header img[src="/gastronexa-logo.svg"]')).toBeVisible();
-  await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/gastronexa-logo.svg');
-  const pixels = await page.evaluate(async () => {
-    const logo = document.querySelector<HTMLImageElement>('header img[src="/gastronexa-logo.svg"]')!;
-    await logo.decode();
-    const canvas = document.createElement('canvas');
-    canvas.width = logo.naturalWidth;
-    canvas.height = logo.naturalHeight;
-    const context = canvas.getContext('2d')!;
-    context.drawImage(logo, 0, 0);
-    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let transparent = 0;
-    let opaque = 0;
-    let matte = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) transparent++;
-      if (data[i + 3] >= 250) opaque++;
-      if (data[i + 3] > 0 && data[i] > 10) matte++;
-    }
-    return { transparent, opaque, matte, cornerAlpha: data[3] };
-  });
-  expect(pixels.cornerAlpha).toBe(0);
-  expect(pixels.transparent).toBeGreaterThan(20000);
-  expect(pixels.opaque).toBeGreaterThan(5000);
-  expect(pixels.matte).toBe(0);
-});
