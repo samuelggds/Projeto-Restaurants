@@ -31,6 +31,7 @@ test('emite grant administrativo do tenant por exatamente uma semana', async () 
       id: 7,
       slug: 'north-pizza',
       active: true,
+      accessBlockReason: 'NONE',
     };
   };
 
@@ -66,6 +67,7 @@ test('verify devolve a expiração validada do grant do mesmo tenant', async () 
     id: where.slug ? 8 : where.id,
     slug: 'sushi-house',
     active: true,
+    accessBlockReason: 'NONE',
   });
   prisma.auditLog.findFirst = async () => ({
     id: 101,
@@ -81,4 +83,45 @@ test('verify devolve a expiração validada do grant do mesmo tenant', async () 
   assert.equal(verified.restaurantId, 8);
   assert.equal(verified.slug, 'sushi-house');
   assert.equal(verified.expiresAt, new Date(Number(decoded?.exp) * 1000).toISOString());
+});
+
+
+test('o link válido de restaurante bloqueado somente por cobrança ainda permite login e regularização', async () => {
+  const key = 'c'.repeat(43);
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+  prisma.restaurant.findUnique = async ({ where }) => ({
+    id: where.id || 7,
+    slug: 'north-pizza',
+    active: false,
+    accessBlockReason: 'BILLING',
+  });
+  prisma.auditLog.findFirst = async () => ({
+    id: 112, action: 'ADMIN_PORTAL_KEY_ROTATED', metadata: { keyHash },
+  });
+  const exchanged = await service.exchange('north-pizza', key);
+  const verified = await service.verifyGrant('north-pizza', exchanged.grant);
+  assert.equal(exchanged.restaurantId, 7);
+  assert.equal(verified.valid, true);
+  assert.equal(verified.restaurantId, 7);
+});
+
+test('o link privado não contorna suspensão manual, inatividade sem motivo ou chave revogada', async () => {
+  const key = 'd'.repeat(43);
+  const keyHash = crypto.createHash('sha256').update(key).digest('hex');
+  let state = { active: false, accessBlockReason: 'MANUAL' };
+  let revoked = false;
+  prisma.restaurant.findUnique = async ({ where }) => ({
+    id: where.id || 7, slug: 'north-pizza', ...state,
+  });
+  prisma.auditLog.findFirst = async () => ({
+    id: 115, action: revoked ? 'ADMIN_PORTAL_KEY_REVOKED' : 'ADMIN_PORTAL_KEY_ROTATED',
+    metadata: { keyHash },
+  });
+  await assert.rejects(() => service.exchange('north-pizza', key), { statusCode: 404 });
+  state = { active: false, accessBlockReason: 'NONE' };
+  await assert.rejects(() => service.exchange('north-pizza', key), { statusCode: 404 });
+  state = { active: false, accessBlockReason: 'BILLING' };
+  const result = await service.exchange('north-pizza', key);
+  revoked = true;
+  await assert.rejects(() => service.verifyGrant('north-pizza', result.grant), { statusCode: 404 });
 });

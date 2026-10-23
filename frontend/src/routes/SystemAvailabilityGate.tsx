@@ -126,7 +126,7 @@ export default function SystemAvailabilityGate({ children }: { children: ReactNo
   const audience =
     role === 'ADMIN'
       ? 'admin'
-      : ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(role)
+      : role === 'FUNCIONARIO' || ['ATENDENTE', 'GARCOM', 'COZINHA', 'MOTOQUEIRO'].includes(role)
         ? 'staff'
         : 'customer';
   const view = resolveAvailabilityView({
