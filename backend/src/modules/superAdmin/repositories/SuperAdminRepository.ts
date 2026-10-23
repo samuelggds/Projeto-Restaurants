@@ -66,6 +66,7 @@ export class SuperAdminRepository {
       openInvoicesAggregate,
       openInvoicesCount,
       monthlyPaidInvoices,
+      openInvoiceDueDatesByRestaurant,
     ] = await Promise.all([
       prisma.restaurant.findMany({
         orderBy: { createdAt: 'desc' },
@@ -160,6 +161,11 @@ export class SuperAdminRepository {
         where: { status: 'PAGO', paidAt: { gte: historyStart } },
         select: { total: true, paidAt: true },
       }),
+      prisma.invoice.groupBy({
+        by: ['restaurantId'],
+        where: { status: { in: ['PENDENTE', 'ATRASADO'] } },
+        _min: { dueDate: true },
+      }),
     ]);
 
     return {
@@ -175,6 +181,7 @@ export class SuperAdminRepository {
       openInvoicesAggregate,
       openInvoicesCount,
       monthlyPaidInvoices,
+      openInvoiceDueDatesByRestaurant,
     };
   }
 
