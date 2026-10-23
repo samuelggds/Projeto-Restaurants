@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { approvedLandingMarkup } from './GastroNexaApprovedMarkup';
 import { ApprovedPage } from './GastroNexaApprovedPage.styles';
@@ -6,41 +6,107 @@ import { SalesContactForm } from './landing/SalesContactForm';
 import { ApprovedMarketingPlans } from './landing/ApprovedMarketingPlans';
 
 type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
-const descriptions: Record<string,{title:string;desc:string;note:string}> = {
- cardapio:{title:'Um cardápio que valoriza seu negócio.',desc:'Seu cliente escolhe produtos, personaliza o pedido e navega por um cardápio que respeita a identidade do seu restaurante.',note:'Navegação prática no celular'},
- pedidos:{title:'Cada pedido no lugar certo.',desc:'Acompanhe o fluxo da operação e organize as etapas do atendimento, do recebimento à conclusão.',note:'Fluxo visual para a equipe'},
- gestao:{title:'Visão clara para decidir melhor.',desc:'Reúna informações comerciais e operacionais para entender o movimento do restaurante.',note:'Indicadores da sua operação'},
+type MountTargets = { lead: Element; plans: Element };
+
+const descriptions: Record<string, { title: string; desc: string; note: string }> = {
+  cardapio: {
+    title: 'Um cardápio que valoriza seu negócio.',
+    desc: 'Seu cliente escolhe produtos, personaliza o pedido e navega por um cardápio que respeita a identidade do seu restaurante.',
+    note: 'Navegação prática no celular',
+  },
+  pedidos: {
+    title: 'Cada pedido no lugar certo.',
+    desc: 'Acompanhe o fluxo da operação e organize as etapas do atendimento, do recebimento à conclusão.',
+    note: 'Fluxo visual para a equipe',
+  },
+  gestao: {
+    title: 'Visão clara para decidir melhor.',
+    desc: 'Reúna informações comerciais e operacionais para entender o movimento do restaurante.',
+    note: 'Indicadores da sua operação',
+  },
 };
-export default function GastroNexaLandingV2(){
- const root=useRef<HTMLDivElement>(null);
- const [mounts,setMounts]=useState<{lead:Element;plans:Element}|null>(null);
- const [initialPlan,setInitialPlan]=useState<PlanCode>('UNDECIDED');
- useEffect(()=>{
-  document.title='GastroNexa | Cardápio digital, pedidos e gestão';
-  const host=root.current;if(!host)return;
-  const lead=host.querySelector('#gx-lead-root'),plans=host.querySelector('#gx-pricing-root');
-  if(lead&&plans)setMounts({lead,plans});
-  const menu=host.querySelector<HTMLButtonElement>('#mobile-toggle');
-  const nav=host.querySelector<HTMLElement>('#main-nav');
-  const onMenu=()=>{if(!menu||!nav)return;const open=nav.classList.toggle('open');menu.setAttribute('aria-expanded',String(open))};
-  const onNav=(e:Event)=>{if(!(e.target instanceof Element)||!e.target.closest('a'))return;nav?.classList.remove('open');menu?.setAttribute('aria-expanded','false')};
-  const onTabs=(event:Event)=>{
-    const target=event.target instanceof Element?event.target.closest<HTMLButtonElement>('[data-tab]'):null;
-    if(!target)return;
-    const name=target.dataset.tab??'cardapio';
-    host.querySelectorAll<HTMLElement>('[data-tab]').forEach(el=>{const active=el.dataset.tab===name;el.classList.toggle('active',active);el.setAttribute('aria-selected',String(active))});
-    host.querySelectorAll<HTMLElement>('[data-pane]').forEach(el=>el.classList.toggle('active',el.dataset.pane===name));
-    const value=descriptions[name];if(!value)return;
-    const title=host.querySelector('#tab-title'),desc=host.querySelector('#tab-desc'),note=host.querySelector('#tab-note');
-    if(title)title.textContent=value.title;if(desc)desc.textContent=value.desc;if(note)note.textContent=value.note;
+
+export default function GastroNexaLandingV2() {
+  const [mounts, setMounts] = useState<MountTargets | null>(null);
+  const [initialPlan, setInitialPlan] = useState<PlanCode>('UNDECIDED');
+
+  useEffect(() => {
+    document.title = 'GastroNexa | Cardápio digital, pedidos e gestão';
+  }, []);
+
+  // The approved HTML is inserted by React as one DOM subtree. Attach to the
+  // subtree itself at commit time: never depend on a passive effect to find
+  // the targets before mounting the live form and catalog components.
+  const attachApprovedMarkup = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const lead = element.querySelector('#gx-lead-root');
+    const plans = element.querySelector('#gx-pricing-root');
+    if (!lead || !plans) return;
+    setMounts((previous) =>
+      previous?.lead === lead && previous.plans === plans ? previous : { lead, plans },
+    );
+  }, []);
+
+  // Delegated React events keep the mobile navigation and preview tabs live
+  // without manipulating a separate copy of the approved static markup.
+  const handleMarkupClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!(event.target instanceof Element)) return;
+    const container = event.currentTarget;
+    const nav = container.querySelector<HTMLElement>('#main-nav');
+    const toggle = container.querySelector<HTMLButtonElement>('#mobile-toggle');
+
+    if (event.target.closest('#mobile-toggle')) {
+      if (!nav || !toggle) return;
+      const open = nav.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+      return;
+    }
+    if (event.target.closest('#main-nav a')) {
+      nav?.classList.remove('open');
+      toggle?.setAttribute('aria-expanded', 'false');
+      toggle?.setAttribute('aria-label', 'Abrir menu');
+    }
+
+    const tab = event.target.closest<HTMLButtonElement>('[data-tab]');
+    if (!tab) return;
+    const name = tab.dataset.tab ?? 'cardapio';
+    const description = descriptions[name];
+    if (!description) return;
+
+    container.querySelectorAll<HTMLElement>('[data-tab]').forEach((button) => {
+      const active = button.dataset.tab === name;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+    container.querySelectorAll<HTMLElement>('[data-pane]').forEach((pane) => {
+      pane.classList.toggle('active', pane.dataset.pane === name);
+    });
+    const title = container.querySelector('#tab-title');
+    const desc = container.querySelector('#tab-desc');
+    const note = container.querySelector('#tab-note');
+    if (title) title.textContent = description.title;
+    if (desc) desc.textContent = description.desc;
+    if (note) note.textContent = description.note;
   };
-  menu?.addEventListener('click',onMenu);nav?.addEventListener('click',onNav);host.addEventListener('click',onTabs);
-  return()=>{menu?.removeEventListener('click',onMenu);nav?.removeEventListener('click',onNav);host.removeEventListener('click',onTabs)};
- },[]);
- return <ApprovedPage ref={root}>
-   {/* Only first-party immutable design markup. Forms and live plan data remain in React. */}
-   <div dangerouslySetInnerHTML={{__html:approvedLandingMarkup}} />
-   {mounts?createPortal(<SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan}/>,mounts.lead):null}
-   {mounts?createPortal(<ApprovedMarketingPlans onSelectPlan={setInitialPlan}/>,mounts.plans):null}
- </ApprovedPage>;
+
+  return (
+    <ApprovedPage>
+      {/* Static, first-party presentation markup only. User input and plan data stay inside React. */}
+      <div
+        ref={attachApprovedMarkup}
+        onClick={handleMarkupClick}
+        dangerouslySetInnerHTML={{ __html: approvedLandingMarkup }}
+      />
+      {mounts
+        ? createPortal(
+            <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />,
+            mounts.lead,
+          )
+        : null}
+      {mounts
+        ? createPortal(<ApprovedMarketingPlans onSelectPlan={setInitialPlan} />, mounts.plans)
+        : null}
+    </ApprovedPage>
+  );
 }
