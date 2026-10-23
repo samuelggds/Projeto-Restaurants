@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const nullableMoneySchema = z.preprocess(
   (value) => (value === '' || value === null || value === undefined ? null : value),

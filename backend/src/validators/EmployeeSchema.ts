@@ -1,5 +1,5 @@
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { passwordSchema } from './PasswordValidator.js';
 import {
   clearableBrazilPhoneSchema,
