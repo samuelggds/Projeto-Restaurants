@@ -251,3 +251,18 @@ test('impressora térmica da oferta apresenta corpo, bobina e saída no desktop 
     expect(bg).toContain('gradient');
   }
 });
+
+test('rodapé aponta para domínio oficial e páginas jurídicas existentes', async ({ page }) => {
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const footer = page.locator('footer.footer');
+    await expect(footer.getByRole('link', { name: 'www.gastronexa.com.br' })).toHaveAttribute('href', 'https://www.gastronexa.com.br/');
+    await expect(footer.getByRole('link', { name: 'Termos de Uso' })).toHaveAttribute('href', '/termos/');
+    await expect(footer.getByRole('link', { name: 'Política de Privacidade' })).toHaveAttribute('href', '/privacidade/');
+    for (const route of ['/termos/', '/privacidade/']) {
+      const response = await page.request.get(route);
+      expect(response.ok(), `Página jurídica indisponível: ${route}`).toBe(true);
+    }
+  }
+});
