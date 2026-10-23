@@ -68,6 +68,10 @@ export function mapRestaurantTenant(value: unknown): RestaurantTenant {
     createdAt: text(item.createdAt),
     lastAccessAt: nullableText(item.lastAccessAt ?? item.lastAccess),
     nextBillingAt: nullableText(item.nextBillingAt ?? subscription.nextBillingAt),
+    billingGraceEndsAt: nullableText(item.billingGraceEndsAt),
+    billingGraceSource: ['OPEN_INVOICE', 'ESTIMATED'].includes(text(item.billingGraceSource))
+      ? (text(item.billingGraceSource) as 'OPEN_INVOICE' | 'ESTIMATED')
+      : null,
     monthlyFee: number(item.monthlyFee ?? subscription.monthlyFee ?? subscription.price),
     monthlyOrderRevenue: number(item.monthlyOrderRevenue ?? item.revenue),
     primaryAdmin: admin.id
