@@ -30,6 +30,18 @@ type AdminPortalMetadata = {
   keyHash?: string;
 };
 
+function permitsAdministrativePortalAccess(restaurant: {
+  active: boolean;
+  accessBlockReason: string | null;
+} | null): boolean {
+  if (!restaurant) return false;
+  const reason = String(restaurant.accessBlockReason || 'NONE').toUpperCase();
+  // Billing suspension must not make the payment recovery/login unreachable.
+  // Manual suspension (including an inactive tenant with no billing reason)
+  // never grants administrative portal access.
+  return reason !== 'MANUAL' && (restaurant.active || reason === 'BILLING');
+}
+
 type AdminPortalGrantPayload = jwt.JwtPayload & {
   type?: string;
   restaurantId?: number;
@@ -148,9 +160,11 @@ export class AdminPortalAccessService {
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
-      select: { id: true, slug: true, active: true },
+      select: { id: true, slug: true, active: true, accessBlockReason: true },
     });
-    if (!restaurant?.active) throw new AdminPortalAccessError('Página não encontrada.');
+    if (!permitsAdministrativePortalAccess(restaurant)) {
+      throw new AdminPortalAccessError('Página não encontrada.');
+    }
 
     const latest = await latestPortalEvent(restaurant.id);
     if (!latest || latest.action !== ROTATED_ACTION) {
@@ -215,9 +229,9 @@ export class AdminPortalAccessService {
     await assertCurrentRotation(restaurantId, rotationAuditLogId);
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { id: true, slug: true, active: true },
+      select: { id: true, slug: true, active: true, accessBlockReason: true },
     });
-    if (!restaurant?.active || restaurant.slug !== slug) {
+    if (!permitsAdministrativePortalAccess(restaurant) || restaurant?.slug !== slug) {
       throw new AdminPortalAccessError('Página não encontrada.');
     }
 

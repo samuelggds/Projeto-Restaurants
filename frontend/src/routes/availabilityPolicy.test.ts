@@ -43,6 +43,7 @@ describe('política de disponibilidade do sistema', () => {
       '/pizzaria/login',
       '/pizzaria/team',
       '/pizzaria/admin',
+      '/pizzaria/admin/' + 'a'.repeat(43),
       '/super_admin/login',
     ]) {
       expect(
@@ -111,6 +112,27 @@ describe('política de disponibilidade do sistema', () => {
     expect(resolveAvailabilityView({ ...base, systemBlock: { reason: 'MANUAL' } })).toBe(
       'TENANT_MAINTENANCE',
     );
+  });
+
+  it('deixa o link privado chegar ao verificador mesmo com estado local de bloqueio', () => {
+    const entry = '/north-pizza/admin/' + 'a'.repeat(43);
+    for (const reason of ['BILLING', 'MANUAL'] as const) {
+      expect(resolveAvailabilityView({
+        ...base, pathname: entry, role: 'ADMIN', userPresent: true,
+        systemBlock: { reason },
+      })).toBe('APP');
+    }
+    // A entrada pública continua sujeita à verificação da chave e ao login.
+    // O financeiro não fica disponível para o bloqueio manual.
+    expect(resolveAvailabilityView({
+      ...base, pathname: '/admin', systemBlock: { reason: 'MANUAL' },
+    })).toBe('TENANT_MAINTENANCE');
+    expect(resolveAvailabilityView({
+      ...base, pathname: '/admin', systemBlock: { reason: 'BILLING' },
+    })).toBe('BILLING_ADMIN');
+    expect(resolveAvailabilityView({
+      ...base, pathname: entry + '/orders', systemBlock: { reason: 'BILLING' },
+    })).toBe('TENANT_MAINTENANCE');
   });
 
   it('permite o portal ADMIN tenant-scoped sem sessão para regularizar a conta', () => {

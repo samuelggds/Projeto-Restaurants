@@ -74,7 +74,14 @@ export function isTechnicalMaintenancePath(pathname: string) {
 
 export function isAlwaysAvailableLoginPath(pathname: string) {
   const path = normalizeAvailabilityPath(pathname);
-  return path === '/super_admin/login' || /^\/[^/]+\/(?:login|team|admin)$/u.test(path);
+  return (
+    path === '/super_admin/login' ||
+    /^\/[^/]+\/(?:login|team|admin)$/u.test(path) ||
+    // The private tenant admin link is an authentication entry, not an
+    // operational route. It must reach the key-exchange component even if a
+    // previous session left a local billing/manual-block state.
+    /^\/[^/]+\/admin\/[^/]+$/u.test(path)
+  );
 }
 
 export function isSuperAdminAccessPath(pathname: string) {
