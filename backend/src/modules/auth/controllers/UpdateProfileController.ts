@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { clearableBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 import updateProfileService from '../services/UpdateProfileService.js';
 
