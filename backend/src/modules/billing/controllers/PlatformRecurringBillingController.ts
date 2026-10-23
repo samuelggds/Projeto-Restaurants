@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import platformRecurringBillingService from '../services/PlatformRecurringBillingService.js';
 import { recurringBillingError } from '../utils/recurringBillingError.js';
 
