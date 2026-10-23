@@ -5,16 +5,17 @@ import {
   COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS,
   COMMERCIAL_WHATSAPP_CLOSED_COOLDOWN_MS,
   commercialWhatsappAutoReplyAvailableAt,
+  commercialWhatsappAutoReplyRetryAt,
   commercialWhatsappAutoReplySuppressionReason,
   shouldReopenCommercialWhatsappCycle,
 } from './commercialWhatsappAutomation.js';
 
-test('agenda respostas automáticas com atraso de cinco segundos', () => {
+test('agenda respostas automáticas com atraso de quinze segundos', () => {
   const now = new Date('2026-10-01T12:00:00.000Z');
   const availableAt = commercialWhatsappAutoReplyAvailableAt(now);
 
-  assert.equal(COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS, 5_000);
-  assert.equal(availableAt.getTime() - now.getTime(), 5_000);
+  assert.equal(COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS, 15_000);
+  assert.equal(availableAt.getTime() - now.getTime(), 15_000);
 });
 
 test('mantém o bot silencioso fora do horário e durante atendimento humano', () => {
@@ -122,5 +123,15 @@ test('novo ciclo automático só abre após 30 minutos e dentro do horário', ()
       now: new Date('2026-10-01T12:30:00.000Z'),
     }),
     true,
+  );
+});
+
+test('reserva concorrente adia próxima resposta para após os 15 segundos, sem aguardar novamente caso já vencida', () => {
+  const now = new Date('2026-10-23T12:00:00.000Z');
+  const reservedUntil = new Date('2026-10-23T12:00:15.000Z');
+  assert.equal(commercialWhatsappAutoReplyRetryAt(now, reservedUntil).toISOString(), '2026-10-23T12:00:15.100Z');
+  assert.equal(
+    commercialWhatsappAutoReplyRetryAt(now, new Date('2026-10-23T11:59:59.000Z')).toISOString(),
+    '2026-10-23T12:00:15.000Z',
   );
 });
