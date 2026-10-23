@@ -2,7 +2,7 @@ import { paidImageGeneration } from '../../aiSupport/services/budgetedOpenAi.js'
 import type { CreditActor } from '../../aiSupport/services/AiCreditService.js';
 import OpenAI from 'openai';
 import type { Prisma } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateImageUsageCostUsd } from '../../aiSupport/services/openAiUsageCost.js';
 

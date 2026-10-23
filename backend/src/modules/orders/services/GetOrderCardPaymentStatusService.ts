@@ -1,5 +1,5 @@
 import { OrderPaymentAttemptStatus, OrderStatus, OrderType, PaymentMethod } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { formatDeliveryTimeRange } from '../../restaurantSettings/utils/deliveryTimeRange.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import asaasPaymentVerificationService from './AsaasPaymentVerificationService.js';
