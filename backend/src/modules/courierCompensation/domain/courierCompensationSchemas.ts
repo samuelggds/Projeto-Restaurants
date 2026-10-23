@@ -3,7 +3,7 @@ import {
   CourierSettlementPaymentMethod,
   CourierSettlementStatus,
 } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const money = z.union([
   z.number().finite().nonnegative().max(1_000_000),

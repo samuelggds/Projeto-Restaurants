@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import prisma from '../../../config/prisma.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 
