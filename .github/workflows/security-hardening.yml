@@ -127,7 +127,7 @@ jobs:
         run: >-
           docker build --pull
           --build-arg NODE_BASE_IMAGE=docker.io/library/node:22-alpine
-          --build-arg NGINX_BASE_IMAGE=docker.io/library/nginx:1.30.4-alpine
+          --build-arg NGINX_BASE_IMAGE=docker.io/library/nginx:1.30.6-alpine
           --build-arg VITE_API_URL=http://127.0.0.1:3000
           --build-arg VITE_APP_URL=http://127.0.0.1:8080
           --build-arg VITE_SOCKET_URL=http://127.0.0.1:3000

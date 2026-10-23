@@ -64,6 +64,8 @@ export interface RestaurantTenant {
   createdAt: string;
   lastAccessAt: string | null;
   nextBillingAt: string | null;
+  billingGraceEndsAt: string | null;
+  billingGraceSource: 'OPEN_INVOICE' | 'ESTIMATED' | null;
   monthlyFee: number;
   monthlyOrderRevenue: number;
   primaryAdmin: RestaurantAdministratorSummary | null;

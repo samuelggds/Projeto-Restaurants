@@ -223,7 +223,7 @@ export class LoginMfaService {
       channelSelectionRequired: false,
       deliveryOptions: options,
       resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
-      message: `Codigo de verificacao enviado por ${selectedOption.label}.`,
+      message: `Envio do codigo solicitado por ${selectedOption.label}. A entrega depende do provedor e pode sofrer atrasos.`,
     };
   }
 

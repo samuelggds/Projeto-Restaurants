@@ -92,6 +92,8 @@ function createDashboard() {
         createdAt: '2026-07-20T10:00:00.000Z',
         lastAccessAt: now,
         nextBillingAt: '2026-09-10T10:00:00.000Z',
+        billingGraceEndsAt: '2026-09-17T10:00:00.000Z',
+        billingGraceSource: 'OPEN_INVOICE' as const,
         monthlyFee: 249.9,
         monthlyOrderRevenue: 8320.5,
         primaryAdmin: {
@@ -650,6 +652,9 @@ test('mudança de acesso exige justificativa e atualiza o tenant', async ({ page
   await page.goto('/super_admin/restaurants');
   await page.getByRole('button', { name: 'Ver detalhes' }).click();
   await expect(page.getByRole('dialog', { name: 'Restaurante Aurora' })).toBeVisible();
+  const detailDialog = page.getByRole('dialog', { name: 'Restaurante Aurora' });
+  await expect(detailDialog).toContainText('Fim da tolerância de pagamento');
+  await expect(detailDialog).toContainText('17/09/2026');
   await captureReadmeScreenshot(page, 'super-admin-restaurant-dialog.png');
   await page.getByRole('button', { name: 'Bloquear acesso' }).click();
   await page.getByPlaceholder('Explique por que esta ação é necessária').fill('curto');

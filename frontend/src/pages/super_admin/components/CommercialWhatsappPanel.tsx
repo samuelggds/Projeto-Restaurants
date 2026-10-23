@@ -398,8 +398,10 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
             <span>
               <strong>Respostas automáticas</strong>
               <small>
-                O bot responde com 5 segundos de atraso somente dentro dos horários configurados.
-                Fora deles, nenhuma resposta automática é enviada.
+                O bot aguarda ao menos 15 segundos antes da resposta e mantém 15 segundos entre
+                envios automáticos da plataforma, inclusive quando há mensagens na fila.
+                Fora dos horários configurados, nenhuma resposta automática é enviada.
+                Mensagens enviadas manualmente não são atrasadas.
               </small>
             </span>
             <S.Switch

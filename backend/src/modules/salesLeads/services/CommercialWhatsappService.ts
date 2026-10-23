@@ -13,6 +13,7 @@ import {
 import {
   COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS,
   commercialWhatsappAutoReplyAvailableAt,
+  commercialWhatsappAutoReplyRetryAt,
   commercialWhatsappAutoReplySuppressionReason,
   shouldReopenCommercialWhatsappCycle,
   type CommercialWhatsappConversationMode,
@@ -989,6 +990,44 @@ export async function deliverPlatformWhatsappOutbox() {
           },
         });
         continue;
+      }
+
+      // Reserve the automatic send slot atomically across API and worker replicas.
+      // Manual replies bypass this limiter. A collision is a deferral, never a
+      // failed delivery attempt, and leaves the existing outbox item intact.
+      if (item.kind !== 'MANUAL') {
+        const now = new Date();
+        const slot = await prisma.platformWhatsappConnection.updateMany({
+          where: {
+            id: PLATFORM_CONNECTION_ID,
+            OR: [
+              { nextAutomaticSendAt: null },
+              { nextAutomaticSendAt: { lte: now } },
+            ],
+          },
+          data: {
+            nextAutomaticSendAt: commercialWhatsappAutoReplyAvailableAt(now),
+          },
+        });
+        if (slot.count !== 1) {
+          const reserved = await prisma.platformWhatsappConnection.findUnique({
+            where: { id: PLATFORM_CONNECTION_ID },
+            select: { nextAutomaticSendAt: true },
+          });
+          await prisma.salesLeadWhatsappOutbox.update({
+            where: { id: item.id },
+            data: {
+              availableAt: commercialWhatsappAutoReplyRetryAt(
+                now,
+                reserved?.nextAutomaticSendAt,
+              ),
+              attempts: { decrement: 1 },
+              lockedUntil: null,
+              lockToken: null,
+            },
+          });
+          continue;
+        }
       }
 
       await sendPlatformWhatsappText(item.phone, item.body);
