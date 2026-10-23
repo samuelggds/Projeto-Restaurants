@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { OrderType, PaymentMethod, TableOrderSettlementMode } from '@prisma/client';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import {
   prisma,
   runtimePrisma,

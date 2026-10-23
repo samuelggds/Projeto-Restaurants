@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';
 import adminAiGuideService from '../services/AdminAiGuideService.js';
 import adminRestaurantAssistantService from '../services/AdminRestaurantAssistantService.js';
