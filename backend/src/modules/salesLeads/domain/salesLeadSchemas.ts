@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { normalizedBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 
 const text = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);

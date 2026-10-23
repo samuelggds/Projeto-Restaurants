@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { collectStrongPasswordErrors } from '../../auth/security/passwordPolicy.js';
 
 const normalizedText = (minimum: number, maximum: number, label: string) =>
