@@ -151,7 +151,7 @@ export default function GastroNexaLandingV2() {
 
       <S.Header ref={headerRef}>
         <S.HeaderInner>
-          <Brand />
+          <Brand light />
           <S.Nav id="marketing-navigation" $open={menuOpen} aria-label="Navegação principal">
             <ScrollLink href="#recursos" onClick={closeMenu}>Funcionalidades</ScrollLink>
             <ScrollLink href="#produto" onClick={closeMenu}>A plataforma</ScrollLink>
