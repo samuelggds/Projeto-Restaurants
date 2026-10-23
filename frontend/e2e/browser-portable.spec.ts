@@ -10,16 +10,19 @@ test.describe('critical portable browser behavior', () => {
     request,
   }) => {
     await page.goto('/');
-    const logo = page.locator('img[src="/gastronexa-logo.svg"]').first();
+    // The official marketing landing renders GX as an inline SVG. The external
+    // asset is used by loading/legal screens, not as the landing header <img>.
+    // Wait for the actual page to mount; a loading-screen image is transient.
+    await expect(page.locator('header.site-header')).toBeVisible();
+    const logo = page.locator('header.site-header .brand-mark svg.official-gx');
     await expect(logo).toBeVisible();
-    await expect
-      .poll(() =>
-        logo.evaluate((element) => {
-          const image = element as HTMLImageElement;
-          return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0;
-        }),
-      )
-      .toBe(true);
+    await expect(logo.locator('path')).toHaveCount(2);
+    const dimensions = await logo.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    expect(dimensions.width).toBeGreaterThan(0);
+    expect(dimensions.height).toBeGreaterThan(0);
 
     const response = await request.get('/gastronexa-logo.svg');
     expect(response.ok()).toBe(true);
