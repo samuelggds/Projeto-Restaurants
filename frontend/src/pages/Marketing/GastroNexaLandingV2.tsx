@@ -144,15 +144,19 @@ export default function GastroNexaLandingV2() {
   return (
     <S.Page>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <S.Announcement>
+        <img src="/gastronexa-logo.svg" alt="" aria-hidden="true" width="16" height="16" />
+        <span><strong>GastroNexa:</strong> seu restaurante mais digital, organizado e pronto para vender</span>
+      </S.Announcement>
 
       <S.Header ref={headerRef}>
         <S.HeaderInner>
-          <Brand />
+          <Brand light />
           <S.Nav id="marketing-navigation" $open={menuOpen} aria-label="Navegação principal">
-            <ScrollLink href="#solucoes" onClick={closeMenu}>Soluções</ScrollLink>
-            <ScrollLink href="#redes" onClick={closeMenu}>Para redes</ScrollLink>
+            <ScrollLink href="#recursos" onClick={closeMenu}>Funcionalidades</ScrollLink>
+            <ScrollLink href="#produto" onClick={closeMenu}>A plataforma</ScrollLink>
             <ScrollLink href="#como-funciona" onClick={closeMenu}>Como funciona</ScrollLink>
-            <ScrollLink href="#recursos" onClick={closeMenu}>Recursos</ScrollLink>
+            <ScrollLink href="#planos" onClick={closeMenu}>Planos</ScrollLink>
             <ScrollLink href="#duvidas" onClick={closeMenu}>Dúvidas</ScrollLink>
           </S.Nav>
           <div className="header-actions">
@@ -175,23 +179,58 @@ export default function GastroNexaLandingV2() {
 
       <main id="conteudo">
         <S.Hero id="solucoes">
-          <img className="hero-accent" src="/marketing-v3/hero-accent.png" alt="" aria-hidden="true" />
-          <S.HeroGrid>
-            <S.HeroCopy>
-              <S.Badge><i /> Cardápio, pedidos e gestão em uma só plataforma</S.Badge>
-              <h1>Seu restaurante vende mais. Sua operação fica mais simples.</h1>
-              <p>A GastroNexa conecta cardápio digital, pedidos, pagamentos e gestão multiunidade em uma experiência com a identidade de cada restaurante.</p>
+          <S.HeroGrid className="marketing-hero-grid">
+            <S.HeroCopy className="marketing-hero-copy">
+              <S.Badge><i /> TECNOLOGIA PARA RESTAURANTES</S.Badge>
+              <h1>Seu restaurante <em>mais organizado.</em> Suas vendas em outro nível.</h1>
+              <p>Cardápio digital, pedidos e gestão em um só lugar. A GastroNexa ajuda a configurar sua operação para você focar no que importa: <strong>vender bem.</strong></p>
               <div className="hero-actions">
-                <S.PrimaryButton href="#contato">Quero conhecer <ArrowRight size={17} /></S.PrimaryButton>
-                <S.SecondaryButton href="#produto">Ver demonstração <Play size={17} /></S.SecondaryButton>
+                <S.PrimaryButton href="#contato">Agendar demonstração <ArrowRight size={17} /></S.PrimaryButton>
+                <S.SecondaryButton href="#produto">Conhecer a plataforma <Play size={17} /></S.SecondaryButton>
               </div>
               <div className="assurances">
-                {['Implantação acompanhada', 'Sem app para o cliente', 'Pensado para crescer'].map((item) => (
+                {['Implantação assistida', 'Cardápio com sua marca', 'Sem aplicativo para o cliente'].map((item) => (
                   <span key={item}><CheckCircle2 size={15} />{item}</span>
                 ))}
               </div>
+              <div className="hero-audience">
+                <span className="food-icons" aria-hidden="true"><span>🍔</span><span>🍕</span><span>☕</span></span>
+                <span><b>Para restaurantes de todos os tamanhos</b><small>Delivery, retirada e atendimento com mesas</small></span>
+              </div>
             </S.HeroCopy>
+            <S.HeroFormArea id="contato">
+              <div className="order-popover" aria-hidden="true">
+                <span><ReceiptText size={25} /></span>
+                <div><b>Pedido recebido!</b><small>Tudo organizado ✓</small></div>
+                <CheckCircle2 className="order-check" size={18} />
+              </div>
+              <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />
+            </S.HeroFormArea>
+          </S.HeroGrid>
+        </S.Hero>
 
+        <S.QuickBenefits>
+          {quickBenefits.map(([Icon, title, description]) => (
+            <article key={title}>
+              <span><Icon size={18} /></span>
+              <div><h3>{title}</h3><p>{description}</p></div>
+            </article>
+          ))}
+        </S.QuickBenefits>
+
+        <S.ShowcaseSection id="produto">
+          <div className="showcase-copy">
+            <S.Eyebrow>Conheça a GastroNexa</S.Eyebrow>
+            <h2>Da primeira venda ao último pedido. <em>Tudo conectado.</em></h2>
+            <p>O cardápio que seu cliente utiliza, a equipe que prepara e o painel que você acompanha trabalham juntos.</p>
+            <ul>
+              <li><Check size={16} />Cardápio digital e pedidos em um só fluxo</li>
+              <li><Check size={16} />Informações organizadas para a equipe</li>
+              <li><Check size={16} />Sua identidade, suas regras, seu restaurante</li>
+            </ul>
+            <S.SoftButton href="#planos">Explorar os planos <ArrowRight size={17} /></S.SoftButton>
+            <div className="chef-buddy" aria-hidden="true"><span>👨‍🍳</span><small>Mais praticidade na sua rotina!</small></div>
+          </div>
             <S.ProductStage aria-label="Prévia da plataforma GastroNexa">
               <div className="desktop-product">
                 <div className="browser-bar">
@@ -226,17 +265,7 @@ export default function GastroNexaLandingV2() {
                 <div><small>Novo pedido recebido</small><b>#284 • R$ 76,40</b></div>
               </div>
             </S.ProductStage>
-          </S.HeroGrid>
-        </S.Hero>
-
-        <S.QuickBenefits>
-          {quickBenefits.map(([Icon, title, description]) => (
-            <article key={title}>
-              <span><Icon size={18} /></span>
-              <div><h3>{title}</h3><p>{description}</p></div>
-            </article>
-          ))}
-        </S.QuickBenefits>
+        </S.ShowcaseSection>
 
         <S.Challenge>
           <S.OperationVisual>
@@ -324,7 +353,7 @@ export default function GastroNexaLandingV2() {
         <S.StepsSection id="como-funciona">
           <S.CenterHeading>
             <S.Eyebrow>Do primeiro contato ao primeiro pedido</S.Eyebrow>
-            <h2>Começar é mais simples quando existe um caminho claro.</h2>
+            <h2>Nós ajudamos a deixar tudo pronto.</h2>
             <p>Nossa implantação organiza o essencial sem tirar seu time da operação.</p>
           </S.CenterHeading>
           <S.StepGrid>
@@ -338,7 +367,7 @@ export default function GastroNexaLandingV2() {
           </S.StepGrid>
         </S.StepsSection>
 
-        <S.ProductSection id="produto">
+        <S.ProductSection id="galeria">
           <S.SectionHeading>
             <div>
               <S.Eyebrow>Por dentro da GastroNexa</S.Eyebrow>
@@ -408,7 +437,7 @@ export default function GastroNexaLandingV2() {
           </div>
         </S.FaqSection>
 
-        <S.DemoSection id="contato">
+        <S.DemoSection id="demonstracao">
           <img className="demo-food" src="/marketing-v3/demo-food.png" alt="" aria-hidden="true" />
           <div className="demo-overlay" aria-hidden="true" />
           <div className="demo-copy">
@@ -422,7 +451,12 @@ export default function GastroNexaLandingV2() {
             </ul>
             <div className="privacy-note"><LockKeyhole size={20} /><span>Seus dados serão usados apenas para responder ao seu contato e conduzir esta oportunidade comercial.</span></div>
           </div>
-          <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />
+          <div className="demo-cta-panel">
+              <b>Comece com a sua operação pronta.</b>
+              <p>Conte o que seu restaurante precisa. Nossa equipe ajuda você a conhecer a plataforma e as condições de implantação.</p>
+              <S.PrimaryButton href="#contato">Agendar minha demonstração <ArrowRight size={17} /></S.PrimaryButton>
+              <a href="https://wa.me/5585998341876" target="_blank" rel="noopener noreferrer" aria-label="Falar com a GastroNexa no WhatsApp oficial">Ou fale com a gente no WhatsApp</a>
+            </div>
         </S.DemoSection>
 
         <S.FinalCta>
@@ -436,7 +470,7 @@ export default function GastroNexaLandingV2() {
           <div className="footer-brand">
             <Brand light />
             <p>Plataforma SaaS multi-tenant para cardápio digital, pedidos e gestão de restaurantes.</p>
-            <div className="socials"><a href="#contato" aria-label="Instagram"><MessageCircle /></a><a href="#contato" aria-label="LinkedIn"><LineChart /></a><a href="#contato" aria-label="WhatsApp"><MessageCircle /></a></div>
+            <div className="socials"><a href="https://www.instagram.com/gastro_nexa/" target="_blank" rel="noopener noreferrer" aria-label="Instagram oficial da GastroNexa"><MessageCircle /></a><a href="https://wa.me/5585998341876" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp oficial da GastroNexa"><MessageCircle /></a></div>
           </div>
           <div><b>Plataforma</b><a href="#recursos">Recursos</a><a href="#redes">Multiunidade</a><a href="#solucoes">Cardápio digital</a><a href="#recursos">Pedidos</a><a href="#recursos">Pagamentos</a></div>
           <div><b>Para seu negócio</b><a href="#solucoes">Restaurantes</a><a href="#redes">Redes e franquias</a><a href="#contato">Demonstração</a><a href="#contato">Fale com vendas</a></div>
