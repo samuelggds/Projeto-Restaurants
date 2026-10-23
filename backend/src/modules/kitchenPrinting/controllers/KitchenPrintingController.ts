@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { z, ZodError } from 'zod';
+import { z, ZodError } from 'zod/v3';
 
 import {
   issuePrinterAgentCredentialSchema,
