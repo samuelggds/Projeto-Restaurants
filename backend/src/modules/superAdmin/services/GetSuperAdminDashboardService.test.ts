@@ -159,6 +159,7 @@ test('dashboard separa faturamento gerado, recebimentos mensais e MRR sem mascar
       generatedInvoicesAggregate: { _sum: { total: 1_200 } },
       openInvoicesAggregate: { _sum: { total: 299.8 } },
       openInvoicesCount: 2,
+      openInvoiceDueDatesByRestaurant: [{ restaurantId: 2, _min: { dueDate: date('2026-08-01T12:00:00.000Z') } }],
       monthlyPaidInvoices: [
         { total: 100, paidAt: date('2026-07-10T10:00:00.000Z') },
         { total: 829.9, paidAt: date('2026-08-15T10:00:00.000Z') },
@@ -170,6 +171,11 @@ test('dashboard separa faturamento gerado, recebimentos mensais e MRR sem mascar
     date('2026-08-28T12:00:00.000Z'),
   );
 
+  assert.equal(result.restaurants.find((item) => item.id === 2)?.billingGraceSource, 'OPEN_INVOICE');
+  assert.equal(result.restaurants.find((item) => item.id === 2)?.billingGraceEndsAt, '2026-08-07T12:00:00.000Z');
+  assert.equal(result.restaurants.find((item) => item.id === 1)?.billingGraceSource, 'ESTIMATED');
+  assert.equal(result.restaurants.find((item) => item.id === 1)?.billingGraceEndsAt, '2026-09-08T00:00:00.000Z');
+  assert.equal(result.restaurants.find((item) => item.id === 3)?.billingGraceEndsAt, null);
   assert.equal(result.metrics.totalGenerated, 1_200);
   assert.equal(result.metrics.totalReceivable, 299.8);
   assert.equal(result.metrics.monthlyRevenue.at(-1)?.value, 829.9);
