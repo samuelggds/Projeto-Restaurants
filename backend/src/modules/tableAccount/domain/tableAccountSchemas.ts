@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { optionalNormalizedBrazilPhoneSchema } from '../../../validators/PhoneValidator.js';
 import {
   DEFAULT_TABLE_ACCOUNT_TIME_ZONE,
