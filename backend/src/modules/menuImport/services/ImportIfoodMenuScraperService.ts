@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import prisma from '../../../config/prisma.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import productRepository from '../../products/repositories/ProductRepository.js';
