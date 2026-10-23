@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v3';
 import { OrderRequestError } from '../domain/OrderRequestError.js';
 import { orderCreationContext } from '../services/orderCreationRequest.js';
 import { safeErrorName } from '../../../services/telemetrySanitizer.js';

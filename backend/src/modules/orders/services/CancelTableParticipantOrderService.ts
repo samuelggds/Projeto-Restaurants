@@ -1,5 +1,5 @@
 import { OrderRefundStatus, OrderStatus } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
 import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
