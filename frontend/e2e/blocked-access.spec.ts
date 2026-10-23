@@ -8,7 +8,7 @@ const PREVIEW_DIR = path.resolve('../output/preview-bloqueios');
 const FAKE_PIX =
   'GASTRONEXA | PREVIA FICTICIA | NAO PAGAR | FATURA DE EXEMPLO 91 | DADOS SOMENTE PARA TESTE';
 
-async function scenario(page: Page, role = 'ADMIN', reason = 'BILLING') {
+async function scenario(page: Page, role = 'ADMIN', reason = 'BILLING', subRole: string | null = null) {
   const state = {
     available: false,
     paid: false,
@@ -20,6 +20,7 @@ async function scenario(page: Page, role = 'ADMIN', reason = 'BILLING') {
     id: 17,
     name: 'Pessoa de exemplo',
     role,
+    subRole,
     restaurantId: 7,
     email: 'exemplo@restaurante.test',
   };
@@ -110,9 +111,13 @@ for (const audience of [
     name: 'cliente',
     title: 'Uma pausa no acesso ao restaurante.',
     data: 'customer',
+    path: '/profile',
+    subRole: null,
   },
   {
-    role: 'GARCOM',
+    role: 'FUNCIONARIO',
+    subRole: 'GARCOM',
+    path: '/waiter',
     name: 'funcionario',
     title: 'O painel está indisponível no momento.',
     data: 'staff',
@@ -121,14 +126,16 @@ for (const audience of [
   test(`bloqueio de ${audience.name} protege dados financeiros e se adapta ao celular`, async ({
     page,
   }) => {
-    const state = await scenario(page, audience.role);
-    await page.goto('/profile');
+    const state = await scenario(page, audience.role, 'BILLING', audience.subRole);
+    await page.goto(audience.path);
     await expect(page.getByTestId('availability-page')).toHaveAttribute(
       'data-audience',
       audience.data,
     );
     await expect(page.getByRole('heading', { name: audience.title })).toBeVisible();
     await expect(page.getByText('DETALHE FINANCEIRO PRIVADO')).toHaveCount(0);
+    await expect(page.getByText('Pague com Pix')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Gerar Pix da fatura' })).toHaveCount(0);
     await mkdir(PREVIEW_DIR, { recursive: true });
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
@@ -146,6 +153,28 @@ for (const audience of [
     }
     expect(state.paths.some((entry) => entry.startsWith('/billing'))).toBe(false);
     await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible();
+  });
+}
+
+
+// Perfis reais usam role FUNCIONARIO e subRole, nao role GARCOM/COZINHA/ATENDENTE.
+// Garantimos que todos vejam a mesma experiencia receptiva sem dados financeiros.
+for (const employee of [
+  { role: 'FUNCIONARIO', subRole: 'COZINHA', path: '/kitchen' },
+  { role: 'FUNCIONARIO', subRole: 'ATENDENTE', path: '/attendant' },
+  { role: 'MOTOQUEIRO', subRole: null, path: '/courier' },
+]) {
+  test(`bloqueio do perfil ${employee.subRole || employee.role} exibe apenas orientacao receptiva`, async ({ page }) => {
+    const state = await scenario(page, employee.role, 'BILLING', employee.subRole);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(employee.path);
+    await expect(page.getByTestId('availability-page')).toHaveAttribute('data-audience', 'staff');
+    await expect(page.getByRole('heading', { name: 'O painel está indisponível no momento.' })).toBeVisible();
+    await expect(page.getByText('DETALHE FINANCEIRO PRIVADO')).toHaveCount(0);
+    await expect(page.getByText('Pague com Pix')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Gerar Pix da fatura' })).toHaveCount(0);
+    expect(state.paths.some((entry) => entry.startsWith('/billing'))).toBe(false);
+    await noOverflow(page, 390);
   });
 }
 
