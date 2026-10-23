@@ -73,7 +73,7 @@ export const ShowcaseSection = styled.section`
 export const Brand = styled.a<{ $light?: boolean }>`
   display:inline-flex;align-items:center;gap:10px;min-width:0;color:#fff;
   font-family:'Manrope','Inter',sans-serif;font-size:20px;font-weight:800;white-space:nowrap;
-  img{width:36px;height:36px;object-fit:contain;filter:${({$light})=>$light?'brightness(0) invert(1)':'none'}}
+  img{width:36px;height:36px;object-fit:contain;filter:brightness(0) invert(1)}
   strong{color:var(--orange)}
 `;
 
