@@ -130,8 +130,18 @@ describe('política de disponibilidade do sistema', () => {
     expect(resolveAvailabilityView({
       ...base, pathname: '/admin', systemBlock: { reason: 'BILLING' },
     })).toBe('BILLING_ADMIN');
+    // A rota operacional derivada do link NÃO pode usar o bypass da chave.
+    // ADMIN inadimplente vê exclusivamente a recuperação de cobrança; os
+    // demais perfis e uma suspensão manual continuam no bloqueio receptivo.
     expect(resolveAvailabilityView({
       ...base, pathname: entry + '/orders', systemBlock: { reason: 'BILLING' },
+    })).toBe('BILLING_ADMIN');
+    expect(resolveAvailabilityView({
+      ...base, pathname: entry + '/orders', role: 'FUNCIONARIO',
+      systemBlock: { reason: 'BILLING' },
+    })).toBe('TENANT_MAINTENANCE');
+    expect(resolveAvailabilityView({
+      ...base, pathname: entry + '/orders', systemBlock: { reason: 'MANUAL' },
     })).toBe('TENANT_MAINTENANCE');
   });
 
