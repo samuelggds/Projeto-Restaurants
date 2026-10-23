@@ -1,0 +1,37 @@
+name: Production Release Diagnostics (temporary)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-release-diagnostics.yml'
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Inspect checks, production release and deploy for merged PR 366
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 290ac5f8801b15e3fd9f71c8130536e4f7d2f511
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${TARGET_SHA}/check-runs?per_page=100" > "$RUNNER_TEMP/checks.json"
+          echo '=== CHECK RUNS ON MERGE COMMIT ==='
+          jq -r '.check_runs[] | [.name,.status,(.conclusion // "pending")] | @tsv' "$RUNNER_TEMP/checks.json"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100&page=1" > "$RUNNER_TEMP/runs.json"
+          echo '=== RELEVANT WORKFLOW RUNS ==='
+          jq -r --arg sha "$TARGET_SHA" '.workflow_runs[] | select(.head_sha == $sha or ((.display_title // "") | contains($sha))) | [.id,.name,.event,.head_sha,.status,(.conclusion // "pending"),(.display_title // "")] | @tsv' "$RUNNER_TEMP/runs.json"
+          echo '=== FAILED JOBS AND STEPS ==='
+          jq -r --arg sha "$TARGET_SHA" '.workflow_runs[] | select(.head_sha == $sha or ((.display_title // "") | contains($sha))) | select(.conclusion == "failure" or .conclusion == "cancelled") | .id' "$RUNNER_TEMP/runs.json" | while read -r run_id; do
+            echo "RUN_ID=$run_id"
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" \
+              --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | {id: .id, name: .name, conclusion: .conclusion, failed_steps: [.steps[] | select(.conclusion == "failure") | {name: .name, number: .number}]}' || true
+          done
+          echo '=== REPO PROD DEPLOY VARIABLE (value only) ==='
+          gh api "repos/${GITHUB_REPOSITORY}/actions/variables/PRODUCTION_DEPLOY_ENABLED" --jq '.value' 2>/dev/null || echo 'Variable unavailable with current read access'
