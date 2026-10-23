@@ -442,4 +442,22 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   }
 }
 
+
+/* Footer navigation: responsive legal links next to official contact details. */
+.footer .footer-links{display:flex;flex-wrap:wrap;gap:28px 52px;align-items:flex-start}
+.footer .footer-links>div{min-width:145px;max-width:250px}
+.footer .footer-links a{display:block;overflow-wrap:anywhere;text-decoration:none}
+.footer .footer-links a:hover,.footer .footer-links a:focus-visible{color:#ffae78;text-decoration:underline;text-underline-offset:4px}
+@media(max-width:990px){
+  .footer .footer-top{flex-wrap:wrap}
+  .footer .footer-links{width:100%;gap:28px 38px}
+}
+@media(max-width:690px){
+  .footer .footer-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 18px}
+  .footer .footer-links>div{min-width:0;max-width:none}
+}
+@media(max-width:370px){
+  .footer .footer-links{grid-template-columns:1fr}
+}
+
 `;
