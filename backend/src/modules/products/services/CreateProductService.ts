@@ -2,7 +2,7 @@ import {
   createProductSchema,
   productConfigurationTemplateDataSchema,
 } from '../../../validators/ProductValidator.js';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import prisma from '../../../config/prisma.js';
 import {
   buildProductCompositionCreate,

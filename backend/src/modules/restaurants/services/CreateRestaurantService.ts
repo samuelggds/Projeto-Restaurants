@@ -6,7 +6,7 @@ import { PlanType, SubscriptionStatus, UserRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { createRestaurantSchema } from '../../../validators/RestaurantValidator.js';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { collectStrongPasswordErrors } from '../../auth/security/passwordPolicy.js';
 import platformPlanCatalogService from '../../billing/services/PlatformPlanCatalogService.js';
 import { addDays } from '../../billing/utils/dateUtils.js';

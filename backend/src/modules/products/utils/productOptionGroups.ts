@@ -1,5 +1,5 @@
 import type { Prisma, ProductOptionSelectionType } from '@prisma/client';
-import type { z } from 'zod';
+import type { z } from 'zod/v3';
 import type {
   productCompositionItemSchema,
   productOptionGroupSchema,

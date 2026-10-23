@@ -1,6 +1,6 @@
 import { updateProductSchema } from '../../../validators/ProductValidator.js';
 import productRepository from '../repositories/ProductRepository.js';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import prisma from '../../../config/prisma.js';
 import {
   buildProductCompositionCreate,

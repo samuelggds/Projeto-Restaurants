@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { productConfigurationTemplateDataSchema } from '../../../validators/ProductValidator.js';
