@@ -219,11 +219,67 @@ export const RestaurantCover = styled.div`
   }
 `;
 
+export const StorefrontIntro = styled.section`
+  width:min(1120px,calc(100% - 48px));
+  margin:16px auto 34px;
+  padding:0 12px 0 112px;
+  min-height:90px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  .storefront-identity{min-width:0}
+  h1{margin:0;font-family:'Gabarito','Inter',sans-serif;font-size:clamp(25px,3vw,34px);line-height:1.15;letter-spacing:-.025em}
+  .storefront-meta{margin-top:9px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 15px;color:var(--delivery-muted);font-size:12px}
+  .storefront-rating{display:inline-flex;align-items:center;gap:5px}
+  .storefront-rating svg{color:#f5a623}
+  .storefront-rating strong{color:var(--delivery-text)}
+  .storefront-status{display:inline-flex;align-items:center;gap:5px}
+  .storefront-status i{width:7px;height:7px;border-radius:50%;background:#d44747}
+  .storefront-status i.open{background:#2fb665}
+  .storefront-facts{display:flex;gap:0;align-items:center;flex-wrap:wrap}
+  .storefront-facts>span{display:flex;align-items:center;gap:10px;padding:8px 16px;border-left:1px solid var(--delivery-line)}
+  .storefront-facts svg{width:20px;height:20px;color:var(--delivery-primary)}
+  .storefront-facts span span{display:grid;gap:3px}
+  .storefront-facts strong{font-size:13px;white-space:nowrap}
+  .storefront-facts small{font-size:10px;color:var(--delivery-muted);white-space:nowrap}
+  @media(max-width:900px){
+    padding-left:82px;flex-direction:column;align-items:flex-start;gap:12px;
+    .storefront-facts>span:first-child{border-left:0;padding-left:0}
+  }
+  @media(max-width:760px){
+    width:calc(100% - 24px);padding:0 4px;margin:0 12px 16px;
+    min-height:0;gap:12px;
+    h1{font-size:21px}
+    .storefront-meta{margin-top:5px;font-size:10px;gap:6px 12px}
+    .storefront-facts{width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(85px,1fr));gap:5px}
+    .storefront-facts>span{min-width:0;padding:10px 7px;border:1px solid var(--delivery-line);border-radius:10px;background:#fafaf9;gap:5px}
+    .storefront-facts>span:first-child{padding-left:7px;border:1px solid var(--delivery-line)}
+    .storefront-facts svg{width:14px;height:14px;flex-shrink:0}
+    .storefront-facts strong{font-size:10px}
+    .storefront-facts small{font-size:8px;white-space:normal}
+  }
+`;
+
+export const PromotionHeading = styled.div`
+  width:min(1120px,calc(100% - 48px));
+  margin:0 auto 12px;
+  span{font-size:11px;font-weight:800;color:var(--delivery-primary);letter-spacing:.08em;text-transform:uppercase}
+  h2{font-size:21px;margin:3px 0 0;font-family:'Gabarito','Inter',sans-serif}
+  @media(max-width:760px){width:calc(100% - 24px);margin:4px 12px 9px;span{font-size:9px}h2{font-size:15px}}
+`;
+
 export const HeroCarousel = styled.div`
   position:relative;
   width:100%;
   height:520px;
   margin:0;
+
+  &.after-cover{
+    width:min(1120px,calc(100% - 48px));height:clamp(230px,29vw,345px);
+    margin:0 auto 12px;
+    > section{height:100%;min-height:100%;border-radius:16px}
+  }
 
   > section{
     width:100%;
@@ -233,6 +289,7 @@ export const HeroCarousel = styled.div`
   }
 
   @media(max-width:760px){
+    &.after-cover{width:calc(100% - 24px);height:166px;margin:0 12px 8px;> section{height:166px !important;min-height:166px !important;border-radius:12px}}
     width:calc(100% - 24px);
     height:166px;
     margin:4px 12px 0;

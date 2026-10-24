@@ -22,6 +22,7 @@ import {
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { RestaurantCover } from './components/RestaurantCover';
+import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage, categoryImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
@@ -92,6 +93,7 @@ export function FigmaDeliveryExperience({
   whatsappLabel,
 }: HomeExperienceProps) {
   const primary = '#FF4B4B';
+  const hasRestaurantCover = Boolean(data.brand.coverUrl);
   const deliveryTimeLabel = formatDeliveryTime(data.deliveryTime);
   const [selectedProduct, setSelectedProduct] = useState<HomeProduct | null>(null);
   const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
@@ -802,7 +804,14 @@ export function FigmaDeliveryExperience({
         </div>
       </S.Header>
 
-      {!selectedProduct ? <RestaurantCover brand={data.brand} /> : null}
+      {!selectedProduct ? (
+        <>
+          <RestaurantCover brand={data.brand} />
+          {hasRestaurantCover ? (
+            <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} storefrontAvailability={storefrontAvailability} />
+          ) : null}
+        </>
+      ) : null}
 
       {selectedProduct ? (
         <Suspense fallback={null}>
@@ -832,46 +841,22 @@ export function FigmaDeliveryExperience({
       ) : (
         <>
           {promotionBanners.length ? (
-            <S.HeroCarousel>
+            <>
+              {hasRestaurantCover ? (
+                <S.PromotionHeading>
+                  <span>Ofertas e novidades</span>
+                  <h2>Promoções do restaurante</h2>
+                </S.PromotionHeading>
+              ) : null}
+            <S.HeroCarousel className={hasRestaurantCover ? 'after-cover' : undefined}>
               <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
-              {(data.brand.address ||
+              {!hasRestaurantCover && (data.brand.address ||
                 deliveryTimeLabel ||
                 Number(data.deliveryFee || 0) > 0) ? (
-                <S.HeroMetrics aria-label="Resumo do restaurante">
-                  {(deliveryTimeLabel || Number(data.deliveryFee || 0) > 0) ? (
-                    <div className="metric-card">
-                      <div
-                        className="delivery-metrics"
-                        data-single-metric={
-                          Number(Boolean(deliveryTimeLabel)) +
-                            Number(Number(data.deliveryFee || 0) > 0) ===
-                          1
-                        }
-                      >
-                        {deliveryTimeLabel ? (
-                          <span>
-                            <b>{deliveryTimeLabel}</b>
-                            <small>Tempo de entrega</small>
-                          </span>
-                        ) : null}
-                        {Number(data.deliveryFee || 0) > 0 ? (
-                          <span>
-                            <b>{money(Number(data.deliveryFee))}</b>
-                            <small>Taxa de entrega</small>
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                  {data.brand.address ? (
-                    <div className="hero-address">
-                      <MapPin aria-hidden="true" />
-                      <span>{data.brand.address}</span>
-                    </div>
-                  ) : null}
-                </S.HeroMetrics>
+                <LegacyHeroMetrics data={data} deliveryTimeLabel={deliveryTimeLabel} />
               ) : null}
             </S.HeroCarousel>
+            </>
           ) : null}
 
 
