@@ -7,7 +7,7 @@ const strictObject = <T extends z.ZodRawShape>(shape: T) => z.object(shape).stri
 
 function requirePatch<T extends z.ZodRawShape>(schema: z.ZodObject<T>, fields: readonly (keyof T)[]) {
   return schema.refine(
-    (value) => fields.some((field) => value[field] !== undefined),
+    (value) => fields.some((field) => (value as Record<keyof T, unknown>)[field] !== undefined),
     { message: 'Informe ao menos um campo para alterar.' },
   );
 }
