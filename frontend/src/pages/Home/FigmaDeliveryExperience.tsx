@@ -22,6 +22,7 @@ import {
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { RestaurantCover } from './components/RestaurantCover';
+import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage, categoryImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
@@ -807,48 +808,7 @@ export function FigmaDeliveryExperience({
         <>
           <RestaurantCover brand={data.brand} />
           {hasRestaurantCover ? (
-            <S.StorefrontIntro aria-label={`Informações de ${data.brand.name}`}>
-              <div className="storefront-identity">
-                <h1>{data.brand.name}</h1>
-                <div className="storefront-meta">
-                  {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
-                    <span className="storefront-rating">
-                      <Star size={15} aria-hidden="true" fill="currentColor" />
-                      <strong>{data.brand.ratingAverage.toFixed(1)}</strong>
-                      <small>
-                        ({Number(data.brand.ratingCount).toLocaleString('pt-BR')}{' '}
-                        {data.brand.ratingCount === 1 ? 'avaliação' : 'avaliações'})
-                      </small>
-                    </span>
-                  ) : null}
-                  {data.brand.category ? <span className="storefront-category">{data.brand.category}</span> : null}
-                  <span className="storefront-status">
-                    <i className={storefrontAvailability.isOpen ? 'open' : ''} />
-                    {storefrontAvailability.label}
-                  </span>
-                </div>
-              </div>
-              <div className="storefront-facts">
-                {data.acceptsDelivery && deliveryTimeLabel ? (
-                  <span>
-                    <Clock3 aria-hidden="true" />
-                    <span><strong>{deliveryTimeLabel}</strong><small>Tempo de entrega</small></span>
-                  </span>
-                ) : null}
-                {data.acceptsDelivery && Number(data.deliveryFee || 0) > 0 ? (
-                  <span>
-                    <Bike aria-hidden="true" />
-                    <span><strong>{money(Number(data.deliveryFee))}</strong><small>Taxa de entrega</small></span>
-                  </span>
-                ) : null}
-                {data.freeDeliveryFrom > 0 ? (
-                  <span>
-                    <ShoppingBag aria-hidden="true" />
-                    <span><strong>{money(data.freeDeliveryFrom)}</strong><small>Frete grátis a partir de</small></span>
-                  </span>
-                ) : null}
-              </div>
-            </S.StorefrontIntro>
+            <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} storefrontAvailability={storefrontAvailability} />
           ) : null}
         </>
       ) : null}
@@ -893,39 +853,7 @@ export function FigmaDeliveryExperience({
               {!hasRestaurantCover && (data.brand.address ||
                 deliveryTimeLabel ||
                 Number(data.deliveryFee || 0) > 0) ? (
-                <S.HeroMetrics aria-label="Resumo do restaurante">
-                  {(deliveryTimeLabel || Number(data.deliveryFee || 0) > 0) ? (
-                    <div className="metric-card">
-                      <div
-                        className="delivery-metrics"
-                        data-single-metric={
-                          Number(Boolean(deliveryTimeLabel)) +
-                            Number(Number(data.deliveryFee || 0) > 0) ===
-                          1
-                        }
-                      >
-                        {deliveryTimeLabel ? (
-                          <span>
-                            <b>{deliveryTimeLabel}</b>
-                            <small>Tempo de entrega</small>
-                          </span>
-                        ) : null}
-                        {Number(data.deliveryFee || 0) > 0 ? (
-                          <span>
-                            <b>{money(Number(data.deliveryFee))}</b>
-                            <small>Taxa de entrega</small>
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : null}
-                  {data.brand.address ? (
-                    <div className="hero-address">
-                      <MapPin aria-hidden="true" />
-                      <span>{data.brand.address}</span>
-                    </div>
-                  ) : null}
-                </S.HeroMetrics>
+                <LegacyHeroMetrics data={data} deliveryTimeLabel={deliveryTimeLabel} />
               ) : null}
             </S.HeroCarousel>
             </>
