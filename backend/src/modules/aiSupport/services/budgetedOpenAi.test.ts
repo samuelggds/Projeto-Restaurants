@@ -54,7 +54,7 @@ test('retains reservation on ambiguous timeout and releases a rejected request',
   });
   for (const error of [
     new OpenAI.APIConnectionTimeoutError(),
-    OpenAI.APIError.generate(400, {}, undefined, {}),
+    OpenAI.APIError.generate(400, {}, undefined, new Headers()),
   ]) {
     await assert.rejects(
       runBudgetedAi({
