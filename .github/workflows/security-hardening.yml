@@ -36,8 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           cd backend
-          npm pkg set 'overrides.body-parser=^2.4.0' 'overrides.ip-address=^10.7.4'
-          npm install 'openai@^6' 'zod@^4.6.6' --package-lock-only --ignore-scripts --no-audit
+          npm pkg set 'overrides.body-parser=^2.4.0' 'overrides.ip-address=^10.7.4' 'overrides.undici=^7.30.1'
+          npm install 'openai@^6' 'zod@^4.6.6' 'nodemailer@^10.1.4' --package-lock-only --ignore-scripts --no-audit
           cd ../frontend
           npm pkg set 'overrides.zod=^4.6.6'
           npm install --package-lock-only --ignore-scripts --no-audit
