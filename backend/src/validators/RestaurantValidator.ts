@@ -50,7 +50,7 @@ function validateEmailDomainTypos(value: string) {
 
 export const createRestaurantSchema = z.object({
   plan: z.enum(['BASICO', 'PREMIUM', 'GESTAO_TOTAL'], {
-    errorMap: () => ({ message: 'Escolha o plano Básico, Premium ou Gestão Total.' }),
+    error: 'Escolha o plano Básico, Premium ou Gestão Total.',
   }),
   restaurant: z.object({
     name: z
