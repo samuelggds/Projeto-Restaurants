@@ -60,6 +60,7 @@ export interface RestaurantTenant {
   phone: string | null;
   active: boolean;
   accessBlockReason: RestaurantAccessBlockReason;
+  billingTemporaryAccessUntil: string | null;
   status: TenantStatus;
   createdAt: string;
   lastAccessAt: string | null;
