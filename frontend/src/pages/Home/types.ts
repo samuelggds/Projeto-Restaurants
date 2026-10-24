@@ -8,6 +8,8 @@ export type HomeBrand = {
   name: string;
   monogram?: string;
   logoUrl?: string;
+  /** Same per-restaurant cover used by the branded login (no duplicate upload). */
+  coverImageUrl?: string;
   category?: string;
   address: string;
   primaryColor?: string;
