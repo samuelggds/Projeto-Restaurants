@@ -1,6 +1,7 @@
 import { ArrowUpRight, Info, LockKeyhole, RefreshCw } from 'lucide-react';
 import { getPlatformMaintenanceState } from '../../Services/platformMaintenance';
-import { clearSystemBlockState } from '../../Services/systemBlock';
+import { getSystemBlockState } from '../../Services/systemBlock';
+import api from '../../Services/api';
 import { gastroNexaGPath, gastroNexaXPath } from '../Login/components/gastroNexaMark';
 import * as S from './styles';
 
@@ -69,8 +70,30 @@ export default function SystemMaintenancePage({
       }
     : tenantCopy[audience];
 
-  const retry = () => {
-    if (!isPlatformMaintenance) clearSystemBlockState();
+  const retry = async () => {
+    if (isPlatformMaintenance) {
+      window.location.reload();
+      return;
+    }
+    const blocked = getSystemBlockState();
+    const restaurantId = Number(blocked?.restaurantId || 0);
+    if (Number.isInteger(restaurantId) && restaurantId > 0) {
+      try {
+        const response = await api.get<{ available?: boolean }>(
+          `/restaurants/${restaurantId}/availability`,
+          { headers: { 'Cache-Control': 'no-cache' } },
+        );
+        if (response.data?.available !== true) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        window.location.reload();
+        return;
+      }
+    }
+    // Gate clears a confirmed released state. Never clear a billing block
+    // optimistically; refresh the route so the server re-evaluates access.
     window.location.reload();
   };
 
@@ -130,7 +153,7 @@ export default function SystemMaintenancePage({
             </S.Guidance>
 
             <S.Actions>
-              <S.RetryButton type="button" onClick={retry}>
+              <S.RetryButton type="button" onClick={() => void retry()}>
                 <RefreshCw size={17} aria-hidden="true" />
                 Tentar novamente
                 <ArrowUpRight size={17} className="action-arrow" aria-hidden="true" />
