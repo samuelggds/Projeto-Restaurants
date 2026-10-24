@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { hasActiveTemporaryBillingAccess } from '../utils/temporaryBillingAccess.js';
 import { hasBlockingInvoices, isInvoiceBlocking } from '../utils/billingRules.js';
 
 export const BILLING_BLOCKED_CODE = 'BILLING_BLOCKED';
@@ -52,11 +53,12 @@ export class RestaurantAccessService {
   ): Promise<RestaurantAccessDecision | null | undefined> {
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { id: true, active: true, accessBlockReason: true },
+      select: { id: true, active: true, accessBlockReason: true, billingTemporaryAccessUntil: true },
     });
     if (!restaurant) return null;
 
     const configuredReason = normalizeBlockReason(restaurant.accessBlockReason);
+    const temporaryGrantActive = hasActiveTemporaryBillingAccess(restaurant.billingTemporaryAccessUntil, now);
     if (configuredReason === 'MANUAL' || (!restaurant.active && configuredReason === 'NONE')) {
       return this.manualBlockDecision(restaurantId);
     }
@@ -68,6 +70,11 @@ export class RestaurantAccessService {
       },
       select: { id: true, status: true, dueDate: true },
     });
+
+    if (temporaryGrantActive && configuredReason !== 'MANUAL' && restaurant.active) {
+      const subscription = await prisma.subscription.findUnique({ where: { restaurantId }, select: { status: true } });
+      if (subscription && subscription.status !== 'CANCELADA') return { allowed: true, restaurantId };
+    }
 
     if (!hasBlockingInvoices(openInvoices, now) && configuredReason !== 'BILLING') {
       return { allowed: true, restaurantId };
@@ -127,11 +134,13 @@ export class RestaurantAccessService {
         id: true,
         active: true,
         accessBlockReason: true,
+        billingTemporaryAccessUntil: true,
       },
     });
     if (!restaurant) return null;
 
     const configuredReason = normalizeBlockReason(restaurant.accessBlockReason);
+    const temporaryGrantActive = hasActiveTemporaryBillingAccess(restaurant.billingTemporaryAccessUntil, now);
     if (configuredReason === 'MANUAL' || (!restaurant.active && configuredReason === 'NONE')) {
       return this.manualBlockDecision(restaurantId);
     }
@@ -145,6 +154,11 @@ export class RestaurantAccessService {
     });
     const blockingInvoices = openInvoices.filter((invoice) => isInvoiceBlocking(invoice, now));
     const hasFinancialBlock = hasBlockingInvoices(openInvoices, now);
+
+    if (temporaryGrantActive && configuredReason !== 'MANUAL' && restaurant.active) {
+      const subscription = await db.subscription.findUnique({ where: { restaurantId }, select: { status: true } });
+      if (subscription && subscription.status !== 'CANCELADA') return { allowed: true, restaurantId };
+    }
 
     if (!hasFinancialBlock && configuredReason !== 'BILLING') {
       return { allowed: true, restaurantId };
