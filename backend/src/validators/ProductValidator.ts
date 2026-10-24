@@ -240,8 +240,7 @@ const productSchema = z.object({
 
   price: z
     .number({
-      invalid_type_error: 'Preço deve ser um número.',
-      required_error: 'Preço deve ser um número.',
+      error: (issue) => issue.input === undefined ? 'Preço deve ser um número.' : 'Preço deve ser um número.',
     })
     .min(0, 'Preço não pode ser negativo!')
     .optional(),
@@ -282,8 +281,7 @@ const productSchema = z.object({
 
   categoryId: z
     .number({
-      invalid_type_error: 'Categoria é obrigatória.',
-      required_error: 'Categoria é obrigatória.',
+      error: (issue) => issue.input === undefined ? 'Categoria é obrigatória.' : 'Categoria é obrigatória.',
     })
     .int(),
 });
