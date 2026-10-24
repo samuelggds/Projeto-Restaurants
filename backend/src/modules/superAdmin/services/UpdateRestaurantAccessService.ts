@@ -1,3 +1,4 @@
+import { temporaryBillingAccessExpiresAt } from '../../billing/utils/temporaryBillingAccess.js';
 import { buildAuditMetadata } from '../domain/auditMetadata.js';
 import { notFound, SuperAdminError } from '../domain/superAdminErrors.js';
 import {
@@ -41,7 +42,7 @@ export class UpdateRestaurantAccessService {
           where: { restaurantId, status: { in: ['PENDENTE', 'ATRASADO'] } },
           select: { status: true, dueDate: true },
         });
-        if (hasBlockingInvoices(openInvoices, new Date())) {
+        if (!parsed.temporaryAccessDays && hasBlockingInvoices(openInvoices, new Date())) {
           throw new SuperAdminError(
             'Este restaurante possui fatura vencida além da tolerância. A liberação depende da regularização da cobrança; alterar apenas o acesso não remove o bloqueio financeiro.',
             409,
@@ -50,11 +51,25 @@ export class UpdateRestaurantAccessService {
         }
       }
 
+      if (parsed.temporaryAccessDays) {
+        const subscription = await transaction.subscription.findUnique({ where: { restaurantId }, select: { status: true } });
+        if (!subscription || subscription.status === 'CANCELADA') {
+          throw new SuperAdminError('Assinatura cancelada ou inexistente. Não é possível autorizar acesso temporário.', 409, 'SUBSCRIPTION_NOT_ELIGIBLE');
+        }
+      }
+
       const after = await this.repository.updateRestaurantAccess(
         restaurantId,
         parsed.active,
         transaction,
       );
+      const temporaryUntil = parsed.temporaryAccessDays
+        ? temporaryBillingAccessExpiresAt(new Date(), parsed.temporaryAccessDays)
+        : null;
+      await transaction.restaurant.update({
+        where: { id: restaurantId },
+        data: { billingTemporaryAccessUntil: temporaryUntil },
+      });
       if (!parsed.active) {
         await this.repository.revokeRestaurantSessions(restaurantId, transaction);
       }
@@ -66,12 +81,12 @@ export class UpdateRestaurantAccessService {
           actorRole: actor.role,
           restaurantId,
           restaurantName: before.name,
-          action: parsed.active ? 'UNBLOCK_RESTAURANT_ACCESS' : 'BLOCK_RESTAURANT_ACCESS',
+          action: parsed.temporaryAccessDays ? 'TEMPORARY_BILLING_ACCESS_GRANTED' : parsed.active ? 'UNBLOCK_RESTAURANT_ACCESS' : 'BLOCK_RESTAURANT_ACCESS',
           resource: `Restaurant:${restaurantId}`,
           metadata: buildAuditMetadata({
             reason: parsed.reason,
             before,
-            after,
+            after: { ...after, billingTemporaryAccessUntil: temporaryUntil },
           }),
         },
         transaction,
@@ -81,6 +96,7 @@ export class UpdateRestaurantAccessService {
         id: after.id,
         name: after.name,
         active: after.active,
+        billingTemporaryAccessUntil: temporaryUntil?.toISOString() ?? null,
         accessBlockReason: after.accessBlockReason,
         updatedAt: after.updatedAt.toISOString(),
       };
