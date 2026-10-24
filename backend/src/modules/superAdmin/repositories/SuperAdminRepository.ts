@@ -78,6 +78,7 @@ export class SuperAdminRepository {
           phone: true,
           active: true,
           accessBlockReason: true,
+          billingTemporaryAccessUntil: true,
           createdAt: true,
           subscription: { select: safeSubscriptionSelect },
           users: {
