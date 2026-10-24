@@ -80,8 +80,12 @@ export const restaurantAccessUpdateSchema = z
   .object({
     active: z.boolean(),
     reason: normalizedText(8, 500, 'Motivo'),
+    temporaryAccessDays: z.union([z.literal(1), z.literal(3), z.literal(7)]).optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => value.temporaryAccessDays === undefined || value.active, {
+    message: 'A autorização temporária exige liberação de acesso.',
+  });
 
 export const restaurantSubscriptionUpdateSchema = z
   .object({
