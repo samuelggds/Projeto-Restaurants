@@ -196,6 +196,29 @@ export const HeroMetrics = styled.aside`
   @media(max-width:900px){display:none}
 `;
 
+export const RestaurantCover = styled.div`
+  position:relative;
+  width:min(1120px,calc(100% - 48px));
+  height:230px;
+  margin:18px auto 10px;
+  border-radius:18px;
+  background:#f4efe9;
+  overflow:visible;
+  > img{width:100%;height:100%;display:block;object-fit:cover;border-radius:inherit}
+  .cover-logo{
+    position:absolute;bottom:-23px;left:24px;width:76px;height:76px;
+    background:var(--delivery-primary);border:4px solid #fff;border-radius:50%;
+    display:grid;place-items:center;color:#fff;font-size:23px;font-weight:850;
+    overflow:hidden;box-shadow:0 6px 16px rgba(0,0,0,.14);
+  }
+  .cover-logo img{width:100%;height:100%;object-fit:cover}
+  @media(max-width:760px){
+    width:calc(100% - 24px);height:clamp(112px,35vw,165px);
+    margin:4px 12px 32px;border-radius:12px;
+    .cover-logo{width:57px;height:57px;left:16px;bottom:-17px;border-width:3px;font-size:18px}
+  }
+`;
+
 export const HeroCarousel = styled.div`
   position:relative;
   width:100%;
