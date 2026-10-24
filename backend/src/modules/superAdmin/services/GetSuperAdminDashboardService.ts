@@ -85,6 +85,7 @@ export class GetSuperAdminDashboardService {
         phone: restaurant.phone,
         active: restaurant.active,
         accessBlockReason: restaurant.accessBlockReason,
+        billingTemporaryAccessUntil: toIso(restaurant.billingTemporaryAccessUntil),
         status: deriveTenantStatus({
           active: restaurant.active,
           subscriptionStatus: subscription?.status,
