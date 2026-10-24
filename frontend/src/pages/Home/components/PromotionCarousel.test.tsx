@@ -139,11 +139,11 @@ describe('PromotionCarousel', () => {
     expect((slides[1] as HTMLElement).hidden).toBe(false);
   });
 
-  it('remove setas laterais e mantém a navegação completa pelos indicadores no teclado', () => {
+  it('mostra setas laterais e mantém navegação completa pelos indicadores no teclado', () => {
     act(() => root.render(<PromotionCarousel banners={banners} />));
 
-    expect(container.querySelector('[aria-label="Promoção anterior"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Próxima promoção"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Promoção anterior"]')).toBeTruthy();
+    expect(container.querySelector('[aria-label="Próxima promoção"]')).toBeTruthy();
     expect(container.querySelector('[aria-label="Pausar rotação automática"]')).toBeNull();
 
     const dots = Array.from(
