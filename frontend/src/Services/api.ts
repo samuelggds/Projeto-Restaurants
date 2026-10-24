@@ -374,6 +374,11 @@ api.interceptors.response.use(
           !isAlwaysAvailableLoginPath(currentPath) &&
           currentPath !== '/system-maintenance'
         ) {
+          // Preserve the specific tenant route for a verified unblock.
+          // Never store an external destination or authentication token.
+          if (currentPath !== '/system-maintenance' && currentPath.startsWith('/')) {
+            window.sessionStorage.setItem('restaurant_block_return_path', currentPath);
+          }
           window.location.assign('/system-maintenance');
         }
       }
