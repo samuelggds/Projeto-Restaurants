@@ -87,13 +87,25 @@ export default function SystemMaintenancePage({
           window.location.reload();
           return;
         }
+        const path = window.sessionStorage.getItem('restaurant_block_return_path');
+        window.sessionStorage.removeItem('restaurant_block_return_path');
+        // Route back only after the canonical backend permits access.
+        // Do not accept absolute URLs, // links, or known privileged roots.
+        if (
+          path?.startsWith('/') &&
+          !path.startsWith('//') &&
+          !path.includes('\\\\') &&
+          !/^\\/(?:super_admin|system-maintenance)(?:\\/|$)/iu.test(path)
+        ) {
+          window.location.assign(path);
+          return;
+        }
       } catch {
         window.location.reload();
         return;
       }
     }
-    // Gate clears a confirmed released state. Never clear a billing block
-    // optimistically; refresh the route so the server re-evaluates access.
+    // For sessions without a confirmed tenant, refresh normally.
     window.location.reload();
   };
 
