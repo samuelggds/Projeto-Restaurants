@@ -137,6 +137,32 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+  it('mantém o bloco compacto e não duplica métricas na identidade abaixo da capa', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Demo', coverUrl: '/capa.webp' },
+            deliveryTime: '35-45 min',
+            deliveryFee: 5,
+            freeDeliveryFrom: 50,
+            acceptsDelivery: true,
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('[aria-label="Informações de Restaurante Demo"]')).toBeTruthy();
+    expect(container.querySelector('.storefront-facts')).toBeNull();
+    expect(container.querySelector('.desktop-info')).toBeTruthy();
+    expect(container.querySelector('.desktop-info')?.textContent).toContain('Frete grátis acima de');
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('não reserva espaço de banner quando o admin não configurou banner', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
