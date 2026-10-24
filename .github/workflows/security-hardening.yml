@@ -17,6 +17,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  dependency-repair-pr375:
+    name: Repair vulnerable dependencies (PR 375)
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 375 && github.event.pull_request.head.repo.full_name == 'samuelggds/Projeto-Restaurants' && github.event.pull_request.head.ref == 'fix/admin-login-tenant-branding-20261023' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: fix/admin-login-tenant-branding-20261023
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Regenerate authenticated dependency lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backend
+          npm pkg set 'overrides.body-parser=^2.4.0' 'overrides.ip-address=^10.7.4'
+          npm install 'zod@^4.6.6' --package-lock-only --ignore-scripts --no-audit
+          cd ../frontend
+          npm pkg set 'overrides.zod=^4.6.6'
+          npm install --package-lock-only --ignore-scripts --no-audit
+          cd ..
+          npm --prefix backend ci
+          npm --prefix frontend ci
+          npm --prefix backend run typecheck
+          npm --prefix frontend run typecheck
+          node scripts/auditNpmLockfile.mjs backend/package-lock.json --audit-level=high
+          node scripts/auditNpmLockfile.mjs frontend/package-lock.json --audit-level=high
+      - name: Commit only after successful validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'fix(security): regenerate audited npm dependency lockfiles'
+            git push origin HEAD:fix/admin-login-tenant-branding-20261023
+          fi
+
   secret-scan:
     name: Secret detection
     runs-on: ubuntu-latest
