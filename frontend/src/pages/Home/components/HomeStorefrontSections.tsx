@@ -1,4 +1,4 @@
-import { Clock3, MapPin, Star } from 'lucide-react';
+import { MapPin, Star } from 'lucide-react';
 import type { HomeData } from '../types';
 import * as S from '../FigmaDeliveryExperience.styles';
 
