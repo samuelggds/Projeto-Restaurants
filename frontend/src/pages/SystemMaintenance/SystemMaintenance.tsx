@@ -95,7 +95,8 @@ export default function SystemMaintenancePage({
           path?.startsWith('/') &&
           !path.startsWith('//') &&
           !path.includes('\\\\') &&
-          !/^\\/(?:super_admin|system-maintenance)(?:\\/|$)/iu.test(path)
+          !path.startsWith('/super_admin') &&
+          !path.startsWith('/system-maintenance')
         ) {
           window.location.assign(path);
           return;
