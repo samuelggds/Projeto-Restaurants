@@ -9,7 +9,7 @@ import {
 } from './tableAccountContracts.js';
 
 export const moneyCentsSchema = z
-  .number({ invalid_type_error: 'O valor deve ser informado em centavos inteiros.' })
+  .number({ error: 'O valor deve ser informado em centavos inteiros.', })
   .int('O valor deve ser informado em centavos inteiros.')
   .min(0, 'O valor não pode ser negativo.')
   .max(Number.MAX_SAFE_INTEGER, 'O valor ultrapassa o limite monetário seguro.');
