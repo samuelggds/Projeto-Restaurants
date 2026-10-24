@@ -33,6 +33,23 @@ export class UpdateRestaurantAccessService {
       const before = await this.repository.findRestaurantForMutation(restaurantId, transaction);
       if (!before) throw notFound('Restaurante não encontrado.');
 
+      // A liberação manual não pode contornar faturas que continuam bloqueantes:
+      // o avaliador de cobrança reverteria a alteração na primeira requisição.
+      if (parsed.active) {
+        const { hasBlockingInvoices } = await import('../../billing/utils/billingRules.js');
+        const openInvoices = await transaction.invoice.findMany({
+          where: { restaurantId, status: { in: ['PENDENTE', 'ATRASADO'] } },
+          select: { status: true, dueDate: true },
+        });
+        if (hasBlockingInvoices(openInvoices, new Date())) {
+          throw new SuperAdminError(
+            'Este restaurante possui fatura vencida além da tolerância. A liberação depende da regularização da cobrança; alterar apenas o acesso não remove o bloqueio financeiro.',
+            409,
+            'BILLING_REGULARIZATION_REQUIRED',
+          );
+        }
+      }
+
       const after = await this.repository.updateRestaurantAccess(
         restaurantId,
         parsed.active,
