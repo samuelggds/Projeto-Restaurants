@@ -289,7 +289,7 @@ export const HeroCarousel = styled.div`
   }
 
   @media(max-width:760px){
-    &.after-cover{width:calc(100% - 24px);height:174px;margin:0 12px 8px;> section{height:174px !important;min-height:174px !important;border-radius:12px}}
+    &.after-cover{width:calc(100% - 24px);height:166px;margin:0 12px 8px;> section{height:166px !important;min-height:166px !important;border-radius:12px}}
     width:calc(100% - 24px);
     height:166px;
     margin:4px 12px 0;
