@@ -17,7 +17,7 @@ const booleanSchema = z.preprocess((value) => {
 }, z.boolean());
 
 export const couponCodeSchema = z
-  .string({ required_error: 'Informe o código do cupom.' })
+  .string({ error: 'Informe o código do cupom.', })
   .trim()
   .min(3, 'O código deve ter pelo menos 3 caracteres.')
   .max(40, 'O código deve ter no máximo 40 caracteres.')
@@ -203,7 +203,7 @@ export const couponIdSchema = z.coerce.number().int('Cupom inválido.').positive
 
 export const loyaltyRestaurantQuerySchema = z.object({
   restaurantId: z.coerce
-    .number({ required_error: 'Informe o restaurante.' })
+    .number({ error: 'Informe o restaurante.', })
     .int('Restaurante inválido.')
     .positive('Restaurante inválido.'),
 });
