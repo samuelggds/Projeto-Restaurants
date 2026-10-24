@@ -7,7 +7,7 @@ import { publicAiFailure } from './publicAiFailure.js';
 test('public AI failures never persist or return provider credentials or request content', () => {
   for (const error of [
     new Error('private-database-url'),
-    OpenAI.APIError.generate(401, { message: 'private-api-credential' }, undefined, {}),
+    OpenAI.APIError.generate(401, { message: 'private-api-credential' }, undefined, new Headers()),
     new OpenAI.APIConnectionTimeoutError({ message: 'private-request-data' }),
     'private-generated-content',
   ]) {
