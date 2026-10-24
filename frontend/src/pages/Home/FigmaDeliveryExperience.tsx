@@ -21,6 +21,7 @@ import {
   TikTokIcon,
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
+import { RestaurantCover } from './components/RestaurantCover';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
@@ -808,23 +809,7 @@ export function FigmaDeliveryExperience({
         </div>
       </S.Header>
 
-      {!selectedProduct && data.brand.coverUrl ? (
-        <S.RestaurantCover aria-label={`Capa de ${data.brand.name}`}>
-          <img
-            src={data.brand.coverUrl}
-            alt={`Capa do restaurante ${data.brand.name}`}
-            loading="eager"
-            decoding="async"
-          />
-          <span className="cover-logo">
-            {data.brand.logoUrl ? (
-              <img src={data.brand.logoUrl} alt="" decoding="async" />
-            ) : (
-              data.brand.monogram || data.brand.name.slice(0, 1)
-            )}
-          </span>
-        </S.RestaurantCover>
-      ) : null}
+      {!selectedProduct ? <RestaurantCover brand={data.brand} /> : null}
 
       {selectedProduct ? (
         <Suspense fallback={null}>
