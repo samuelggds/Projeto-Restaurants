@@ -8,6 +8,20 @@ import {
 } from './homeDataAdapter';
 
 describe('homeDataAdapter', () => {
+  it('reaproveita a capa publica do login somente do restaurante atual', () => {
+    const data = buildHomeData([], {
+      restaurant: {
+        name: 'Pizzaria Exemplo',
+        logo: 'https://cdn.example.test/logo.webp',
+        coverImage: '/public-media/restaurants/17/cover?v=2',
+      },
+    });
+    expect(data.brand.coverUrl).toBe('/public-media/restaurants/17/cover?v=2');
+    expect(data.brand.logoUrl).toBe('https://cdn.example.test/logo.webp');
+    expect(buildHomeData([], { restaurant: { name: 'Sem capa' } }).brand.coverUrl).toBe('');
+    expect(buildHomeData([], { restaurant: { coverImage: 'javascript:alert(1)' } }).brand.coverUrl).toBe('');
+  });
+
   it('preserva a imagem real do produto', () => {
     expect(resolveProductImage({ image: 'https://cdn.test/pizza.webp' }, 0)).toBe(
       'https://cdn.test/pizza.webp',

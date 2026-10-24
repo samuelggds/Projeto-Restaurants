@@ -12,6 +12,7 @@ const restaurant: RestaurantTenant = {
   phone: null,
   active: true,
   accessBlockReason: 'NONE',
+  billingTemporaryAccessUntil: null,
   status: 'ACTIVE',
   createdAt: '2026-08-28T00:00:00.000Z',
   lastAccessAt: null,

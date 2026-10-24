@@ -78,6 +78,7 @@ export class SuperAdminRepository {
           phone: true,
           active: true,
           accessBlockReason: true,
+          billingTemporaryAccessUntil: true,
           createdAt: true,
           subscription: { select: safeSubscriptionSelect },
           users: {
@@ -306,7 +307,7 @@ export class SuperAdminRepository {
   findRestaurantForMutation(id: number, db: SuperAdminDatabaseClient = prisma) {
     return db.restaurant.findUnique({
       where: { id },
-      select: { id: true, name: true, active: true, accessBlockReason: true },
+      select: { id: true, name: true, active: true, accessBlockReason: true, billingTemporaryAccessUntil: true },
     });
   }
 

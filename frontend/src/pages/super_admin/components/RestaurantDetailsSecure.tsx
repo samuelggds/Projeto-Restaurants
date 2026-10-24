@@ -27,6 +27,11 @@ export function RestaurantDetailsSecure({
   notify: (message: string, error?: boolean) => void;
 }) {
   const [confirmAccess, setConfirmAccess] = useState(false);
+  const [temporaryAccessOpen, setTemporaryAccessOpen] = useState(false);
+  const [temporaryDays, setTemporaryDays] = useState<1 | 3 | 7>(3);
+  const [temporaryReason, setTemporaryReason] = useState('');
+  const [temporarySaving, setTemporarySaving] = useState(false);
+  const [temporaryError, setTemporaryError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmRevokePortal, setConfirmRevokePortal] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState(false);
@@ -136,6 +141,13 @@ export function RestaurantDetailsSecure({
             </small>
           </div>
           <div>
+            <dt>Liberação temporária</dt>
+            <dd>{restaurant.billingTemporaryAccessUntil
+              ? formatDate(restaurant.billingTemporaryAccessUntil, true)
+              : 'Nenhuma autorização ativa'}</dd>
+            <small>Acesso excepcional até a data indicada, sujeito à situação financeira e sem quitação de faturas.</small>
+          </div>
+          <div>
             <dt>Volume de pedidos no mês</dt>
             <dd>{formatCurrency(restaurant.monthlyOrderRevenue)}</dd>
           </div>
@@ -226,11 +238,71 @@ export function RestaurantDetailsSecure({
           >
             {restaurant.active ? 'Bloquear acesso' : 'Liberar acesso'}
           </S.Button>
+          <S.Button onClick={() => { setTemporaryError(''); setTemporaryAccessOpen(true); }}>
+            Autorizar liberação temporária
+          </S.Button>
           <S.Button $variant="danger" onClick={() => setConfirmDelete(true)}>
             Excluir restaurante
           </S.Button>
         </S.ActionGroup>
       </Modal>
+
+      {temporaryAccessOpen ? (
+        <Modal
+          title="Autorizar liberação temporária"
+          description="Exceção comercial: a fatura permanece pendente. Ao expirar, a regra de bloqueio financeiro volta a ser aplicada."
+          onClose={() => setTemporaryAccessOpen(false)}
+          footer={
+            <>
+              <S.Button onClick={() => setTemporaryAccessOpen(false)}>Cancelar</S.Button>
+              <S.Button
+                $variant="primary"
+                disabled={temporarySaving || temporaryReason.trim().length < 8}
+                onClick={() => {
+                  setTemporarySaving(true);
+                  setTemporaryError('');
+                  void actions.updateRestaurantAccess(restaurant.id, {
+                    active: true,
+                    reason: temporaryReason.trim(),
+                    temporaryAccessDays: temporaryDays,
+                  }).then(() => {
+                    setTemporaryAccessOpen(false);
+                    notify('Autorização temporária registrada. A fatura continua pendente.');
+                  }).catch((error: unknown) => {
+                    setTemporaryError(requestErrorMessage(error, 'Não foi possível autorizar o acesso.'));
+                  }).finally(() => setTemporarySaving(false));
+                }}
+              >
+                {temporarySaving ? 'Autorizando…' : 'Autorizar temporariamente'}
+              </S.Button>
+            </>
+          }
+        >
+          <S.Fields>
+            <label>
+              Duração
+              <select
+                aria-label="Duração da autorização temporária"
+                value={temporaryDays}
+                onChange={(event) => setTemporaryDays(Number(event.target.value) as 1 | 3 | 7)}
+              >
+                <option value={1}>1 dia</option>
+                <option value={3}>3 dias</option>
+                <option value={7}>7 dias</option>
+              </select>
+            </label>
+            <label className="wide">
+              Justificativa obrigatória
+              <textarea
+                value={temporaryReason}
+                onChange={(event) => setTemporaryReason(event.target.value)}
+                placeholder="Explique o motivo da exceção comercial"
+              />
+            </label>
+          </S.Fields>
+          {temporaryError ? <S.InlineAlert $tone="error" role="alert">{temporaryError}</S.InlineAlert> : null}
+        </Modal>
+      ) : null}
 
       {confirmAccess ? (
         <ConfirmAction

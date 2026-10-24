@@ -60,6 +60,7 @@ export interface RestaurantTenant {
   phone: string | null;
   active: boolean;
   accessBlockReason: RestaurantAccessBlockReason;
+  billingTemporaryAccessUntil: string | null;
   status: TenantStatus;
   createdAt: string;
   lastAccessAt: string | null;
@@ -220,6 +221,7 @@ export interface SuperAdminData {
 export interface RestaurantAccessInput {
   active: boolean;
   reason: string;
+  temporaryAccessDays?: 1 | 3 | 7;
 }
 export interface RestaurantDeleteInput {
   reason: string;

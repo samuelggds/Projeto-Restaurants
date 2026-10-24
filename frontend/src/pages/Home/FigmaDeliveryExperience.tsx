@@ -21,6 +21,8 @@ import {
   TikTokIcon,
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
+import { RestaurantCover } from './components/RestaurantCover';
+import { productImage, categoryImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
@@ -64,14 +66,6 @@ const ComboConfigurator = lazy(() =>
 
 const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-function productImage(product: HomeProduct) {
-  return product.image ? <img src={product.image} alt={product.name} loading="lazy" decoding="async" /> : <UtensilsCrossed />;
-}
-
-function categoryImage(image: string, name: string) {
-  return image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <UtensilsCrossed aria-label={name} />;
-}
 
 export function FigmaDeliveryExperience({
   data,
@@ -807,6 +801,8 @@ export function FigmaDeliveryExperience({
           </button>
         </div>
       </S.Header>
+
+      {!selectedProduct ? <RestaurantCover brand={data.brand} /> : null}
 
       {selectedProduct ? (
         <Suspense fallback={null}>

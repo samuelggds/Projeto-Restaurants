@@ -393,6 +393,7 @@ model Restaurant {
   openingHours                  String?
   active                        Boolean                        @default(true)
   accessBlockReason             RestaurantAccessBlockReason    @default(NONE)
+  billingTemporaryAccessUntil   DateTime?                      @db.Timestamptz(3)
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
   banners                       Banner[]
