@@ -30,7 +30,7 @@ import {
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
-import { productImage, categoryImage } from './components/homeImageMarkup';
+import { productImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
@@ -41,7 +41,6 @@ import {
   buildSocialProfileUrl,
   formatBusinessHoursSummary,
 } from './domain/publicSettings';
-import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import {
   captureCartFlyOrigin,
@@ -145,10 +144,6 @@ export function FigmaDeliveryExperience({
   const combos = useMemo(
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
-  );
-  const comboCategoryImage = useMemo(
-    () => resolveComboCategoryImage(categories, combos),
-    [categories, combos],
   );
   const categoryCarousels = useMemo(
     () =>
