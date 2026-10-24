@@ -298,7 +298,7 @@ export function buildHomeData(
     name: String(restaurantName || settings?.restaurantName || ''),
     monogram: createRestaurantMonogram(restaurantName || settings?.restaurantName),
     logoUrl: isPersistentImageSource(restaurant.logo) ? String(restaurant.logo) : '',
-    coverUrl: isPersistentImageSource(restaurant.coverImage)
+    coverUrl: (isPersistentImageSource(restaurant.coverImage) || /^\/public-media\/restaurants\/\d+\/cover(?:\?[^#]*)?$/u.test(String(restaurant.coverImage || '').trim()))
       ? String(restaurant.coverImage).trim()
       : '',
     ratingAverage:
