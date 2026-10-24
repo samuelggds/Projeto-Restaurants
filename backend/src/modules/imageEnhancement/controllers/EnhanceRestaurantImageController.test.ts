@@ -9,7 +9,7 @@ import {
 import { toImageEnhancementHttpError } from './EnhanceRestaurantImageController.js';
 
 function upstreamError(status: number, details: Record<string, unknown>) {
-  return OpenAI.APIError.generate(status, { error: details }, undefined, {});
+  return OpenAI.APIError.generate(status, { error: details }, undefined, new Headers());
 }
 
 test('mantém mensagens de validação local sem expor detalhes internos', () => {

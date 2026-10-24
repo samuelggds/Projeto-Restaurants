@@ -24,6 +24,22 @@ export class AdminPortalController {
     }
   }
 
+  async branding(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await adminPortalAccessService.getBranding(
+        firstParameter(req.params.slug),
+        req.body?.grant,
+      );
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof AdminPortalAccessError) {
+        return res.status(error.statusCode).json({ error: error.message, code: error.code });
+      }
+      return next(error);
+    }
+  }
+
   async verify(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await adminPortalAccessService.verifyGrant(

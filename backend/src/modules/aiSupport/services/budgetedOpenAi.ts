@@ -31,7 +31,7 @@ export async function runBudgetedAi<T extends UsageResult>(input: BudgetedReques
       input.actor,
       reservationId,
       rejectedBeforeProcessing ? 'RELEASED' : 'UNCERTAIN',
-      error instanceof OpenAI.APIError ? (error.request_id ?? undefined) : undefined,
+      error instanceof OpenAI.APIError ? (error.requestID ?? undefined) : undefined,
     );
     throw error;
   }

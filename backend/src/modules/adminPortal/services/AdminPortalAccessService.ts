@@ -196,6 +196,36 @@ export class AdminPortalAccessService {
     };
   }
 
+  async getBranding(slugInput: unknown, grantInput: unknown) {
+    const grant = await this.verifyGrant(slugInput, grantInput);
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: grant.restaurantId },
+      select: {
+        id: true, slug: true, name: true, logo: true, coverImage: true,
+        description: true, settings: { select: { primaryColor: true } },
+      },
+    });
+    if (!restaurant || restaurant.slug !== grant.slug) {
+      throw new AdminPortalAccessError('Página não encontrada.');
+    }
+    const image = (value: string | null) => {
+      const raw = String(value || '').trim();
+      return raw.length <= 700_000 &&
+        (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/iu.test(raw) ||
+          /^https:\/\//iu.test(raw))
+        ? raw : '';
+    };
+    return {
+      restaurant: {
+        name: restaurant.name,
+        description: restaurant.description || '',
+        logo: image(restaurant.logo),
+        coverImage: image(restaurant.coverImage),
+      },
+      primaryColor: restaurant.settings?.primaryColor || null,
+    };
+  }
+
   async verifyGrant(slugInput: unknown, grantInput: unknown) {
     const slug = normalizeSlug(slugInput);
     const grant = String(grantInput || '').trim();

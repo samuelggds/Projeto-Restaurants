@@ -27,8 +27,7 @@ export const isBrazilPhoneWithDddWithoutDdi = isBrazilPhoneWithOptionalDdi;
 
 export const brazilPhoneSchema = z
   .string({
-    required_error: BRAZIL_PHONE_WITH_DDD_MESSAGE,
-    invalid_type_error: BRAZIL_PHONE_WITH_DDD_MESSAGE,
+    error: BRAZIL_PHONE_WITH_DDD_MESSAGE,
   })
   .trim()
   .min(1, BRAZIL_PHONE_WITH_DDD_MESSAGE)

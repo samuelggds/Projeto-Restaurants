@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import restaurantSettingsService from '../../../Services/restaurantSettingsService';
+import api from '../../../Services/api';
+import { getAdminPortalGrant } from '../domain/adminPortalSession';
 import {
   DEFAULT_LOGIN_BRANDING,
   mapLoginBranding,
@@ -22,7 +24,13 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
     }
 
     const { restaurantId, slug } = resolveLoginRestaurant(params);
-    const request = slug
+    const isAdminPortal = /^\/[^/]+\/admin\/?$/u.test(location.pathname);
+    const adminGrant = isAdminPortal && slug ? getAdminPortalGrant(slug) : '';
+    // The private ADMIN entry can read only branding using its tenant grant.
+    const request = isAdminPortal && slug && adminGrant
+      ? api.post(`/admin-portal/${encodeURIComponent(slug)}/branding`, { grant: adminGrant })
+          .then((response) => response.data)
+      : slug
       ? restaurantSettingsService.getPublicSettingsBySlug(slug)
       : restaurantId
         ? restaurantSettingsService.getPublicSettings(restaurantId)
@@ -40,7 +48,7 @@ export function useRestaurantLoginBranding(searchParams: URLSearchParams) {
     return () => {
       active = false;
     };
-  }, [pathSlug, restaurantReference]);
+  }, [location.pathname, pathSlug, restaurantReference]);
 
   return branding;
 }

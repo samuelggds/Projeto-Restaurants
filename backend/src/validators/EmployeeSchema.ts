@@ -14,8 +14,7 @@ const employeeNameSchema = z
 
 export const employeeUsernameSchema = z
   .string({
-    required_error: 'Usuário de conta obrigatório',
-    invalid_type_error: 'Usuário de conta inválido',
+    error: (issue) => issue.input === undefined ? 'Usuário de conta obrigatório' : 'Usuário de conta inválido',
   })
   .trim()
   .min(3, 'Usuário deve conter pelo menos 3 caracteres')
@@ -27,8 +26,7 @@ export const employeeUsernameSchema = z
 
 const employeePhoneSchema = z
   .string({
-    required_error: 'Telefone obrigatório',
-    invalid_type_error: 'Telefone inválido',
+    error: (issue) => issue.input === undefined ? 'Telefone obrigatório' : 'Telefone inválido',
   })
   .trim()
   .min(1, 'Telefone obrigatório')

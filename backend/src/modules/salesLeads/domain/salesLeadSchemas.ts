@@ -30,7 +30,7 @@ export const createSalesLeadSchema = z
       .max(2000)
       .optional()
       .transform((value) => value || null),
-    consent: z.literal(true, { errorMap: () => ({ message: 'Autorize o contato para enviar.' }) }),
+    consent: z.literal(true, { error: 'Autorize o contato para enviar.' }),
     website: z.string().max(200).optional(),
   })
   .strict();
