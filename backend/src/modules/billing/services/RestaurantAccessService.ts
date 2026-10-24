@@ -71,7 +71,7 @@ export class RestaurantAccessService {
       select: { id: true, status: true, dueDate: true },
     });
 
-    if (temporaryGrantActive && configuredReason !== 'MANUAL' && restaurant.active) {
+    if (temporaryGrantActive && restaurant.active) {
       const subscription = await prisma.subscription.findUnique({ where: { restaurantId }, select: { status: true } });
       if (subscription && subscription.status !== 'CANCELADA') return { allowed: true, restaurantId };
     }
@@ -155,7 +155,7 @@ export class RestaurantAccessService {
     const blockingInvoices = openInvoices.filter((invoice) => isInvoiceBlocking(invoice, now));
     const hasFinancialBlock = hasBlockingInvoices(openInvoices, now);
 
-    if (temporaryGrantActive && configuredReason !== 'MANUAL' && restaurant.active) {
+    if (temporaryGrantActive && restaurant.active) {
       const subscription = await db.subscription.findUnique({ where: { restaurantId }, select: { status: true } });
       if (subscription && subscription.status !== 'CANCELADA') return { allowed: true, restaurantId };
     }
