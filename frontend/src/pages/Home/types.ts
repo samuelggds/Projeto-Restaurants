@@ -8,6 +8,8 @@ export type HomeBrand = {
   name: string;
   monogram?: string;
   logoUrl?: string;
+  /** Public cover image already used on the restaurant login (same tenant). */
+  coverUrl?: string;
   category?: string;
   address: string;
   primaryColor?: string;
