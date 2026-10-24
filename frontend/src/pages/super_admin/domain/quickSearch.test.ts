@@ -11,6 +11,7 @@ function restaurant(id = 17, name = 'Pizzaria São João'): RestaurantTenant {
     phone: null,
     active: true,
     accessBlockReason: 'NONE',
+  billingTemporaryAccessUntil: null,
     status: 'ACTIVE',
     createdAt: '2026-09-10T12:00:00Z',
     lastAccessAt: null,
