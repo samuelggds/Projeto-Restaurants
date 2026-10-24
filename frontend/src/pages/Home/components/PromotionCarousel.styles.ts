@@ -105,9 +105,9 @@ export const Shade = styled.span`
 export const Copy = styled.div`
   position: absolute;
   top: 50%;
-  left: max(24px, calc((100vw - 1120px) / 2));
+  left: clamp(72px, 6vw, 96px);
   z-index: 2;
-  width: min(44vw, 560px);
+  width: min(48%, 560px);
   transform: translateY(-50%);
   display: flex;
   flex-direction: column;
@@ -199,8 +199,8 @@ export const Copy = styled.div`
   }
 
   @media (max-width: 760px) {
-    left: 14px;
-    width: min(78%, 250px);
+    left: 12px;
+    width: min(66%, 195px);
 
     h1 {
       font-size: clamp(16px, 5.6vw, 22px);
@@ -291,6 +291,18 @@ export const ArrowButton = styled.button<{ $side: 'left' | 'right' }>`
       width: 20px;
       height: 20px;
     }
+  }
+
+  @media (max-width: 760px) {
+    /* Keep navigation separate from the offer headline and CTA. */
+    top: auto;
+    bottom: 16px;
+    transform: none;
+    width: 29px;
+    height: 29px;
+    ({ $side }) => ($side === 'left' ? 'left: auto;right: 46px;' : 'right: 10px;')
+    svg { width: 16px; height: 16px; }
+    &:hover { transform: scale(1.04); }
   }
 
   @media (prefers-reduced-motion: reduce) {
