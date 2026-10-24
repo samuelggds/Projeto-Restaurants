@@ -109,3 +109,39 @@ test('cura um bloqueio financeiro obsoleto quando todas as faturas foram regular
   assert.equal(calls.restaurantUpdates[0].where.accessBlockReason, 'BILLING');
   assert.equal(calls.subscriptionUpdates[0].data.status, 'ATIVA');
 });
+
+test('exceção temporária mantém acesso com dívida, mas expiração reaplica bloqueio financeiro', async () => {
+  const expiresAt = new Date('2026-10-27T12:00:00.000Z');
+  const restaurant = { id: 7, active: true, accessBlockReason: 'NONE', billingTemporaryAccessUntil: expiresAt };
+  const invoice = { id: 9, status: 'ATRASADO', dueDate: new Date('2026-10-01T12:00:00.000Z') };
+  const before = createDatabase({ restaurant, invoices: [invoice], subscription: { status: 'EXPIRADA' } });
+  assert.deepEqual(
+    await new RestaurantAccessService().evaluate(7, before.db, new Date('2026-10-27T11:59:59.000Z')),
+    { allowed: true, restaurantId: 7 },
+  );
+  assert.equal(before.calls.invoiceUpdates.length, 0);
+  assert.equal(before.calls.restaurantUpdates.length, 0);
+
+  const after = createDatabase({ restaurant, invoices: [invoice], subscription: { status: 'EXPIRADA' } });
+  const result = await new RestaurantAccessService().evaluate(7, after.db, expiresAt);
+  assert.equal(result.code, 'BILLING_BLOCKED');
+  assert.equal(after.calls.restaurantUpdates[0].data.accessBlockReason, 'BILLING');
+});
+
+test('exceção não contorna suspensão manual nem assinatura cancelada', async () => {
+  const expiresAt = new Date('2026-10-27T12:00:00.000Z');
+  const now = new Date('2026-10-26T12:00:00.000Z');
+  const manual = createDatabase({
+    restaurant: { id: 7, active: false, accessBlockReason: 'MANUAL', billingTemporaryAccessUntil: expiresAt },
+  });
+  const manualResult = await new RestaurantAccessService().evaluate(7, manual.db, now);
+  assert.equal(manualResult.reason, 'MANUAL');
+
+  const canceled = createDatabase({
+    restaurant: { id: 7, active: true, accessBlockReason: 'NONE', billingTemporaryAccessUntil: expiresAt },
+    invoices: [{ id: 9, status: 'ATRASADO', dueDate: new Date('2026-10-01') }],
+    subscription: { status: 'CANCELADA' },
+  });
+  const canceledResult = await new RestaurantAccessService().evaluate(7, canceled.db, now);
+  assert.equal(canceledResult.allowed, false);
+});
