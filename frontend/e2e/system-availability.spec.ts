@@ -192,6 +192,57 @@ test('ADMIN inadimplente acessa somente mensalidades e volta após a liberação
   await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).not.toBeVisible();
 });
 
+// The pending invoice remains unpaid during the temporary SUPER_ADMIN grant.
+// Only the backend's availability decision can authorize entry.
+for (const access of [
+  { role: 'ADMIN', subRole: null, path: '/admin' },
+  { role: 'FUNCIONARIO', subRole: 'GARCOM', path: '/waiter' },
+  { role: 'FUNCIONARIO', subRole: 'ATENDENTE', path: '/attendant' },
+]) {
+  test(`autorização temporária libera ${access.role} ${access.subRole || ''} apesar de fatura vencida`, async ({ page }) => {
+    const user = {
+      id: 17,
+      name: 'Pessoa autorizada',
+      role: access.role,
+      subRole: access.subRole,
+      restaurantId: 7,
+    };
+    const requests: string[] = [];
+    await page.route(LOCAL_API, async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      requests.push(pathname);
+      let body: unknown = {};
+      if (pathname === '/platform/status') body = { available: true, maintenanceMode: false };
+      else if (pathname === '/auth/refresh') body = { accessToken: 'temporary-grant-test-token', userId: user.id };
+      else if (pathname === '/auth/me') body = { user };
+      else if (pathname === '/restaurants/7/availability') body = { restaurantId: 7, available: true };
+      else if (pathname === '/billing/invoices') body = {
+        invoices: [{ id: 91, status: 'ATRASADO', dueDate: '2026-08-10T12:00:00Z', total: 249.9 }],
+      };
+      else if (pathname === '/subscription') body = { plan: 'PREMIUM', status: 'EXPIRADA' };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+    await page.addInitScript((account) => {
+      localStorage.clear();
+      localStorage.setItem('user', JSON.stringify(account));
+      localStorage.setItem('system_block_state', JSON.stringify({
+        blocked: true,
+        reason: 'BILLING',
+        restaurantId: 7,
+        message: 'Bloqueio de cobrança anterior à autorização',
+        updatedAt: new Date().toISOString(),
+      }));
+    }, user);
+
+    await page.goto(access.path);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('system_block_state'))).toBeNull();
+    await expect(page.getByRole('heading', { name: 'Regularize sua assinatura' })).toHaveCount(0);
+    await expect(page.getByTestId('availability-page')).toHaveCount(0);
+    expect(requests).toContain('/restaurants/7/availability');
+    if (access.role !== 'ADMIN') expect(requests).not.toContain('/billing/invoices');
+  });
+}
+
 test('login técnico recusa qualquer conta que não seja SUPER_ADMIN', async ({ page }) => {
   let logoutCalls = 0;
   await page.route(LOCAL_API, async (route) => {
