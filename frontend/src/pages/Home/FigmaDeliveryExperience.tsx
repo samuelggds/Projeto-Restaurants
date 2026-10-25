@@ -14,6 +14,13 @@ import {
   Store,
   UserRound,
   UtensilsCrossed,
+  Pizza,
+  Sandwich,
+  Coffee,
+  CupSoda,
+  Beef,
+  IceCreamBowl,
+  Salad,
 } from 'lucide-react';
 import {
   FacebookIcon,
@@ -23,7 +30,7 @@ import {
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
-import { productImage, categoryImage } from './components/homeImageMarkup';
+import { productImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
@@ -34,7 +41,6 @@ import {
   buildSocialProfileUrl,
   formatBusinessHoursSummary,
 } from './domain/publicSettings';
-import { resolveComboCategoryImage } from './domain/comboCategoryImage';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import {
   captureCartFlyOrigin,
@@ -139,10 +145,6 @@ export function FigmaDeliveryExperience({
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
   );
-  const comboCategoryImage = useMemo(
-    () => resolveComboCategoryImage(categories, combos),
-    [categories, combos],
-  );
   const categoryCarousels = useMemo(
     () =>
       categories
@@ -189,6 +191,18 @@ export function FigmaDeliveryExperience({
   const activeCatalogCategory = validCatalogCategory
     ? selectedCatalogCategory
     : defaultCatalogCategory;
+
+  const categoryTabIcon = (name: string) => {
+    const normalized = name.toLocaleLowerCase('pt-BR');
+    if (/pizza|esfiha/.test(normalized)) return <Pizza aria-hidden="true" />;
+    if (/hamb[uú]rguer|lanche|sandu[ií]che/.test(normalized)) return <Sandwich aria-hidden="true" />;
+    if (/bebida|refrigerante|suco|drink/.test(normalized)) return <CupSoda aria-hidden="true" />;
+    if (/caf[eé]/.test(normalized)) return <Coffee aria-hidden="true" />;
+    if (/carne|churrasco/.test(normalized)) return <Beef aria-hidden="true" />;
+    if (/sobremesa|sorvete|doce/.test(normalized)) return <IceCreamBowl aria-hidden="true" />;
+    if (/salada|vegetar/.test(normalized)) return <Salad aria-hidden="true" />;
+    return <UtensilsCrossed aria-hidden="true" />;
+  };
 
   const promotionBanners = useMemo(() => {
     const configured = data.banners
@@ -808,7 +822,7 @@ export function FigmaDeliveryExperience({
         <>
           <RestaurantCover brand={data.brand} />
           {hasRestaurantCover ? (
-            <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} storefrontAvailability={storefrontAvailability} />
+            <StorefrontIntro data={data} storefrontAvailability={storefrontAvailability} />
           ) : null}
         </>
       ) : null}
@@ -920,7 +934,7 @@ export function FigmaDeliveryExperience({
                     }}
                   >
                     <span className="image">
-                      {comboCategoryImage ? categoryImage(comboCategoryImage, 'Combos') : <UtensilsCrossed aria-hidden="true" />}
+                      <UtensilsCrossed aria-hidden="true" />
                     </span>
                     <b>Combos</b>
                     <small>{combos.length} {combos.length === 1 ? 'item' : 'itens'}</small>
@@ -936,7 +950,7 @@ export function FigmaDeliveryExperience({
                     aria-pressed={activeCatalogCategory === `category:${category.id}`}
                     onClick={() => chooseCategory(category.id)}
                   >
-                    <span className="image">{categoryImage(category.image, category.name)}</span>
+                    <span className="image">{categoryTabIcon(category.name)}</span>
                     <b>{category.name}</b>
                     <small>{products.length} {products.length === 1 ? 'item' : 'itens'}</small>
                   </button>
