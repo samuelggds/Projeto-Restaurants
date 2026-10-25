@@ -6,7 +6,7 @@ import {
   Clock3,
   Coffee,
   CupSoda,
-  Flame,
+  Beef,
   IceCreamBowl,
   Pizza,
   Sandwich,
@@ -20,6 +20,7 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { PromotionCarousel } from '../Home/components/PromotionCarousel';
+import { ComboCategoryIcon } from '../Home/components/ComboCategoryIcon';
 import { useHorizontalProductCarousel } from '../Home/hooks/useHorizontalProductCarousel';
 import {
   buildSocialProfileUrl,
@@ -82,7 +83,7 @@ function categoryIcon(name: string) {
   if (/caf[eé]/.test(label)) return <Coffee aria-hidden="true" />;
   if (/sobremesa|sorvete|doce/.test(label)) return <IceCreamBowl aria-hidden="true" />;
   if (/salada|vegetar/.test(label)) return <Salad aria-hidden="true" />;
-  if (/carne|churrasco|grelhado/.test(label)) return <Flame aria-hidden="true" />;
+  if (/carne|churrasco|grelhado/.test(label)) return <Beef aria-hidden="true" />;
   return <UtensilsCrossed aria-hidden="true" />;
 }
 
@@ -435,7 +436,7 @@ export function TableMenuHome({
                 aria-pressed={activeCatalogCategory === 'combos'}
                 onClick={() => selectCatalogCategory('combos', 'table-combos')}
               >
-                <span className="image"><UtensilsCrossed aria-hidden="true" /></span>
+                <span className="image combo-icon"><ComboCategoryIcon /></span>
                 <b>Combos</b>
               </button>
             ) : null}
