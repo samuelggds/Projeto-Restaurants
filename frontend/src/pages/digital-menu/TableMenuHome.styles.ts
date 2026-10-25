@@ -397,6 +397,8 @@ export const Categories = styled.div`
     flex:0 0 15px;
   }
   .image svg{width:15px;height:15px;stroke-width:1.8}
+  .image.combo-icon{width:31px;flex-basis:31px}
+  .image.combo-icon svg{width:31px;height:19px;stroke-width:1.5}
   b{font-size:12px;font-weight:600;line-height:17px}
   button.active{color:var(--primary);border-bottom-color:var(--primary)}
   button.active b{font-weight:750}
@@ -407,6 +409,8 @@ export const Categories = styled.div`
     button{gap:5px;min-height:41px;padding:0 7px}
     .image,.image svg{width:13px;height:13px}
     .image{flex-basis:13px}
+    .image.combo-icon{width:27px;flex-basis:27px}
+    .image.combo-icon svg{width:27px;height:16px}
     b{font-size:10px}
   }
   @media(prefers-reduced-motion:reduce){scroll-behavior:auto;button{transition:none}}
