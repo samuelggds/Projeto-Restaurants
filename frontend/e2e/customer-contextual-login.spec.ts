@@ -546,7 +546,7 @@ for (const viewport of [
       : page.getByRole('button', { name: 'Minha conta' });
     await expect(account.locator('svg')).toBeVisible();
     await account.click();
-    await expect(page).toHaveURL(/\\/login\\?next=/u);
+    await expect(page).toHaveURL(/\/login\?next=/u);
     await loginWithPassword(page);
     await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}$`, 'u'));
     const avatarImage = viewport.mobile
