@@ -806,8 +806,8 @@ export function FigmaDeliveryExperience({
       {!selectedProduct ? (
         <>
           <RestaurantCover brand={data.brand} />
-          {hasRestaurantCover ? (
-            <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} storefrontAvailability={storefrontAvailability} />
+          {(
+            <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} storefrontAvailability={storefrontAvailability} hasCover={hasRestaurantCover} />
           ) : null}
         </>
       ) : null}
