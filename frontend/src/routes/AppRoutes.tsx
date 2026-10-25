@@ -51,7 +51,6 @@ import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
   clearSystemBlockState,
-  findBlockingInvoice,
   getSystemBlockState,
   setSystemBlockState,
   subscribeSystemBlockState,
@@ -355,46 +354,62 @@ function BillingGate() {
   const [blockState, setBlockState] = useState(() => getSystemBlockState());
   const [isCheckingBilling, setIsCheckingBilling] = useState(true);
   const role = String(user?.role || '').toUpperCase();
+  const restaurantId = Number(user?.restaurantId || user?.restaurant?.id || 0);
 
   useEffect(() => subscribeSystemBlockState(() => setBlockState(getSystemBlockState())), []);
 
   useEffect(() => {
     let active = true;
+    let checking = false;
+    let requestSequence = 0;
 
     const validateBillingBlock = async () => {
-      if (isLoading) return;
-
-      const token = getAccessToken();
-      if (!token || role === 'SUPER_ADMIN') {
-        clearSystemBlockState();
-      } else if (role === 'ADMIN') {
-        try {
-          const response = await api.get('/billing/invoices');
-          const invoiceList = Array.isArray(response?.data)
-            ? response.data
-            : Array.isArray(response?.data?.invoices)
-              ? response.data.invoices
-              : [];
-          const blockingInvoice = findBlockingInvoice(invoiceList);
-          if (blockingInvoice) {
-            setSystemBlockState({
-              reason: 'BILLING',
-              message: 'Sistema bloqueado por inadimplência',
-              paymentLink: blockingInvoice.paymentLink || null,
-              invoiceId: blockingInvoice.id ?? null,
-              dueDate: blockingInvoice.dueDate ? String(blockingInvoice.dueDate) : null,
-            });
-          } else {
-            clearSystemBlockState();
-          }
-        } catch {
-          // O interceptor persiste respostas de bloqueio retornadas pelo backend.
+      if (isLoading || checking) return;
+      checking = true;
+      const sequence = ++requestSequence;
+      try {
+        const token = getAccessToken();
+        if (!token || role === 'SUPER_ADMIN') {
+          clearSystemBlockState();
+          return;
         }
-      }
+        if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+          // Never infer a tenant from a different account's persisted block state.
+          return;
+        }
+        const response = await api.get<{ restaurantId?: number; available?: boolean }>(
+          `/restaurants/${restaurantId}/availability`,
+          { headers: { 'Cache-Control': 'no-cache' } },
+        );
+        if (!active || sequence !== requestSequence) return;
+        if (Number(response.data?.restaurantId) !== restaurantId) return;
 
-      if (active) {
-        setBlockState(getSystemBlockState());
-        setIsCheckingBilling(false);
+        if (response.data?.available === true) {
+          // The backend is authoritative: temporary SUPER_ADMIN grants can
+          // coexist with outstanding invoices without settling those invoices.
+          clearSystemBlockState();
+        } else if (response.data?.available === false) {
+          // A false result deliberately contains no private billing metadata.
+          // Do not turn a manual block into a financial block.
+          const existing = getSystemBlockState();
+          if (existing?.restaurantId === restaurantId) return;
+          // A subsequent protected request can supply the precise reason.
+          // Until then fail closed without inventing invoice details.
+          setSystemBlockState({
+            reason: 'MANUAL',
+            message: 'O acesso ao restaurante está temporariamente indisponível.',
+            restaurantId,
+          });
+        }
+      } catch {
+        // Do not clear an existing restriction on network errors.
+        // A blocked API response may update the stored state via interceptor.
+      } finally {
+        checking = false;
+        if (active && sequence === requestSequence) {
+          setBlockState(getSystemBlockState());
+          setIsCheckingBilling(false);
+        }
       }
     };
 
@@ -404,10 +419,11 @@ function BillingGate() {
     window.addEventListener('focus', onFocus);
     return () => {
       active = false;
+      requestSequence += 1;
       window.clearInterval(timer);
       window.removeEventListener('focus', onFocus);
     };
-  }, [isLoading, role]);
+  }, [isLoading, restaurantId, role]);
 
   if (isLoading || isCheckingBilling) return <RouteLoading />;
   if (blockState?.blocked) return <RouteLoading />;
