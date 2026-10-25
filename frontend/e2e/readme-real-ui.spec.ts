@@ -440,6 +440,31 @@ test('cardápio público mantém a hierarquia e a navegação móvel contidas em
   await captureReadmeScreenshot(page, 'customer-menu-mobile.png', { fullPage: true });
 });
 
+for (const width of [320, 390, 440]) {
+  test(`capa fixa ocupa a largura total em ${width}px e banner promocional mantém margens`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockPublicMenu(page);
+    await page.goto('/north-pizza');
+
+    const cover = page.getByLabel('Capa de North Pizza');
+    const promo = page.getByRole('region', { name: 'Promoções do restaurante' });
+    await expect(cover).toBeVisible();
+    await expect(promo).toBeVisible();
+    await expect(cover.locator('.cover-logo')).toBeVisible();
+
+    const coverBox = await cover.boundingBox();
+    const promoBox = await promo.boundingBox();
+    expect(coverBox).not.toBeNull();
+    expect(promoBox).not.toBeNull();
+    expect(coverBox!.x).toBeGreaterThanOrEqual(-1);
+    expect(coverBox!.x).toBeLessThanOrEqual(1);
+    expect(Math.abs(coverBox!.width - width)).toBeLessThanOrEqual(1);
+    expect(promoBox!.x).toBeGreaterThanOrEqual(10);
+    expect(promoBox!.width).toBeLessThanOrEqual(width - 20);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+  });
+}
+
 test('busca móvel usa o input do header, filtra sugestões e devolve o foco ao fechar', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await mockPublicMenu(page);
