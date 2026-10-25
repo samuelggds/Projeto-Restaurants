@@ -52,7 +52,6 @@ import { getAccessToken } from '../modules/auth/session/authSession';
 import {
   clearSystemBlockState,
   getSystemBlockState,
-  setSystemBlockState,
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
 import {
@@ -389,17 +388,9 @@ function BillingGate() {
           // coexist with outstanding invoices without settling those invoices.
           clearSystemBlockState();
         } else if (response.data?.available === false) {
-          // A false result deliberately contains no private billing metadata.
-          // Do not turn a manual block into a financial block.
-          const existing = getSystemBlockState();
-          if (existing?.restaurantId === restaurantId) return;
-          // A subsequent protected request can supply the precise reason.
-          // Until then fail closed without inventing invoice details.
-          setSystemBlockState({
-            reason: 'MANUAL',
-            message: 'O acesso ao restaurante está temporariamente indisponível.',
-            restaurantId,
-          });
+          // The public response intentionally does not reveal the block reason.
+          // Keep an existing server-issued block; never invent a manual or
+          // billing reason from the public boolean alone.
         }
       } catch {
         // Do not clear an existing restriction on network errors.
