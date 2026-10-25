@@ -106,6 +106,68 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+  it('mostra o ícone de usuário para visitante no desktop e no mobile', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onOpenProfile = vi.fn();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience data={homeMockData} userLoggedIn={false} onOpenProfile={onOpenProfile} />,
+      );
+    });
+
+    const desktop = container.querySelector<HTMLButtonElement>('button.account');
+    const mobile = container.querySelector<HTMLButtonElement>('button.mobile-profile-trigger');
+    expect(desktop?.querySelector('.account-avatar svg')).toBeTruthy();
+    expect(desktop?.querySelector('.account-avatar')?.textContent).not.toContain('•');
+    expect(mobile?.querySelector('svg')).toBeTruthy();
+    expect(mobile?.textContent).not.toContain('•');
+
+    await act(async () => desktop?.click());
+    await act(async () => mobile?.click());
+    expect(onOpenProfile).toHaveBeenCalledTimes(2);
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('atualiza a foto do usuário na mesma montagem depois do login', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const photo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII=';
+
+    await act(async () => {
+      root.render(<FigmaDeliveryExperience data={homeMockData} userLoggedIn={false} />);
+    });
+    expect(container.querySelector('.account-avatar img')).toBeNull();
+
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={homeMockData}
+          userLoggedIn
+          userName="Cliente Teste"
+          userAvatar={photo}
+        />,
+      );
+    });
+    expect(container.querySelector<HTMLImageElement>('.account-avatar img')?.src).toBe(photo);
+    expect(container.querySelector<HTMLImageElement>('.mobile-profile-trigger img')?.src).toBe(photo);
+
+    await act(async () => {
+      root.render(<FigmaDeliveryExperience data={homeMockData} userLoggedIn={false} />);
+    });
+    expect(container.querySelector('.account-avatar img')).toBeNull();
+    expect(container.querySelector('.account-avatar svg')).toBeTruthy();
+    expect(container.querySelector('.mobile-profile-trigger svg')).toBeTruthy();
+
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('envia visitante para o login ao tocar no atalho de perfil', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
