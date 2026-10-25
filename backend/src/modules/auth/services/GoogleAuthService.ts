@@ -130,6 +130,7 @@ export class GoogleAuthService {
         zipCode: user.zipCode,
         complement: user.complement,
         restaurantId: user.restaurantId,
+        avatar: user.avatar,
       },
       token,
       refreshToken,

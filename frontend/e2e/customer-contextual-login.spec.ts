@@ -512,6 +512,51 @@ test('Home preserva origem completa durante Cadastro e Login', async ({ page }) 
   await expect.poll(() => currentPath(page)).toBe(homePath);
 });
 
+for (const viewport of [
+  { width: 390, height: 844, mobile: true },
+  { width: 1280, height: 800, mobile: false },
+]) {
+  test(`foto do cliente aparece logo após login em ${viewport.width}px, sem atualizar a Home`, async ({ page }) => {
+    const state: ContextState = {
+      authenticated: false, tableOpen: true, loginCalls: 0,
+      googleLoginCalls: 0, sessionValidationCalls: 0, orderPayloads: [],
+    };
+    await mockContextApi(page, state);
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const avatar = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2ioAAAAASUVORK5CYII=';
+    const customerWithAvatar = { ...customer, avatar };
+    await page.route(LOCAL_API, async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/auth/login' && route.request().method() === 'POST') {
+        state.authenticated = true;
+        state.loginCalls += 1;
+        return json(route, { token: CUSTOMER_TOKEN, user: customerWithAvatar });
+      }
+      if (pathname === '/auth/me') {
+        return state.authenticated && hasCustomerToken(route)
+          ? json(route, { user: customerWithAvatar })
+          : json(route, { error: 'Não autenticado.' }, 401);
+      }
+      return route.fallback();
+    });
+
+    await page.goto(`/${RESTAURANT_SLUG}`);
+    const account = viewport.mobile
+      ? page.getByRole('button', { name: 'Entrar na minha conta' })
+      : page.getByRole('button', { name: 'Minha conta' });
+    await expect(account.locator('svg')).toBeVisible();
+    await account.click();
+    await expect(page).toHaveURL(/\/login\?next=/u);
+    await loginWithPassword(page);
+    await expect(page).toHaveURL(new RegExp(`/${RESTAURANT_SLUG}$`, 'u'));
+    const avatarImage = viewport.mobile
+      ? page.locator('button.mobile-profile-trigger img')
+      : page.locator('button.account .account-avatar img');
+    await expect(avatarImage).toHaveAttribute('src', avatar);
+    expect(state.loginCalls).toBe(1);
+  });
+}
+
 test('Home preserva origem completa durante Recuperação e Login', async ({ page }) => {
   const state: ContextState = {
     authenticated: false,

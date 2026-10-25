@@ -781,8 +781,10 @@ export function FigmaDeliveryExperience({
                   alt=""
                   onError={() => setFailedAvatarSource(userAvatar || null)}
                 />
-              ) : (
+              ) : userLoggedIn && userInitials !== '•' ? (
                 userInitials
+              ) : (
+                <UserRound aria-hidden="true" />
               )}
             </span>
             <span className="account-copy">
