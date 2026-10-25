@@ -1,4 +1,4 @@
-import { Bike, Clock3, MapPin, ShoppingBag, Star } from 'lucide-react';
+import { Bike, Clock3, MapPin, ReceiptText, ShoppingBag, Star } from 'lucide-react';
 import type { HomeData } from '../types';
 import * as S from '../FigmaDeliveryExperience.styles';
 
@@ -9,13 +9,18 @@ export function StorefrontIntro({
   data,
   deliveryTimeLabel,
   storefrontAvailability,
+  hasCover,
 }: {
   data: HomeData;
   deliveryTimeLabel: string;
   storefrontAvailability: { isOpen: boolean; label: string };
+  hasCover: boolean;
 }) {
   return (
-    <S.StorefrontIntro aria-label={`Informações de ${data.brand.name}`}>
+    <S.StorefrontIntro
+      className={hasCover ? 'has-cover' : 'without-cover'}
+      aria-label={`Informações de ${data.brand.name}`}
+    >
       <div className="storefront-identity">
         <h1>{data.brand.name}</h1>
         <div className="storefront-meta">
@@ -36,26 +41,54 @@ export function StorefrontIntro({
           </span>
         </div>
       </div>
-      <div className="storefront-facts">
-        {data.acceptsDelivery && deliveryTimeLabel ? (
-          <span>
-            <Clock3 aria-hidden="true" />
-            <span><strong>{deliveryTimeLabel}</strong><small>Tempo de entrega</small></span>
-          </span>
-        ) : null}
-        {data.acceptsDelivery && Number(data.deliveryFee || 0) > 0 ? (
-          <span>
-            <Bike aria-hidden="true" />
-            <span><strong>{money(Number(data.deliveryFee))}</strong><small>Taxa de entrega</small></span>
-          </span>
-        ) : null}
-        {data.freeDeliveryFrom > 0 ? (
-          <span>
-            <ShoppingBag aria-hidden="true" />
-            <span><strong>{money(data.freeDeliveryFrom)}</strong><small>Frete grátis a partir de</small></span>
-          </span>
-        ) : null}
-      </div>
+      {data.acceptsDelivery ? (
+        <div className="storefront-facts" aria-label="Condições de entrega do restaurante">
+          {deliveryTimeLabel ? (
+            <span>
+              <Clock3 aria-hidden="true" />
+              <span>
+                <strong>{deliveryTimeLabel}</strong>
+                <small>Tempo de entrega</small>
+              </span>
+            </span>
+          ) : null}
+          {data.deliveryFeeMode === 'DISTANCE' ? (
+            <span>
+              <Bike aria-hidden="true" />
+              <span>
+                <strong>Conforme endereço</strong>
+                <small>Taxa calculada na entrega</small>
+              </span>
+            </span>
+          ) : Number.isFinite(data.deliveryFee) && Number(data.deliveryFee) > 0 ? (
+            <span>
+              <Bike aria-hidden="true" />
+              <span>
+                <strong>{money(Number(data.deliveryFee))}</strong>
+                <small>Taxa de entrega</small>
+              </span>
+            </span>
+          ) : null}
+          {Number.isFinite(data.freeDeliveryFrom) && data.freeDeliveryFrom > 0 ? (
+            <span>
+              <ShoppingBag aria-hidden="true" />
+              <span>
+                <strong>{money(data.freeDeliveryFrom)}</strong>
+                <small>Frete grátis a partir de</small>
+              </span>
+            </span>
+          ) : null}
+          {Number.isFinite(data.minimumOrder) && data.minimumOrder > 0 ? (
+            <span>
+              <ReceiptText aria-hidden="true" />
+              <span>
+                <strong>{money(data.minimumOrder)}</strong>
+                <small>Pedido mínimo para entrega</small>
+              </span>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </S.StorefrontIntro>
   );
 }
