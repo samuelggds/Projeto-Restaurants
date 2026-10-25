@@ -191,8 +191,9 @@ describe('FigmaDeliveryExperience product flow', () => {
     expect(facts?.textContent).toContain('28-42 min');
     expect(facts?.textContent).toContain('Conforme endereço');
     expect(facts?.textContent).not.toContain('R$ 9,00');
-    expect(facts?.textContent).toContain('R$ 75,00');
-    expect(facts?.textContent).toContain('R$ 30,00');
+    const normalizedFacts = facts?.textContent?.replace(/\s+/gu, ' ');
+    expect(normalizedFacts).toContain('R$ 75,00');
+    expect(normalizedFacts).toContain('R$ 30,00');
     act(() => root.unmount());
     container.remove();
   });
