@@ -352,142 +352,87 @@ export const Divider = styled.div`
   }
 `;
 
+export const CategoryNavigation = styled.div`
+  position:relative;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  border-bottom:1px solid var(--table-line);
+`;
+
 export const Categories = styled.nav`
-  display: flex;
-  align-items: flex-start;
-  gap: 24px;
-  overflow-x: auto;
-  padding: 6px 6px 10px;
-  margin: -6px -6px 0;
-  scroll-padding-inline: 6px;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
-
-  &::-webkit-scrollbar {
-    display: none;
+  min-width:0;
+  display:flex;
+  align-items:stretch;
+  flex:1;
+  gap:15px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+  &::-webkit-scrollbar{display:none}
+  button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    flex:0 0 auto;
+    gap:7px;
+    min-height:48px;
+    padding:0 9px;
+    border:0;
+    border-bottom:2px solid transparent;
+    background:transparent;
+    color:var(--table-muted);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:color 150ms ease,border-color 150ms ease;
   }
-
-  button {
-    width: 84px;
-    min-width: 84px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--table-text);
-    display: grid;
-    justify-items: center;
-    gap: 8px;
-    transition:
-      transform 220ms cubic-bezier(.22, 1, .36, 1),
-      color 180ms ease;
+  .image{
+    display:grid;
+    place-items:center;
+    width:15px;
+    height:15px;
+    flex:0 0 15px;
   }
-
-  button:hover {
-    transform: translateY(-3px);
+  .image svg{width:15px;height:15px;stroke-width:1.8}
+  b{font-size:12px;font-weight:600;line-height:17px}
+  button.active{color:var(--primary);border-bottom-color:var(--primary)}
+  button.active b{font-weight:750}
+  button:hover{color:var(--primary)}
+  button:focus-visible{outline:2px solid var(--primary);outline-offset:-4px;border-radius:5px}
+  @media(max-width:760px){
+    gap:8px;
+    button{gap:5px;min-height:41px;padding:0 7px}
+    .image,.image svg{width:13px;height:13px}
+    .image{flex-basis:13px}
+    b{font-size:10px}
   }
+  @media(prefers-reduced-motion:reduce){scroll-behavior:auto;button{transition:none}}
+`;
 
-  button:active {
-    transform: translateY(-1px) scale(.97);
+export const CategoryControls = styled.div`
+  display:flex;
+  flex:0 0 auto;
+  gap:4px;
+  padding-left:8px;
+  button{
+    width:28px;
+    height:28px;
+    display:grid;
+    place-items:center;
+    padding:0;
+    border:1px solid var(--table-line);
+    border-radius:7px;
+    background:#fff;
+    color:var(--table-text);
+    cursor:pointer;
   }
-
-  .image {
-    width: 80px;
-    height: 80px;
-    border: 2px solid transparent;
-    border-radius: 999px;
-    overflow: hidden;
-    background: #f3f1ec;
-    display: grid;
-    place-items: center;
-    color: #9d9991;
-    transition:
-      border-color 180ms ease,
-      background-color 180ms ease,
-      color 180ms ease,
-      transform 220ms cubic-bezier(.22, 1, .36, 1),
-      box-shadow 180ms ease;
-  }
-
-  .image.special {
-    background: #fff;
-  }
-
-  button.active {
-    color: var(--primary);
-  }
-
-  button.active .image {
-    border-color: var(--primary);
-    background: #fff;
-    color: var(--primary);
-    transform: scale(1.06);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 10%, transparent);
-  }
-
-  .image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .image svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  b {
-    width: 84px;
-    min-height: 17px;
-    overflow: hidden;
-    color: inherit;
-    font-size: 11px;
-    line-height: 17px;
-    font-weight: 650;
-    text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  button:hover,
-  button:focus-visible {
-    color: var(--primary);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    button,
-    .image {
-      transition: none;
-    }
-
-    button:hover,
-    button:active,
-    button.active .image {
-      transform: none;
-    }
-  }
-
-  @media (max-width: 760px) {
-    margin: -6px -20px 0 -6px;
-    padding: 6px 20px 10px 6px;
-    scroll-padding-inline: 6px;
-    gap: 16px;
-
-    button {
-      width: 72px;
-      min-width: 72px;
-    }
-
-    .image {
-      width: 60px;
-      height: 60px;
-    }
-
-    b {
-      width: 72px;
-      font-size: 10px;
-      line-height: 14px;
-    }
-  }
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  svg{width:15px;height:15px}
+  @media(max-width:760px){gap:2px;padding-left:4px;button{width:24px;height:27px}svg{width:13px;height:13px}}
 `;
 
 export const Sections = styled.div`
