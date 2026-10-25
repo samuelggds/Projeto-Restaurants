@@ -1,4 +1,4 @@
-import { MapPin, Star } from 'lucide-react';
+import { Bike, Clock3, MapPin, ShoppingBag, Star } from 'lucide-react';
 import type { HomeData } from '../types';
 import * as S from '../FigmaDeliveryExperience.styles';
 
@@ -7,9 +7,11 @@ const money = (value: number) =>
 
 export function StorefrontIntro({
   data,
+  deliveryTimeLabel,
   storefrontAvailability,
 }: {
   data: HomeData;
+  deliveryTimeLabel: string;
   storefrontAvailability: { isOpen: boolean; label: string };
 }) {
   return (
@@ -34,7 +36,26 @@ export function StorefrontIntro({
           </span>
         </div>
       </div>
-
+      <div className="storefront-facts">
+        {data.acceptsDelivery && deliveryTimeLabel ? (
+          <span>
+            <Clock3 aria-hidden="true" />
+            <span><strong>{deliveryTimeLabel}</strong><small>Tempo de entrega</small></span>
+          </span>
+        ) : null}
+        {data.acceptsDelivery && Number(data.deliveryFee || 0) > 0 ? (
+          <span>
+            <Bike aria-hidden="true" />
+            <span><strong>{money(Number(data.deliveryFee))}</strong><small>Taxa de entrega</small></span>
+          </span>
+        ) : null}
+        {data.freeDeliveryFrom > 0 ? (
+          <span>
+            <ShoppingBag aria-hidden="true" />
+            <span><strong>{money(data.freeDeliveryFrom)}</strong><small>Frete grátis a partir de</small></span>
+          </span>
+        ) : null}
+      </div>
     </S.StorefrontIntro>
   );
 }
