@@ -167,6 +167,63 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
+  it('exibe somente dados de entrega recebidos do backend, sem estimar taxa por distância', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Teste', coverUrl: '/capa.webp', ratingCount: 0 },
+            deliveryTime: '28-42',
+            deliveryFeeMode: 'DISTANCE',
+            deliveryFee: 9,
+            freeDeliveryFrom: 75,
+            minimumOrder: 30,
+            acceptsDelivery: true,
+          }}
+        />,
+      );
+    });
+    const facts = container.querySelector('.storefront-facts');
+    expect(facts?.textContent).toContain('28-42 min');
+    expect(facts?.textContent).toContain('Conforme endereço');
+    expect(facts?.textContent).not.toContain('R$ 9,00');
+    expect(facts?.textContent).toContain('R$ 75,00');
+    expect(facts?.textContent).toContain('R$ 30,00');
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('omite benefícios sem configuração no backend, inclusive sem capa', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Sem Capa' },
+            deliveryTime: '',
+            deliveryFee: 0,
+            freeDeliveryFrom: 0,
+            minimumOrder: 0,
+            acceptsDelivery: false,
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('.storefront-identity')?.textContent).toContain('Restaurante Sem Capa');
+    expect(container.querySelector('.storefront-facts')).toBeNull();
+    expect(container.querySelector('.desktop-info')).toBeNull();
+    expect(container.querySelector('.mobile-meta')).toBeNull();
+    act(() => root.unmount());
+    container.remove();
+  });
+
   it('não reserva espaço de banner quando o admin não configurou banner', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
