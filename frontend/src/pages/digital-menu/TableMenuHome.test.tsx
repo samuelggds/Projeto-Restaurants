@@ -97,7 +97,7 @@ describe('TableMenuHome categories', () => {
     });
 
     const categoryNav = container.querySelector(
-      'nav[aria-label="Categorias do cardápio"]',
+      '[role="navigation"][aria-label="Categorias do cardápio"]',
     ) as HTMLElement;
     expect(categoryNav).toBeTruthy();
     expect(categoryNav.querySelectorAll('[data-table-category-tab]')).toHaveLength(4);
