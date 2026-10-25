@@ -51,7 +51,9 @@ import { useAuth } from '../contexts/authContext';
 import { getAccessToken } from '../modules/auth/session/authSession';
 import {
   clearSystemBlockState,
+  findBlockingInvoice,
   getSystemBlockState,
+  setSystemBlockState,
   subscribeSystemBlockState,
 } from '../Services/systemBlock';
 import {
@@ -376,21 +378,52 @@ function BillingGate() {
           // Never infer a tenant from a different account's persisted block state.
           return;
         }
-        const response = await api.get<{ restaurantId?: number; available?: boolean }>(
+        // The backend validates billing for every protected employee/customer
+        // operation. Do not poll from their screens: no client billing state
+        // or extra tenant requests are needed to operate safely.
+        if (role !== 'ADMIN') return;
+
+        // Preserve the admin's existing billing recovery experience. An
+        // overdue invoice alone must NOT override a temporary SUPER_ADMIN
+        // authorization: the backend's access decision takes precedence.
+        const response = await api.get('/billing/invoices');
+        if (!active || sequence !== requestSequence) return;
+        const invoices = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.invoices)
+            ? response.data.invoices
+            : [];
+        const blockingInvoice = findBlockingInvoice(invoices);
+        if (!blockingInvoice) {
+          // A manual suspension is never cleared by the absence of an invoice.
+          if (getSystemBlockState()?.reason !== 'MANUAL') clearSystemBlockState();
+          return;
+        }
+
+        const availability = await api.get<{ restaurantId?: number; available?: boolean }>(
           `/restaurants/${restaurantId}/availability`,
           { headers: { 'Cache-Control': 'no-cache' } },
         );
         if (!active || sequence !== requestSequence) return;
-        if (Number(response.data?.restaurantId) !== restaurantId) return;
+        if (Number(availability.data?.restaurantId) !== restaurantId) return;
 
-        if (response.data?.available === true) {
-          // The backend is authoritative: temporary SUPER_ADMIN grants can
-          // coexist with outstanding invoices without settling those invoices.
+        if (availability.data?.available === true) {
+          // Only the backend can authorize operation during a temporary grant.
+          // An overdue invoice remains overdue, without changing payment data.
           clearSystemBlockState();
-        } else if (response.data?.available === false) {
-          // The public response intentionally does not reveal the block reason.
-          // Keep an existing server-issued block; never invent a manual or
-          // billing reason from the public boolean alone.
+        } else if (availability.data?.available === false) {
+          // The ADMIN has access to their own invoice data; the public
+          // availability endpoint never needs to disclose financial details.
+          // Do not overwrite a manual suspension with a financial reason.
+          if (getSystemBlockState()?.reason === 'MANUAL') return;
+          setSystemBlockState({
+            reason: 'BILLING',
+            message: 'Sistema bloqueado por inadimplência',
+            invoiceId: blockingInvoice.id ?? null,
+            paymentLink: blockingInvoice.paymentLink || null,
+            dueDate: blockingInvoice.dueDate ? String(blockingInvoice.dueDate) : null,
+            restaurantId,
+          });
         }
       } catch {
         // Do not clear an existing restriction on network errors.
