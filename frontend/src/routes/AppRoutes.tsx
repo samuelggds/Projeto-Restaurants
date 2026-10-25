@@ -381,7 +381,22 @@ function BillingGate() {
         // The backend validates billing for every protected employee/customer
         // operation. Do not poll from their screens: no client billing state
         // or extra tenant requests are needed to operate safely.
-        if (role !== 'ADMIN') return;
+        if (role !== 'ADMIN') {
+          // Staff only rechecks when a known prior block exists; normal
+          // operational screens never emit an extra availability request.
+          const existing = getSystemBlockState();
+          if (!existing || existing.restaurantId !== restaurantId) return;
+          const availability = await api.get<{ restaurantId?: number; available?: boolean }>(
+            `/restaurants/${restaurantId}/availability`,
+            { headers: { 'Cache-Control': 'no-cache' } },
+          );
+          if (!active || sequence !== requestSequence) return;
+          if (
+            Number(availability.data?.restaurantId) === restaurantId &&
+            availability.data?.available === true
+          ) clearSystemBlockState();
+          return;
+        }
 
         // Preserve the admin's existing billing recovery experience. An
         // overdue invoice alone must NOT override a temporary SUPER_ADMIN
