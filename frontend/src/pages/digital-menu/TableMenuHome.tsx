@@ -4,6 +4,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Coffee,
+  CupSoda,
+  Beef,
+  IceCreamBowl,
+  Pizza,
+  Sandwich,
+  Salad,
   Eye,
   MapPin,
   Phone,
@@ -13,8 +20,8 @@ import {
   UtensilsCrossed,
 } from 'lucide-react';
 import { PromotionCarousel } from '../Home/components/PromotionCarousel';
+import { ComboCategoryIcon } from '../Home/components/ComboCategoryIcon';
 import { useHorizontalProductCarousel } from '../Home/hooks/useHorizontalProductCarousel';
-import { resolveComboCategoryImage } from '../Home/domain/comboCategoryImage';
 import {
   buildSocialProfileUrl,
   buildWhatsAppUrl,
@@ -68,12 +75,16 @@ function productImage(product: HomeProduct) {
   );
 }
 
-function categoryImage(image: string, label: string) {
-  return image ? (
-    <img src={image} alt="" loading="lazy" decoding="async" />
-  ) : (
-    <UtensilsCrossed aria-label={label} />
-  );
+function categoryIcon(name: string) {
+  const label = name.toLocaleLowerCase('pt-BR');
+  if (/pizza|esfiha/.test(label)) return <Pizza aria-hidden="true" />;
+  if (/hamb[uú]rguer|lanche|sandu[ií]che/.test(label)) return <Sandwich aria-hidden="true" />;
+  if (/bebida|refrigerante|suco|drink/.test(label)) return <CupSoda aria-hidden="true" />;
+  if (/caf[eé]/.test(label)) return <Coffee aria-hidden="true" />;
+  if (/sobremesa|sorvete|doce/.test(label)) return <IceCreamBowl aria-hidden="true" />;
+  if (/salada|vegetar/.test(label)) return <Salad aria-hidden="true" />;
+  if (/carne|churrasco|grelhado/.test(label)) return <Beef aria-hidden="true" />;
+  return <UtensilsCrossed aria-hidden="true" />;
 }
 
 function TableProductCarousel({
@@ -214,10 +225,6 @@ export function TableMenuHome({
     () => availableProducts.filter((product) => product.kind === 'COMBO'),
     [availableProducts],
   );
-  const comboImage = useMemo(
-    () => resolveComboCategoryImage(categories, combos),
-    [categories, combos],
-  );
   const categorySections = useMemo(
     () =>
       categories
@@ -230,6 +237,22 @@ export function TableMenuHome({
         .filter(({ products }) => products.length > 0),
     [availableProducts, categories],
   );
+  const categoryNavKey = [
+    featured.length ? 'featured' : '',
+    combos.length ? 'combos' : '',
+    ...categorySections.map(({ category }) => category.id),
+  ].join('|');
+  const {
+    trackRef: categoryTrackRef,
+    hasOverflow: categoriesOverflow,
+    canPrevious: canScrollCategoriesPrevious,
+    canNext: canScrollCategoriesNext,
+    scroll: scrollCategories,
+  } = useHorizontalProductCarousel({
+    itemSelector: '[data-table-category-tab]',
+    itemsKey: categoryNavKey,
+    fallbackStep: 180,
+  });
   const promotionBanners = useMemo(() => {
     const configured = data.banners
       .filter((banner) => banner.active)
@@ -391,48 +414,71 @@ export function TableMenuHome({
 
         <H.Divider />
 
-        <H.Categories aria-label="Categorias do cardápio">
-          {featured.length ? (
-            <button
-              type="button"
-              className={activeCatalogCategory === 'featured' ? 'active' : undefined}
-              aria-pressed={activeCatalogCategory === 'featured'}
-              onClick={() => selectCatalogCategory('featured', 'table-featured')}
-            >
-              <span className="image special"><Star aria-hidden="true" /></span>
-              <b>Destaques</b>
-            </button>
-          ) : null}
-          {combos.length ? (
-            <button
-              type="button"
-              className={activeCatalogCategory === 'combos' ? 'active' : undefined}
-              aria-pressed={activeCatalogCategory === 'combos'}
-              onClick={() => selectCatalogCategory('combos', 'table-combos')}
-            >
-              <span className="image">
-                {categoryImage(comboImage, 'Combos')}
-              </span>
-              <b>Combos</b>
-            </button>
-          ) : null}
-          {categorySections.map(({ category }) => {
-            const categoryKey = `category:${category.id}`;
-            const sectionId = `table-category-${encodeURIComponent(category.id)}`;
-            return (
+        <H.CategoryNavigation>
+          <H.Categories ref={categoryTrackRef} role="navigation" aria-label="Categorias do cardápio">
+            {featured.length ? (
               <button
-                key={category.id}
+                data-table-category-tab
                 type="button"
-                className={activeCatalogCategory === categoryKey ? 'active' : undefined}
-                aria-pressed={activeCatalogCategory === categoryKey}
-                onClick={() => selectCatalogCategory(categoryKey, sectionId)}
+                className={activeCatalogCategory === 'featured' ? 'active' : undefined}
+                aria-pressed={activeCatalogCategory === 'featured'}
+                onClick={() => selectCatalogCategory('featured', 'table-featured')}
               >
-                <span className="image">{categoryImage(category.image, category.name)}</span>
-                <b>{category.name}</b>
+                <span className="image"><Star aria-hidden="true" /></span>
+                <b>Destaques</b>
               </button>
-            );
-          })}
-        </H.Categories>
+            ) : null}
+            {combos.length ? (
+              <button
+                data-table-category-tab
+                type="button"
+                className={activeCatalogCategory === 'combos' ? 'active' : undefined}
+                aria-pressed={activeCatalogCategory === 'combos'}
+                onClick={() => selectCatalogCategory('combos', 'table-combos')}
+              >
+                <span className="image combo-icon"><ComboCategoryIcon /></span>
+                <b>Combos</b>
+              </button>
+            ) : null}
+            {categorySections.map(({ category }) => {
+              const categoryKey = `category:${category.id}`;
+              const sectionId = `table-category-${encodeURIComponent(category.id)}`;
+              return (
+                <button
+                  key={category.id}
+                  data-table-category-tab
+                  type="button"
+                  className={activeCatalogCategory === categoryKey ? 'active' : undefined}
+                  aria-pressed={activeCatalogCategory === categoryKey}
+                  onClick={() => selectCatalogCategory(categoryKey, sectionId)}
+                >
+                  <span className="image">{categoryIcon(category.name)}</span>
+                  <b>{category.name}</b>
+                </button>
+              );
+            })}
+          </H.Categories>
+          {categoriesOverflow ? (
+            <H.CategoryControls aria-label="Navegar pelas categorias">
+              <button
+                type="button"
+                aria-label="Categorias anteriores"
+                disabled={!canScrollCategoriesPrevious}
+                onClick={() => scrollCategories(-1)}
+              >
+                <ChevronLeft aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label="Próximas categorias"
+                disabled={!canScrollCategoriesNext}
+                onClick={() => scrollCategories(1)}
+              >
+                <ChevronRight aria-hidden="true" />
+              </button>
+            </H.CategoryControls>
+          ) : null}
+        </H.CategoryNavigation>
 
         <H.Divider />
 

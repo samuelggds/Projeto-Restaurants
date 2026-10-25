@@ -28,6 +28,7 @@ import {
   TikTokIcon,
 } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
+import { ComboCategoryIcon } from './components/ComboCategoryIcon';
 import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage } from './components/homeImageMarkup';
@@ -901,7 +902,7 @@ export function FigmaDeliveryExperience({
                     }}
                   >
                     <span className="image">
-                      <UtensilsCrossed aria-hidden="true" />
+                      <ComboCategoryIcon />
                     </span>
                     <b>Combos</b>
                     <small>{combos.length} {combos.length === 1 ? 'item' : 'itens'}</small>
