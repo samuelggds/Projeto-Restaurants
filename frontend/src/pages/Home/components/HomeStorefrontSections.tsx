@@ -8,12 +8,10 @@ const money = (value: number) =>
 export function StorefrontIntro({
   data,
   deliveryTimeLabel,
-  storefrontAvailability,
   hasCover,
 }: {
   data: HomeData;
   deliveryTimeLabel: string;
-  storefrontAvailability: { isOpen: boolean; label: string };
   hasCover: boolean;
 }) {
   return (
@@ -35,10 +33,6 @@ export function StorefrontIntro({
             </span>
           ) : null}
           {data.brand.category ? <span className="storefront-category">{data.brand.category}</span> : null}
-          <span className="storefront-status">
-            <i className={storefrontAvailability.isOpen ? 'open' : ''} />
-            {storefrontAvailability.label}
-          </span>
         </div>
       </div>
       {data.acceptsDelivery ? (
