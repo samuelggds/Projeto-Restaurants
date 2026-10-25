@@ -360,7 +360,7 @@ export const CategoryNavigation = styled.div`
   border-bottom:1px solid var(--table-line);
 `;
 
-export const Categories = styled.nav`
+export const Categories = styled.div`
   min-width:0;
   display:flex;
   align-items:stretch;
