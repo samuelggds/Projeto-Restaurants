@@ -699,21 +699,6 @@ export function FigmaDeliveryExperience({
           ) : null}
         </div>
 
-        <div className="mobile-meta" aria-label="Informações do pedido">
-          {Number(data.brand.ratingCount || 0) > 0 && data.brand.ratingAverage ? (
-            <span>
-              <Star aria-hidden="true" fill="currentColor" />
-              {data.brand.ratingAverage.toFixed(1)}
-            </span>
-          ) : null}
-          {activeFulfillmentMethod === 'delivery' && data.isOpen && deliveryTimeLabel ? (
-            <span><Clock3 aria-hidden="true" /> {deliveryTimeLabel}</span>
-          ) : null}
-          {activeFulfillmentMethod === 'delivery' && Number(data.deliveryFee || 0) > 0 ? (
-            <span>Taxa {money(Number(data.deliveryFee))}</span>
-          ) : null}
-          {data.minimumOrder > 0 ? <span>Mín. {money(data.minimumOrder)}</span> : null}
-        </div>
 
         <S.InlineSearch
           ref={searchContainerRef}
@@ -821,9 +806,7 @@ export function FigmaDeliveryExperience({
       {!selectedProduct ? (
         <>
           <RestaurantCover brand={data.brand} />
-          {hasRestaurantCover ? (
-            <StorefrontIntro data={data} storefrontAvailability={storefrontAvailability} />
-          ) : null}
+          <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} />
         </>
       ) : null}
 
@@ -884,22 +867,6 @@ export function FigmaDeliveryExperience({
                 onApply={onApplyPromotionalCoupon}
               />
             )}
-            <S.InfoChips className="desktop-info">
-              {data.isOpen && deliveryTimeLabel ? (
-                <span><Clock3 size={16} /> Entrega em <b>{deliveryTimeLabel}</b></span>
-              ) : null}
-              {Number(data.deliveryFee || 0) > 0 ? (
-                <span>🛵 Taxa <b>{money(Number(data.deliveryFee))}</b></span>
-              ) : data.acceptsDelivery ? (
-                <span>🛵 <b>Entrega disponível</b></span>
-              ) : null}
-              {data.minimumOrder > 0 ? (
-                <span>Pedido mínimo: <b>{money(data.minimumOrder)}</b></span>
-              ) : null}
-              {data.freeDeliveryFrom > 0 ? (
-                <span>Frete grátis acima de <b>{money(data.freeDeliveryFrom)}</b></span>
-              ) : null}
-            </S.InfoChips>
 
             {(featured.length > 0 || combos.length > 0 || visibleCategories.length > 0) ? (
               <>

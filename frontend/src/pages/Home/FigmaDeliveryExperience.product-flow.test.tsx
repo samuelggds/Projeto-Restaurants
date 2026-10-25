@@ -137,7 +137,7 @@ describe('FigmaDeliveryExperience product flow', () => {
     container.remove();
   });
 
-  it('mantém o bloco compacto e não duplica métricas na identidade abaixo da capa', async () => {
+  it('mantém os detalhes de entrega abaixo da capa sem repetir chips no cabeçalho', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -156,9 +156,71 @@ describe('FigmaDeliveryExperience product flow', () => {
       );
     });
     expect(container.querySelector('[aria-label="Informações de Restaurante Demo"]')).toBeTruthy();
+    const details = container.querySelector('.storefront-facts');
+    expect(details).toBeTruthy();
+    expect(details?.textContent).toContain('35-45 min');
+    expect(details?.textContent).toContain('R$ 5,00');
+    expect(details?.textContent).toContain('Frete grátis a partir de');
+    expect(container.querySelector('.desktop-info')).toBeNull();
+    expect(container.querySelector('.mobile-meta')).toBeNull();
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('exibe somente dados de entrega recebidos do backend, sem estimar taxa por distância', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Teste', coverUrl: '/capa.webp', ratingCount: 0 },
+            deliveryTime: '28-42',
+            deliveryFeeMode: 'DISTANCE',
+            deliveryFee: 9,
+            freeDeliveryFrom: 75,
+            minimumOrder: 30,
+            acceptsDelivery: true,
+          }}
+        />,
+      );
+    });
+    const facts = container.querySelector('.storefront-facts');
+    expect(facts?.textContent).toContain('28-42 min');
+    expect(facts?.textContent).toContain('Conforme endereço');
+    expect(facts?.textContent).not.toContain('R$ 9,00');
+    const normalizedFacts = facts?.textContent?.replace(/\s+/gu, ' ');
+    expect(normalizedFacts).toContain('R$ 75,00');
+    expect(normalizedFacts).toContain('R$ 30,00');
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('omite benefícios sem configuração no backend, inclusive sem capa', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <FigmaDeliveryExperience
+          data={{
+            ...homeMockData,
+            brand: { ...homeMockData.brand, name: 'Restaurante Sem Capa' },
+            deliveryTime: '',
+            deliveryFee: 0,
+            freeDeliveryFrom: 0,
+            minimumOrder: 0,
+            acceptsDelivery: false,
+          }}
+        />,
+      );
+    });
+    expect(container.querySelector('.storefront-identity')?.textContent).toContain('Restaurante Sem Capa');
     expect(container.querySelector('.storefront-facts')).toBeNull();
-    expect(container.querySelector('.desktop-info')).toBeTruthy();
-    expect(container.querySelector('.desktop-info')?.textContent).toContain('Frete grátis acima de');
+    expect(container.querySelector('.desktop-info')).toBeNull();
+    expect(container.querySelector('.mobile-meta')).toBeNull();
     act(() => root.unmount());
     container.remove();
   });
