@@ -19,7 +19,7 @@ describe('TableMenuHome categories', () => {
     });
   });
 
-  it('destaca em laranja a categoria selecionada e atualiza aria-pressed', async () => {
+  it('destaca a aba ativa na cor do sistema e mantém navegação por categoria', async () => {
     const container = document.createElement('div');
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -100,6 +100,10 @@ describe('TableMenuHome categories', () => {
       'nav[aria-label="Categorias do cardápio"]',
     ) as HTMLElement;
     expect(categoryNav).toBeTruthy();
+    expect(categoryNav.querySelectorAll('[data-table-category-tab]')).toHaveLength(4);
+    expect(categoryNav.querySelector('img')).toBeNull();
+    expect(categoryNav.querySelectorAll('.image svg').length).toBe(4);
+
 
     const button = (label: string) =>
       [...categoryNav.querySelectorAll('button')].find(
