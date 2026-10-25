@@ -414,7 +414,7 @@ export function TableMenuHome({
         <H.Divider />
 
         <H.CategoryNavigation>
-          <H.Categories ref={categoryTrackRef} aria-label="Categorias do cardápio">
+          <H.Categories ref={categoryTrackRef} role="navigation" aria-label="Categorias do cardápio">
             {featured.length ? (
               <button
                 data-table-category-tab
