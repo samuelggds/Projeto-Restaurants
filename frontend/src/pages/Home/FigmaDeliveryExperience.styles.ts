@@ -224,6 +224,7 @@ export const StorefrontIntro = styled.section`
   margin:16px auto 34px;
   padding:0 12px 0 112px;
   min-height:90px;
+  &.without-cover{padding-left:12px;margin-top:22px}
   display:flex;
   align-items:center;
   justify-content:space-between;
