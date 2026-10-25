@@ -213,8 +213,11 @@ export const RestaurantCover = styled.div`
   }
   .cover-logo img{width:100%;height:100%;object-fit:cover}
   @media(max-width:760px){
-    width:calc(100% - 24px);height:clamp(112px,35vw,165px);
-    margin:4px 12px 32px;border-radius:12px;
+    /* The fixed restaurant cover spans the viewport; promotions remain inset. */
+    width:100%;
+    height:clamp(112px,35vw,165px);
+    margin:4px 0 32px;
+    border-radius:0;
     .cover-logo{width:57px;height:57px;left:16px;bottom:-17px;border-width:3px;font-size:18px}
   }
 `;
