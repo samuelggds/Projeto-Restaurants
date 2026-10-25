@@ -143,6 +143,7 @@ export const Header = styled.header`
     font-size:12px;
     font-weight:800;
   }
+  .account-avatar svg{width:18px;height:18px;stroke-width:2}
   .account-avatar img{
     width:100%;
     height:100%;
