@@ -427,6 +427,8 @@ export const CatalogCategories = styled.nav`
     background:transparent;
   }
   .image svg{width:18px;height:18px;stroke-width:1.9}
+  .image:has(.combo-category-icon){width:31px;flex-basis:31px}
+  .image .combo-category-icon{width:31px;height:19px;stroke-width:1.5}
   .image img{width:100%;height:100%;object-fit:contain}
   b{font-size:inherit;font-weight:650}
   small{display:none}
@@ -444,6 +446,8 @@ export const CatalogCategories = styled.nav`
     button{min-height:45px;padding:0 11px;gap:6px;font-size:11px}
     .image{width:16px;height:16px;flex-basis:16px}
     .image svg{width:16px;height:16px}
+    .image:has(.combo-category-icon){width:27px;flex-basis:27px}
+    .image .combo-category-icon{width:27px;height:16px}
   }
   @media(prefers-reduced-motion:reduce){scroll-behavior:auto;button{transition:none}}
 `;
