@@ -108,6 +108,12 @@ test('cancelamento admin/cliente pelo workflow libera fila somente depois do com
   prisma.$transaction = async (callback) => {
     const result = await callback({
       order: { findFirst: async () => ({ couponRedemptionId: null }) },
+      restaurantSettings: {
+        findUnique: async ({ where }) => {
+          assert.deepEqual(where, { restaurantId: 7 });
+          return { whatsappEnabled: false, receiveStatusNotifications: false };
+        },
+      },
     });
     committed = true;
     return result;
