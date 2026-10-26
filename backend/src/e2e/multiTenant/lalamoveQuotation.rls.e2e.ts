@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import { LalamoveQuotationService, LalamoveQuoteError } from '../../modules/externalDelivery/services/LalamoveQuotationService.js';
+import dispatchPreparation from '../../modules/externalDelivery/services/LalamoveDispatchPreparationService.js';
 import {
   assertDisposableTenantDatabase, prisma, runtimePrisma,
   resetTenantE2EDatabase, seedTenantE2EFixture,
@@ -108,6 +110,25 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   }), isStatus(409));
   const other = await service.request(inputB, { requestKey: 'e38666dc' + '-6c4c-4d4a-91be-ccaaaabbbb02' });
   assert.equal(other.status, 'AVAILABLE');
+  // A reserva deve exigir cotação aprovada mesmo se o pedido estiver pronto.
+  await prisma.order.update({ where: { id: b }, data: { status: 'PRONTO' } });
+  await assert.rejects(() => dispatchPreparation.prepare({
+    ...inputB, requestKey: randomUUID(),
+  }), isStatus(409));
+  await service.approve(inputB, { expectedVersion: other.version, expectedTotal: '12.80' });
+
+  // Corrida real entre admins: apenas uma chave pode reservar o mesmo pedido.
+  const racing = await Promise.allSettled([
+    dispatchPreparation.prepare({ ...inputB, requestKey: randomUUID() }),
+    dispatchPreparation.prepare({ ...inputB, requestKey: randomUUID() }),
+  ]);
+  assert.equal(racing.filter(item => item.status === 'fulfilled').length, 1);
+  assert.equal(racing.filter(item => item.status === 'rejected').length, 1);
+  assert.ok(racing.some(item => item.status === 'rejected' &&
+    item.reason instanceof LalamoveQuoteError && item.reason.statusCode === 409));
+  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count({
+    where: { restaurantId: restaurantB },
+  }), 1);
   assert.notEqual(first.id, other.id);
   assert.equal(providerCalls, 2);
   const orders = await prisma.order.findMany({ where: { id: { in: [a, b] } } });
@@ -115,6 +136,30 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   assert.equal(await prisma.auditLog.count({ where: {
     restaurantId: restaurantA, action: { in: ['LALAMOVE_QUOTE_CREATED','LALAMOVE_QUOTE_APPROVED'] },
   } }), 2);
+  await prisma.order.update({ where: { id: a }, data: { status: 'PRONTO' } });
+  const requestKey = randomUUID();
+  const prepared = await dispatchPreparation.prepare({ ...inputA, requestKey });
+  assert.equal(prepared.status, 'PREPARED');
+  assert.equal(prepared.canDispatch, false);
+  assert.equal((await dispatchPreparation.prepare({ ...inputA, requestKey })).id, prepared.id);
+  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count({ where: { restaurantId: restaurantA } }), 1);
+  assert.deepEqual(await runtimePrisma.restaurantExternalDeliveryDispatch.findMany(), []);
+  await withTenantDbContext(restaurantB, async db => {
+    assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
+    assert.equal((await db.restaurantExternalDeliveryDispatch.deleteMany({ where: { id: prepared.id } })).count, 0);
+  });
+  await assert.rejects(() => dispatchPreparation.prepare({
+    ...inputA, requestKey: randomUUID(),
+  }), isStatus(409));
+  await assert.rejects(() => dispatchPreparation.prepare({
+    ...inputA, restaurantId: restaurantB,
+    requestKey: randomUUID(),
+  }), isStatus(403));
+  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count(), 1);
+  assert.equal(await prisma.auditLog.count({ where: {
+    restaurantId: restaurantA, action: 'LALAMOVE_DISPATCH_PREPARED',
+  } }), 1);
+  // No external courier is booked, and the original own-courier model remains intact.
   await prisma.order.update({ where: { id: a }, data: { assignedCourierId: fixture.users.courierA.id } });
   await assert.rejects(() => service.approve(inputA, {
     expectedVersion: approved.version, expectedTotal: '12.80',
