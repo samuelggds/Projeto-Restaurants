@@ -38,6 +38,7 @@ import {
 import { tableAccountEvents } from '../realtime/tableAccountEvents.js';
 import { ProcessTablePaymentWebhookService } from './ProcessTablePaymentWebhookService.js';
 import { onlinePaymentExpiresAt } from '../../payments/domain/onlinePaymentPolicy.js';
+import { retryTablePaymentReservation } from './retryTablePaymentReservation.js';
 import {
   safeTablePaymentProviderError,
   shouldReleaseTablePaymentReservationAfterProviderError,
@@ -72,8 +73,9 @@ export class CreateTablePaymentIntentService {
     const idempotencyKeyHash = sha256(input.idempotencyKey);
     const requestFingerprint = buildTablePaymentRequestFingerprint(context.participantId, input);
 
-    const reservation = await prisma.$transaction(
-      async (tx) => {
+    const reservation = await retryTablePaymentReservation(() =>
+      prisma.$transaction(
+        async (tx) => {
         await lockTablePaymentSession(tx, context.restaurantId, context.tableSessionId);
         await expireTablePaymentReservations(tx, context.restaurantId, context.tableSessionId, now);
 
@@ -248,7 +250,8 @@ export class CreateTablePaymentIntentService {
         });
         return { intent, reused: false };
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      ),
     );
 
     const onlineMethod =
