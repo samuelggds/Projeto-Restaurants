@@ -78,7 +78,6 @@ class CancelTableParticipantOrderService {
     const { order: updatedOrder } = await cancelOrderWorkflowService.execute(order);
 
 
-
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
     if (updatedOrder.userId) {
       io.to(`user:${updatedOrder.userId}`).emit('order:status-changed', updatedOrder);
