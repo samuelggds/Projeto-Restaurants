@@ -148,8 +148,20 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
     assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
   });
   await withTenantDbContext(restaurantB, async db => {
-    assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
+    // Restaurant B already reserved its own dispatch in the concurrency test.
+    // RLS must show its own row, but never restaurant A's row.
+    const visible = await db.restaurantExternalDeliveryDispatch.findMany();
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].restaurantId, restaurantB);
+    assert.equal(visible[0].orderId, b);
+    assert.equal(visible.some(row => row.id === prepared.id), false);
     assert.equal((await db.restaurantExternalDeliveryDispatch.deleteMany({ where: { id: prepared.id } })).count, 0);
+  });
+  await withTenantDbContext(restaurantA, async db => {
+    const visible = await db.restaurantExternalDeliveryDispatch.findMany();
+    assert.equal(visible.length, 1);
+    assert.equal(visible[0].id, prepared.id);
+    assert.equal(visible[0].restaurantId, restaurantA);
   });
   await assert.rejects(() => dispatchPreparation.prepare({
     ...inputA, requestKey: randomUUID(),
@@ -158,7 +170,7 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
     ...inputA, restaurantId: restaurantB,
     requestKey: randomUUID(),
   }), isStatus(403));
-  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count(), 1);
+  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count(), 2);
   assert.equal(await prisma.auditLog.count({ where: {
     restaurantId: restaurantA, action: 'LALAMOVE_DISPATCH_PREPARED',
   } }), 1);
