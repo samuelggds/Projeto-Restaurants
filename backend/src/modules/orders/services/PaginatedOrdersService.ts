@@ -6,6 +6,7 @@ import { operationalPaymentWhere, type OrderListQuery } from '../domain/orderLis
 import { admittedCapacityWhere } from '../utils/orderCapacity.js';
 import { readOrderPage } from '../repositories/OrderListRepository.js';
 import courierAccessService from './CourierAccessService.js';
+import { ownCourierAvailableDispatchScope } from '../../externalDelivery/domain/ownCourierDispatchBoundary.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
 import { findEffectiveCompensationPolicy } from '../../courierCompensation/repositories/CourierCompensationRepository.js';
 
@@ -31,7 +32,7 @@ export function staffOrderScope(viewer: Viewer): Prisma.OrderWhereInput {
       ...base,
       type: 'DELIVERY',
       status: { in: ['PRONTO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'] },
-      OR: [{ status: 'PRONTO', assignedCourierId: null }, { assignedCourierId: id }],
+      OR: [{ status: 'PRONTO', assignedCourierId: null, ...ownCourierAvailableDispatchScope }, { assignedCourierId: id }],
     };
   if (role === 'FUNCIONARIO') {
     if (subRole === 'GARCOM')

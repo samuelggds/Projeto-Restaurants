@@ -7,6 +7,7 @@ import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { calculateCourierCompensation } from '../../courierCompensation/domain/courierCompensation.js';
 import { findEffectiveCompensationPolicy } from '../../courierCompensation/repositories/CourierCompensationRepository.js';
 import paymentTerminalService from '../../paymentTerminals/services/PaymentTerminalService.js';
+import { ownCourierAvailableDispatchScope, assertNoActivePartnerDispatch } from '../../externalDelivery/domain/ownCourierDispatchBoundary.js';
 
 class ClaimOrderForDeliveryService {
   async execute({
@@ -44,6 +45,11 @@ class ClaimOrderForDeliveryService {
         },
       });
       if (!current) throw new Error('Pedido não encontrado.');
+      const partner = await tx.restaurantExternalDeliveryDispatch.findUnique({
+        where: { restaurantId_orderId: { restaurantId, orderId: normalizedOrderId } },
+        select: { status: true },
+      });
+      assertNoActivePartnerDispatch(partner?.status);
       if (current.type !== OrderType.DELIVERY) throw new Error('Este pedido não é uma entrega.');
       if (
         current.refundStatus === OrderRefundStatus.PROCESSING ||
@@ -84,6 +90,7 @@ class ClaimOrderForDeliveryService {
           type: OrderType.DELIVERY,
           status: OrderStatus.PRONTO,
           assignedCourierId: null,
+          ...ownCourierAvailableDispatchScope,
           refundStatus: { notIn: [OrderRefundStatus.PROCESSING, OrderRefundStatus.SUCCEEDED] },
           NOT: {
             paid: false,
