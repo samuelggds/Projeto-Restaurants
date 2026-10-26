@@ -2,7 +2,6 @@ import { OrderRefundStatus, OrderStatus } from '@prisma/client';
 import orderRepository from '../repositories/OrderRepository.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
-import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import cancelOrderWorkflowService, {
   OrderCancellationError,
   requiresAutomaticOrderRefund,
@@ -52,17 +51,7 @@ class CancelOrderService {
 
     const { order: updatedOrder } = await cancelOrderWorkflowService.execute(order);
 
-    notifyCustomerOrderStatusChanged({
-      restaurantId: orderRestaurantId,
-      customerPhone: order?.user?.phone,
-      customerName: order?.user?.name,
-      restaurantName: order?.restaurant?.name,
-      restaurantWhatsapp: order?.restaurant?.whatsapp,
-      orderId: updatedOrder?.id,
-      status: updatedOrder?.status,
-    }).catch((error) => {
-      console.error('[CUSTOMER_STATUS_NOTIFICATION_UNHANDLED]', error?.message || error);
-    });
+
 
     io.to(`restaurant:${orderRestaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`guest-order:${updatedOrder.id}`).emit('order:status-changed', {
