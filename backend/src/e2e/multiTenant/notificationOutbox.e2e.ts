@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import cancelOrderService from '../../modules/orders/services/CancelOrderService.js';
+import { recordWhatsappOrderNotificationOptIn } from '../../services/whatsappOrderConsent.js';
 import test, { after } from 'node:test';
 import {
   prisma,
@@ -235,5 +237,69 @@ test(
       WHERE "restaurantId" = ${restaurantId}
     `;
     assert.equal(afterReplays.count, 1n);
+  },
+);
+
+test(
+  'cancelamento: status e aviso persistem no mesmo commit, sem duplicar e sem misturar tenants',
+  { timeout: 60_000 },
+  async () => {
+    await resetTenantE2EDatabase();
+    const fixture = await seedTenantE2EFixture();
+    const a = fixture.restaurants.a.id;
+    const b = fixture.restaurants.b.id;
+    const orderA = fixture.orders.a.id;
+    const orderB = fixture.orders.b.id;
+    await prisma.restaurantSettings.updateMany({
+      where: { restaurantId: { in: [a, b] } },
+      data: { whatsappEnabled: true, receiveStatusNotifications: true },
+    });
+    await prisma.restaurant.updateMany({
+      where: { id: { in: [a, b] } },
+      data: { whatsapp: '5511999990000' },
+    });
+    await recordWhatsappOrderNotificationOptIn({
+      restaurantId: a, orderId: orderA, userId: fixture.users.customerA.id,
+      customerPhone: '11999990000',
+    });
+    const previous = process.env.CUSTOMER_NOTIFICATION_PROVIDER;
+    process.env.CUSTOMER_NOTIFICATION_PROVIDER = 'whatsapp_webhook';
+    const failFunction = 'tenant_e2e_fail_cancel_outbox';
+    const failTrigger = 'tenant_e2e_fail_cancel_outbox_trigger';
+    let triggerInstalled = false;
+    try {
+      await prisma.$executeRawUnsafe(`CREATE FUNCTION "${failFunction}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected cancellation outbox failure'; END $$`);
+      await prisma.$executeRawUnsafe(`CREATE TRIGGER "${failTrigger}" BEFORE INSERT ON "NotificationOutbox" FOR EACH ROW EXECUTE FUNCTION "${failFunction}"()`);
+      triggerInstalled = true;
+      await assert.rejects(
+        () => cancelOrderService.execute(orderA, fixture.users.customerA.id, a),
+        /injected cancellation outbox failure/u,
+      );
+      assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderA } })).status, 'PENDENTE');
+      assert.equal(await prisma.notificationOutbox.count(), 0);
+
+      await prisma.$executeRawUnsafe(`DROP TRIGGER "${failTrigger}" ON "NotificationOutbox"`);
+      triggerInstalled = false;
+      await cancelOrderService.execute(orderA, fixture.users.customerA.id, a);
+      await cancelOrderService.execute(orderA, fixture.users.customerA.id, a);
+      assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderA } })).status, 'CANCELADO');
+      assert.equal((await prisma.order.findUniqueOrThrow({ where: { id: orderB } })).status, 'PENDENTE');
+      const queued = await prisma.notificationOutbox.findMany();
+      assert.equal(queued.length, 1);
+      assert.equal(queued[0].restaurantId, a);
+      assert.equal(queued[0].status, 'PENDING');
+      assert.ok(!String(queued[0].payload).includes('11999990000'));
+
+      await assert.rejects(
+        () => cancelOrderService.execute(orderB, fixture.users.customerA.id, a),
+        /Pedido não encontrado/u,
+      );
+      assert.equal(await prisma.notificationOutbox.count(), 1);
+    } finally {
+      if (triggerInstalled) await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${failTrigger}" ON "NotificationOutbox"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${failFunction}"()`);
+      if (previous === undefined) delete process.env.CUSTOMER_NOTIFICATION_PROVIDER;
+      else process.env.CUSTOMER_NOTIFICATION_PROVIDER = previous;
+    }
   },
 );
