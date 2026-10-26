@@ -13,6 +13,7 @@ import prisma from '../../../config/prisma.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 import { admittedCapacityWhere } from '../utils/orderCapacity.js';
+import { ownCourierAvailableDispatchScope } from '../../externalDelivery/domain/ownCourierDispatchBoundary.js';
 
 type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
@@ -201,7 +202,7 @@ class OrderRepository {
         type: OrderType.DELIVERY,
         status: status || { in: allowedStatuses },
         OR: [
-          { status: OrderStatus.PRONTO, assignedCourierId: null },
+          { status: OrderStatus.PRONTO, assignedCourierId: null, ...ownCourierAvailableDispatchScope },
           { assignedCourierId: courierId },
         ],
         AND: [operationalPaymentWhere()],
@@ -231,7 +232,7 @@ class OrderRepository {
         restaurantId,
         type: OrderType.DELIVERY,
         OR: [
-          { status: OrderStatus.PRONTO, assignedCourierId: null },
+          { status: OrderStatus.PRONTO, assignedCourierId: null, ...ownCourierAvailableDispatchScope },
           {
             status: { in: [OrderStatus.SAIU_PARA_ENTREGA, OrderStatus.ENTREGUE] },
             assignedCourierId: courierId,
