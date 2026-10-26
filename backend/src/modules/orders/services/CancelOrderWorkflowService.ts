@@ -16,6 +16,7 @@ import refundOrderPaymentService, {
 } from './RefundOrderPaymentService.js';
 import { restoreOrderItemsStock } from './restoreOrderItemsStock.js';
 import orderCapacityQueueService from './OrderCapacityQueueService.js';
+import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import { lockTablePaymentSession } from '../../tableAccount/services/tablePaymentLedger.js';
 import {
   efiOpenFinanceOrderReference,
@@ -68,6 +69,20 @@ export type CancelOrderWorkflowResult = {
 };
 
 class CancelOrderWorkflowService {
+  private async enqueueCancellationNotice(tx: Prisma.TransactionClient, order: CancellationOrder) {
+    await notifyCustomerOrderStatusChanged({
+      restaurantId: order.restaurantId,
+      customerPhone: order.user?.phone,
+      customerName: order.user?.name || order.participant?.displayName,
+      restaurantName: order.restaurant?.name,
+      restaurantWhatsapp: order.restaurant?.whatsapp,
+      orderId: order.id,
+      publicId: order.publicId,
+      orderType: order.type,
+      status: OrderStatus.CANCELADO,
+    }, tx);
+  }
+
   private buildIdempotencyKey(order: Pick<CancellationOrder, 'id' | 'restaurantId'>) {
     return `order-refund-${order.restaurantId}-${order.id}`;
   }
@@ -220,6 +235,7 @@ class CancelOrderWorkflowService {
             },
           });
         }
+        await this.enqueueCancellationNotice(tx, updated as CancellationOrder);
         return updated;
       });
 
@@ -290,6 +306,7 @@ class CancelOrderWorkflowService {
         if (!updated) {
           throw new OrderCancellationError('Pedido não encontrado após o cancelamento.');
         }
+        await this.enqueueCancellationNotice(tx, updated as CancellationOrder);
         return updated;
       });
 
