@@ -143,7 +143,10 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   assert.equal(prepared.canDispatch, false);
   assert.equal((await dispatchPreparation.prepare({ ...inputA, requestKey })).id, prepared.id);
   assert.equal(await prisma.restaurantExternalDeliveryDispatch.count({ where: { restaurantId: restaurantA } }), 1);
-  assert.deepEqual(await runtimePrisma.restaurantExternalDeliveryDispatch.findMany(), []);
+  await runtimePrisma.$transaction(async db => {
+    await db.$executeRaw`SELECT set_config('app.restaurant_id', '', true)`;
+    assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
+  });
   await withTenantDbContext(restaurantB, async db => {
     assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
     assert.equal((await db.restaurantExternalDeliveryDispatch.deleteMany({ where: { id: prepared.id } })).count, 0);
