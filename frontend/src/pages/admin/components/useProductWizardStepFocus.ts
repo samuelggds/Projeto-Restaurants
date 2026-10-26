@@ -12,16 +12,36 @@ export function useProductWizardStepFocus(
 ) {
   useEffect(() => {
     const focusStep = () => {
+      const heading = headingRef.current;
+      if (!heading?.isConnected) return;
       if (scrollBodyRef.current) scrollBodyRef.current.scrollTop = 0;
-      headingRef.current?.focus({ preventScroll: true });
+      heading.focus({ preventScroll: true });
     };
+
     // Focus after React commits the new step and the browser completes the
     // click dispatch. Synchronous focus/scroll can stall WebKit's mouse event.
     if (typeof window.requestAnimationFrame !== 'function') {
       focusStep();
       return;
     }
-    const frame = window.requestAnimationFrame(focusStep);
-    return () => window.cancelAnimationFrame(frame);
+
+    let settleFrame: number | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      focusStep();
+      // Safari may restore focus to the opener after the first frame of a modal
+      // click. Retry once after the next paint, but never steal focus from an
+      // element the user has already focused inside this dialog.
+      settleFrame = window.requestAnimationFrame(() => {
+        const heading = headingRef.current;
+        if (!heading?.isConnected) return;
+        const dialog = heading.closest('[role="dialog"]');
+        if (dialog && !dialog.contains(document.activeElement)) focusStep();
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (settleFrame !== undefined) window.cancelAnimationFrame(settleFrame);
+    };
   }, [step, scrollBodyRef, headingRef]);
 }
