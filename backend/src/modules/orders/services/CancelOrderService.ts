@@ -52,7 +52,6 @@ class CancelOrderService {
     const { order: updatedOrder } = await cancelOrderWorkflowService.execute(order);
 
 
-
     io.to(`restaurant:${orderRestaurantId}`).emit('order:status-changed', updatedOrder);
     io.to(`guest-order:${updatedOrder.id}`).emit('order:status-changed', {
       id: updatedOrder.id,
