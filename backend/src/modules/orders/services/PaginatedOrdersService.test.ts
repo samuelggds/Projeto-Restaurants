@@ -89,7 +89,10 @@ test('motoqueiro mantém escopo de tenant, capacidade, pagamento e atribuição'
   assert.equal(scope.restaurantId, 7);
   assert.deepEqual(scope.AND, [operationalPaymentWhere, admittedCapacityWhere]);
   assert.deepEqual(scope.OR, [
-    { status: 'PRONTO', assignedCourierId: null },
+    { status: 'PRONTO', assignedCourierId: null, OR: [
+      { externalDeliveryDispatch: { is: null } },
+      { externalDeliveryDispatch: { is: { status: { notIn: ['DISPATCHING', 'UNKNOWN', 'ACTIVE'] } } } },
+    ] },
     { assignedCourierId: 20 },
   ]);
 });
