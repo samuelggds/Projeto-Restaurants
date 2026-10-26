@@ -1,7 +1,6 @@
 import { OrderRefundStatus, OrderStatus } from '@prisma/client';
 import { z } from 'zod';
 import { realtimePublisher as io } from '../../../realtime/realtimePublisher.js';
-import { notifyCustomerOrderStatusChanged } from '../../../services/customerNotifier.js';
 import orderRepository from '../repositories/OrderRepository.js';
 import { OrderStateMachine } from '../state/orderStateMachine.js';
 import {
@@ -78,20 +77,6 @@ class CancelTableParticipantOrderService {
 
     const { order: updatedOrder } = await cancelOrderWorkflowService.execute(order);
 
-    notifyCustomerOrderStatusChanged({
-      restaurantId,
-      customerPhone: order.user?.phone,
-      customerName: order.user?.name || order.participant?.displayName,
-      restaurantName: order.restaurant?.name,
-      restaurantWhatsapp: order.restaurant?.whatsapp,
-      orderId: updatedOrder.id,
-      status: updatedOrder.status,
-    }).catch((error: unknown) => {
-      console.error(
-        '[TABLE_ORDER_STATUS_NOTIFICATION_UNHANDLED]',
-        error instanceof Error ? error.message : String(error),
-      );
-    });
 
     io.to(`restaurant:${restaurantId}`).emit('order:status-changed', updatedOrder);
     if (updatedOrder.userId) {

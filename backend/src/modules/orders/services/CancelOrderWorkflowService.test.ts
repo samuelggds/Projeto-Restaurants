@@ -97,6 +97,9 @@ function installStatefulDatabase(initialOrder) {
       tablePaymentAllocation: {
         findFirst: (...args) => prisma.tablePaymentAllocation.findFirst(...args),
       },
+      restaurantSettings: {
+        findUnique: async () => ({ whatsappEnabled: false, receiveStatusNotifications: false }),
+      },
       order: {
         updateMany,
         findFirst: async ({ select } = {}) =>
