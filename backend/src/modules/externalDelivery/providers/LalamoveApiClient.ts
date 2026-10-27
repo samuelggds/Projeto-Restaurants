@@ -314,7 +314,7 @@ export function createLalamoveApiClient(
         const amount = record(quotation.priceBreakdown);
         const toCents = (value: unknown) => {
           const text = String(value ?? '');
-          if (!/^\\d{1,8}(?:\\.\\d{1,2})?$/u.test(text)) return null;
+          if (!/^\d{1,8}(?:\.\d{1,2})?$/u.test(text)) return null;
           const [reais, centavos = ''] = text.split('.');
           return Number(reais) * 100 + Number(centavos.padEnd(2, '0'));
         };
