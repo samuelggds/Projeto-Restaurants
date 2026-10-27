@@ -5,6 +5,7 @@ import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import { LalamoveQuotationService, LalamoveQuoteError } from '../../modules/externalDelivery/services/LalamoveQuotationService.js';
 import dispatchPreparation from '../../modules/externalDelivery/services/LalamoveDispatchPreparationService.js';
 import dispatchManagement from '../../modules/externalDelivery/services/LalamoveDispatchManagementService.js';
+import { LalamoveSandboxBookingService } from '../../modules/externalDelivery/services/LalamoveSandboxBookingService.js';
 import { ownCourierAvailableDispatchScope } from '../../modules/externalDelivery/domain/ownCourierDispatchBoundary.js';
 import {
   assertDisposableTenantDatabase, prisma, runtimePrisma,
@@ -223,6 +224,66 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   assert.equal(await prisma.auditLog.count({ where: {
     restaurantId: restaurantA, action: 'LALAMOVE_DISPATCH_CANCELED',
   } }), 1);
+  // Real PostgreSQL transitions, fake provider: no real HTTP request or charge.
+  await prisma.restaurant.updateMany({
+    where: { id: { in: [restaurantA, restaurantB] } },
+    data: { phone: '85999990000' },
+  });
+  const oldFlag = process.env.LALAMOVE_SANDBOX_BOOKING_ENABLED;
+  process.env.LALAMOVE_SANDBOX_BOOKING_ENABLED = 'true';
+  try {
+    let providerCalls = 0;
+    const fake = new LalamoveSandboxBookingService({
+      place: async request => {
+        providerCalls++;
+        assert.equal(request.credentials.environment, 'sandbox');
+        assert.equal(request.requestId.length, 36);
+        assert.equal(request.expectedTotal, '12.80');
+        assert.equal(request.sender.phone, '+5585999990000');
+        return { orderId: '123456789', status: 'ASSIGNING_DRIVER', shareLink: null };
+      },
+    });
+    const rowA = await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { restaurantId_orderId: { restaurantId: restaurantA, orderId: a } },
+    });
+    const resultA = await fake.book({ ...inputA, expectedVersion: rowA.version });
+    assert.equal(resultA.status, 'ACTIVE');
+    assert.equal((await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { id: rowA.id },
+    })).providerOrderId, '123456789');
+    await assert.rejects(() => fake.book({ ...inputA, expectedVersion: rowA.version }), isStatus(409));
+    await assert.rejects(() => dispatchManagement.cancel(inputA), isStatus(409));
+    assert.equal(providerCalls, 1);
+    assert.equal(await prisma.order.count({
+      where: { id: a, restaurantId: restaurantA, ...ownCourierAvailableDispatchScope },
+    }), 0);
+
+    const fakeTimeout = new LalamoveSandboxBookingService({
+      place: async () => {
+        providerCalls++;
+        throw new Error('simulated ambiguous timeout after POST');
+      },
+    });
+    const rowB = await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { restaurantId_orderId: { restaurantId: restaurantB, orderId: b } },
+    });
+    assert.equal((await fakeTimeout.book({ ...inputB, expectedVersion: rowB.version })).status, 'UNKNOWN');
+    await assert.rejects(() => fakeTimeout.book({ ...inputB, expectedVersion: rowB.version }), isStatus(409));
+    await assert.rejects(() => dispatchManagement.cancel(inputB), isStatus(409));
+    assert.equal(providerCalls, 2);
+    assert.equal((await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { id: rowB.id },
+    })).status, 'UNKNOWN');
+    assert.equal(await prisma.order.count({
+      where: { id: b, restaurantId: restaurantB, ...ownCourierAvailableDispatchScope },
+    }), 0);
+    await assert.rejects(() => fake.book({
+      ...inputA, restaurantId: restaurantB, expectedVersion: rowA.version,
+    }), isStatus(403));
+  } finally {
+    if (oldFlag === undefined) delete process.env.LALAMOVE_SANDBOX_BOOKING_ENABLED;
+    else process.env.LALAMOVE_SANDBOX_BOOKING_ENABLED = oldFlag;
+  }
   // No external courier is booked, and the original own-courier model remains intact.
   await prisma.order.update({ where: { id: a }, data: { assignedCourierId: fixture.users.courierA.id } });
   await assert.rejects(() => service.approve(inputA, {

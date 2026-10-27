@@ -187,7 +187,7 @@ export function createLalamoveApiClient(
   const nonce = options.nonce ?? randomUUID;
   let cachedCities: { until: number; rows: unknown[] } | null = null;
 
-  async function request(method: Method, path: string, payload?: object): Promise<unknown> {
+  async function request(method: Method, path: string, payload?: object, requestId?: string): Promise<unknown> {
     const body = payload === undefined ? '' : JSON.stringify({ data: payload });
     const timestamp = String(clock());
     const signature = signLalamoveRequest(timestamp, method, path, body, credentials.apiSecret);
@@ -199,7 +199,7 @@ export function createLalamoveApiClient(
       headers: {
         Authorization: 'hmac ' + credentials.apiKey + ':' + timestamp + ':' + signature,
         Market: 'BR',
-        'Request-ID': nonce(),
+        'Request-ID': requestId ?? nonce(),
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
@@ -274,6 +274,8 @@ export function createLalamoveApiClient(
       quotationId: string;
       sender: { stopId: string; name: string; phone: string };
       recipients: [{ stopId: string; name: string; phone: string; remarks?: string }];
+      expectedTotal?: string;
+      requestId?: string;
     }): Promise<LalamoveBooking> {
       const quotationId = identifier(input.quotationId);
       identifier(input.sender?.stopId);
@@ -290,6 +292,10 @@ export function createLalamoveApiClient(
       if (!String(recipient.name ?? '').trim() || !String(recipient.phone ?? '').trim()) {
         throw new Error('Contato do destinatário inválido.');
       }
+      if (input.requestId !== undefined &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.requestId)) {
+        throw new Error('Identificador de solicitação inválido.');
+      }
       // Re-verify the actual provider quotation: caller-provided flags are not proof.
       // This is not a replacement for persistent tenant-scoped booking locks.
       const quotation = record(await request('GET', '/v3/quotations/' + quotationId));
@@ -304,7 +310,25 @@ export function createLalamoveApiClient(
         throw new Error('Paradas incompatíveis com a cotação térmica.');
       }
 
-      const data = record(await request('POST', '/v3/orders', input));
+      if (input.expectedTotal !== undefined) {
+        const amount = record(quotation.priceBreakdown);
+        const toCents = (value: unknown) => {
+          const text = String(value ?? '');
+          if (!/^\d{1,8}(?:\.\d{1,2})?$/u.test(text)) return null;
+          const [reais, centavos = ''] = text.split('.');
+          return Number(reais) * 100 + Number(centavos.padEnd(2, '0'));
+        };
+        if (amount.currency !== 'BRL' ||
+            toCents(amount.total) === null ||
+            toCents(amount.total) !== toCents(input.expectedTotal)) {
+          throw new Error('Cotação alterada antes da contratação. Nenhuma entrega criada.');
+        }
+      }
+      const data = record(await request('POST', '/v3/orders', {
+        quotationId: input.quotationId,
+        sender: input.sender,
+        recipients: input.recipients,
+      }, input.requestId));
       return {
         orderId: identifier(data.orderId),
         status: String(data.status ?? ''),
