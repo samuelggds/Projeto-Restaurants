@@ -11,7 +11,8 @@ type Quote = {
 };
 import { safeQuoteError } from './lalamoveQuoteError';
 
-type Dispatch = { id: string; status: string; canDispatch: false; environment: 'sandbox' };
+type Dispatch = { id: string; status: string; providerStatus?: string | null;
+  reconciliationRequired?: boolean; canDispatch: false; environment: 'sandbox' };
 
 export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
   const { confirmDialog } = useAppDialog();
@@ -107,6 +108,23 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
       setLoading(false);
     }
   }
+  async function refreshTracking() {
+    if (pending.current || loading) return;
+    pending.current = true;
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      const updated = await restaurantSettingsService.refreshLalamoveSandboxTracking(orderId);
+      setDispatch(updated as Dispatch);
+      setNotice('Rastreamento sandbox consultado. Nenhuma nova entrega foi contratada.');
+    } catch (reason: unknown) {
+      setError(safeQuoteError(reason));
+    } finally {
+      pending.current = false;
+      setLoading(false);
+    }
+  }
   const valid = Boolean(quote && quote.expiresAt && new Date(quote.expiresAt).getTime() > now);
   const canRequest = !loading && !(valid && quote &&
     ['REQUESTING', 'AVAILABLE', 'APPROVED'].includes(quote.status));
@@ -186,6 +204,12 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
           <div><strong>Solicitação concluída</strong><p>{notice}</p></div>
         </div>}
         {dispatch && <p className="quote-status-copy" role="status">Reserva da entrega: {dispatch.status === 'PREPARED' ? 'Pedido reservado para parceiro (sandbox)' : dispatch.status === 'CANCELED' ? 'Reserva cancelada' : dispatch.status === 'FAILED' ? 'Reserva falhou' : 'Despacho: ' + dispatch.status}</p>}
+        {dispatch?.providerStatus && <p className="quote-status-copy" role="status">
+          Situação informada pela Lalamove: {dispatch.providerStatus.replaceAll('_', ' ')}
+        </p>}
+        {dispatch?.reconciliationRequired && <p className="quote-status-copy" role="status">
+          Contratação incerta ou em andamento. Motoboys próprios permanecem bloqueados até conciliação segura.
+        </p>}
         <div className="quote-actions">
           <button type="button" className="quote-action quote-action--primary"
             disabled={!canRequest} onClick={() => void mutate('quote')}>
@@ -195,6 +219,11 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
           </button>
           {approved && !reserved && <button type="button" className="quote-action quote-action--approve" disabled={loading}
             onClick={() => void manageDispatch('prepare')}><Bike aria-hidden="true" /> Reservar entrega parceira (sandbox)</button>}
+          {dispatch?.status === 'ACTIVE' && <button type="button"
+            className="quote-action quote-action--approve" disabled={loading}
+            onClick={() => void refreshTracking()}>
+            <RefreshCw aria-hidden="true" /> Atualizar rastreamento sandbox
+          </button>}
           {dispatch?.status === 'PREPARED' && <button type="button" className="quote-action quote-action--approve" disabled={loading}
             onClick={() => void manageDispatch('cancel')}><AlertCircle aria-hidden="true" /> Cancelar reserva</button>}
           {canApprove && <button type="button" className="quote-action quote-action--approve"
