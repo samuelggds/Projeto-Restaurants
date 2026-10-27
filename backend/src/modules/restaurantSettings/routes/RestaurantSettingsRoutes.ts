@@ -84,6 +84,12 @@ router.post('/delivery-partners/lalamove/quotes/:orderId/approve', authMiddlewar
   LalamoveQuotationController.approve(req, res),
 );
 
+router.get('/delivery-partners/lalamove/dispatches/:orderId', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveDispatchPreparationController.current(req, res),
+);
+router.post('/delivery-partners/lalamove/dispatches/:orderId/cancel', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveDispatchPreparationController.cancel(req, res),
+);
 router.post('/delivery-partners/lalamove/dispatches/:orderId/prepare', authMiddleware, adminMiddleware, (req, res) =>
   LalamoveDispatchPreparationController.prepare(req, res),
 );

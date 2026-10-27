@@ -43,10 +43,13 @@ export class LalamoveDispatchPreparationService {
       const previous = await tx.restaurantExternalDeliveryDispatch.findUnique({
         where: { restaurantId_orderId: { restaurantId: input.restaurantId, orderId: input.orderId } },
       });
-      if (previous) {
+      if (previous && previous.status !== 'CANCELED') {
         if (previous.requestKey !== input.requestKey) {
           throw new LalamoveQuoteError('Já existe um despacho reservado para este pedido.', 409);
         }
+        return { id: previous.id, status: previous.status, canDispatch: false };
+      }
+      if (previous && previous.requestKey === input.requestKey) {
         return { id: previous.id, status: previous.status, canDispatch: false };
       }
       if (!order || order.payOnDelivery) throw new LalamoveQuoteError('Pedido inelegível.', 409);
@@ -78,12 +81,27 @@ export class LalamoveDispatchPreparationService {
       });
       if (!credential) throw new LalamoveQuoteError('Credencial sandbox alterada ou revogada.', 409);
 
-      const row = await tx.restaurantExternalDeliveryDispatch.create({
-        data: { id: randomUUID(), restaurantId: input.restaurantId, orderId: input.orderId,
-          quoteId: quote.id, credentialId: credential.id, requestKey: input.requestKey,
-          environment: 'sandbox', status: 'PREPARED' },
-        select: { id: true, status: true },
-      });
+      let row: { id: string; status: string };
+      if (previous) {
+        // Reuse the same one-to-one row after a confirmed local cancellation.
+        // The old requestKey can never reactivate an earlier attempt.
+        const changed = await tx.restaurantExternalDeliveryDispatch.updateMany({
+          where: { id: previous.id, restaurantId: input.restaurantId, orderId: input.orderId,
+            status: 'CANCELED', version: previous.version,
+            providerOrderId: null, dispatchedAt: null },
+          data: { requestKey: input.requestKey, quoteId: quote.id, credentialId: credential.id,
+            status: 'PREPARED', version: { increment: 1 } },
+        });
+        if (changed.count !== 1) throw new LalamoveQuoteError('Reserva modificada por outra solicitação.', 409);
+        row = { id: previous.id, status: 'PREPARED' };
+      } else {
+        row = await tx.restaurantExternalDeliveryDispatch.create({
+          data: { id: randomUUID(), restaurantId: input.restaurantId, orderId: input.orderId,
+            quoteId: quote.id, credentialId: credential.id, requestKey: input.requestKey,
+            environment: 'sandbox', status: 'PREPARED' },
+          select: { id: true, status: true },
+        });
+      }
       await tx.auditLog.create({ data: {
         userId: admin.id, userName: admin.name, userRole: admin.role,
         restaurantId: input.restaurantId, action: 'LALAMOVE_DISPATCH_PREPARED',

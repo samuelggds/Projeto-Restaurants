@@ -108,6 +108,21 @@ class RestaurantSettingsService {
     return response.data?.quote;
   }
 
+  async getLalamoveDispatch(orderId: number) {
+    const response = await api.get('/settings/delivery-partners/lalamove/dispatches/' + orderId);
+    return response.data?.dispatch;
+  }
+
+  async prepareLalamoveDispatch(orderId: number, requestKey: string) {
+    const response = await api.post('/settings/delivery-partners/lalamove/dispatches/' + orderId + '/prepare', { requestKey });
+    return response.data?.dispatch;
+  }
+
+  async cancelLalamoveDispatch(orderId: number) {
+    const response = await api.post('/settings/delivery-partners/lalamove/dispatches/' + orderId + '/cancel', {});
+    return response.data?.dispatch;
+  }
+
   async getWhatsappConnection() {
     const response = await api.get('/settings/whatsapp/connection');
     return response.data;

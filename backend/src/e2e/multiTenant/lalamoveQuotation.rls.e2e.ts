@@ -4,6 +4,7 @@ import test from 'node:test';
 import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import { LalamoveQuotationService, LalamoveQuoteError } from '../../modules/externalDelivery/services/LalamoveQuotationService.js';
 import dispatchPreparation from '../../modules/externalDelivery/services/LalamoveDispatchPreparationService.js';
+import dispatchManagement from '../../modules/externalDelivery/services/LalamoveDispatchManagementService.js';
 import { ownCourierAvailableDispatchScope } from '../../modules/externalDelivery/domain/ownCourierDispatchBoundary.js';
 import {
   assertDisposableTenantDatabase, prisma, runtimePrisma,
@@ -183,6 +184,44 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   assert.equal(await prisma.restaurantExternalDeliveryDispatch.count(), 2);
   assert.equal(await prisma.auditLog.count({ where: {
     restaurantId: restaurantA, action: 'LALAMOVE_DISPATCH_PREPARED',
+  } }), 1);
+  assert.equal((await dispatchManagement.current(inputA))?.status, 'PREPARED');
+  await assert.rejects(() => dispatchManagement.current({
+    ...inputA, restaurantId: restaurantB,
+  }), isStatus(403));
+  // DB invariant: active and completed partner bookings require a provider ID.
+  await assert.rejects(() => prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'ACTIVE' },
+  }), /constraint|23514|provider_check/iu);
+  await assert.rejects(() => prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'DONE' },
+  }), /constraint|23514|provider_check/iu);
+  // The application also refuses cancellation of a non-PREPARED or uncertain booking.
+  await prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'UNKNOWN' },
+  });
+  await assert.rejects(() => dispatchManagement.cancel(inputA), isStatus(409));
+  await prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'PREPARED' },
+  });
+  const canceled = await dispatchManagement.cancel(inputA);
+  assert.equal(canceled?.status, 'CANCELED');
+  assert.equal((await dispatchManagement.cancel(inputA))?.status, 'CANCELED');
+  assert.equal(await prisma.order.count({
+    where: { id: a, restaurantId: restaurantA, ...ownCourierAvailableDispatchScope },
+  }), 1);
+  assert.equal((await dispatchPreparation.prepare({ ...inputA, requestKey })).status, 'CANCELED');
+  const renewed = await dispatchPreparation.prepare({ ...inputA, requestKey: randomUUID() });
+  assert.equal(renewed.id, prepared.id);
+  assert.equal(renewed.status, 'PREPARED');
+  assert.equal(await prisma.order.count({
+    where: { id: a, restaurantId: restaurantA, ...ownCourierAvailableDispatchScope },
+  }), 0);
+  assert.equal(await prisma.restaurantExternalDeliveryDispatch.count({
+    where: { restaurantId: restaurantA },
+  }), 1);
+  assert.equal(await prisma.auditLog.count({ where: {
+    restaurantId: restaurantA, action: 'LALAMOVE_DISPATCH_CANCELED',
   } }), 1);
   // No external courier is booked, and the original own-courier model remains intact.
   await prisma.order.update({ where: { id: a }, data: { assignedCourierId: fixture.users.courierA.id } });
