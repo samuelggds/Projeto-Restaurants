@@ -31,6 +31,7 @@ vi.mock('../../../Services/restaurantSettingsService', () => ({
   default: {
     getLalamoveDeliveryQuote: vi.fn(),
     getLalamoveDispatch: vi.fn(),
+    refreshLalamoveSandboxTracking: vi.fn(),
     prepareLalamoveDispatch: vi.fn(),
     cancelLalamoveDispatch: vi.fn(),
     requestLalamoveDeliveryQuote: vi.fn(),
@@ -98,6 +99,28 @@ describe('Lalamove freight quote UI', () => {
     await act(async () => document.querySelector<HTMLButtonElement>('[role="dialog"] button[type="submit"]')?.click());
     expect(restaurantSettingsService.cancelLalamoveDispatch).toHaveBeenCalledWith(54);
     expect(container.textContent).toContain('Reserva cancelada');
+  });
+
+  it('consulta rastreamento sem contratar novamente e mostra status do parceiro', async () => {
+    vi.mocked(restaurantSettingsService.getLalamoveDeliveryQuote).mockResolvedValue(null);
+    vi.mocked(restaurantSettingsService.getLalamoveDispatch).mockResolvedValue({
+      id: 'sandbox-row', status: 'ACTIVE', providerStatus: 'ASSIGNING_DRIVER',
+      environment: 'sandbox', canDispatch: false,
+    });
+    vi.mocked(restaurantSettingsService.refreshLalamoveSandboxTracking).mockResolvedValue({
+      id: 'sandbox-row', status: 'ACTIVE', providerStatus: 'PICKED_UP',
+      environment: 'sandbox', canDispatch: false,
+    });
+    await act(async () => root.render(<AppDialogProvider><LalamoveFreightQuote orderId={54} /></AppDialogProvider>));
+    await act(async () => container.querySelector<HTMLButtonElement>('.quote-toggle')?.click());
+    expect(container.textContent).toContain('ASSIGNING DRIVER');
+    const refresh = [...container.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('Atualizar rastreamento sandbox'));
+    expect(refresh).toBeDefined();
+    await act(async () => refresh?.click());
+    expect(restaurantSettingsService.refreshLalamoveSandboxTracking).toHaveBeenCalledWith(54);
+    expect(restaurantSettingsService.prepareLalamoveDispatch).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('PICKED UP');
   });
 
   it('displays a verified quote and uses the in-app approval dialog without dispatch', async () => {
