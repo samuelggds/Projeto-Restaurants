@@ -189,6 +189,21 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   await assert.rejects(() => dispatchManagement.current({
     ...inputA, restaurantId: restaurantB,
   }), isStatus(403));
+  // DB invariant: active and completed partner bookings require a provider ID.
+  await assert.rejects(() => prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'ACTIVE' },
+  }), /constraint|23514|provider_check/iu);
+  await assert.rejects(() => prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'DONE' },
+  }), /constraint|23514|provider_check/iu);
+  // The application also refuses cancellation of a non-PREPARED or uncertain booking.
+  await prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'UNKNOWN' },
+  });
+  await assert.rejects(() => dispatchManagement.cancel(inputA), isStatus(409));
+  await prisma.restaurantExternalDeliveryDispatch.update({
+    where: { id: prepared.id }, data: { status: 'PREPARED' },
+  });
   const canceled = await dispatchManagement.cancel(inputA);
   assert.equal(canceled?.status, 'CANCELED');
   assert.equal((await dispatchManagement.cancel(inputA))?.status, 'CANCELED');
