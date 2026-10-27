@@ -118,6 +118,11 @@ class RestaurantSettingsService {
     return response.data?.dispatch;
   }
 
+  async refreshLalamoveSandboxTracking(orderId: number) {
+    const response = await api.post('/settings/delivery-partners/lalamove/dispatches/' + orderId + '/refresh-sandbox', {});
+    return response.data?.dispatch;
+  }
+
   async cancelLalamoveDispatch(orderId: number) {
     const response = await api.post('/settings/delivery-partners/lalamove/dispatches/' + orderId + '/cancel', {});
     return response.data?.dispatch;

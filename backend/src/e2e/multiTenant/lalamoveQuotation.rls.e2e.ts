@@ -6,6 +6,7 @@ import { LalamoveQuotationService, LalamoveQuoteError } from '../../modules/exte
 import dispatchPreparation from '../../modules/externalDelivery/services/LalamoveDispatchPreparationService.js';
 import dispatchManagement from '../../modules/externalDelivery/services/LalamoveDispatchManagementService.js';
 import { LalamoveSandboxBookingService } from '../../modules/externalDelivery/services/LalamoveSandboxBookingService.js';
+import { LalamoveSandboxTrackingService } from '../../modules/externalDelivery/services/LalamoveSandboxTrackingService.js';
 import { ownCourierAvailableDispatchScope } from '../../modules/externalDelivery/domain/ownCourierDispatchBoundary.js';
 import {
   assertDisposableTenantDatabase, prisma, runtimePrisma,
@@ -253,6 +254,31 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
     })).providerOrderId, '123456789');
     await assert.rejects(() => fake.book({ ...inputA, expectedVersion: rowA.version }), isStatus(409));
     await assert.rejects(() => dispatchManagement.cancel(inputA), isStatus(409));
+    let lookupCalls = 0;
+    const tracker = new LalamoveSandboxTrackingService({
+      lookup: async ({ providerOrderId, credentials }) => {
+        lookupCalls++;
+        assert.equal(providerOrderId, '123456789');
+        assert.equal(credentials.environment, 'sandbox');
+        return { orderId: providerOrderId, status: 'PICKED_UP', shareLink: null };
+      },
+    });
+    const tracked = await tracker.refresh(inputA);
+    assert.equal(tracked.status, 'ACTIVE');
+    assert.equal(tracked.providerStatus, 'PICKED_UP');
+    assert.equal(tracked.canDispatch, false);
+    assert.equal(lookupCalls, 1);
+    assert.equal((await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { id: rowA.id },
+    })).providerStatus, 'PICKED_UP');
+    await assert.rejects(() => tracker.refresh({ ...inputA, restaurantId: restaurantB }), isStatus(403));
+    const mismatched = new LalamoveSandboxTrackingService({
+      lookup: async () => ({ orderId: '999', status: 'PICKED_UP', shareLink: null }),
+    });
+    await assert.rejects(() => mismatched.refresh(inputA), isStatus(409));
+    assert.equal((await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
+      where: { id: rowA.id },
+    })).providerStatus, 'PICKED_UP');
     assert.equal(providerCalls, 1);
     assert.equal(await prisma.order.count({
       where: { id: a, restaurantId: restaurantA, ...ownCourierAvailableDispatchScope },
@@ -274,6 +300,11 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
     assert.equal((await prisma.restaurantExternalDeliveryDispatch.findUniqueOrThrow({
       where: { id: rowB.id },
     })).status, 'UNKNOWN');
+    await assert.rejects(() => tracker.refresh(inputB), isStatus(409));
+    assert.equal(lookupCalls, 1);
+    assert.equal(await prisma.auditLog.count({
+      where: { restaurantId: restaurantA, action: 'LALAMOVE_SANDBOX_STATUS_REFRESHED' },
+    }), 1);
     assert.equal(await prisma.order.count({
       where: { id: b, restaurantId: restaurantB, ...ownCourierAvailableDispatchScope },
     }), 0);
