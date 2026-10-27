@@ -2,23 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assertNoActivePartnerDispatch, ownCourierAvailableDispatchScope } from './ownCourierDispatchBoundary.js';
 
-test('reserva PREPARED não bloqueia o motoboy próprio antes de qualquer contratação', () => {
-  for (const status of [null, undefined, 'PREPARED', 'FAILED', 'CANCELED', 'DONE']) {
+test('somente despacho ausente, cancelado ou falhado libera motoqueiro próprio', () => {
+  for (const status of [null, undefined, 'FAILED', 'CANCELED']) {
     assert.doesNotThrow(() => assertNoActivePartnerDispatch(status));
   }
 });
 
-test('despacho enviado, incerto ou ativo bloqueia motoboy próprio sem exceção', () => {
-  for (const status of ['DISPATCHING', 'UNKNOWN', 'ACTIVE']) {
-    assert.throws(() => assertNoActivePartnerDispatch(status), /despacho com motoboy parceiro/);
+test('solicitação PREPARED já bloqueia retirada própria, mesmo antes do booking', () => {
+  for (const status of ['PREPARED', 'DISPATCHING', 'UNKNOWN', 'ACTIVE', 'DONE', 'UNRECOGNIZED']) {
+    assert.throws(() => assertNoActivePartnerDispatch(status), /reservado para entrega parceira/);
   }
 });
 
-test('filtro Prisma nega concorrência apenas nos estados de risco', () => {
+test('filtro Prisma só libera registro externo com cancelamento/falha confirmados', () => {
   assert.deepEqual(ownCourierAvailableDispatchScope, {
     OR: [
       { externalDeliveryDispatch: { is: null } },
-      { externalDeliveryDispatch: { is: { status: { notIn: ['DISPATCHING', 'UNKNOWN', 'ACTIVE'] } } } },
+      { externalDeliveryDispatch: { is: { status: { in: ['FAILED', 'CANCELED'] } } } },
     ],
   });
 });
