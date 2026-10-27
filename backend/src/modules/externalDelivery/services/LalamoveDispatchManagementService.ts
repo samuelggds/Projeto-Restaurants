@@ -10,8 +10,10 @@ function assertInput(input: Input) {
     n => Number.isSafeInteger(n) && n > 0 && n <= 2147483647,
   )) throw new LalamoveQuoteError('Solicitação inválida.', 400);
 }
-function dto(row: { id: string; status: string; environment: string } | null) {
-  return row ? { id: row.id, status: row.status, environment: 'sandbox' as const, canDispatch: false } : null;
+function dto(row: { id: string; status: string; environment: string; providerStatus?: string | null } | null) {
+  return row ? { id: row.id, status: row.status, providerStatus: row.providerStatus ?? null,
+    environment: 'sandbox' as const, canDispatch: false,
+    reconciliationRequired: row.status === 'UNKNOWN' || row.status === 'DISPATCHING' } : null;
 }
 export class LalamoveDispatchManagementService {
   private async authorized(tx: Prisma.TransactionClient, input: Input) {
@@ -30,7 +32,7 @@ export class LalamoveDispatchManagementService {
       await this.authorized(tx, input);
       const row = await tx.restaurantExternalDeliveryDispatch.findUnique({
         where: { restaurantId_orderId: { restaurantId: input.restaurantId, orderId: input.orderId } },
-        select: { id: true, status: true, environment: true },
+        select: { id: true, status: true, environment: true, providerStatus: true },
       });
       return dto(row);
     });
