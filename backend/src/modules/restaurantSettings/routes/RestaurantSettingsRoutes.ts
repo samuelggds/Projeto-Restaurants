@@ -22,6 +22,7 @@ import LalamoveOnboardingController from '../../externalDelivery/controllers/Lal
 import LalamoveQuotationController from '../../externalDelivery/controllers/LalamoveQuotationController.js';
 import LalamoveDispatchPreparationController from '../../externalDelivery/controllers/LalamoveDispatchPreparationController.js';
 import LalamoveSandboxBookingController from '../../externalDelivery/controllers/LalamoveSandboxBookingController.js';
+import LalamoveSandboxTrackingController from '../../externalDelivery/controllers/LalamoveSandboxTrackingController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
@@ -91,6 +92,10 @@ router.get('/delivery-partners/lalamove/dispatches/:orderId', authMiddleware, ad
 router.post('/delivery-partners/lalamove/dispatches/:orderId/cancel', authMiddleware, adminMiddleware, (req, res) =>
   LalamoveDispatchPreparationController.cancel(req, res),
 );
+router.post('/delivery-partners/lalamove/dispatches/:orderId/refresh-sandbox', authMiddleware, adminMiddleware, (req, res) =>
+  LalamoveSandboxTrackingController.refresh(req, res),
+);
+
 router.post('/delivery-partners/lalamove/dispatches/:orderId/book-sandbox', authMiddleware, adminMiddleware, (req, res) =>
   LalamoveSandboxBookingController.book(req, res),
 );
