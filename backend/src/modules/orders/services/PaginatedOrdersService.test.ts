@@ -91,7 +91,7 @@ test('motoqueiro mantém escopo de tenant, capacidade, pagamento e atribuição'
   assert.deepEqual(scope.OR, [
     { status: 'PRONTO', assignedCourierId: null, OR: [
       { externalDeliveryDispatch: { is: null } },
-      { externalDeliveryDispatch: { is: { status: { notIn: ['DISPATCHING', 'UNKNOWN', 'ACTIVE'] } } } },
+      { externalDeliveryDispatch: { is: { status: { in: ['FAILED', 'CANCELED'] } } } },
     ] },
     { assignedCourierId: 20 },
   ]);
