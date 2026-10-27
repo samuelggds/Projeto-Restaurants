@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { assertExternalDispatchAllowed } from '../domain/externalDispatchPolicy.js';
 import { LalamoveQuoteError } from './LalamoveQuotationService.js';
+import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 
 type Input = { restaurantId: number; actorId: number; orderId: number; requestKey: string };
 
@@ -19,7 +20,7 @@ export class LalamoveDispatchPreparationService {
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.requestKey)) {
       throw new LalamoveQuoteError('Solicitação de despacho inválida.', 400);
     }
-    return prisma.$transaction(async tx => {
+    const prepared = await prisma.$transaction(async tx => {
       await setTenantDbContext(tx, input.restaurantId);
       const admin = await tx.user.findFirst({
         where: { id: input.actorId, restaurantId: input.restaurantId, role: 'ADMIN', active: true },
@@ -89,8 +90,16 @@ export class LalamoveDispatchPreparationService {
         resource: 'LALAMOVE:DISPATCH:' + input.orderId,
         metadata: { environment: 'sandbox', bookingCreated: false, thermalBagRequired: true },
       } });
-      return { ...row, canDispatch: false };
+      return { ...row, canDispatch: false, isNew: true };
     });
+    // A successful DB commit invalidates every courier's authorized API list.
+    // This event carries no customer or payment information.
+    if ('isNew' in prepared && prepared.isNew) {
+      realtimePublisher.to(`restaurant:${input.restaurantId}:courier`).emit('order:status-changed', {
+        id: input.orderId, restaurantId: input.restaurantId,
+      });
+    }
+    return { id: prepared.id, status: prepared.status, canDispatch: false };
   }
 }
 
