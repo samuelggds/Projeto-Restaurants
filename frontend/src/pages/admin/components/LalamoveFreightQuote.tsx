@@ -11,9 +11,12 @@ type Quote = {
 };
 import { safeQuoteError } from './lalamoveQuoteError';
 
+type Dispatch = { id: string; status: string; canDispatch: false; environment: 'sandbox' };
+
 export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
   const { confirmDialog } = useAppDialog();
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [dispatch, setDispatch] = useState<Dispatch | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -28,9 +31,12 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    void restaurantSettingsService.getLalamoveDeliveryQuote(orderId)
-      .then(data => { if (active) { setQuote(data as Quote | null); setError(''); } })
-      .catch((reason: unknown) => { if (active) setError(safeQuoteError(reason)); })
+    void Promise.all([
+      restaurantSettingsService.getLalamoveDeliveryQuote(orderId),
+      restaurantSettingsService.getLalamoveDispatch(orderId),
+    ]).then(([currentQuote, currentDispatch]) => {
+      if (active) { setQuote(currentQuote as Quote | null); setDispatch(currentDispatch as Dispatch | null); setError(''); }
+    }).catch((reason: unknown) => { if (active) setError(safeQuoteError(reason)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [orderId, open]);
@@ -67,11 +73,46 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
       setLoading(false);
     }
   }
+  async function manageDispatch(action: 'prepare' | 'cancel') {
+    if (pending.current || loading) return;
+    pending.current = true;
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      const accepted = await confirmDialog(action === 'prepare' ? {
+        title: 'Reservar entrega terceirizada?',
+        description: 'O pedido deixará de aparecer para os motoboys próprios. A reserva é somente no sandbox e não contrata entregador ou cobra frete.',
+        confirmLabel: 'Reservar pedido',
+        cancelLabel: 'Voltar',
+      } : {
+        title: 'Cancelar reserva terceirizada?',
+        description: 'Somente reservas ainda não enviadas à Lalamove podem ser liberadas para os motoboys próprios.',
+        confirmLabel: 'Cancelar reserva',
+        cancelLabel: 'Voltar',
+        tone: 'danger',
+      });
+      if (!accepted) return;
+      const next = action === 'prepare'
+        ? await restaurantSettingsService.prepareLalamoveDispatch(orderId, crypto.randomUUID())
+        : await restaurantSettingsService.cancelLalamoveDispatch(orderId);
+      setDispatch(next as Dispatch);
+      setNotice(action === 'prepare'
+        ? 'Pedido reservado para entrega parceira. Não aparece mais para motoboys próprios.'
+        : 'Reserva cancelada. O pedido voltou a ficar disponível para motoboys próprios.');
+    } catch (reason: unknown) {
+      setError(safeQuoteError(reason));
+    } finally {
+      pending.current = false;
+      setLoading(false);
+    }
+  }
   const valid = Boolean(quote && quote.expiresAt && new Date(quote.expiresAt).getTime() > now);
   const canRequest = !loading && !(valid && quote &&
     ['REQUESTING', 'AVAILABLE', 'APPROVED'].includes(quote.status));
   const canApprove = !loading && valid && quote?.status === 'AVAILABLE' && Boolean(quote.total);
   const approved = Boolean(valid && quote?.status === 'APPROVED');
+  const reserved = Boolean(dispatch && !['FAILED', 'CANCELED'].includes(dispatch.status));
   const available = Boolean(valid && quote?.status === 'AVAILABLE');
   const price = quote?.total ? Number(quote.total).toLocaleString('pt-BR', {
     style: 'currency', currency: 'BRL',
@@ -144,6 +185,7 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
           <CheckCircle2 aria-hidden="true" />
           <div><strong>Solicitação concluída</strong><p>{notice}</p></div>
         </div>}
+        {dispatch && <p className="quote-status-copy" role="status">Reserva da entrega: {dispatch.status === 'PREPARED' ? 'Pedido reservado para parceiro (sandbox)' : dispatch.status === 'CANCELED' ? 'Reserva cancelada' : dispatch.status === 'FAILED' ? 'Reserva falhou' : 'Despacho: ' + dispatch.status}</p>}
         <div className="quote-actions">
           <button type="button" className="quote-action quote-action--primary"
             disabled={!canRequest} onClick={() => void mutate('quote')}>
@@ -151,6 +193,10 @@ export function LalamoveFreightQuote({ orderId }: { orderId: number }) {
               <RefreshCw aria-hidden="true" />}
             {quote ? 'Consultar novamente' : 'Consultar valor do frete'}
           </button>
+          {approved && !reserved && <button type="button" className="quote-action quote-action--approve" disabled={loading}
+            onClick={() => void manageDispatch('prepare')}><Bike aria-hidden="true" /> Reservar entrega parceira (sandbox)</button>}
+          {dispatch?.status === 'PREPARED' && <button type="button" className="quote-action quote-action--approve" disabled={loading}
+            onClick={() => void manageDispatch('cancel')}><AlertCircle aria-hidden="true" /> Cancelar reserva</button>}
           {canApprove && <button type="button" className="quote-action quote-action--approve"
             onClick={() => void mutate('approve')}>
             <CheckCircle2 aria-hidden="true" /> Aprovar valor sandbox
