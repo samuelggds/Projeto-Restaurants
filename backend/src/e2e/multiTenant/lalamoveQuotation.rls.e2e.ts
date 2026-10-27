@@ -4,6 +4,7 @@ import test from 'node:test';
 import { withTenantDbContext } from '../../database/tenantDbContext.js';
 import { LalamoveQuotationService, LalamoveQuoteError } from '../../modules/externalDelivery/services/LalamoveQuotationService.js';
 import dispatchPreparation from '../../modules/externalDelivery/services/LalamoveDispatchPreparationService.js';
+import { ownCourierAvailableDispatchScope } from '../../modules/externalDelivery/domain/ownCourierDispatchBoundary.js';
 import {
   assertDisposableTenantDatabase, prisma, runtimePrisma,
   resetTenantE2EDatabase, seedTenantE2EFixture,
@@ -143,6 +144,15 @@ test('Lalamove freight quotation uses isolated PostgreSQL and no real dispatch',
   assert.equal(prepared.canDispatch, false);
   assert.equal((await dispatchPreparation.prepare({ ...inputA, requestKey })).id, prepared.id);
   assert.equal(await prisma.restaurantExternalDeliveryDispatch.count({ where: { restaurantId: restaurantA } }), 1);
+  // A partir de PREPARED, a lista de motoboys próprios exclui o pedido.
+  // A cotação por si só não faz esse bloqueio.
+  assert.equal(await prisma.order.count({
+    where: { id: a, restaurantId: restaurantA, ...ownCourierAvailableDispatchScope },
+  }), 0);
+  assert.equal(await prisma.order.count({
+    where: { id: b, restaurantId: restaurantB, ...ownCourierAvailableDispatchScope },
+  }), 0);
+
   await runtimePrisma.$transaction(async db => {
     await db.$executeRaw`SELECT set_config('app.restaurant_id', '', true)`;
     assert.deepEqual(await db.restaurantExternalDeliveryDispatch.findMany(), []);
