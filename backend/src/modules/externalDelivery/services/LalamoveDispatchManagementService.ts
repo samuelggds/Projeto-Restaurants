@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
@@ -13,7 +14,7 @@ function dto(row: { id: string; status: string; environment: string } | null) {
   return row ? { id: row.id, status: row.status, environment: 'sandbox' as const, canDispatch: false } : null;
 }
 export class LalamoveDispatchManagementService {
-  private async authorized(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], input: Input) {
+  private async authorized(tx: Prisma.TransactionClient, input: Input) {
     const actor = await tx.user.findFirst({
       where: { id: input.actorId, restaurantId: input.restaurantId, role: 'ADMIN', active: true },
       select: { id: true, name: true, role: true },
