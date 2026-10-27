@@ -30,6 +30,9 @@ import { LalamoveFreightQuote } from './LalamoveFreightQuote';
 vi.mock('../../../Services/restaurantSettingsService', () => ({
   default: {
     getLalamoveDeliveryQuote: vi.fn(),
+    getLalamoveDispatch: vi.fn(),
+    prepareLalamoveDispatch: vi.fn(),
+    cancelLalamoveDispatch: vi.fn(),
     requestLalamoveDeliveryQuote: vi.fn(),
     approveLalamoveDeliveryQuote: vi.fn(),
   },
@@ -43,6 +46,7 @@ describe('Lalamove freight quote UI', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(restaurantSettingsService.getLalamoveDispatch).mockResolvedValue(null);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -62,6 +66,38 @@ describe('Lalamove freight quote UI', () => {
     expect(container.textContent).toContain('Bolsa térmica obrigatória');
     expect(container.textContent).toContain('não contrata um motoboy');
     expect(container.querySelector('.quote-result')).not.toBeNull();
+  });
+
+  it('reserva sandbox depois da aprovação e permite cancelar sem contratar', async () => {
+    const approved = {
+      id: 'synthetic-quote', status: 'APPROVED', version: 3, total: '12.80',
+      currency: 'BRL', serviceType: 'LALAGO', thermalBagRequired: true,
+      expiresAt: new Date(Date.now() + 120000).toISOString(),
+      canDispatch: false as const, environment: 'sandbox' as const,
+    };
+    vi.mocked(restaurantSettingsService.getLalamoveDeliveryQuote).mockResolvedValue(approved);
+    vi.mocked(restaurantSettingsService.prepareLalamoveDispatch).mockResolvedValue({
+      id: 'synthetic-reservation', status: 'PREPARED', canDispatch: false, environment: 'sandbox',
+    });
+    vi.mocked(restaurantSettingsService.cancelLalamoveDispatch).mockResolvedValue({
+      id: 'synthetic-reservation', status: 'CANCELED', canDispatch: false, environment: 'sandbox',
+    });
+    await act(async () => root.render(<AppDialogProvider><LalamoveFreightQuote orderId={54} /></AppDialogProvider>));
+    await act(async () => container.querySelector<HTMLButtonElement>('.quote-toggle')?.click());
+    const reserve = [...container.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('Reservar entrega parceira'));
+    expect(reserve).toBeDefined();
+    await act(async () => reserve?.click());
+    expect(restaurantSettingsService.prepareLalamoveDispatch).not.toHaveBeenCalled();
+    await act(async () => document.querySelector<HTMLButtonElement>('[role="dialog"] button[type="submit"]')?.click());
+    expect(restaurantSettingsService.prepareLalamoveDispatch).toHaveBeenCalledWith(54, expect.any(String));
+    expect(container.textContent).toContain('Pedido reservado para parceiro');
+    const cancel = [...container.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('Cancelar reserva'));
+    await act(async () => cancel?.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[role="dialog"] button[type="submit"]')?.click());
+    expect(restaurantSettingsService.cancelLalamoveDispatch).toHaveBeenCalledWith(54);
+    expect(container.textContent).toContain('Reserva cancelada');
   });
 
   it('displays a verified quote and uses the in-app approval dialog without dispatch', async () => {
