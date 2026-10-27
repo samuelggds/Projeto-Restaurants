@@ -91,6 +91,11 @@ function verifyRuntime(services, expectedMarkers = {}) {
     for (const key of runtimeKeys) {
       assert.ok(key in env, `${name} não recebe a opção runtime ${key}`);
     }
+    assert.equal(
+      env.LALAMOVE_SANDBOX_BOOKING_ENABLED,
+      'false',
+      `${name} não pode habilitar contratações Lalamove a partir do runtime de produção`,
+    );
     for (const [key, marker] of Object.entries(expectedMarkers)) {
       assert.ok(env[key] === marker, `${name} não encaminha corretamente ${key}`);
     }
