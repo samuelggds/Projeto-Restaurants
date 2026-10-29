@@ -59,9 +59,9 @@ class NfcRegistrationService {
     );
     return result.data.assignment;
   }
-  async returnPaidCard(token: string, cpf: string) {
+  async returnPaidCard(token: string, cpf: string, comandaId?: string) {
     const response = await api.post<{ released: true; cardId: string; displayCode: string; status: 'READY' }>(
-      '/nfc-registration/cards/return', { token, cpf },
+      '/nfc-registration/cards/return', { token, cpf, ...(comandaId ? { comandaId } : {}) },
     );
     if (!response.data?.released || response.data.status !== 'READY') {
       throw new Error('Liberação do cartão não foi confirmada pelo servidor.');
