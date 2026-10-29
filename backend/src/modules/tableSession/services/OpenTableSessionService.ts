@@ -46,6 +46,14 @@ class OpenTableSessionService {
       throw new Error('Usuário inválido para abrir sessão.');
     }
 
+    const attendanceMode = await prisma.restaurantSettings.findUnique({
+      where: { restaurantId: normalizedRestaurantId },
+      select: { inPersonServiceMode: true },
+    });
+    if (attendanceMode?.inPersonServiceMode === 'NFC_ONLY') {
+      throw new Error('Este restaurante utiliza apenas cashless NFC para novos atendimentos.');
+    }
+
     const table = await tableRepository.findByIdForRestaurant(
       normalizedTableId,
       normalizedRestaurantId,
