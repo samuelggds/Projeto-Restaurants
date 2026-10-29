@@ -36,6 +36,7 @@ CREATE TABLE "NfcCard" (
   "updatedAt" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "NfcCard_pkey" PRIMARY KEY ("id")
 );
+CREATE UNIQUE INDEX "NfcCard_id_restaurantId_key" ON "NfcCard"("id", "restaurantId");
 CREATE UNIQUE INDEX "NfcCard_tokenHash_key" ON "NfcCard"("tokenHash");
 CREATE UNIQUE INDEX "NfcCard_restaurantId_displayCode_key" ON "NfcCard"("restaurantId", "displayCode");
 CREATE INDEX "NfcCard_restaurantId_customerId_status_idx" ON "NfcCard"("restaurantId", "customerId", "status");
