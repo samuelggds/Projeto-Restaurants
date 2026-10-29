@@ -289,3 +289,35 @@ regraváveis, verificação de NFC clonado e rate limit contra enumeração.
   representa a recepção final desejada**. Precisamos implementar os cartões
   pré-provisionados, a UI de recepção e o vínculo atômico antes de afirmar que
   a aproximação inicial funciona nos dois sistemas.
+
+
+### Confirmação de pedidos presenciais — cartão NFC + três dígitos do CPF
+
+- Novo fluxo de **rascunho de pedido** no detalhe da comanda NFC:
+  funcionário autorizado seleciona os produtos, quantidades e solicita confirmação.
+- A confirmação é vinculada de forma imutável ao `restaurantId`, `comandaId`,
+  `customerId`, `cardId`, operador, itens e chave de idempotência. Uma tentativa
+  nova não substitui ou reaproveita a confirmação de outro pedido.
+- O cartão é lido antes do desafio; no Android pode usar Web NFC; no iPhone
+  o cartão com URL NDEF previamente gravada abre `/nfc/:token` no navegador.
+  A tela do funcionário autenticado procura uma confirmação pendente do
+  **mesmo operador** e solicita os primeiros três dígitos do CPF ao cliente.
+- Backend descriptografa CPF apenas internamente, compara os três primeiros
+  dígitos em tempo constante e nunca coloca o CPF completo no chip.
+- Cada confirmação vence em **2 minutos**, só aceita uma resposta positiva,
+  acumula até **3 erros por cartão** e bloqueia novas tentativas por
+  **15 minutos**; falhas permanecem gravadas mesmo se a API responder 403/429.
+- Validar a comanda `OPEN`, cartão `ACTIVE`, identidade cliente-cartão,
+  autorização do funcionário e prazo financeiro antes de verificar;
+  bloquear uso por operador diferente e por outro tenant.
+- A verificação de três dígitos não é autenticação forte (somente mil
+  possibilidades); pode ser usada como confirmação presencial **adicional**,
+  nunca como autorização financeira isolada.
+- **Atenção: por segurança, confirmar a identidade NÃO cria o pedido
+  definitivo.** Falta integrar ao `CreateOrderService` numa transação com
+  reserva de estoque, precificação, fila de cozinha, idempotência e vínculo
+  contábil. Até isso estar concluído e homologado, o rascunho não desconta
+  estoque nem gera débito.
+- Testes pendentes: Android/iOS físicos, revogação após confirmação, duas
+  tentativas concorrentes, reenvio idempotente, brute-force entre sessões,
+  operador distinto, tenant diferente, CPF incorreto e lançamento único.
