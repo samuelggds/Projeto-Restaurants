@@ -46,6 +46,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isUnassignedProvision, setIsUnassignedProvision] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [returnCpf, setReturnCpf] = useState('');
   const load = useCallback(async (nextPage: number) => {
     setPending(true); setError('');
     try { const result = await nfcRegistrationService.list(nextPage); setItems(result.customers); setTotal(result.total); setPage(nextPage); }
@@ -140,6 +141,23 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
       setError(cause instanceof Error ? cause.message : 'Cartão NFC não identificado.');
     } finally { setPending(false); }
   };
+  const returnPaidCard = async (event: FormEvent) => {
+    event.preventDefault();
+    if (pending || !/^\d{11}$/.test(returnCpf.replace(/\D/g, ''))) return;
+    setPending(true); setError(''); setInfo('');
+    try {
+      // A new physical NFC read is required at exit. No manually pasted card ID.
+      const token = await scanNfcCard();
+      const returned = await nfcRegistrationService.returnPaidCard(token, returnCpf);
+      setReturnCpf('');
+      setSelectedCustomerId(null);
+      setInfo(`Cartão ${returned.displayCode} desvinculado e disponível para outro cliente. Comanda quitada e preservada no histórico.`);
+      await load(page);
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setError(response.response?.data?.error || 'Não foi possível confirmar a quitação e a devolução. Confira a conta, o cartão NFC e o CPF completo.');
+    } finally { setPending(false); }
+  };
   const revoke = async (cardId: string) => {
     const reason = window.prompt('Informe o motivo da revogação (mínimo 5 caracteres):');
     if (!reason) return;
@@ -162,6 +180,19 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
         <button disabled={pending} type="submit">Cadastrar cliente</button>
       </form>
       <small>Os dados pessoais ficam protegidos no servidor, nunca gravados no cartão. O CPF será mascarado na listagem.</small>
+    </div>
+    <div className="surface">
+      <h3>Devolução de cartão após quitação</h3>
+      <p>Na saída, aproxime o cartão NFC e peça ao cliente para digitar o CPF completo. O servidor consulta o saldo e os pagamentos pendentes; somente com a quitação confirmada libera o mesmo cartão para outro cadastro.</p>
+      <form className="form" onSubmit={(event) => void returnPaidCard(event)}>
+        <label>CPF completo do cliente (11 dígitos)
+          <input type="password" autoComplete="off" inputMode="numeric" minLength={11} maxLength={14}
+            value={returnCpf} onChange={event => setReturnCpf(event.target.value.replace(/\D/g, '').slice(0, 11))}
+            placeholder="Digite o CPF completo" required />
+        </label>
+        <button type="submit" disabled={pending || returnCpf.length !== 11}>Ler cartão e verificar quitação</button>
+      </form>
+      <small>O CPF não é salvo no aparelho. A liberação exige leitura física, CPF correto, saldo zero e ausência de cobranças ou pedidos em processamento. Três erros bloqueiam tentativas por 15 minutos.</small>
     </div>
     <div className="surface">
       <h3>Localizar cliente existente</h3>
