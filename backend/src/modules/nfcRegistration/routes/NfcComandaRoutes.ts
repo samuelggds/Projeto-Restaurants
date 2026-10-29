@@ -63,7 +63,7 @@ async function lockComanda(tx: Prisma.TransactionClient, restaurantId: number, c
   if (rows.length !== 1) throw new NfcFinancialError(404, 'Comanda não encontrada neste restaurante.');
 }
 async function customerDebt(tx: Prisma.TransactionClient, restaurantId: number, customerId: string, now = new Date()) {
-  const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, OR: [{ status: NfcComandaStatus.UNPAID }, { status: NfcComandaStatus.OPEN, dueAt: { lte: now } }] },
+  const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: [NfcComandaStatus.UNPAID, NfcComandaStatus.OPEN] }, dueAt: { lte: now } },
     select: { totalCents: true, paidCents: true } });
   return rows.reduce((sum, row) => sum + row.totalCents - row.paidCents, 0n);
 }
