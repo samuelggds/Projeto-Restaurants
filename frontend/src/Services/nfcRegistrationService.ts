@@ -34,6 +34,14 @@ class NfcRegistrationService {
     const response = await api.post<{ card: NfcCardRecord; ndefUrl: string; warning: string }>(`/nfc-registration/customers/${customerId}/cards`);
     return response.data;
   }
+  async activate(cardId: string, token: string) {
+    const response = await api.post<{ card: NfcCardRecord }>(`/nfc-registration/cards/${cardId}/activate`, { token });
+    return response.data.card;
+  }
+  async resolve(token: string) {
+    const response = await api.post<{ card: { id: string; customerId: string; displayCode: string; status: string } }>('/nfc-registration/cards/resolve', { token });
+    return response.data.card;
+  }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
   }
