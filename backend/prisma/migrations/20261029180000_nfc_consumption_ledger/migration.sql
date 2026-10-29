@@ -1,4 +1,6 @@
 -- NFC consumption ledger. No changes to QR table sessions or existing Order rows.
+CREATE TYPE "NfcDebtDeadlineMode" AS ENUM ('TWENTY_FOUR_HOURS', 'BUSINESS_CLOSING');
+ALTER TABLE "RestaurantSettings" ADD COLUMN "nfcDebtDeadlineMode" "NfcDebtDeadlineMode" NOT NULL DEFAULT 'TWENTY_FOUR_HOURS';
 ALTER TABLE "RestaurantSettings" ADD COLUMN "nfcCoverChargeCents" INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE "RestaurantSettings" ADD CONSTRAINT "RestaurantSettings_nfcCoverChargeCents_check" CHECK ("nfcCoverChargeCents" BETWEEN 0 AND 10000000);
 CREATE TYPE "NfcComandaStatus" AS ENUM ('OPEN','UNPAID','PAID');
