@@ -106,6 +106,24 @@ router.post('/challenges', async (req, res) => {
       confirmed: Boolean(result.verifiedAt), alreadyConsumed: Boolean(result.consumedAt) });
   } catch (error) { return responseError(res, error); }
 });
+router.post('/challenges/pending', async (req, res) => {
+  try {
+    const restaurantId = tenant(req), userId = actor(req);
+    const token = z.string().regex(tokenPattern).parse(req.body?.token);
+    const card = await prisma.nfcCard.findFirst({
+      where: { restaurantId, tokenHash: hash(token), status: 'ACTIVE' }, select: { id: true },
+    });
+    if (!card) throw new VerificationError(404, 'Cartão NFC não identificado neste restaurante.');
+    const challenge = await prisma.nfcOrderConfirmation.findFirst({
+      where: { restaurantId, cardId: card.id, createdByUserId: userId,
+        verifiedAt: null, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, expiresAt: true, draftItems: true },
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ challenge });
+  } catch (error) { return responseError(res, error); }
+});
 router.post('/challenges/:id/verify', async (req, res) => {
   try {
     const restaurantId = tenant(req), challengeId = uuid.parse(req.params.id), userId = actor(req);
@@ -139,7 +157,7 @@ router.post('/challenges/:id/verify', async (req, res) => {
       const cpf = decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted);
       const matched = crypto.timingSafeEqual(Buffer.from(cpf.slice(0, 3)), Buffer.from(cpfPrefix));
       if (!matched) {
-        const failures = Math.min(card.failedOrderConfirmAttempts + 1, LIMIT);
+        const failures = Math.min((card.orderConfirmationLockedUntil && card.orderConfirmationLockedUntil <= new Date() ? 0 : card.failedOrderConfirmAttempts) + 1, LIMIT);
         const lockedUntil = failures >= LIMIT ? new Date(Date.now() + LOCK_MS) : null;
         await tx.nfcCard.updateMany({ where: { id: card.id, restaurantId },
           data: { failedOrderConfirmAttempts: failures, orderConfirmationLockedUntil: lockedUntil } });
