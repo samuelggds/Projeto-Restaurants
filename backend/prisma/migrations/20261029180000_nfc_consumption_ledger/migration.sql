@@ -54,11 +54,24 @@ CREATE TABLE "NfcComandaPayment" (
 CREATE UNIQUE INDEX "NfcComandaPayment_restaurantId_comandaId_requestKeyHash_key" ON "NfcComandaPayment"("restaurantId","comandaId","requestKeyHash");
 CREATE INDEX "NfcComandaPayment_restaurantId_comandaId_status_idx" ON "NfcComandaPayment"("restaurantId","comandaId","status");
 ALTER TABLE "NfcComandaPayment" ADD CONSTRAINT "NfcComandaPayment_comandaId_restaurantId_fkey" FOREIGN KEY ("comandaId","restaurantId") REFERENCES "NfcComanda"("id","restaurantId") ON DELETE RESTRICT;
--- Additional defense in depth: fail closed without transaction-local tenant context.
-DO $ DECLARE table_name TEXT; BEGIN
- FOREACH table_name IN ARRAY ARRAY['NfcComanda','NfcComandaItem','NfcComandaPayment'] LOOP
- EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',table_name);
- EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',table_name);
- EXECUTE format('CREATE POLICY %I ON %I FOR ALL TO PUBLIC USING ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END) WITH CHECK ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END)',table_name||'_tenant_isolation',table_name);
- END LOOP;
-END $$;
+-- Additional defense in depth: tenant context must be transaction-local and valid.
+ALTER TABLE "NfcComanda" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "NfcComanda" FORCE ROW LEVEL SECURITY;
+CREATE POLICY "NfcComanda_tenant_isolation" ON "NfcComanda"
+FOR ALL TO PUBLIC
+USING ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END)
+WITH CHECK ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END);
+
+ALTER TABLE "NfcComandaItem" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "NfcComandaItem" FORCE ROW LEVEL SECURITY;
+CREATE POLICY "NfcComandaItem_tenant_isolation" ON "NfcComandaItem"
+FOR ALL TO PUBLIC
+USING ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END)
+WITH CHECK ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END);
+
+ALTER TABLE "NfcComandaPayment" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "NfcComandaPayment" FORCE ROW LEVEL SECURITY;
+CREATE POLICY "NfcComandaPayment_tenant_isolation" ON "NfcComandaPayment"
+FOR ALL TO PUBLIC
+USING ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END)
+WITH CHECK ("restaurantId" = CASE WHEN current_setting('app.restaurant_id', true) ~ '^[1-9][0-9]*$' THEN current_setting('app.restaurant_id', true)::integer ELSE NULL END);
