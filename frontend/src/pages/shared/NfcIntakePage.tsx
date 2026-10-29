@@ -132,8 +132,8 @@ export default function NfcIntakePage() {
       <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
       <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
-        <h2 style={{ fontSize: 17, margin: 0 }}>Devolver cartão após pagar</h2>
-        <p>Após confirmar Pix ou Point no servidor, o funcionário aproxima o cartão e o cliente informa o CPF completo para conferir a quitação.</p>
+        <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
+        <p>No caixa, após o pagamento Pix ou Point, o funcionário aproxima o cartão e o cliente digita o CPF completo. Se a comanda estiver quitada no backend, o vínculo será encerrado automaticamente.</p>
         <label>CPF completo (11 dígitos)
           <input type="password" inputMode="numeric" autoComplete="off" maxLength={11} minLength={11}
             value={returnCpf} onChange={e => setReturnCpf(e.target.value.replace(/\D/g, '').slice(0, 11))} required />
