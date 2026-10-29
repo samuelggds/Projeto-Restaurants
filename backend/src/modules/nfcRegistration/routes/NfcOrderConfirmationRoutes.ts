@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { Prisma, OrderType } from '@prisma/client';
 import createOrderService from '../../orders/services/CreateOrderService.js';
+import { OrderRequestError } from '../../orders/domain/OrderRequestError.js';
 import { z, ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
@@ -35,10 +36,11 @@ const tenant = (req: import('express').Request) => Number(req.user.restaurantId)
 const actor = (req: import('express').Request) => Number(req.user.id);
 function responseError(res: import('express').Response, error: unknown) {
   const status = error instanceof VerificationError ? error.status
+    : error instanceof OrderRequestError ? error.statusCode
     : error instanceof ZodError ? 422
     : error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' ? 409 : 500;
   return res.status(status).json({
-    error: error instanceof VerificationError ? error.message
+    error: error instanceof VerificationError || error instanceof OrderRequestError ? error.message
       : error instanceof ZodError ? 'Verifique os campos do pedido e os três primeiros números do CPF.'
       : status === 409 ? 'Esta confirmação já foi criada.' : 'Não foi possível validar o pedido NFC.',
   });
