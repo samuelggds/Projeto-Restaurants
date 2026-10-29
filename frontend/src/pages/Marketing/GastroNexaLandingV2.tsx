@@ -4,9 +4,10 @@ import { approvedLandingMarkup } from './GastroNexaApprovedMarkup';
 import { ApprovedPage } from './GastroNexaApprovedPage.styles';
 import { SalesContactForm } from './landing/SalesContactForm';
 import { ApprovedMarketingPlans } from './landing/ApprovedMarketingPlans';
+import { GastroNexaInteractiveDemo } from './landing/GastroNexaInteractiveDemo';
 
 type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
-type MountTargets = { lead: Element; plans: Element };
+type MountTargets = { lead: Element; plans: Element; demo: Element };
 
 // Keep the dangerouslySetInnerHTML prop referentially stable. React updates
 // innerHTML when this object is replaced; recreating it after setMounts()
@@ -46,9 +47,11 @@ export default function GastroNexaLandingV2() {
     if (!element) return;
     const lead = element.querySelector('#gx-lead-root');
     const plans = element.querySelector('#gx-pricing-root');
-    if (!lead || !plans) return;
+    const demo = element.querySelector('#gx-interactive-demo-root');
+    if (!lead || !plans || !demo) return;
     setMounts((previous) =>
-      previous?.lead === lead && previous.plans === plans ? previous : { lead, plans },
+      previous?.lead === lead && previous.plans === plans && previous.demo === demo
+        ? previous : { lead, plans, demo },
     );
   }, []);
 
@@ -112,6 +115,7 @@ export default function GastroNexaLandingV2() {
       {mounts
         ? createPortal(<ApprovedMarketingPlans onSelectPlan={setInitialPlan} />, mounts.plans)
         : null}
+      {mounts ? createPortal(<GastroNexaInteractiveDemo />, mounts.demo) : null}
     </ApprovedPage>
   );
 }
