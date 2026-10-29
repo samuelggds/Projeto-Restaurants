@@ -36,7 +36,7 @@ const tenant = (req: import('express').Request) => Number(req.user.restaurantId)
 const actor = (req: import('express').Request) => Number(req.user.id);
 const accountSelect = {
   id: true, customerId: true, cardId: true, tableNumber: true,
-  status: true, totalCents: true, paidCents: true, openedAt: true,
+  status: true, totalCents: true, paidCents: true, openedAt: true, dueAt: true,
   closedAt: true, paidAt: true,
   items: { select: { id: true, kind: true, description: true, quantity: true, unitPriceCents: true, totalCents: true, createdAt: true }, orderBy: { createdAt: 'asc' as const } },
   payments: { select: { id: true, method: true, amountCents: true, status: true, createdAt: true, confirmedAt: true, reversedAt: true }, orderBy: { createdAt: 'desc' as const } },
@@ -62,8 +62,8 @@ async function lockComanda(tx: Prisma.TransactionClient, restaurantId: number, c
   `;
   if (rows.length !== 1) throw new NfcFinancialError(404, 'Comanda não encontrada neste restaurante.');
 }
-async function customerDebt(tx: Prisma.TransactionClient, restaurantId: number, customerId: string) {
-  const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: NfcComandaStatus.UNPAID },
+async function customerDebt(tx: Prisma.TransactionClient, restaurantId: number, customerId: string, now = new Date()) {
+  const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, OR: [{ status: NfcComandaStatus.UNPAID }, { status: NfcComandaStatus.OPEN, dueAt: { lte: now } }] },
     select: { totalCents: true, paidCents: true } });
   return rows.reduce((sum, row) => sum + row.totalCents - row.paidCents, 0n);
 }
@@ -120,6 +120,7 @@ router.post('/open', async (req, res) => {
         id: randomUUID(), restaurantId, customerId: payload.customerId, cardId: payload.cardId,
         tableNumber: payload.tableNumber ?? null, openRequestKeyHash: key,
         openedByUserId: actor(req), totalCents: BigInt(coverCents),
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
         ...(coverCents > 0 ? { items: { create: { id: randomUUID(), restaurantId,
           kind: 'COVER', description: 'Entrada / couvert', quantity: 1,
           unitPriceCents: BigInt(coverCents), totalCents: BigInt(coverCents) } } } : {}),
