@@ -128,7 +128,7 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
     if (!rawId) return [];
     const type = String(record.type || record.orderType || '').toUpperCase();
     const channel: OrderChannel =
-      type === 'MESA' || type === 'TABLE' || type === 'TABLE_SESSION'
+      type === 'MESA' || type === 'TABLE' || type === 'TABLE_SESSION' || type === 'NFC'
         ? 'TABLE'
         : type === 'DELIVERY'
           ? 'DELIVERY'
@@ -138,7 +138,7 @@ export function mapOperationalOrders(raw: unknown[], now = Date.now()): Order[] 
     const tableNumber = table?.number ?? record.tableNumber;
     const reference =
       channel === 'TABLE'
-        ? `Mesa ${tableNumber ?? '?'}`
+        ? (type === 'NFC' ? `Comanda NFC${tableNumber ? ` · Mesa ${tableNumber}` : ''}` : `Mesa ${tableNumber ?? '?'}`)
         : channel === 'DELIVERY'
           ? 'Delivery'
           : 'Retirada';

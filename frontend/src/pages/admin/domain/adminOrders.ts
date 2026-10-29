@@ -56,6 +56,7 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
   RETIRADA: 'Retirada no balcão',
   PICKUP: 'Retirada no balcão',
   MESA: 'Consumo na mesa',
+  NFC: 'Comanda NFC',
   TABLE: 'Consumo na mesa',
   TABLE_SESSION: 'Consumo na mesa',
 };

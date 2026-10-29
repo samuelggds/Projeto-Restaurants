@@ -29,7 +29,7 @@ export type KitchenOrderPrintPayloadV1 = {
     publicId: string;
     displayNumber: string;
     createdAt: string;
-    type: 'DELIVERY' | 'MESA' | 'RETIRADA';
+    type: 'DELIVERY' | 'MESA' | 'RETIRADA' | 'NFC';
     tableNumber?: number;
     customerName?: string;
     deliveryAddress?: KitchenDeliveryAddressV1;
