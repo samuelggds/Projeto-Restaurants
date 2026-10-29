@@ -66,7 +66,8 @@ export default function NfcIntakePage() {
     setBusy(true); setMessage('');
     try {
       await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
-      setResult('Identidade confirmada para este pedido. O lançamento definitivo aguarda integração com a operação.');
+      const order = await nfcOrderChallengeService.finalize(orderChallenge.id);
+      setResult(`Pedido #${order.orderId} confirmado e enviado à operação como NÃO PAGO. A cozinha receberá o pedido conforme a capacidade do restaurante.`);
       setOrderChallenge(null); setOrderPrefix('');
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
