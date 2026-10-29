@@ -11,6 +11,7 @@ import tableSessionRoutes from '../modules/tableSession/routes/SessionsTablesRou
 import tableRoutes from '../modules/table/routes/TablesRoutes.js';
 import tableReservationRoutes from '../modules/tableReservations/routes/TableReservationRoutes.js';
 import nfcRegistrationRoutes from '../modules/nfcRegistration/routes/NfcRegistrationRoutes.js';
+import nfcComandaRoutes from '../modules/nfcRegistration/routes/NfcComandaRoutes.js';
 import restaurantSettingsRoutes from '../modules/restaurantSettings/routes/RestaurantSettingsRoutes.js';
 import bannerRoutes from '../modules/banner/routes/BannerRoutes.js';
 import couponRoutes from '../modules/coupon/routes/CouponRoutes.js';
@@ -89,6 +90,7 @@ router.use('/waiter-calls', tableServiceCallRoutes);
 router.use('/tables', tableRoutes);
 router.use('/table-reservations', tableReservationRoutes);
 router.use('/nfc-registration', nfcRegistrationRoutes);
+router.use('/nfc-comandas', nfcComandaRoutes);
 router.use('/settings', restaurantSettingsRoutes);
 router.use('/banners', bannerRoutes);
 router.use('/coupons', couponRoutes);
