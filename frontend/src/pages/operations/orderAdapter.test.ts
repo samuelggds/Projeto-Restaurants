@@ -197,3 +197,15 @@ describe('operational order adapter', () => {
     });
   });
 });
+
+
+describe('pedidos operacionais NFC', () => {
+  it('apresenta pedidos NFC não pagos na cozinha como comandas, sem confundi-los com retirada ou QR de mesa', () => {
+    const [order] = mapOperationalOrders([{
+      id: 808, restaurantId: 7, type: 'NFC', paid: false,
+      status: 'PENDENTE', total: 25, items: [{ quantity: 1, product: { name: 'Batata frita' } }],
+    }]);
+    expect(order).toMatchObject({ id: '#808', channel: 'TABLE', reference: 'Comanda NFC',
+      status: 'PENDENTE', total: 25, items: ['1× Batata frita'] });
+  });
+});

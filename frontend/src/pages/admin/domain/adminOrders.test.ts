@@ -116,3 +116,13 @@ describe('pedidos administrativos', () => {
     expect(getOrderProgress('CANCELADO')).toBe(0);
   });
 });
+
+
+describe('tipo financeiro NFC', () => {
+  it('rotula NFC separadamente da mesa QR e mantém pagamento pendente', () => {
+    expect(getOrderTypeLabel('NFC')).toBe('Comanda NFC');
+    expect(getAdminOrdersSummary([{ ...orders[0], type: 'NFC', paid: false }])).toMatchObject({
+      awaitingPayment: 1,
+    });
+  });
+});
