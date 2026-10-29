@@ -163,9 +163,17 @@ router.post('/:comandaId/close', async (req, res) => {
       await assertNoActiveCashlessCheckout(tx, restaurantId, comandaId);
       await assertNoPendingCash(tx, restaurantId, comandaId);
       const isPaid = comanda.totalCents === comanda.paidCents;
+      if (isPaid && comanda.cardId) {
+        const activeCard = await tx.nfcCard.count({
+          where: { restaurantId, id: comanda.cardId, customerId: comanda.customerId, status: 'ACTIVE' },
+        });
+        if (activeCard > 0) throw new NfcFinancialError(409,
+          'Comanda quitada: faça a leitura NFC e confirme o CPF completo no atendimento de pagamento para desvincular o cartão.');
+      }
       await tx.nfcComanda.updateMany({ where: { id: comandaId, restaurantId, status: 'OPEN' }, data: { status: isPaid ? 'PAID' : 'UNPAID',
         closedAt: new Date(), closedByUserId: actor(req), paidAt: isPaid ? new Date() : null } });
-      if (isPaid && comanda.cardId) await tx.nfcCard.updateMany({ where: { id: comanda.cardId, restaurantId, customerId: comanda.customerId, status: 'ACTIVE' }, data: { status: 'REVOKED', revokedAt: new Date(), revokeReason: 'CARD_RETURNED_AFTER_PAYMENT', revokedByUserId: actor(req) } });
+      // Settlement alone never makes a physical NFC card available. Return needs
+      // a fresh scan and the customer's complete CPF on /nfc-registration/cards/return.
       await tx.nfcRegistrationAudit.create({ data: { restaurantId, actorUserId: actor(req), customerId: comanda.customerId, cardId: comanda.cardId, action: isPaid ? 'COMANDA_PAID' : 'COMANDA_UNPAID' } });
       return isPaid ? 'PAID' : 'UNPAID';
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

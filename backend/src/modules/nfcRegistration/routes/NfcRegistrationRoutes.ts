@@ -6,6 +6,7 @@ import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
+import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
@@ -116,6 +117,130 @@ router.post('/cards/:id/revoke', async (req, res) => {
       return card;
     });
     return res.json({ card: revoked });
+  } catch (error) { return safe(res, error); }
+});
+
+// Return the *same* NFC chip to inventory only after a physical scan, full CPF and
+// authoritative ledger settlement. Never accept a client-supplied paid flag.
+const returnSchema = z.strictObject({
+  token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u),
+  cpf: z.string().trim().min(11).max(18),
+  comandaId: z.uuid().optional(),
+});
+router.post('/cards/return', async (req, res) => {
+  try {
+    const input = returnSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId);
+    const tokenHash = normalizeTagToken(input.token);
+    // Any 11-digit input with wrong check digits must count as a failed attempt.
+    const cpf = input.cpf.replace(/\D/gu, '');
+    if (cpf.length !== 11) throw new NfcRegistrationError(422, 'Informe os 11 dígitos do CPF.');
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      // Resolve without trusting a claimed customer, then lock comanda before card
+      // (same lock order as settlement). Recheck ownership after locking.
+      const preview = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: 'ACTIVE' },
+        select: { id: true, customerId: true, displayCode: true },
+      });
+      if (!preview?.customerId) throw new NfcRegistrationError(409, 'Cartão não está vinculado a uma visita ativa.');
+      const current = await tx.nfcComanda.findFirst({
+        where: { restaurantId, cardId: preview.id, customerId: preview.customerId, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+        select: { id: true }, orderBy: { openedAt: 'desc' },
+      });
+      if (!current) throw new NfcRegistrationError(409, 'Não há comanda ativa vinculada a este cartão.');
+      if (input.comandaId && current.id !== input.comandaId) throw new NfcRegistrationError(409, 'O cartão não corresponde à comanda selecionada para pagamento.');
+      await tx.$queryRaw`SELECT "id" FROM "NfcComanda" WHERE "restaurantId" = ${restaurantId} AND "id" = ${current.id}::uuid FOR UPDATE`;
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId" = ${restaurantId} AND "id" = ${preview.id}::uuid FOR UPDATE
+      `;
+      if (locked.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado.');
+      const card = await tx.nfcCard.findFirst({ where: { id: preview.id, restaurantId, tokenHash } });
+      const comanda = await tx.nfcComanda.findFirst({ where: { id: current.id, restaurantId } });
+      if (!card || card.status !== 'ACTIVE' || card.customerId !== preview.customerId
+        || !comanda || comanda.cardId !== card.id || comanda.customerId !== card.customerId
+        || !['OPEN', 'UNPAID', 'PAID'].includes(comanda.status)) {
+        throw new NfcRegistrationError(409, 'A visita foi alterada. Leia novamente o cartão.');
+      }
+      if (card.returnCpfLockedUntil && card.returnCpfLockedUntil > new Date()) {
+        throw new NfcRegistrationError(429, `Verificação bloqueada. Tente novamente em ${nfcReturnCpfRemainingMinutes(card.returnCpfLockedUntil, new Date())} minuto(s).`);
+      }
+      const customer = await tx.nfcCustomer.findFirst({
+        where: { restaurantId, id: card.customerId! }, select: { cpfFingerprint: true },
+      });
+      if (!customer) throw new NfcRegistrationError(404, 'Cliente não encontrado.');
+      const fingerprints = nfcCpfFingerprints(restaurantId, cpf);
+      const matched = fingerprints.some(f => crypto.timingSafeEqual(
+        Buffer.from(f, 'hex'), Buffer.from(customer.cpfFingerprint, 'hex')));
+      if (!matched) {
+        const { attempts, lockedUntil } = nextNfcReturnCpfFailure(card.failedReturnCpfAttempts, new Date());
+        await tx.nfcCard.updateMany({
+          where: { id: card.id, restaurantId, status: 'ACTIVE', customerId: card.customerId },
+          data: { failedReturnCpfAttempts: attempts,
+            returnCpfLockedUntil: lockedUntil },
+        });
+        await tx.nfcRegistrationAudit.create({ data: {
+          restaurantId, actorUserId: Number(req.user.id), customerId: card.customerId,
+          cardId: card.id, action: 'CARD_RETURN_CPF_DENIED',
+        } });
+        return { released: false as const, incorrectCpf: true as const, locked: lockedUntil !== null,
+          remainingMinutes: lockedUntil ? nfcReturnCpfRemainingMinutes(lockedUntil, new Date()) : 0 };
+      }
+      const otherComandas = await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId: card.customerId!, id: { not: comanda.id },
+          status: { in: ['OPEN', 'UNPAID'] } },
+        select: { totalCents: true, paidCents: true },
+      });
+      if (otherComandas.some(other => other.totalCents > other.paidCents)) {
+        throw new NfcRegistrationError(409, 'Cliente possui outra comanda pendente. Verifique antes de liberar.');
+      }
+      if (comanda.totalCents !== comanda.paidCents) {
+        throw new NfcRegistrationError(409, 'Comanda ainda não está totalmente quitada no servidor.');
+      }
+      const processing = await tx.nfcCashlessPayment.count({
+        where: { restaurantId, comandaId: comanda.id, status: { in: ['RESERVED', 'PROCESSING'] } },
+      });
+      const pending = await tx.nfcComandaPayment.count({
+        where: { restaurantId, comandaId: comanda.id, status: 'PENDING' },
+      });
+      const orderChallenges = await tx.nfcOrderConfirmation.count({
+        where: { restaurantId, comandaId: comanda.id, consumedAt: null, expiresAt: { gt: new Date() } },
+      });
+      if (processing || pending || orderChallenges) throw new NfcRegistrationError(409,
+        'Existem pagamentos ou pedidos em processamento. Aguarde a conciliação.');
+      const now = new Date();
+      const closed = await tx.nfcComanda.updateMany({
+        where: { restaurantId, id: comanda.id, status: { in: ['OPEN', 'UNPAID', 'PAID'] },
+          totalCents: comanda.totalCents, paidCents: comanda.paidCents },
+        data: { status: 'PAID', paidAt: comanda.paidAt || now,
+          closedAt: comanda.closedAt || now, closedByUserId: Number(req.user.id) },
+      });
+      if (closed.count !== 1) throw new NfcRegistrationError(409, 'Comanda foi alterada. Consulte novamente.');
+      // Old visit credentials must not authenticate the next customer's visit.
+      await tx.nfcComandaAccess.updateMany({
+        where: { restaurantId, comandaId: comanda.id, revokedAt: null },
+        data: { revokedAt: now, sessionHash: null },
+      });
+      const returned = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: card.id, status: 'ACTIVE', customerId: card.customerId },
+        data: { customerId: null, status: 'READY', activatedAt: null, activatedByUserId: null,
+          failedReturnCpfAttempts: 0, returnCpfLockedUntil: null,
+          failedOrderConfirmAttempts: 0, orderConfirmationLockedUntil: null },
+      });
+      if (returned.count !== 1) throw new NfcRegistrationError(409, 'Cartão já foi liberado por outro funcionário.');
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), customerId: card.customerId,
+        cardId: card.id, action: 'CARD_RETURNED_READY',
+      } });
+      return { released: true as const, cardId: card.id,
+        displayCode: card.displayCode, status: 'READY' as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    res.setHeader('Cache-Control', 'no-store');
+    if (!result.released) return res.status(result.locked ? 429 : 403).json({
+      error: result.locked ? `Muitas tentativas incorretas. Tente novamente em ${result.remainingMinutes} minuto(s).` : 'CPF não corresponde ao titular do cartão.',
+    });
+    return res.json(result);
   } catch (error) { return safe(res, error); }
 });
 
@@ -266,7 +391,6 @@ router.post('/cards/intake', async (req, res) => {
     return res.status(201).json({ assignment: result, warning: 'A mesa opcional será confirmada ao abrir a comanda NFC.' });
   } catch (error) { return safe(res, error); }
 });
-
 const linkedSearchSchema = z.strictObject({
   q: z.string().trim().max(80).optional(),
   page: z.coerce.number().int().min(1).max(100000).default(1),
@@ -332,5 +456,6 @@ router.get('/linked-customers', async (req, res) => {
     return res.json(result);
   } catch (error) { return safe(res, error); }
 });
+
 
 export default router;
