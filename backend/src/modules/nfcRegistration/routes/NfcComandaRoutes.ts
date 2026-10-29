@@ -104,6 +104,12 @@ router.post('/open', async (req, res) => {
     const restaurantId = tenant(req), payload = openSchema.parse(req.body), key = requestKey(req.headers['idempotency-key']);
     const saved = await prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, restaurantId);
+      const mode = await tx.restaurantSettings.findUnique({
+        where: { restaurantId }, select: { inPersonServiceMode: true },
+      });
+      if (mode?.inPersonServiceMode === 'QR_ONLY') {
+        throw new NfcFinancialError(409, 'Ative atendimento NFC ou Ambos nas configurações do restaurante.');
+      }
       await lockCustomer(tx, restaurantId, payload.customerId);
       const existing = await tx.nfcComanda.findFirst({ where: { restaurantId, customerId: payload.customerId, openRequestKeyHash: key }, select: accountSelect });
       if (existing) return existing;
