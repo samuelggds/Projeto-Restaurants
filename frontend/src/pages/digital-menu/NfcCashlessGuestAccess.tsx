@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import api from '../../Services/api';
 
 type Account = {
@@ -26,7 +26,7 @@ export function NfcCashlessGuestAccess() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   if (import.meta.env.VITE_NFC_CASHLESS_HOMOLOGATION !== 'true') return null;
-  async function verify(event: React.FormEvent) {
+  async function verify(event: FormEvent) {
     event.preventDefault();
     setBusy(true); setError(''); setAccount(null);
     try {
@@ -85,7 +85,11 @@ export function NfcCashlessGuestAccess() {
             <p>Pago: {money(account.paidCents)}</p>
             <p>Saldo pendente: <strong>{money(account.outstandingCents)}</strong></p>
             <button type="button" disabled={busy} onClick={() => void reload()}>Atualizar consumo</button>
-            <p style={{ fontSize: 12 }}>Pagamento Pix e cartão estarão disponíveis após a homologação financeira NFC. Solicite o pagamento ao funcionário.</p>
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button type="button" disabled aria-label="Pagamento Pix NFC em homologação">Pix · Em homologação</button>
+              <button type="button" disabled aria-label="Pagamento NFC cartão em homologação">Cartão · Em homologação</button>
+            </div>
+            <p style={{ fontSize: 12 }}>Os pagamentos NFC continuam indisponíveis até conciliação e homologação real. O funcionário pode orientar o pagamento presencial.</p>
           </div>
         )}
         {error && <p role="alert" style={{ color: '#b42318' }}>{error}</p>}
