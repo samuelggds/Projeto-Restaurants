@@ -97,7 +97,13 @@ router.post('/staff/comandas/:id/access-code', authMiddleware, nfcRegistrationAc
       notice: 'O código foi enfileirado para o WhatsApp autorizado do cliente.' });
   } catch (error) { return fail(res, error); }
 });
-const guestGuards = [optionalTableSessionAuthMiddleware, sessionMiddleware, tableParticipantMiddleware] as const;
+function cashlessPublicHomologationGate(_req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) {
+  if (process.env.NFC_CASHLESS_PUBLIC_ENABLED !== 'true') {
+    return res.status(503).json({ error: 'Acesso cashless ainda em homologação.' });
+  }
+  return next();
+}
+const guestGuards = [cashlessPublicHomologationGate, optionalTableSessionAuthMiddleware, sessionMiddleware, tableParticipantMiddleware] as const;
 router.post('/guest/verify', ...guestGuards, async (req, res) => {
   try {
     const input = verifySchema.parse(req.body);
