@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { ContactRound, CreditCard, RefreshCw, ShieldAlert } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
+import { NfcCustomerComandas } from './NfcCustomerComandas';
 
 const Wrap = styled.section`
   color: #182127; display: grid; gap: 16px; max-width: 1000px; margin: 0 auto;
@@ -28,8 +29,8 @@ const Wrap = styled.section`
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   @media(max-width:800px) { .form { grid-template-columns: 1fr; } .person { align-items: start; flex-direction: column; } }
 `;
-type Props = { roleLabel?: string };
-export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
+type Props = { roleLabel?: string; canConfirmCash?: boolean };
+export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = false }: Props) {
   const [items, setItems] = useState<NfcCustomerRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -41,6 +42,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [newCardUrl, setNewCardUrl] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const load = useCallback(async (nextPage: number) => {
     setPending(true); setError('');
     try { const result = await nfcRegistrationService.list(nextPage); setItems(result.customers); setTotal(result.total); setPage(nextPage); }
@@ -123,11 +125,13 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
       {items.map((customer) => <div className="person" key={customer.id}>
         <div className="person-info"><strong>{customer.name}</strong><small>CPF: {customer.cpfMasked} • Telefone: {customer.phoneMasked}</small><div className="cards">{customer.cards.map((card) => <span key={card.id}>{card.displayCode}: {card.status === 'ACTIVE' ? 'Ativo' : card.status === 'REVOKED' ? 'Revogado' : 'Aguardando gravação'}</span>)}</div></div>
         <div className="actions">
+          <button type="button" className="secondary" onClick={() => setSelectedCustomerId(customer.id)}>Ver comandas</button>
           {!customer.cards.some((card) => card.status !== 'REVOKED') && <button type="button" disabled={pending} onClick={() => void issue(customer)}>Emitir cartão</button>}
           {customer.cards.filter((card) => card.status !== 'REVOKED').map((card) => <button type="button" key={card.id} className="danger" disabled={pending} onClick={() => void revoke(card.id)}>Revogar {card.displayCode}</button>)}
         </div>
       </div>)}
       {items.length === 0 && <p>Nenhum cliente nesta página.</p>}
+      {selectedCustomerId && <div className="surface" style={{ gridColumn: '1 / -1' }}><div className="actions"><h3>Situação financeira e comandas</h3><button type="button" className="secondary" onClick={() => setSelectedCustomerId(null)}>Fechar consulta</button></div><NfcCustomerComandas customerId={selectedCustomerId} canConfirmCash={canConfirmCash} /></div>}
       <div className="actions"><button className="secondary" type="button" disabled={pending || page <= 1} onClick={() => void load(page - 1)}>Anterior</button><small>Página {page}</small><button className="secondary" type="button" disabled={pending || page * 20 >= total} onClick={() => void load(page + 1)}>Próxima</button></div>
     </div>
   </Wrap>;
