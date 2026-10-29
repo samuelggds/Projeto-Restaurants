@@ -12,6 +12,8 @@ x-runtime-environment: &production-backend-environment
   LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY: ${LALAMOVE_ACCOUNT_IDENTITY_HMAC_KEY:-}
   # Booking sandbox is always disabled in the production runtime, regardless of host env.
   LALAMOVE_SANDBOX_BOOKING_ENABLED: 'false'
+  # NFC guest access is in homologation: production cannot enable it through host env.
+  NFC_CASHLESS_PUBLIC_ENABLED: 'false'
   JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long}
   JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret_min_32_chars}
   JWT_MFA_SECRET: ${JWT_MFA_SECRET:-change_me_mfa_secret_min_32_chars}
