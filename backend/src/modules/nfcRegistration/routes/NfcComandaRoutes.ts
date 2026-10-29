@@ -204,6 +204,32 @@ router.post('/:comandaId/payments/cash', async (req, res) => {
     return res.status(201).json({ ...result, warning: 'Aguardando confirmação de recebimento pelo administrador.' });
   } catch (error) { return fail(res, error); }
 });
+// Staff can release an unreceived cash reservation; this is not a refund.
+router.post('/payments/:paymentId/cancel-cash', async (req, res) => {
+  try {
+    if (String(req.user.role) !== 'ADMIN') throw new NfcFinancialError(403, 'Somente o administrador pode cancelar recebimento de dinheiro.');
+    const restaurantId = tenant(req), paymentId = id(req.params.paymentId);
+    const result = await prisma.$transaction(async (tx) => {
+      await setTenantDbContext(tx, restaurantId);
+      const preliminary = await tx.nfcComandaPayment.findFirst({
+        where: { id: paymentId, restaurantId }, select: { comandaId: true },
+      });
+      if (!preliminary) throw new NfcFinancialError(404, 'Pagamento não encontrado.');
+      await lockComanda(tx, restaurantId, preliminary.comandaId);
+      const payment = await tx.nfcComandaPayment.findFirst({ where: { id: paymentId, restaurantId } });
+      if (!payment || payment.method !== 'DINHEIRO') throw new NfcFinancialError(409, 'Pagamento não é em dinheiro.');
+      if (payment.status === 'REVERSED') return { status: 'REVERSED', repeated: true };
+      if (payment.status !== 'PENDING') throw new NfcFinancialError(409, 'Recebimento confirmado não pode ser cancelado por esta rota.');
+      const updated = await tx.nfcComandaPayment.updateMany({
+        where: { id: paymentId, restaurantId, status: 'PENDING' },
+        data: { status: 'REVERSED', reversedAt: new Date() },
+      });
+      if (updated.count !== 1) throw new NfcFinancialError(409, 'Recebimento já alterado.');
+      return { status: 'REVERSED', repeated: false };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json(result);
+  } catch (error) { return fail(res, error); }
+});
 router.post('/payments/:paymentId/confirm-cash', async (req, res) => {
   try {
     if (String(req.user.role) !== 'ADMIN') throw new NfcFinancialError(403, 'Somente o administrador pode confirmar recebimento de dinheiro.');
