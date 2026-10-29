@@ -180,11 +180,14 @@ router.post('/cards/return', async (req, res) => {
         } });
         return { released: false as const, incorrectCpf: true as const, locked: attempts >= 3 };
       }
-      const otherDebt = await tx.nfcComanda.count({
+      const otherComandas = await tx.nfcComanda.findMany({
         where: { restaurantId, customerId: card.customerId!, id: { not: comanda.id },
-          status: { in: ['OPEN', 'UNPAID'] }, totalCents: { gt: 0 } },
+          status: { in: ['OPEN', 'UNPAID'] } },
+        select: { totalCents: true, paidCents: true },
       });
-      if (otherDebt) throw new NfcRegistrationError(409, 'Cliente possui outra comanda pendente. Verifique antes de liberar.');
+      if (otherComandas.some(other => other.totalCents > other.paidCents)) {
+        throw new NfcRegistrationError(409, 'Cliente possui outra comanda pendente. Verifique antes de liberar.');
+      }
       if (comanda.totalCents !== comanda.paidCents) {
         throw new NfcRegistrationError(409, 'Comanda ainda não está totalmente quitada no servidor.');
       }
