@@ -19,6 +19,12 @@ export type NfcCustomerComandas = {
   hasOpenComanda: boolean; comandas: NfcComanda[];
 };
 class NfcComandaService {
+  async open(customerId: string, cardId: string, tableNumber?: number | null, idempotencyKey?: string) {
+    const result = await api.post<{ comanda: NfcComanda }>('/nfc-comandas/open', {
+      customerId, cardId, tableNumber: tableNumber ?? null,
+    }, { headers: { 'Idempotency-Key': idempotencyKey || crypto.randomUUID().replace(/-/g, '') } });
+    return result.data.comanda;
+  }
   async customerComandas(customerId: string): Promise<NfcCustomerComandas> {
     const result = await api.get<NfcCustomerComandas>(`/nfc-comandas/customers/${encodeURIComponent(customerId)}`);
     if (!result.data || !Array.isArray(result.data.comandas) || !Number.isSafeInteger(result.data.outstandingCents)) {
