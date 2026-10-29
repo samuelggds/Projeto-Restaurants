@@ -13,7 +13,7 @@ CREATE INDEX "NfcComandaItem_restaurantId_sourceOrderId_idx"
   ON "NfcComandaItem" ("restaurantId", "sourceOrderId");
 ALTER TABLE "NfcOrderConfirmation" ADD COLUMN "orderId" INTEGER;
 CREATE UNIQUE INDEX "NfcOrderConfirmation_restaurantId_orderId_key"
-  ON "NfcOrderConfirmation" ("restaurantId", "orderId");
+  ON "NfcOrderConfirmation" ("orderId", "restaurantId");
 ALTER TABLE "NfcOrderConfirmation" ADD CONSTRAINT "NfcOrderConfirmation_orderId_restaurantId_fkey"
   FOREIGN KEY ("orderId", "restaurantId") REFERENCES "Order"("id", "restaurantId")
   ON DELETE RESTRICT ON UPDATE CASCADE;
