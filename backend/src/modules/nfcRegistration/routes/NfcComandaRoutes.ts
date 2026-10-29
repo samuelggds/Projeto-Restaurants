@@ -163,6 +163,13 @@ router.post('/:comandaId/close', async (req, res) => {
       await assertNoActiveCashlessCheckout(tx, restaurantId, comandaId);
       await assertNoPendingCash(tx, restaurantId, comandaId);
       const isPaid = comanda.totalCents === comanda.paidCents;
+      if (isPaid && comanda.cardId) {
+        const activeCard = await tx.nfcCard.count({
+          where: { restaurantId, id: comanda.cardId, customerId: comanda.customerId, status: 'ACTIVE' },
+        });
+        if (activeCard > 0) throw new NfcFinancialError(409,
+          'Comanda quitada: faça a leitura NFC e confirme o CPF completo no atendimento de pagamento para desvincular o cartão.');
+      }
       await tx.nfcComanda.updateMany({ where: { id: comandaId, restaurantId, status: 'OPEN' }, data: { status: isPaid ? 'PAID' : 'UNPAID',
         closedAt: new Date(), closedByUserId: actor(req), paidAt: isPaid ? new Date() : null } });
       // Settlement alone never makes a physical NFC card available. Return needs
