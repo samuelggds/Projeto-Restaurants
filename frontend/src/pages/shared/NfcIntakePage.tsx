@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 
 const Frame = styled.main`
   min-height: 100dvh; display: grid; place-items: center; padding: 20px;
@@ -27,6 +28,8 @@ export default function NfcIntakePage() {
   const [customerId, setCustomerId] = useState('');
   const [lookupCpf, setLookupCpf] = useState('');
   const [existingCustomerName, setExistingCustomerName] = useState('');
+  const [orderPrefix, setOrderPrefix] = useState('');
+  const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [result, setResult] = useState('');
@@ -47,6 +50,29 @@ export default function NfcIntakePage() {
       }
     } catch { setMessage('CPF inválido ou não foi possível localizar o cliente.'); }
     finally { setBusy(false); }
+  };
+  const lookupPendingOrder = async () => {
+    setBusy(true); setMessage('');
+    try {
+      const challenge = await nfcOrderChallengeService.pending(token);
+      if (challenge) { setOrderChallenge(challenge); setMessage('Pedido aguardando confirmação do cliente.'); }
+      else setMessage('Nenhum pedido aguardando confirmação deste operador para o cartão.');
+    } catch { setMessage('Não foi possível consultar pedidos deste cartão.'); }
+    finally { setBusy(false); }
+  };
+  const verifyOrder = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!orderChallenge || busy) return;
+    setBusy(true); setMessage('');
+    try {
+      await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
+      setResult('Identidade confirmada para este pedido. O lançamento definitivo aguarda integração com a operação.');
+      setOrderChallenge(null); setOrderPrefix('');
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setMessage(response.response?.data?.error || 'Cartão ou dígitos do CPF não confirmados.');
+      setOrderPrefix('');
+    } finally { setBusy(false); }
   };
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -71,7 +97,14 @@ export default function NfcIntakePage() {
       !allowed ? <p role="alert">Esta conta não tem autorização para cadastrar clientes NFC.</p> :
       !validToken ? <p role="alert">O cartão não contém um identificador NFC válido.</p> :
       result ? <p className="success" role="status">{result} A comanda deverá ser aberta no fluxo de atendimento.</p> :
-      <><p>Cartão identificado. Cadastre o cliente ou localize um cadastro existente pelo CPF no painel de clientes NFC.</p>
+      <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
+      <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
+      {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>
+        <p>O cliente deve digitar os três primeiros números do seu CPF, sem mostrar o número completo ao funcionário. Esta confirmação expira em {new Date(orderChallenge.expiresAt).toLocaleTimeString('pt-BR')}.</p>
+        <label>Três primeiros dígitos do CPF<input autoComplete="off" type="password" inputMode="numeric" pattern="[0-9]{3}" minLength={3} maxLength={3} value={orderPrefix} onChange={event => setOrderPrefix(event.target.value.replace(/\\D/g,'').slice(0,3))} required /></label>
+        <button type="submit" disabled={busy || orderPrefix.length !== 3}>Confirmar identidade e cartão</button>
+      </form>}
+      
       <form onSubmit={(e) => void handleSubmit()} style={{ display: 'grid', gap: 14 }}>
         <label>Nome completo<input value={name} onChange={e => setName(e.target.value)} required={!customerId} disabled={Boolean(customerId)} minLength={2}/></label>
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
