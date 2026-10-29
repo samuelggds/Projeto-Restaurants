@@ -1,5 +1,6 @@
 import { isBoundedEmail } from '../../../validators/boundedEmail.js';
-import type { Prisma } from '@prisma/client';
+import { NfcDebtDeadlineMode, type Prisma } from '@prisma/client';
+import { normalizeNfcDebtDeadlineMode, assertNfcClosingSchedule } from '../../nfcRegistration/domain/nfcComandaDeadline.js';
 import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepository.js';
 import prisma from '../../../config/prisma.js';
 import orderCapacityQueueService from '../../orders/services/OrderCapacityQueueService.js';
@@ -48,6 +49,7 @@ type UpdateRestaurantSettingsPayload = {
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
   inPersonServiceMode?: unknown;
+  nfcDebtDeadlineMode?: unknown;
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   pixProvider?: string;
@@ -194,6 +196,7 @@ class UpdateRestaurantSettingsService {
     acceptsCard,
     tableOrderingEnabled,
     inPersonServiceMode,
+    nfcDebtDeadlineMode,
     waiterCallEnabled,
     billRequestEnabled,
     pixProvider,
@@ -338,6 +341,11 @@ class UpdateRestaurantSettingsService {
     const normalizedAsaasAccessToken =
       asaasAccessToken === undefined ? undefined : String(asaasAccessToken || '').trim() || null;
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
+    const normalizedNfcDebtDeadlineMode = nfcDebtDeadlineMode === undefined ? undefined : normalizeNfcDebtDeadlineMode(nfcDebtDeadlineMode);
+    const resultingDeadlineMode = normalizedNfcDebtDeadlineMode ?? settings.nfcDebtDeadlineMode;
+    if (resultingDeadlineMode === NfcDebtDeadlineMode.BUSINESS_CLOSING) {
+      assertNfcClosingSchedule(resultingDeadlineMode, normalizedBusinessHours === undefined ? settings.businessHours : normalizedBusinessHours);
+    }
     const normalizedIsOpenForOrders =
       isOpenForOrders === undefined
         ? undefined
@@ -700,6 +708,7 @@ class UpdateRestaurantSettingsService {
               false,
             ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
+      nfcDebtDeadlineMode: normalizedNfcDebtDeadlineMode,
       isOpenForOrders: normalizedIsOpenForOrders,
       averageDeliveryTime: normalizedDeliveryTimeRange?.averageDeliveryTime,
       deliveryTimeMin: normalizedDeliveryTimeRange?.deliveryTimeMin,
