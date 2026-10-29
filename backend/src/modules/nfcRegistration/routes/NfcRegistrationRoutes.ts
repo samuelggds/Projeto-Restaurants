@@ -123,6 +123,7 @@ router.post('/cards/:id/revoke', async (req, res) => {
 const returnSchema = z.strictObject({
   token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u),
   cpf: z.string().trim().min(11).max(18),
+  comandaId: z.uuid().optional(),
 });
 router.post('/cards/return', async (req, res) => {
   try {
@@ -140,10 +141,11 @@ router.post('/cards/return', async (req, res) => {
       });
       if (!preview?.customerId) throw new NfcRegistrationError(409, 'Cartão não está vinculado a uma visita ativa.');
       const current = await tx.nfcComanda.findFirst({
-        where: { restaurantId, cardId: preview.id, customerId: preview.customerId, status: { in: ['OPEN', 'UNPAID'] } },
+        where: { restaurantId, cardId: preview.id, customerId: preview.customerId, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
         select: { id: true }, orderBy: { openedAt: 'desc' },
       });
       if (!current) throw new NfcRegistrationError(409, 'Não há comanda ativa vinculada a este cartão.');
+      if (input.comandaId && current.id !== input.comandaId) throw new NfcRegistrationError(409, 'O cartão não corresponde à comanda selecionada para pagamento.');
       await tx.$queryRaw`SELECT "id" FROM "NfcComanda" WHERE "restaurantId" = ${restaurantId} AND "id" = ${current.id}::uuid FOR UPDATE`;
       const locked = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT "id" FROM "NfcCard"
@@ -154,7 +156,7 @@ router.post('/cards/return', async (req, res) => {
       const comanda = await tx.nfcComanda.findFirst({ where: { id: current.id, restaurantId } });
       if (!card || card.status !== 'ACTIVE' || card.customerId !== preview.customerId
         || !comanda || comanda.cardId !== card.id || comanda.customerId !== card.customerId
-        || !['OPEN', 'UNPAID'].includes(comanda.status)) {
+        || !['OPEN', 'UNPAID', 'PAID'].includes(comanda.status)) {
         throw new NfcRegistrationError(409, 'A visita foi alterada. Leia novamente o cartão.');
       }
       if (card.returnCpfLockedUntil && card.returnCpfLockedUntil > new Date()) {
@@ -168,7 +170,8 @@ router.post('/cards/return', async (req, res) => {
       const matched = fingerprints.some(f => crypto.timingSafeEqual(
         Buffer.from(f, 'hex'), Buffer.from(customer.cpfFingerprint, 'hex')));
       if (!matched) {
-        const attempts = Math.min(card.failedReturnCpfAttempts + 1, 3);
+        const previousAttempts = card.returnCpfLockedUntil && card.returnCpfLockedUntil <= new Date() ? 0 : card.failedReturnCpfAttempts;
+        const attempts = Math.min(previousAttempts + 1, 3);
         await tx.nfcCard.updateMany({
           where: { id: card.id, restaurantId, status: 'ACTIVE', customerId: card.customerId },
           data: { failedReturnCpfAttempts: attempts,
@@ -204,7 +207,7 @@ router.post('/cards/return', async (req, res) => {
         'Existem pagamentos ou pedidos em processamento. Aguarde a conciliação.');
       const now = new Date();
       const closed = await tx.nfcComanda.updateMany({
-        where: { restaurantId, id: comanda.id, status: { in: ['OPEN', 'UNPAID'] },
+        where: { restaurantId, id: comanda.id, status: { in: ['OPEN', 'UNPAID', 'PAID'] },
           totalCents: comanda.totalCents, paidCents: comanda.paidCents },
         data: { status: 'PAID', paidAt: comanda.paidAt || now,
           closedAt: comanda.closedAt || now, closedByUserId: Number(req.user.id) },
