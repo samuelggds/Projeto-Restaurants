@@ -38,6 +38,17 @@ sem uma decisão explícita.
     minimização, retenção, acesso por perfil e LGPD. O cadastro deve evitar
     duplicidades e impedir consulta cruzada entre restaurantes.
 
+### Decisão confirmada: modalidades independentes e acesso à visita — 29/10/2026
+
+- O ADMIN de cada restaurante escolhe exatamente um dos modos: `QR_ONLY` (mesa QR), `NFC_ONLY` (cashless com cartão NFC individual) ou `BOTH` (ambos). O padrão permanece `QR_ONLY`.
+- A configuração deve ser aplicada pelo backend ao iniciar **novas** operações, sempre com `restaurantId` confiável. Mudanças de preferência não interrompem atendimentos, pedidos ou cobranças existentes.
+- Em `BOTH`, o QR tradicional mantém sessões/participantes/pagamentos próprios; o cashless NFC mantém identidade, comanda e dívida individual. A mesma transação financeira não pode ser contabilizada em ambos os fluxos.
+- O código temporário de **seis dígitos** do cashless pode ser usado exclusivamente após o cliente acessar o **QR oficial de uma mesa**, comprovar sessão ativa do mesmo restaurante e vinculação explícita daquela mesa à própria comanda NFC. Código isolado nunca abre uma conta. Sem mesa vinculada, não há consulta pública por esse caminho: somente equipe autenticada opera a comanda.
+- O código de seis dígitos não é o desafio dos **três primeiros dígitos do CPF** que a equipe usa para confirmar novos pedidos com o cartão NFC.
+- Envio do código pelo WhatsApp depende de consentimento comprovado, canal autorizado do próprio restaurante, outbox idempotente, mensagens sem dados financeiros sensíveis e throttling. Não registrar código em logs, metadados de auditoria nem devolvê-lo novamente após emissão.
+- Consulta do saldo deve ser somente leitura até que a autorização de visita esteja validada. Pix dinâmico, cartão presencial via Point e liquidação exigem evidência do gateway, idempotência, conciliação, estorno, testes concorrentes e homologação.
+- Até a conclusão dessas etapas, manter `NFC_ONLY` e `BOTH` indisponíveis no Admin/backend e manter a rota pública de cashless bloqueada. Não relaxar RLS, CI, E2E ou as regras do QR da mesa.
+
 ### Etapas e limites de ativação
 
 **Etapa 1 — este PR:** migração aditiva da preferência de atendimento, ciclo de
