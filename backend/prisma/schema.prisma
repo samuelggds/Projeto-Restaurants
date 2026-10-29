@@ -2726,6 +2726,8 @@ model NfcCard {
   tokenHash        String        @unique @db.Char(64)
   status           NfcCardStatus @default(PENDING_WRITE)
   issuedByUserId   Int
+  activatedByUserId Int?
+  activatedAt      DateTime?     @db.Timestamptz(3)
   revokedByUserId  Int?
   revokedAt        DateTime?     @db.Timestamptz(3)
   revokeReason     String?       @db.VarChar(160)
