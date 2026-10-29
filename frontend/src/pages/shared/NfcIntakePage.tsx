@@ -79,7 +79,7 @@ export default function NfcIntakePage() {
         <label>Mesa (opcional)<input type="number" min="1" max="100000" value={table} onChange={e => setTable(e.target.value)}/></label>
         <details><summary>Cliente já cadastrado? Consultar CPF</summary>
           <label>CPF cadastrado<input value={lookupCpf} onChange={e => setLookupCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00"/></label>
-          <button type="button" disabled={busy || lookupCpf.replace(/\\D/g, '').length !== 11} onClick={() => void lookup()}>Localizar cadastro</button>
+          <button type="button" disabled={busy || lookupCpf.replace(/\D/g, '').length !== 11} onClick={() => void lookup()}>Localizar cadastro</button>
           {existingCustomerName && <p role="status">Cliente encontrado: {existingCustomerName}. Use este cadastro para evitar duplicidade.</p>}
           {customerId && <button type="button" onClick={() => { setCustomerId(''); setExistingCustomerName(''); }}>Cadastrar outro cliente</button>}
         </details>
