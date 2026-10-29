@@ -44,6 +44,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
   const [info, setInfo] = useState('');
   const [newCardUrl, setNewCardUrl] = useState('');
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const [isUnassignedProvision, setIsUnassignedProvision] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const load = useCallback(async (nextPage: number) => {
     setPending(true); setError('');
@@ -88,9 +89,21 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
       const result = await nfcRegistrationService.issue(customer.id);
       setNewCardUrl(result.ndefUrl);
       setPendingCardId(result.card.id);
+      setIsUnassignedProvision(false);
       setInfo(`Cartão ${result.card.displayCode} emitido para ${customer.name}. Ainda precisa ser programado e ativado.`);
       await load(page);
     } catch { setError('Não foi possível emitir cartão. Pode existir outro cartão ativo ou pendente.'); }
+    finally { setPending(false); }
+  };
+  const provision = async () => {
+    setPending(true); setError(''); setInfo('');
+    try {
+      const result = await nfcRegistrationService.provision();
+      setPendingCardId(result.card.id);
+      setNewCardUrl(result.ndefUrl);
+      setIsUnassignedProvision(true);
+      setInfo('Cartão emitido sem cliente. Grave a URL no chip e confirme a leitura; depois ele estará disponível para a recepção.');
+    } catch { setError('Não foi possível preparar um novo cartão NFC.'); }
     finally { setPending(false); }
   };
   const writeAndActivate = async () => {
@@ -103,8 +116,13 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
       if (readToken !== extractNfcToken(newCardUrl)) {
         throw new Error('A leitura não corresponde ao cartão emitido. Ele permanece pendente.');
       }
-      await nfcRegistrationService.activate(pendingCardId, readToken);
-      setInfo('Cartão NFC gravado, conferido e ativado para o cliente.');
+      if (isUnassignedProvision) {
+        await nfcRegistrationService.prepare(pendingCardId, readToken);
+        setInfo('Cartão preparado e disponível. No Android ou iPhone, aproxime o cartão para abrir o cadastro de recepção.');
+      } else {
+        await nfcRegistrationService.activate(pendingCardId, readToken);
+        setInfo('Cartão NFC gravado, conferido e ativado para o cliente.');
+      }
       setNewCardUrl(''); setPendingCardId(null);
       await load(page);
     } catch (cause) {
@@ -134,8 +152,8 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
     <div className="intro"><ContactRound aria-hidden="true" /><div><h2>Clientes e cartões NFC</h2><p>Cadastros individuais para {roleLabel}. A identificação da mesa será opcional na abertura da futura comanda.</p></div></div>
     <div className="surface">
       <h3>Vincular cliente ao cartão NFC</h3>
-      <p>1. Cadastre ou localize o cliente. 2. Emita o cartão individual. 3. Grave e releia o cartão por aproximação antes de entregá-lo.</p>
-      <div className="actions"><button type="button" className="secondary" disabled={pending} onClick={() => void scanExisting()}>Ler cartão já cadastrado</button></div>
+      <p>Prepare cartões no Android uma única vez; depois, aproxime cada cartão no Android ou iPhone para abrir o cadastro de recepção. O cadastro manual continua disponível.</p>
+      <div className="actions"><button type="button" disabled={pending} onClick={() => void provision()}>Preparar cartão virgem</button><button type="button" className="secondary" disabled={pending} onClick={() => void scanExisting()}>Ler cartão já cadastrado</button></div>
       <h3>Novo cliente</h3>
       <form className="form" onSubmit={(event) => void create(event)}>
         <label>Nome completo<input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} required minLength={2} maxLength={120} /></label>
@@ -154,7 +172,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
     </div>
     {error && <div role="alert" className="message"><ShieldAlert aria-hidden="true" /> {error}</div>}
     {info && <div role="status" className="message">{info}</div>}
-    {newCardUrl && <div className="message"><strong>Cartão aguardando programação e confirmação:</strong><p>No Android com Chrome e NFC, grave o identificador e aproxime o mesmo cartão novamente para confirmar. O chip não armazena nome, CPF ou telefone.</p><code>{newCardUrl}</code><div className="actions"><button type="button" disabled={pending} onClick={() => void writeAndActivate()}>Gravar e ativar por NFC</button><button className="secondary" type="button" onClick={() => { void navigator.clipboard?.writeText(newCardUrl); }}>Copiar identificador</button></div></div>}
+    {newCardUrl && <div className="message"><strong>{isUnassignedProvision ? 'Preparar cartão sem cliente' : 'Cartão aguardando programação e confirmação'}:</strong><p>No Android com Chrome e NFC, grave o identificador e aproxime o mesmo cartão novamente para confirmar. O chip não armazena nome, CPF ou telefone.</p><code>{newCardUrl}</code><div className="actions"><button type="button" disabled={pending} onClick={() => void writeAndActivate()}>{isUnassignedProvision ? 'Gravar e deixar disponível' : 'Gravar e ativar por NFC'}</button><button className="secondary" type="button" onClick={() => { void navigator.clipboard?.writeText(newCardUrl); }}>Copiar identificador</button></div></div>}
     <div className="surface">
       <div className="intro"><CreditCard aria-hidden="true" /><div><h3>Clientes cadastrados ({total})</h3><p>Somente registros do restaurante autenticado.</p></div><button className="secondary" type="button" onClick={() => void load(page)} disabled={pending}><RefreshCw aria-hidden="true" /> Atualizar</button></div>
       {items.map((customer) => <div className="person" key={customer.id}>
