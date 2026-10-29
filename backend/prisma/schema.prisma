@@ -2889,7 +2889,7 @@ model NfcOrderConfirmation {
   card              NfcCard     @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   order             Order?      @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
-  @@unique([restaurantId, orderId])
+  @@unique([orderId, restaurantId])
   @@unique([id, restaurantId])
   @@unique([restaurantId, comandaId, requestKeyHash])
   @@index([restaurantId, cardId, expiresAt])
