@@ -11,7 +11,8 @@ export type AttendantView =
   | 'deliveries'
   | 'tables'
   | 'calls'
-  | 'reservations';
+  | 'reservations'
+  | 'nfc-registration';
 
 export interface AttendantOrder {
   id: string;

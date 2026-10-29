@@ -5,6 +5,7 @@ import prisma from '../../../config/prisma.js';
 import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import { normalizeInPersonServiceMode } from '../utils/inPersonServiceMode.js';
+import { normalizeNfcDebtDeadlineMode, assertNfcClosingSchedule } from '../../nfcRegistration/domain/nfcComandaDeadline.js';
 import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
@@ -52,6 +53,7 @@ type CreateRestaurantSettingsPayload = {
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
   inPersonServiceMode?: unknown;
+  nfcDebtDeadlineMode?: unknown;
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   pixProvider?: string;
@@ -140,6 +142,7 @@ class CreateRestaurantSettingsService {
     acceptsCard,
     tableOrderingEnabled,
     inPersonServiceMode,
+    nfcDebtDeadlineMode,
     waiterCallEnabled,
     billRequestEnabled,
     pixProvider,
@@ -262,6 +265,8 @@ class CreateRestaurantSettingsService {
     const normalizedBusinessHours = normalizeBusinessHours(
       businessHours === undefined ? createDisabledBusinessHours() : businessHours,
     );
+    const normalizedNfcDebtDeadlineMode = normalizeNfcDebtDeadlineMode(nfcDebtDeadlineMode);
+    assertNfcClosingSchedule(normalizedNfcDebtDeadlineMode, normalizedBusinessHours);
     const normalizedWhatsappEnabled = normalizeStrictBoolean(
       whatsappEnabled,
       'Integração com WhatsApp',
@@ -483,6 +488,7 @@ class CreateRestaurantSettingsService {
         false,
       ),
       businessHours: normalizedBusinessHours as Prisma.InputJsonValue | undefined,
+      nfcDebtDeadlineMode: normalizedNfcDebtDeadlineMode,
       isOpenForOrders: normalizeStrictBoolean(isOpenForOrders, 'Recebimento de pedidos', true),
       averageDeliveryTime: normalizedDeliveryTimeRange?.averageDeliveryTime,
       deliveryTimeMin: normalizedDeliveryTimeRange?.deliveryTimeMin,

@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   PackagePlus,
   Truck,
+  ContactRound,
   X,
 } from 'lucide-react';
 import styled from 'styled-components';
@@ -33,6 +34,7 @@ const secondary = [
   ['deliveries', 'Entregas', Truck],
   ['tables', 'Mesas', Armchair],
   ['reservations', 'Reservas', CalendarDays],
+  ['nfc-registration', 'Clientes NFC', ContactRound],
 ] as const;
 
 export function AttendantMobileNavigation({ view, name, onGo, onLogout }: Props) {

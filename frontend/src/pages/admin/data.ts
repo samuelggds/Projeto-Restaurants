@@ -65,6 +65,7 @@ export const adminMockSettings: AdminSettings = {
   maxConcurrentOrders: 20,
   tableOrderingEnabled: true,
   inPersonServiceMode: 'QR_ONLY',
+  nfcDebtDeadlineMode: 'TWENTY_FOUR_HOURS',
   waiterCallEnabled: true,
   billRequestEnabled: true,
   tableAccount: {

@@ -29,6 +29,7 @@ import { Calls, Tables, Deliveries } from './operation-center/SalonViews';
 import { Support } from './operation-center/Support';
 import { EmptyState } from './operation-center/EmptyState';
 import { TableReservationsPanel } from '../shared/TableReservationsPanel';
+import { NfcRegistrationPanel } from '../shared/NfcRegistrationPanel';
 import {
   OperationServicesContext,
   productionOperationServices,
@@ -164,7 +165,9 @@ export function AttendantOperationCenterV2({
             </ErrorBanner>
           )}
           <Content>
-            {view === 'reservations' ? (
+            {view === 'nfc-registration' ? (
+              <NfcRegistrationPanel roleLabel="atendimento" />
+            ) : view === 'reservations' ? (
               <TableReservationsPanel admin />
             ) : workspaceState.loading ? (
               <EmptyState
