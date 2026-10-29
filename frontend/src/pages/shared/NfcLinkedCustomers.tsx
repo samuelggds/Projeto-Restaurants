@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { ContactRound, CreditCard, RefreshCw, Search, X, ReceiptText } from 'lucide-react';
 import nfcRegistrationService, { type LinkedNfcCustomer } from '../../Services/nfcRegistrationService';
@@ -106,7 +106,7 @@ const ModalFrame = styled.div`
 
 function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustomer; onClose: () => void }) {
   const [comanda, setComanda] = useState<NfcComanda | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(customer.comanda));
   const [error, setError] = useState('');
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -118,7 +118,7 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
   useEffect(() => {
     let active = true;
     const id = customer.comanda?.id;
-    if (!id) { setLoading(false); return; }
+    if (!id) return;
     void nfcComandaService.customerComandas(customer.customerId).then(data => {
       if (active) { setComanda(data.comandas.find(item => item.id === id && item.cardId === customer.card.id) ?? null); setLoading(false); }
     }).catch(() => { if (active) { setError('Não foi possível consultar a comanda no servidor.'); setLoading(false); } });
@@ -181,16 +181,25 @@ export function NfcLinkedCustomers() {
   const [pageSize, setPageSize] = useState(20);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<LinkedNfcCustomer | null>(null);
-  const refresh = useCallback(async (q: string, p: number) => {
-    setBusy(true); setError('');
-    try {
-      const result = await nfcRegistrationService.linkedCustomers(q, p);
-      setRecords(result.customers); setTotal(result.total); setPage(result.page); setPageSize(result.pageSize);
-    } catch { setError('Não foi possível carregar os clientes vinculados.'); setRecords([]); }
-    finally { setBusy(false); }
-  }, []);
-  useEffect(() => { void refresh(applied, page); }, [applied,page,refresh]);
+  useEffect(() => {
+    let active = true;
+    void nfcRegistrationService.linkedCustomers(applied, page).then(result => {
+      if (!active) return;
+      setRecords(result.customers);
+      setTotal(result.total);
+      setPageSize(result.pageSize);
+      setError('');
+    }).catch(() => {
+      if (!active) return;
+      setError('Não foi possível carregar os clientes vinculados.');
+      setRecords([]);
+    }).finally(() => {
+      if (active) setBusy(false);
+    });
+    return () => { active = false; };
+  }, [applied, page, revision]);
   return <Shell aria-label="Clientes com cartão NFC vinculado">
     <div className="intro">
       <div><p className="eyebrow">Clientes e comandas</p><h2>Clientes NFC.</h2><p className="muted">Todos os clientes com cartão ativo vinculado, em um só lugar.</p></div>
@@ -198,10 +207,10 @@ export function NfcLinkedCustomers() {
     </div>
     <div className="table">
       <div className="table-head"><strong><ContactRound aria-hidden="true"/> Cartões vinculados</strong><span className="muted">Selecione um cliente para ver a comanda.</span></div>
-      <form className="searchbar" onSubmit={e => { e.preventDefault(); setPage(1); setApplied(query.trim()); if(query.trim()===applied) void refresh(applied,1); }}>
+      <form className="searchbar" onSubmit={e => { e.preventDefault(); setBusy(true); setPage(1); setApplied(query.trim()); setRevision(i => i + 1); }}>
         <input type="search" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80} aria-label="Buscar por nome, telefone ou CPF" placeholder="Pesquisar por nome, telefone ou CPF completo" />
         <button type="submit"><Search size={15} aria-hidden="true"/> Buscar</button>
-        <button type="button" onClick={() => { setQuery(''); setApplied(''); setPage(1); void refresh('',1); }}><RefreshCw size={15} aria-hidden="true"/> Limpar</button>
+        <button type="button" onClick={() => { setBusy(true); setQuery(''); setApplied(''); setPage(1); setRevision(i => i + 1); }}><RefreshCw size={15} aria-hidden="true"/> Limpar</button>
       </form>
       <div className="columns"><span>Cliente</span><span>Cartão NFC</span><span>Mesa</span><span>Comanda</span><span style={{textAlign:'right'}}>Em aberto</span><span/></div>
       {busy && <p className="note" role="status">Consultando clientes no servidor...</p>}
@@ -215,8 +224,8 @@ export function NfcLinkedCustomers() {
         <div className="amount">{row.comanda ? money(row.comanda.outstandingCents) : '—'}</div>
         <div className="actions"><button type="button" onClick={() => setSelected(row)}>Ver comanda</button></div>
       </div>)}
-      <div className="pagination"><span>{total} clientes com cartão vinculado</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>setPage(p=>p-1)}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>setPage(p=>p+1)}>Próxima</button></div></div>
+      <div className="pagination"><span>{total} clientes com cartão vinculado</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>{setBusy(true);setPage(p=>p-1);}}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>{setBusy(true);setPage(p=>p+1);}}>Próxima</button></div></div>
     </div>
-    {selected && <LinkedCustomerModal customer={selected} onClose={()=>setSelected(null)}/>}
+    {selected && <LinkedCustomerModal key={selected.customerId + ':' + selected.card.id} customer={selected} onClose={()=>setSelected(null)}/>}
   </Shell>;
 }
