@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { Prisma, type NfcOrderConfirmation } from '@prisma/client';
+import { Prisma, OrderType } from '@prisma/client';
+import createOrderService from '../../orders/services/CreateOrderService.js';
 import { z, ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
@@ -179,6 +180,26 @@ router.post('/challenges/:id/verify', async (req, res) => {
       error: result.locked ? 'Muitas tentativas inválidas. Aguarde quinze minutos.' : 'Cartão ou código não confirmado.',
     });
     return res.json({ verified: true, warning: 'Identidade conferida. Pedido ainda não foi enviado à cozinha.' });
+  } catch (error) { return responseError(res, error); }
+});
+router.post('/challenges/:id/finalize', async (req, res) => {
+  try {
+    const restaurantId = tenant(req), userId = actor(req), challengeId = uuid.parse(req.params.id);
+    const found = await prisma.nfcOrderConfirmation.findFirst({
+      where: { restaurantId, id: challengeId, createdByUserId: userId },
+      select: { id: true, orderId: true, verifiedAt: true, expiresAt: true, draftItems: true, observation: true, comandaId: true },
+    });
+    if (!found || !found.verifiedAt) throw new VerificationError(403, 'Confirmação de cliente necessária.');
+    if (found.orderId) return res.json({ orderId: found.orderId, paid: false, replayed: true });
+    if (found.expiresAt <= new Date()) throw new VerificationError(409, 'Confirmação expirada. Inicie outra.');
+    const items = draft.shape.items.parse(found.draftItems);
+    const order = await createOrderService.execute({
+      type: OrderType.NFC, restaurantId, userRestaurantId: restaurantId,
+      nfcChallengeId: challengeId, paid: false,
+      observation: found.observation || undefined,
+      items,
+    });
+    return res.status(201).json({ orderId: order.id, paid: false, status: order.status });
   } catch (error) { return responseError(res, error); }
 });
 export default router;
