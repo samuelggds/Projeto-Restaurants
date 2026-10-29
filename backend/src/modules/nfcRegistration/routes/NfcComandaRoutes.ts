@@ -63,6 +63,20 @@ async function lockComanda(tx: Prisma.TransactionClient, restaurantId: number, c
   `;
   if (rows.length !== 1) throw new NfcFinancialError(404, 'Comanda não encontrada neste restaurante.');
 }
+async function assertNoActiveCashlessCheckout(tx: Prisma.TransactionClient, restaurantId: number, comandaId: string) {
+  const count = await tx.nfcCashlessPayment.count({
+    where: { restaurantId, comandaId, status: { in: ['RESERVED', 'PROCESSING'] } },
+  });
+  if (count !== 0) throw new NfcFinancialError(409,
+    'Já existe cobrança Pix/Point em andamento. Consulte o provedor antes de receber outro pagamento.');
+}
+async function assertNoPendingCash(tx: Prisma.TransactionClient, restaurantId: number, comandaId: string) {
+  const count = await tx.nfcComandaPayment.count({
+    where: { restaurantId, comandaId, method: PaymentMethod.DINHEIRO, status: 'PENDING' },
+  });
+  if (count !== 0) throw new NfcFinancialError(409,
+    'Existe recebimento em dinheiro aguardando confirmação. Confirme ou cancele antes de continuar.');
+}
 async function customerDebt(tx: Prisma.TransactionClient, restaurantId: number, customerId: string, now = new Date()) {
   const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: [NfcComandaStatus.UNPAID, NfcComandaStatus.OPEN] }, dueAt: { lte: now } },
     select: { totalCents: true, paidCents: true } });
@@ -147,6 +161,8 @@ router.post('/:comandaId/close', async (req, res) => {
       const comanda = await tx.nfcComanda.findFirst({ where: { id: comandaId, restaurantId }, select: { status: true, totalCents: true, paidCents: true, cardId: true, customerId: true } });
       if (!comanda) throw new NfcFinancialError(404, 'Comanda não encontrada.');
       if (comanda.status !== 'OPEN') return comanda.status;
+      await assertNoActiveCashlessCheckout(tx, restaurantId, comandaId);
+      await assertNoPendingCash(tx, restaurantId, comandaId);
       const isPaid = comanda.totalCents === comanda.paidCents;
       await tx.nfcComanda.updateMany({ where: { id: comandaId, restaurantId, status: 'OPEN' }, data: { status: isPaid ? 'PAID' : 'UNPAID',
         closedAt: new Date(), closedByUserId: actor(req), paidAt: isPaid ? new Date() : null } });
@@ -172,7 +188,11 @@ router.post('/:comandaId/payments/cash', async (req, res) => {
         if (old.requestFingerprint !== fingerprint) throw new NfcFinancialError(409, 'Chave de pagamento reutilizada com outro valor.');
         return { paymentId: old.id, status: old.status };
       }
-      if (comanda.status === 'PAID') throw new NfcFinancialError(409, 'Comanda já quitada.');
+      if (comanda.status !== 'OPEN' && comanda.status !== 'UNPAID') {
+        throw new NfcFinancialError(409, 'Comanda já quitada.');
+      }
+      await assertNoActiveCashlessCheckout(tx, restaurantId, comandaId);
+      await assertNoPendingCash(tx, restaurantId, comandaId);
       const due = comanda.totalCents - comanda.paidCents;
       if (BigInt(amountCents) > due) throw new NfcFinancialError(422, 'Valor superior ao saldo devido.');
       const payment = await tx.nfcComandaPayment.create({ data: { id: randomUUID(), restaurantId, comandaId,
@@ -197,14 +217,18 @@ router.post('/payments/:paymentId/confirm-cash', async (req, res) => {
       if (!payment) throw new NfcFinancialError(404, 'Pagamento não encontrado.');
       if (payment.status === 'CONFIRMED') return { status: 'CONFIRMED', repeated: true };
       if (payment.status !== 'PENDING' || payment.method !== 'DINHEIRO') throw new NfcFinancialError(409, 'Pagamento inválido para confirmação manual.');
+      await assertNoActiveCashlessCheckout(tx, restaurantId, payment.comandaId);
       const comanda = await tx.nfcComanda.findFirst({ where: { id: payment.comandaId, restaurantId } });
       if (!comanda || comanda.status === 'PAID' || comanda.totalCents - comanda.paidCents < payment.amountCents) throw new NfcFinancialError(409, 'Saldo insuficiente ou comanda já liquidada.');
-      await tx.nfcComandaPayment.updateMany({ where: { id: paymentId, restaurantId, status: 'PENDING' },
+      const confirmed = await tx.nfcComandaPayment.updateMany({ where: { id: paymentId, restaurantId, status: 'PENDING' },
         data: { status: 'CONFIRMED', confirmedByUserId: actor(req), confirmedAt: new Date() } });
+      if (confirmed.count !== 1) throw new NfcFinancialError(409, 'Pagamento já processado por outro operador.');
       const fullyPaid = comanda.totalCents === comanda.paidCents + payment.amountCents;
-      await tx.nfcComanda.updateMany({ where: { restaurantId, id: payment.comandaId },
+      const credited = await tx.nfcComanda.updateMany({ where: { restaurantId, id: payment.comandaId, status: { in: ['OPEN', 'UNPAID'] },
+        paidCents: { lte: comanda.totalCents - payment.amountCents } },
         data: { paidCents: { increment: payment.amountCents },
           ...(fullyPaid && comanda.status === 'UNPAID' ? { status: 'PAID', paidAt: new Date() } : {}) } });
+      if (credited.count !== 1) throw new NfcFinancialError(409, 'O saldo mudou; pagamento não creditado.');
       if (fullyPaid && comanda.status === 'UNPAID' && comanda.cardId) await tx.nfcCard.updateMany({
         where: { id: comanda.cardId, restaurantId, customerId: comanda.customerId, status: 'ACTIVE' },
         data: { status: 'REVOKED', revokedByUserId: actor(req), revokedAt: new Date(), revokeReason: 'CARD_RETURNED_AFTER_PAYMENT' },
