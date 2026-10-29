@@ -52,10 +52,10 @@ CREATE UNIQUE INDEX "NfcComandaPayment_restaurantId_comandaId_requestKeyHash_key
 CREATE INDEX "NfcComandaPayment_restaurantId_comandaId_status_idx" ON "NfcComandaPayment"("restaurantId","comandaId","status");
 ALTER TABLE "NfcComandaPayment" ADD CONSTRAINT "NfcComandaPayment_comandaId_restaurantId_fkey" FOREIGN KEY ("comandaId","restaurantId") REFERENCES "NfcComanda"("id","restaurantId") ON DELETE RESTRICT;
 -- Additional defense in depth: fail closed without transaction-local tenant context.
-DO $$ DECLARE n TEXT; BEGIN
- FOREACH n IN ARRAY ARRAY['NfcComanda','NfcComandaItem','NfcComandaPayment'] LOOP
- EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',n);
- EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',n);
- EXECUTE format('CREATE POLICY %I ON %I FOR ALL TO PUBLIC USING ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END) WITH CHECK ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END)',n||'_tenant_isolation',n);
+DO $ DECLARE table_name TEXT; BEGIN
+ FOREACH table_name IN ARRAY ARRAY['NfcComanda','NfcComandaItem','NfcComandaPayment'] LOOP
+ EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',table_name);
+ EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',table_name);
+ EXECUTE format('CREATE POLICY %I ON %I FOR ALL TO PUBLIC USING ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END) WITH CHECK ("restaurantId" = CASE WHEN current_setting(''app.restaurant_id'', true) ~ ''^[1-9][0-9]*$'' THEN current_setting(''app.restaurant_id'', true)::integer ELSE NULL END)',table_name||'_tenant_isolation',table_name);
  END LOOP;
 END $$;
