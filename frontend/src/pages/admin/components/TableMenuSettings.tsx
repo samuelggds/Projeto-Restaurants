@@ -304,6 +304,28 @@ export function TableMenuSettings({ settings, update }: Props) {
         </T.ServiceModeGrid>
       </S.Card>
 
+      <S.Card>
+        <h2>Vencimento das comandas NFC</h2>
+        <p>Configure o prazo para bloquear novos atendimentos quando uma comanda não for quitada. O bloqueio é por cliente e restaurante, nunca pelo cartão físico.</p>
+        <T.ServiceModeGrid role="radiogroup" aria-label="Prazo para quitar comanda NFC">
+          <T.ServiceModeOption $selected={settings.nfcDebtDeadlineMode === 'TWENTY_FOUR_HOURS'}>
+            <input type="radio" name="nfcDebtDeadlineMode" value="TWENTY_FOUR_HOURS"
+              checked={settings.nfcDebtDeadlineMode === 'TWENTY_FOUR_HOURS'}
+              onChange={() => update('nfcDebtDeadlineMode', 'TWENTY_FOUR_HOURS')} />
+            <div><strong>24 horas após a abertura</strong><span>O cliente terá até 24 horas corridas para regularizar o consumo.</span></div>
+          </T.ServiceModeOption>
+          <T.ServiceModeOption $selected={settings.nfcDebtDeadlineMode === 'BUSINESS_CLOSING'}>
+            <input type="radio" name="nfcDebtDeadlineMode" value="BUSINESS_CLOSING"
+              checked={settings.nfcDebtDeadlineMode === 'BUSINESS_CLOSING'}
+              disabled={!settings.businessHoursConfigured || !settings.businessHours.some(day => day.enabled)}
+              onChange={() => update('nfcDebtDeadlineMode', 'BUSINESS_CLOSING')} />
+            <div><strong>Fechamento do estabelecimento</strong><span>Prazo até o fim do turno em que a comanda foi aberta, inclusive após meia-noite.</span>
+              {(!settings.businessHoursConfigured || !settings.businessHours.some(day => day.enabled)) && <small>Configure primeiro os horários de funcionamento.</small>}</div>
+          </T.ServiceModeOption>
+        </T.ServiceModeGrid>
+        <p>O prazo de uma comanda já aberta não muda quando o horário do restaurante é alterado.</p>
+      </S.Card>
+
       <T.SetupGrid>
         <T.CreateCard>
           <header>
