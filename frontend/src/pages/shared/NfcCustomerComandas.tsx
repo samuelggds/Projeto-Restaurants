@@ -183,7 +183,7 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
             </div>)}
             {!selected.payments.length && <p className="info"><Clock3 size={15}/> Nenhum pagamento registrado.</p>}
           </section>
-          {selected.cardId && selected.status !== 'PAID' && <section className="divider" style={{ display: 'grid', gap: 10 }}>
+          {selected.cardId && <section className="divider" style={{ display: 'grid', gap: 10 }}>
             <h4><CreditCard size={18} /> Conferir pagamento e liberar cartão NFC</h4>
             <p className="info">Após o Pix ou Point ser confirmado no servidor, aproxime o cartão e peça ao cliente o CPF completo. A mesma operação valida a quitação e libera o cartão para novo cadastro.</p>
             <label className="info" style={{ display: 'grid', gap: 5 }}>
