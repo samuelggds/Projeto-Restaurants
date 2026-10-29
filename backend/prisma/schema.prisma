@@ -461,6 +461,7 @@ model Restaurant {
   nfcCustomers                  NfcCustomer[]
   nfcCards                      NfcCard[]
   nfcRegistrationAudits         NfcRegistrationAudit[]
+  nfcComandas                   NfcComanda[]
 }
 
 
@@ -1569,6 +1570,7 @@ model RestaurantSettings {
   acceptsPix            Boolean         @default(true)
   acceptsCard           Boolean         @default(true)
   tableOrderingEnabled  Boolean         @default(true)
+  nfcCoverChargeCents   Int             @default(0)
   inPersonServiceMode   InPersonServiceMode @default(QR_ONLY)
   waiterCallEnabled     Boolean         @default(true)
   billRequestEnabled    Boolean         @default(true)
@@ -2700,6 +2702,7 @@ model NfcCustomer {
   updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
   restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   cards            NfcCard[]
+  comandas         NfcComanda[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, cpfFingerprint])
@@ -2729,7 +2732,9 @@ model NfcCard {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
   restaurant       Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   customer         NfcCustomer   @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  comandas         NfcComanda[]
 
+  @@unique([id, restaurantId])
   @@unique([restaurantId, displayCode])
   @@index([restaurantId, customerId, status])
 }
@@ -2746,4 +2751,90 @@ model NfcRegistrationAudit {
 
   @@index([restaurantId, createdAt])
   @@index([restaurantId, customerId])
+}
+
+
+// NFC financial ledger: separate from table-only sessions and orders.
+// A customer can have one OPEN comanda and multiple closed historical records.
+enum NfcComandaStatus {
+  OPEN
+  UNPAID
+  PAID
+}
+
+enum NfcComandaItemKind {
+  COVER
+  ORDER
+}
+
+enum NfcComandaPaymentStatus {
+  PENDING
+  CONFIRMED
+  REVERSED
+}
+
+model NfcComanda {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  restaurantId       Int
+  customerId         String                   @db.Uuid
+  cardId             String?                  @db.Uuid
+  tableNumber        Int?
+  status             NfcComandaStatus         @default(OPEN)
+  openRequestKeyHash String                   @db.Char(64)
+  totalCents         BigInt                   @default(0)
+  paidCents          BigInt                   @default(0)
+  openedByUserId     Int
+  closedByUserId     Int?
+  openedAt           DateTime                 @default(now()) @db.Timestamptz(3)
+  closedAt           DateTime?                @db.Timestamptz(3)
+  paidAt             DateTime?                @db.Timestamptz(3)
+  updatedAt          DateTime                 @updatedAt @db.Timestamptz(3)
+  restaurant         Restaurant               @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  customer           NfcCustomer              @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  card               NfcCard?                 @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  items              NfcComandaItem[]
+  payments           NfcComandaPayment[]
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, customerId, openRequestKeyHash])
+  @@index([restaurantId, customerId, status])
+  @@index([restaurantId, status, openedAt])
+}
+
+model NfcComandaItem {
+  id             String             @id @default(uuid()) @db.Uuid
+  restaurantId   Int
+  comandaId      String             @db.Uuid
+  kind           NfcComandaItemKind
+  sourceOrderId  Int?
+  description    String             @db.VarChar(160)
+  quantity       Int                @default(1)
+  unitPriceCents BigInt
+  totalCents     BigInt
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  comanda        NfcComanda         @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([restaurantId, sourceOrderId])
+  @@index([restaurantId, comandaId, createdAt])
+}
+
+model NfcComandaPayment {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  restaurantId       Int
+  comandaId          String                  @db.Uuid
+  amountCents        BigInt
+  method             PaymentMethod
+  status             NfcComandaPaymentStatus @default(PENDING)
+  requestKeyHash     String                  @db.Char(64)
+  requestFingerprint String                  @db.Char(64)
+  recordedByUserId   Int
+  confirmedByUserId  Int?
+  confirmedAt        DateTime?               @db.Timestamptz(3)
+  reversedAt         DateTime?               @db.Timestamptz(3)
+  createdAt          DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                @updatedAt @db.Timestamptz(3)
+  comanda            NfcComanda              @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([restaurantId, comandaId, requestKeyHash])
+  @@index([restaurantId, comandaId, status])
 }
