@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { CheckCircle2, Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
+import { Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
 import nfcComandaService, { type NfcComanda, type NfcCustomerComandas } from '../../Services/nfcComandaService';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
 
@@ -51,7 +51,7 @@ const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 
 const dateTime = (value?: string | null) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrado';
 const label = (status: NfcComanda['status']) => status === 'PAID' ? 'Paga' : status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento';
 
-export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false }: { customerId: string; cardId?: string; canConfirmCash?: boolean }) {
+export function NfcCustomerComandas({ customerId, cardId }: { customerId: string; cardId?: string }) {
   const [state, setState] = useState<NfcCustomerComandas | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,13 +99,6 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
     } catch {
       setError('Não foi possível abrir a comanda. Confira se o cartão está ativo e se o cliente possui pendências.');
     } finally { setBusy(false); }
-  }
-  async function confirm(paymentId: string) {
-    if (busy || !window.confirm('Confirma que o restaurante recebeu este valor em dinheiro?')) return;
-    setBusy(true); setError('');
-    try { await nfcComandaService.confirmCash(paymentId); await reload(); }
-    catch { setError('Não foi possível confirmar o dinheiro. Verifique o recebimento e tente novamente.'); }
-    finally { setBusy(false); }
   }
   return <Frame aria-label="Comandas e situação financeira NFC">
     {!state && !error && <p role="status">Carregando comandas...</p>}
@@ -169,7 +162,6 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
               <div className="pair"><span>{payment.method} · {dateTime(payment.createdAt)}</span><b>{money(payment.amountCents)}</b></div>
               <div className="pair"><span>Situação</span><b>{payment.status === 'CONFIRMED' ? 'Confirmado' : payment.status === 'REVERSED' ? 'Estornado' : 'Aguardando confirmação'}</b></div>
               {payment.confirmedAt && <div className="pair"><span>Confirmado em</span><b>{dateTime(payment.confirmedAt)}</b></div>}
-              {canConfirmCash && payment.method === 'DINHEIRO' && payment.status === 'PENDING' && <button type="button" disabled={busy} className="action" onClick={() => void confirm(payment.id)}><CheckCircle2 size={15}/> Confirmar dinheiro recebido</button>}
             </div>)}
             {!selected.payments.length && <p className="info"><Clock3 size={15}/> Nenhum pagamento registrado.</p>}
           </section>
