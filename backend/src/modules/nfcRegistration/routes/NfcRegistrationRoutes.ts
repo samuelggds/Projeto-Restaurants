@@ -143,7 +143,7 @@ router.post('/cards/:id/activate', async (req, res) => {
         select: { id: true, customerId: true, displayCode: true, status: true },
       });
       if (!current) throw new NfcRegistrationError(404, 'Cartão não corresponde ao cadastro neste restaurante.');
-      if (current.status === 'REVOKED') throw new NfcRegistrationError(409, 'Cartão revogado não pode ser reativado.');
+      if (current.status === 'REVOKED' || current.status === 'READY') throw new NfcRegistrationError(409, 'Cartão não está associado a um cliente para ativação.');
       if (current.status === 'PENDING_WRITE') {
         const updated = await tx.nfcCard.updateMany({
           where: { restaurantId, id: cardId, tokenHash, status: 'PENDING_WRITE' },
@@ -247,6 +247,8 @@ router.post('/cards/intake', async (req, res) => {
           restaurantId, actorUserId: Number(req.user.id), customerId, action: 'CUSTOMER_CREATED',
         } });
       }
+      const debt = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } }, select: { totalCents: true, paidCents: true } });
+      if (debt.some(item => item.totalCents > item.paidCents)) throw new NfcRegistrationError(403, 'Cliente com dívida vencida neste restaurante; regularize antes de receber o cartão.');
       const hasCard = await tx.nfcCard.count({ where: { restaurantId, customerId, status: { in: ['ACTIVE', 'PENDING_WRITE'] } } });
       if (hasCard) throw new NfcRegistrationError(409, 'Cliente já possui cartão ativo ou em preparação.');
       const updated = await tx.nfcCard.updateMany({
