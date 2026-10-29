@@ -105,7 +105,7 @@ export default function NfcIntakePage() {
         <button type="submit" disabled={busy || orderPrefix.length !== 3}>Confirmar identidade e cartão</button>
       </form>}
       
-      <form onSubmit={(e) => void handleSubmit()} style={{ display: 'grid', gap: 14 }}>
+      <form onSubmit={(event) => void handleSubmit(event)} style={{ display: 'grid', gap: 14 }}>
         <label>Nome completo<input value={name} onChange={e => setName(e.target.value)} required={!customerId} disabled={Boolean(customerId)} minLength={2}/></label>
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
         <label>Telefone com DDD<input value={phone} onChange={e => setPhone(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="tel"/></label>

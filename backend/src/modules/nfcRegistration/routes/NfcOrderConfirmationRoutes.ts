@@ -152,7 +152,7 @@ router.post('/challenges/:id/verify', async (req, res) => {
         throw new VerificationError(409, 'Cartão não corresponde à comanda deste cliente.');
       }
       const customer = await tx.nfcCustomer.findFirst({ where: { id: challenge.customerId, restaurantId },
-        select: { cpfEncrypted: true } });
+        select: { id: true, cpfEncrypted: true } });
       if (!customer) throw new VerificationError(404, 'Cliente não encontrado.');
       const cpf = decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted);
       const matched = crypto.timingSafeEqual(Buffer.from(cpf.slice(0, 3)), Buffer.from(cpfPrefix));
