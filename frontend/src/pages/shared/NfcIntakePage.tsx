@@ -25,6 +25,8 @@ export default function NfcIntakePage() {
   const [phone, setPhone] = useState('');
   const [table, setTable] = useState('');
   const [customerId, setCustomerId] = useState('');
+  const [lookupCpf, setLookupCpf] = useState('');
+  const [existingCustomerName, setExistingCustomerName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [result, setResult] = useState('');
@@ -33,6 +35,19 @@ export default function NfcIntakePage() {
   const allowed = Number(user?.restaurantId ?? user?.restaurant?.id) > 0 &&
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
+  const lookup = async () => {
+    setBusy(true); setMessage('');
+    try {
+      const found = await nfcRegistrationService.lookup(lookupCpf);
+      if (!found) {
+        setCustomerId(''); setExistingCustomerName('');
+        setMessage('CPF ainda não cadastrado. Preencha o formulário de novo cliente.');
+      } else {
+        setCustomerId(found.id); setExistingCustomerName(found.name);
+      }
+    } catch { setMessage('CPF inválido ou não foi possível localizar o cliente.'); }
+    finally { setBusy(false); }
+  };
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!allowed || !validToken || busy) return;
@@ -62,7 +77,12 @@ export default function NfcIntakePage() {
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
         <label>Telefone com DDD<input value={phone} onChange={e => setPhone(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="tel"/></label>
         <label>Mesa (opcional)<input type="number" min="1" max="100000" value={table} onChange={e => setTable(e.target.value)}/></label>
-        <details><summary>Vincular cliente já cadastrado</summary><label>ID do cliente<input value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="Identificador do cadastro existente"/></label></details>
+        <details><summary>Cliente já cadastrado? Consultar CPF</summary>
+          <label>CPF cadastrado<input value={lookupCpf} onChange={e => setLookupCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00"/></label>
+          <button type="button" disabled={busy || lookupCpf.replace(/\\D/g, '').length !== 11} onClick={() => void lookup()}>Localizar cadastro</button>
+          {existingCustomerName && <p role="status">Cliente encontrado: {existingCustomerName}. Use este cadastro para evitar duplicidade.</p>}
+          {customerId && <button type="button" onClick={() => { setCustomerId(''); setExistingCustomerName(''); }}>Cadastrar outro cliente</button>}
+        </details>
         {message && <p className="error" role="alert">{message}</p>}
         <button type="submit" disabled={busy}>{busy ? 'Vinculando...' : 'Confirmar cadastro e vincular cartão'}</button>
       </form></>}
