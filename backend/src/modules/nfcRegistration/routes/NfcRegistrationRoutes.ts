@@ -4,7 +4,8 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
-import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
@@ -265,4 +266,71 @@ router.post('/cards/intake', async (req, res) => {
     return res.status(201).json({ assignment: result, warning: 'A mesa opcional será confirmada ao abrir a comanda NFC.' });
   } catch (error) { return safe(res, error); }
 });
+
+const linkedSearchSchema = z.strictObject({
+  q: z.string().trim().max(80).optional(),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+});
+router.get('/linked-customers', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const { q = '', page } = linkedSearchSchema.parse(req.query);
+    const digits = q.replace(/\D/g, '');
+    // CPF is matched only by the scoped HMAC; raw CPF never leaves this endpoint.
+    const cpfKeys = digits.length === 11 ? nfcCpfFingerprints(restaurantId, digits) : [];
+    const result = await withTenantDbContext(restaurantId, async (tx) => {
+      const activeCards = await tx.nfcCard.findMany({
+        where: { restaurantId, status: 'ACTIVE', customerId: { not: null } },
+        select: { id: true, customerId: true, displayCode: true, activatedAt: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      const linkedIds = activeCards.map(card => card.customerId).filter((value): value is string => !!value);
+      if (!linkedIds.length) return { customers: [], total: 0, page, pageSize };
+      const customers = await tx.nfcCustomer.findMany({
+        where: { restaurantId, id: { in: linkedIds } },
+        select: { id: true, nameEncrypted: true, phoneEncrypted: true, cpfFingerprint: true, cpfEncrypted: true },
+      });
+      const byId = new Map(customers.map(customer => [customer.id, customer]));
+      const matching = activeCards.flatMap(card => {
+        if (!card.customerId) return [];
+        const customer = byId.get(card.customerId);
+        if (!customer) return [];
+        const name = decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted);
+        const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
+        const cpfMatch = cpfKeys.includes(customer.cpfFingerprint);
+        if (!linkedNfcCustomerMatches(q, name, phone, cpfMatch)) return [];
+        return [{ card, customer, name, phone }];
+      });
+      const selected = matching.slice((page - 1) * pageSize, page * pageSize);
+      const ids = selected.map(item => item.customer.id);
+      const accounts = ids.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId: { in: ids }, status: 'OPEN' },
+        orderBy: { openedAt: 'desc' },
+        select: { id: true, cardId: true, customerId: true, tableNumber: true, status: true,
+          totalCents: true, paidCents: true, openedAt: true },
+      }) : [];
+      return {
+        page, pageSize, total: matching.length,
+        customers: selected.map(({ card, customer, name, phone }) => {
+          const current = accounts.find(a => a.customerId === customer.id && a.cardId === card.id);
+          const amounts = current ? { totalCents: Number(current.totalCents), paidCents: Number(current.paidCents) } : null;
+          return {
+            customerId: customer.id,
+            name,
+            cpfMasked: maskNfcCpf(decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted)),
+            phoneMasked: maskNfcPhone(phone),
+            card: { id: card.id, displayCode: card.displayCode },
+            comanda: current ? { id: current.id, tableNumber: current.tableNumber, openedAt: current.openedAt,
+              status: linkedNfcPaymentState({ status: current.status, ...amounts! }),
+              totalCents: amounts!.totalCents, paidCents: amounts!.paidCents,
+              outstandingCents: Math.max(0, amounts!.totalCents - amounts!.paidCents) } : null,
+          };
+        }),
+      };
+    });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json(result);
+  } catch (error) { return safe(res, error); }
+});
+
 export default router;
