@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
@@ -157,6 +158,109 @@ router.post('/cards/:id/activate', async (req, res) => {
     });
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ card });
+  } catch (error) { return safe(res, error); }
+});
+
+const intakeSchema = z.strictObject({
+  token: z.string().min(32).max(128),
+  customerId: z.uuid().optional(),
+  name: z.string().trim().min(2).max(120).optional(),
+  cpf: z.string().min(11).max(18).optional(),
+  phone: z.string().min(10).max(24).optional(),
+  tableNumber: z.number().int().min(1).max(100000).nullable().optional(),
+});
+router.post('/cards/provision', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const token = crypto.randomBytes(24).toString('base64url');
+    const tokenHash = normalizeTagToken(token);
+    const cardId = crypto.randomUUID();
+    const card = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const created = await tx.nfcCard.create({
+        data: { id: cardId, restaurantId, customerId: null, displayCode: 'NFC-' + cardId.slice(0, 8).toUpperCase(),
+          tokenHash, issuedByUserId: Number(req.user.id), status: 'PENDING_WRITE' },
+        select: { id: true, displayCode: true, status: true },
+      });
+      await tx.nfcRegistrationAudit.create({
+        data: { restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_PREPROVISIONED' },
+      });
+      return created;
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(201).json({ card, ndefUrl: 'https://www.gastronexa.com.br/nfc/' + token });
+  } catch (error) { return safe(res, error); }
+});
+router.post('/cards/:id/prepare', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
+    const tokenHash = normalizeTagToken(req.body?.token);
+    const card = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const updated = await tx.nfcCard.updateMany({
+        where: { id: cardId, restaurantId, tokenHash, customerId: null, status: 'PENDING_WRITE' },
+        data: { status: 'READY' },
+      });
+      if (updated.count !== 1) throw new NfcRegistrationError(409, 'Cartão não está disponível para preparação.');
+      await tx.nfcRegistrationAudit.create({
+        data: { restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_READY' },
+      });
+      return { id: cardId, status: 'READY' as const };
+    });
+    return res.json({ card });
+  } catch (error) { return safe(res, error); }
+});
+router.post('/cards/intake', async (req, res) => {
+  try {
+    const input = intakeSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId), tokenHash = normalizeTagToken(input.token);
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      // Lock the card so two employees cannot allocate the same plastic simultaneously.
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard" WHERE "restaurantId" = ${restaurantId}
+        AND "tokenHash" = ${tokenHash} FOR UPDATE
+      `;
+      if (rows.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const card = await tx.nfcCard.findFirst({ where: { id: rows[0].id, restaurantId } });
+      if (!card || card.status !== 'READY' || card.customerId) {
+        throw new NfcRegistrationError(409, 'Cartão já vinculado, revogado ou não preparado.');
+      }
+      let customerId: string;
+      if (input.customerId) {
+        const found = await tx.nfcCustomer.findFirst({ where: { id: input.customerId, restaurantId }, select: { id: true } });
+        if (!found) throw new NfcRegistrationError(404, 'Cliente não encontrado neste restaurante.');
+        customerId = found.id;
+      } else {
+        if (!input.name || !input.cpf || !input.phone) throw new NfcRegistrationError(422, 'Nome, CPF e telefone são obrigatórios para novo cliente.');
+        const cpf = normalizeNfcCpf(input.cpf), phone = normalizeNfcPhone(input.phone);
+        const fingerprints = nfcCpfFingerprints(restaurantId, cpf);
+        const found = await tx.nfcCustomer.findFirst({ where: { restaurantId, cpfFingerprint: { in: fingerprints } }, select: { id: true } });
+        if (found) throw new NfcRegistrationError(409, 'Cliente já cadastrado. Localize pelo CPF antes de vincular.');
+        customerId = crypto.randomUUID();
+        await tx.nfcCustomer.create({ data: {
+          id: customerId, restaurantId, nameEncrypted: encryptNfcPii(restaurantId, customerId, 'name', input.name),
+          cpfEncrypted: encryptNfcPii(restaurantId, customerId, 'cpf', cpf),
+          cpfFingerprint: fingerprints[0], phoneEncrypted: encryptNfcPii(restaurantId, customerId, 'phone', phone),
+        } });
+        await tx.nfcRegistrationAudit.create({ data: {
+          restaurantId, actorUserId: Number(req.user.id), customerId, action: 'CUSTOMER_CREATED',
+        } });
+      }
+      const hasCard = await tx.nfcCard.count({ where: { restaurantId, customerId, status: { in: ['ACTIVE', 'PENDING_WRITE'] } } });
+      if (hasCard) throw new NfcRegistrationError(409, 'Cliente já possui cartão ativo ou em preparação.');
+      const updated = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: card.id, status: 'READY', customerId: null },
+        data: { customerId, status: 'ACTIVE', activatedByUserId: Number(req.user.id), activatedAt: new Date() },
+      });
+      if (updated.count !== 1) throw new NfcRegistrationError(409, 'Vínculo concorrente detectado.');
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), customerId, cardId: card.id, action: 'CARD_ASSIGNED',
+      } });
+      return { customerId, cardId: card.id, displayCode: card.displayCode, tableNumber: input.tableNumber ?? null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(201).json({ assignment: result, warning: 'A mesa opcional será confirmada ao abrir a comanda NFC.' });
   } catch (error) { return safe(res, error); }
 });
 export default router;
