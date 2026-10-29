@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
 import nfcComandaService, { type NfcComanda, type NfcCustomerComandas } from '../../Services/nfcComandaService';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
+import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { scanNfcCard } from './nfcWebReader';
 
 const Frame = styled.section`
   display: grid; gap: 12px; min-width: 0;
@@ -59,6 +61,7 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
   const [tableNumber, setTableNumber] = useState('');
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [visitNotice, setVisitNotice] = useState('');
+  const [returnCpf, setReturnCpf] = useState('');
   const reload = useCallback(async () => {
     const response = await nfcComandaService.customerComandas(customerId);
     setState(response);
@@ -76,6 +79,21 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [selectedId]);
+  async function confirmPaymentAndRelease() {
+    if (!selected || !selected.cardId || busy || !/^\d{11}$/.test(returnCpf)) return;
+    setBusy(true); setError('');
+    try {
+      const token = await scanNfcCard();
+      const released = await nfcRegistrationService.returnPaidCard(token, returnCpf, selected.id);
+      setReturnCpf(''); setSelectedId(null);
+      setVisitNotice(`Pagamento conferido no backend. Cartão ${released.displayCode} desvinculado e disponível para o próximo cliente.`);
+      await reload();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setError(response.response?.data?.error || 'Pagamento ainda não confirmado ou cartão/CPF inválidos. Não foi possível liberar o cartão.');
+      setReturnCpf('');
+    } finally { setBusy(false); }
+  }
   async function openComanda() {
     if (busy || !cardId || state?.hasOpenComanda || state?.blocked) return;
     setBusy(true); setError('');
@@ -165,6 +183,21 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
             </div>)}
             {!selected.payments.length && <p className="info"><Clock3 size={15}/> Nenhum pagamento registrado.</p>}
           </section>
+          {selected.cardId && selected.status !== 'PAID' && <section className="divider" style={{ display: 'grid', gap: 10 }}>
+            <h4><CreditCard size={18} /> Conferir pagamento e liberar cartão NFC</h4>
+            <p className="info">Após o Pix ou Point ser confirmado no servidor, aproxime o cartão e peça ao cliente o CPF completo. A mesma operação valida a quitação e libera o cartão para novo cadastro.</p>
+            <label className="info" style={{ display: 'grid', gap: 5 }}>
+              CPF completo (11 dígitos)
+              <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={returnCpf}
+                onChange={event => setReturnCpf(event.target.value.replace(/\D/g, '').slice(0, 11))}
+                placeholder="CPF completo do titular" style={{ padding: 11, border: '1px solid #cbd5df', borderRadius: 9 }} />
+            </label>
+            <button type="button" disabled={busy || returnCpf.length !== 11} onClick={() => void confirmPaymentAndRelease()}
+              style={{ background: '#d65b14', color: '#fff', border: 0, padding: '12px 14px', borderRadius: 9 }}>
+              Aproximar cartão, verificar quitação e desvincular
+            </button>
+            {error && <p role="alert" className="warning">{error}</p>}
+          </section>}
           <p className="info">Os valores e estados são calculados no servidor. A confirmação financeira exige autorização e não é feita automaticamente ao abrir esta tela.</p>
         </div>
       </div>
