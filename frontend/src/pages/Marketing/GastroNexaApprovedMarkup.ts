@@ -112,6 +112,7 @@ export const approvedLandingMarkup = `<svg xmlns="http://www.w3.org/2000/svg" wi
   </div></div>
   </div>
 </section>
+<div id="gx-interactive-demo-root" aria-label="Demonstração interativa da plataforma"></div>
 <section class="features-section" id="funcionalidades"><div class="container"><div class="feature-header"><div><span class="section-eyebrow">TUDO EM UM SÓ LUGAR</span><h2 class="section-title">Menos complicação na rotina.<br>Mais controle para você.</h2><p class="section-desc">De quem faz o pedido a quem gerencia o caixa, a GastroNexa conecta as etapas essenciais do seu restaurante.</p></div><a href="#plataforma" class="outline-btn">Explorar a plataforma <svg class="icon"><use href="#arrow"/></svg></a></div>
 <div class="feature-grid">
  <article class="feature-card"><span class="mini-icon"><svg class="icon"><use href="#smartphone"/></svg></span><h3>Cardápio digital completo</h3><p>Produtos, categorias, adicionais, combos e fotos em uma experiência acessível pelo celular.</p></article>
