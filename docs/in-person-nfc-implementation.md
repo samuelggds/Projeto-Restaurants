@@ -201,3 +201,30 @@ o fluxo contábil completo, a reconciliação e os E2E de segurança.
 existe outra `OPEN`, mesmo antes do vencimento. O cliente deve **continuar na
 mesma comanda** para consumir. Lançamento de produtos e integração de pagamento
 digital NFC ainda não foram habilitados neste PR.
+
+
+### Opção por fechamento do estabelecimento — PR #396
+
+- O ADMIN escolhe em Configurações > Cardápio de mesa:
+  `TWENTY_FOUR_HOURS` (padrão legado) ou `BUSINESS_CLOSING`.
+- `BUSINESS_CLOSING` usa a agenda semanal já cadastrada em
+  `RestaurantSettings.businessHours` e o fuso `RestaurantSettings.timezone`.
+  Ex.: quinta-feira, 18h–02h => abertura quinta às 22h vence sexta às 02h.
+- `dueAt` é calculado no backend quando a comanda abre e gravado como data UTC.
+  Trocar a agenda depois **não altera contas abertas** nem renova o prazo.
+- Exige agenda semanal configurada e pelo menos um dia habilitado;
+  se uma visita tentar iniciar fora de um turno válido, a abertura falha
+  sem gravar novos dados ou inventar o fechamento. A opção de 24h segue
+  como alternativa compatível com restaurantes sem agenda configurada.
+- O bloqueio de novos atendimentos por saldo pendente é derivado de
+  `status IN (OPEN,UNPAID)`, `dueAt <= agora` e saldo positivo,
+  sempre dentro do `restaurantId` autenticado. Dívida de outro tenant
+  não influencia a elegibilidade.
+- O prazo é de **fechamento do turno em que a visita começou**, não do
+  próximo dia aberto, não do fechamento manual/pausa de pedidos.
+- Pedidos NFC e pagamentos online continuam fechados até homologação
+  e integração dos testes E2E; esta regra não altera as mesas QR existentes.
+
+Testes adicionais: turno com fechamento no mesmo dia; turno atravessando
+meia-noite; horário fora de expediente; agenda não configurada; 24h como
+padrão; isolamento por tenant e concorrência na abertura de comandas.
