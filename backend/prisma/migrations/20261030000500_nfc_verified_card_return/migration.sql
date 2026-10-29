@@ -5,7 +5,7 @@ ALTER TABLE "NfcCard"
   ADD COLUMN "returnCpfLockedUntil" TIMESTAMPTZ(3);
 ALTER TABLE "NfcCard"
   ADD CONSTRAINT "NfcCard_failedReturnCpfAttempts_check"
-  CHECK ("failedReturnCpfAttempts" BETWEEN 0 AND 3);
+  CHECK ("failedReturnCpfAttempts" >= 0);
 ALTER TABLE "NfcCard"
   ADD CONSTRAINT "NfcCard_ready_has_no_customer"
   CHECK ("status" <> 'READY' OR "customerId" IS NULL);
