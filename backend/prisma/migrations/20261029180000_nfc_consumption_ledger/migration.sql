@@ -10,6 +10,7 @@ CREATE TABLE "NfcComanda" (
  "openRequestKeyHash" CHAR(64) NOT NULL, "totalCents" BIGINT NOT NULL DEFAULT 0,
  "paidCents" BIGINT NOT NULL DEFAULT 0, "openedByUserId" INTEGER NOT NULL,
  "closedByUserId" INTEGER, "openedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT NOW(),
+ "dueAt" TIMESTAMPTZ(3) NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
  "closedAt" TIMESTAMPTZ(3), "paidAt" TIMESTAMPTZ(3),
  "updatedAt" TIMESTAMPTZ(3) NOT NULL,
  CONSTRAINT "NfcComanda_pkey" PRIMARY KEY ("id"),
