@@ -2914,6 +2914,8 @@ model NfcComandaAccess {
   restaurantId      Int
   comandaId         String    @db.Uuid
   codeHash          String    @db.Char(64)
+  whatsappConsentAt DateTime? @db.Timestamptz(3)
+  whatsappConsentByUserId Int?
   sessionHash       String?   @unique @db.Char(64)
   attempts          Int       @default(0)
   lockedUntil       DateTime? @db.Timestamptz(3)
