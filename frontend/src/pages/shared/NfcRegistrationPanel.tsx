@@ -37,7 +37,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [lookupCpf, setLookupCpf] = useState('');
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState(true);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [newCardUrl, setNewCardUrl] = useState('');
@@ -47,7 +47,20 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
     catch { setError('Não foi possível carregar os cadastros NFC.'); }
     finally { setPending(false); }
   }, []);
-  useEffect(() => { void load(1); }, [load]);
+  useEffect(() => {
+    let mounted = true;
+    void nfcRegistrationService.list(1).then((result) => {
+      if (!mounted) return;
+      setItems(result.customers);
+      setTotal(result.total);
+      setPage(1);
+    }).catch(() => {
+      if (mounted) setError('Não foi possível carregar os cadastros NFC.');
+    }).finally(() => {
+      if (mounted) setPending(false);
+    });
+    return () => { mounted = false; };
+  }, []);
   const create = async (event: FormEvent) => {
     event.preventDefault(); setPending(true); setError(''); setInfo('');
     try {
