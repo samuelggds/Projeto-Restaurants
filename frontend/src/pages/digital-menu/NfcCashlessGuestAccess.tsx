@@ -87,7 +87,7 @@ export function NfcCashlessGuestAccess() {
             <button type="button" disabled={busy} onClick={() => void reload()}>Atualizar consumo</button>
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button type="button" disabled aria-label="Pagamento Pix NFC em homologação">Pix · Em homologação</button>
-              <button type="button" disabled aria-label="Pagamento NFC cartão em homologação">Cartão · Em homologação</button>
+              <button type="button" disabled aria-label="Pagamento na maquininha Point em homologação">Cartão na Point · Em homologação</button>
             </div>
             <p style={{ fontSize: 12 }}>Os pagamentos NFC continuam indisponíveis até conciliação e homologação real. O funcionário pode orientar o pagamento presencial.</p>
           </div>

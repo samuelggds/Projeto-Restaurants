@@ -17,6 +17,7 @@ const publicTable = {
   restaurant: {
     slug: 'restaurante-teste',
     settings: {
+      inPersonServiceMode: 'QR_ONLY',
       tableOrderingEnabled: true,
       waiterCallEnabled: false,
       billRequestEnabled: true,
@@ -52,6 +53,7 @@ test('resolve a mesa pelo número e pelo restaurante sem confundir com o id inte
     number: 12,
     restaurantId: 7,
     restaurantSlug: 'restaurante-teste',
+    inPersonServiceMode: 'QR_ONLY',
     tableOrderingEnabled: true,
     waiterCallEnabled: false,
     billRequestEnabled: true,

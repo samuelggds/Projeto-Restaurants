@@ -30,8 +30,8 @@ const Wrap = styled.section`
   .actions { display: flex; gap: 8px; flex-wrap: wrap; }
   @media(max-width:800px) { .form { grid-template-columns: 1fr; } .person { align-items: start; flex-direction: column; } }
 `;
-type Props = { roleLabel?: string; canConfirmCash?: boolean };
-export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = false }: Props) {
+type Props = { roleLabel?: string };
+export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
   const [items, setItems] = useState<NfcCustomerRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -184,7 +184,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe', canConfirmCash = fa
         </div>
       </div>)}
       {items.length === 0 && <p>Nenhum cliente nesta página.</p>}
-      {selectedCustomerId && <div className="surface" style={{ gridColumn: '1 / -1' }}><div className="actions"><h3>Situação financeira e comandas</h3><button type="button" className="secondary" onClick={() => setSelectedCustomerId(null)}>Fechar consulta</button></div><NfcCustomerComandas customerId={selectedCustomerId} cardId={items.find(customer => customer.id === selectedCustomerId)?.cards.find(card => card.status === 'ACTIVE')?.id} canConfirmCash={canConfirmCash} /></div>}
+      {selectedCustomerId && <div className="surface" style={{ gridColumn: '1 / -1' }}><div className="actions"><h3>Situação financeira e comandas</h3><button type="button" className="secondary" onClick={() => setSelectedCustomerId(null)}>Fechar consulta</button></div><NfcCustomerComandas customerId={selectedCustomerId} cardId={items.find(customer => customer.id === selectedCustomerId)?.cards.find(card => card.status === 'ACTIVE')?.id} /></div>}
       <div className="actions"><button className="secondary" type="button" disabled={pending || page <= 1} onClick={() => void load(page - 1)}>Anterior</button><small>Página {page}</small><button className="secondary" type="button" disabled={pending || page * 20 >= total} onClick={() => void load(page + 1)}>Próxima</button></div>
     </div>
   </Wrap>;

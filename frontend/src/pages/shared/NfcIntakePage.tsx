@@ -26,6 +26,7 @@ export default function NfcIntakePage() {
   const [cpf, setCpf] = useState('');
   const [phone, setPhone] = useState('');
   const [table, setTable] = useState('');
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [customerId, setCustomerId] = useState('');
   const [lookupCpf, setLookupCpf] = useState('');
   const [existingCustomerName, setExistingCustomerName] = useState('');
@@ -88,7 +89,16 @@ export default function NfcIntakePage() {
       });
       try {
         const comanda = await nfcComandaService.open(assignment.customerId, assignment.cardId, assignment.tableNumber);
-        setResult(`Cartão ${assignment.displayCode} vinculado e comanda ${comanda.id.slice(0, 8).toUpperCase()} aberta. O garçom ou atendente já pode selecionar produtos no painel NFC.`);
+        let notice = '';
+        if (whatsappConsent && assignment.tableNumber != null) {
+          try {
+            const queued = await nfcComandaService.sendVisitAccessCode(comanda.id);
+            notice = queued.queued ? ' Código de acesso enfileirado para o WhatsApp autorizado.' : '';
+          } catch {
+            notice = ' O WhatsApp não foi enfileirado; confirme a configuração do canal e faça novo envio pelo painel.';
+          }
+        }
+        setResult(`Cartão ${assignment.displayCode} vinculado e comanda ${comanda.id.slice(0, 8).toUpperCase()} aberta. O garçom ou atendente já pode selecionar produtos no painel NFC.${notice}`);
       } catch {
         setResult(`Cartão ${assignment.displayCode} vinculado. A comanda ainda não foi aberta: procure o cliente na seção "Clientes e cartões NFC" e abra a comanda antes de registrar pedidos.`);
       }
@@ -117,6 +127,7 @@ export default function NfcIntakePage() {
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
         <label>Telefone com DDD<input value={phone} onChange={e => setPhone(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="tel"/></label>
         <label>Mesa (opcional)<input type="number" min="1" max="100000" value={table} onChange={e => setTable(e.target.value)}/></label>
+        <label style={{display:'flex',gap:9,alignItems:'flex-start'}}><input type="checkbox" style={{width:18,height:18,marginTop:2}} checked={whatsappConsent} onChange={e=>setWhatsappConsent(e.target.checked)} />Cliente autorizou o envio do código da visita para o WhatsApp cadastrado, quando vinculado à mesa.</label>
         <details><summary>Cliente já cadastrado? Consultar CPF</summary>
           <label>CPF cadastrado<input value={lookupCpf} onChange={e => setLookupCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00"/></label>
           <button type="button" disabled={busy || lookupCpf.replace(/\D/g, '').length !== 11} onClick={() => void lookup()}>Localizar cadastro</button>

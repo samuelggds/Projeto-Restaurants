@@ -62,6 +62,10 @@ class OpenTableSessionService {
       restaurantId: normalizedRestaurantId,
     });
 
+    if (publicTable.inPersonServiceMode === 'NFC_ONLY') {
+      throw new Error('Este restaurante utiliza apenas cashless NFC para novos atendimentos.');
+    }
+
     if (!publicTable.tableOrderingEnabled) {
       throw new Error('Os pedidos pelo cardápio de mesa estão desativados neste restaurante.');
     }

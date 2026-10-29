@@ -62,13 +62,13 @@ const IN_PERSON_SERVICE_MODES = [
     value: 'NFC_ONLY',
     label: 'Somente cartão NFC',
     description: 'Comandas individuais por cliente, mesa opcional e couvert configurável.',
-    available: false,
+    available: true,
   },
   {
     value: 'BOTH',
     label: 'QR Code e cartão NFC',
     description: 'Disponibiliza as duas formas de atendimento no mesmo restaurante.',
-    available: false,
+    available: true,
   },
 ] as const;
 
@@ -277,8 +277,7 @@ export function TableMenuSettings({ settings, update }: Props) {
       <S.Card>
         <h2>Modalidade de atendimento presencial</h2>
         <p>
-          Escolha como o restaurante vai operar. Os cartões NFC individuais estão em implementação:
-          até sua homologação, o QR Code continua como única opção ativa.
+          Escolha entre QR Code, cashless NFC ou ambos. Cada restaurante mantém suas próprias comandas, cadastros e pagamentos.
         </p>
         <T.ServiceModeGrid role="radiogroup" aria-label="Modalidade de atendimento presencial">
           {IN_PERSON_SERVICE_MODES.map((option) => (
