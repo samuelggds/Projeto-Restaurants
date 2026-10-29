@@ -1571,6 +1571,7 @@ model RestaurantSettings {
   acceptsCard           Boolean         @default(true)
   tableOrderingEnabled  Boolean         @default(true)
   nfcCoverChargeCents   Int             @default(0)
+  nfcDebtDeadlineMode   NfcDebtDeadlineMode @default(TWENTY_FOUR_HOURS)
   inPersonServiceMode   InPersonServiceMode @default(QR_ONLY)
   waiterCallEnabled     Boolean         @default(true)
   billRequestEnabled    Boolean         @default(true)
@@ -2838,4 +2839,10 @@ model NfcComandaPayment {
 
   @@unique([restaurantId, comandaId, requestKeyHash])
   @@index([restaurantId, comandaId, status])
+}
+
+
+enum NfcDebtDeadlineMode {
+  TWENTY_FOUR_HOURS
+  BUSINESS_CLOSING
 }
