@@ -45,6 +45,11 @@ const settingsSteps: Record<SettingsSection, string[]> = {
     'Cadastre as mesas e confira a identificação de cada uma.',
     'Use a prévia e as opções de QR Code da mesa. O QR Code é fixo: o garçom abre e fecha o atendimento sem gerar outro código.',
   ],
+  'nfc-registration': [
+    'Cadastre clientes com nome, CPF e telefone. Os dados ficam no restaurante e o CPF aparece mascarado.',
+    'Emita um cartão pendente para o cliente ou revogue um cartão anterior com justificativa.',
+    'A gravação de cartões e a abertura de comandas NFC permanecem indisponíveis até a homologação.',
+  ],
   'table-account': [
     'Configure divisão da conta, formas de pagamento, taxa de serviço e regras para novos pedidos após pedir a conta.',
     'Em Quando o cliente precisa pagar na hora, defina um limite em reais ou deixe vazio. A regra soma saldo em aberto e novo pedido: só exige antecipação se ultrapassar o limite. Limite zero exige pagamento de qualquer pedido com valor positivo.',
