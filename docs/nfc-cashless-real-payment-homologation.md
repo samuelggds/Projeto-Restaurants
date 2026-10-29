@@ -1,5 +1,15 @@
 # Homologação real NFC — bloqueadores antes da primeira cobrança
 
+## Política confirmada de pagamento NFC
+
+O cartão NFC serve para identificar a visita e acumular consumo; **não é um cartão bancário e não armazena saldo financeiro**.
+A quitação da comanda cashless aceita exclusivamente **Pix** ou **cartão de crédito/débito na maquininha Point**.
+Não existe opção de receber ou confirmar dinheiro no fluxo NFC.
+As rotas que criavam ou confirmavam dinheiro foram removidas. O banco rejeita novos lançamentos em dinheiro na comanda NFC; eventuais registros antigos permanecem para auditoria e só podem ter uma reserva não confirmada cancelada pelo administrador.
+Os pagamentos em dinheiro de QR de mesa, delivery e demais operações permanecem inalterados.
+Pix e Point NFC ainda exigem implementação financeira e homologação antes de qualquer transação real.
+
+
 O PR #399 habilita a seleção QR/NFC/Ambos e integra o envio do código na recepção.
 **Não significa que Pix/Point NFC estejam prontos.** Não habilitar a cobrança online ou
 considerar uma comanda quitada por uma resposta do frontend.
