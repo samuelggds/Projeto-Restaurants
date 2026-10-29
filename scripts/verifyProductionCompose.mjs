@@ -91,6 +91,7 @@ function verifyRuntime(services, expectedMarkers = {}) {
     for (const key of runtimeKeys) {
       assert.ok(key in env, `${name} não recebe a opção runtime ${key}`);
     }
+    assert.equal(env.NFC_CASHLESS_PUBLIC_ENABLED, 'false', `${name} não pode habilitar acesso cashless público em produção`);
     assert.equal(
       env.LALAMOVE_SANDBOX_BOOKING_ENABLED,
       'false',
