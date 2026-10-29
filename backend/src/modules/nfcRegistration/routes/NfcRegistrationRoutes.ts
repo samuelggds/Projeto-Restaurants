@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
@@ -130,7 +131,9 @@ router.post('/cards/return', async (req, res) => {
     const input = returnSchema.parse(req.body);
     const restaurantId = Number(req.user.restaurantId);
     const tokenHash = normalizeTagToken(input.token);
-    const cpf = normalizeNfcCpf(input.cpf);
+    // Any 11-digit input with wrong check digits must count as a failed attempt.
+    const cpf = input.cpf.replace(/\D/gu, '');
+    if (cpf.length !== 11) throw new NfcRegistrationError(422, 'Informe os 11 dígitos do CPF.');
     const result = await prisma.$transaction(async tx => {
       await setTenantDbContext(tx, restaurantId);
       // Resolve without trusting a claimed customer, then lock comanda before card
@@ -160,7 +163,7 @@ router.post('/cards/return', async (req, res) => {
         throw new NfcRegistrationError(409, 'A visita foi alterada. Leia novamente o cartão.');
       }
       if (card.returnCpfLockedUntil && card.returnCpfLockedUntil > new Date()) {
-        throw new NfcRegistrationError(429, 'Verificação temporariamente bloqueada. Aguarde quinze minutos.');
+        throw new NfcRegistrationError(429, `Verificação bloqueada. Tente novamente em ${nfcReturnCpfRemainingMinutes(card.returnCpfLockedUntil, new Date())} minuto(s).`);
       }
       const customer = await tx.nfcCustomer.findFirst({
         where: { restaurantId, id: card.customerId! }, select: { cpfFingerprint: true },
@@ -170,18 +173,18 @@ router.post('/cards/return', async (req, res) => {
       const matched = fingerprints.some(f => crypto.timingSafeEqual(
         Buffer.from(f, 'hex'), Buffer.from(customer.cpfFingerprint, 'hex')));
       if (!matched) {
-        const previousAttempts = card.returnCpfLockedUntil && card.returnCpfLockedUntil <= new Date() ? 0 : card.failedReturnCpfAttempts;
-        const attempts = Math.min(previousAttempts + 1, 3);
+        const { attempts, lockedUntil } = nextNfcReturnCpfFailure(card.failedReturnCpfAttempts, new Date());
         await tx.nfcCard.updateMany({
           where: { id: card.id, restaurantId, status: 'ACTIVE', customerId: card.customerId },
           data: { failedReturnCpfAttempts: attempts,
-            returnCpfLockedUntil: attempts >= 3 ? new Date(Date.now() + 15 * 60_000) : null },
+            returnCpfLockedUntil: lockedUntil },
         });
         await tx.nfcRegistrationAudit.create({ data: {
           restaurantId, actorUserId: Number(req.user.id), customerId: card.customerId,
           cardId: card.id, action: 'CARD_RETURN_CPF_DENIED',
         } });
-        return { released: false as const, incorrectCpf: true as const, locked: attempts >= 3 };
+        return { released: false as const, incorrectCpf: true as const, locked: lockedUntil !== null,
+          remainingMinutes: lockedUntil ? nfcReturnCpfRemainingMinutes(lockedUntil, new Date()) : 0 };
       }
       const otherComandas = await tx.nfcComanda.findMany({
         where: { restaurantId, customerId: card.customerId!, id: { not: comanda.id },
@@ -234,7 +237,7 @@ router.post('/cards/return', async (req, res) => {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     res.setHeader('Cache-Control', 'no-store');
     if (!result.released) return res.status(result.locked ? 429 : 403).json({
-      error: result.locked ? 'Muitas tentativas incorretas. Aguarde quinze minutos.' : 'CPF não corresponde ao titular do cartão.',
+      error: result.locked ? `Muitas tentativas incorretas. Tente novamente em ${result.remainingMinutes} minuto(s).` : 'CPF não corresponde ao titular do cartão.',
     });
     return res.json(result);
   } catch (error) { return safe(res, error); }
