@@ -28,6 +28,8 @@ export const TENANT_RLS_TABLES = [
   'MenuImportDraft',
   'MenuImportDraftItem',
   'NfcComanda',
+  'NfcComandaAccess',
+  'NfcCashlessPayment',
   'NfcComandaItem',
   'NfcComandaPayment',
   'NfcOrderConfirmation',
