@@ -9,12 +9,9 @@ import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistr
 
 const router = Router();
 const uuid = z.uuid();
-const hash = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 const codeHash = (restaurantId: number, comandaId: string, code: string) =>
   crypto.createHmac('sha256', process.env.CREDENTIAL_ENCRYPTION_KEY || '').update(`${restaurantId}:${comandaId}:${code}`).digest('hex');
-const accessCode = z.string().regex(/^[0-9]{6}$/u);
 const STAFF_CODE_TTL = 8 * 60 * 60 * 1000;
-const GUEST_SESSION_TTL = 30 * 60 * 1000;
 function failure(res: import('express').Response, error: unknown) {
   const message = error instanceof Error ? error.message : '';
   const known = ['Comanda indisponível.', 'Credencial inválida ou expirada.', 'Acesso temporariamente bloqueado.', 'Acesso não autorizado.'];
