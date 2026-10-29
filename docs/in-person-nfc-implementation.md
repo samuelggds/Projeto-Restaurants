@@ -96,3 +96,17 @@ mantém o direito de concluir atendimentos anteriores.
   permanente, para evitar relacionamentos incorretos.
 - Nenhuma alteração de `inPersonServiceMode` ou abertura de comanda é liberada
   por este PR. Permanecem bloqueadas NFC_ONLY e BOTH até a homologação.
+
+### Implementação incremental na branch do PR #396 (ainda não homologada)
+
+- Modelos `NfcCustomer`, `NfcCard` e `NfcRegistrationAudit` criados com
+  vínculos compostos de tenant, CPF derivado por HMAC e campos pessoais AES-GCM.
+- Rotas `/nfc-registration/customers` (GET/POST), `/customers/lookup` (POST),
+  `/customers/:id/cards` (POST) e `/cards/:id/revoke` (POST).
+- A API nunca recebe `restaurantId` de formulário: deriva da sessão autenticada.
+- Painéis de Admin, Garçom e Atendente exibem cadastro e gestão de cartões.
+- O primeiro cartão fica `PENDING_WRITE`. Emitir não confirma a gravação.
+  A URL de gravação não é ainda uma página funcional e não autentica funcionário.
+- A numeração da mesa não integra o perfil do cliente: entrará com as sessões.
+- Ainda pendente: testes de banco multi-tenant reais, geração de Prisma Client,
+  revisão de segurança/arquitetura, programação e ativação NDEF, E2E e CI.
