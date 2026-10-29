@@ -32,6 +32,14 @@ class NfcComandaService {
     }
     return result.data;
   }
+  async sendVisitAccessCode(comandaId: string) {
+    const result = await api.post<{ queued: boolean; expiresAt: string }>(
+      `/nfc-cashless/staff/comandas/${encodeURIComponent(comandaId)}/access-code`,
+      { whatsappConsent: true },
+    );
+    if (!result.data?.queued) throw new Error('Não foi possível enfileirar o acesso no WhatsApp.');
+    return result.data;
+  }
   async confirmCash(paymentId: string) {
     const result = await api.post(`/nfc-comandas/payments/${encodeURIComponent(paymentId)}/confirm-cash`, {});
     return result.data;

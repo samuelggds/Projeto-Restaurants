@@ -33,6 +33,7 @@ import { TablePaymentStatusView } from '../Home/components/TablePaymentStatusVie
 import { ReadyProductDetail } from '../Home/components/ReadyProductDetail';
 import { QuantityStepper } from '../../components/QuantityStepper/QuantityStepper';
 import { TableMenuHome } from './TableMenuHome';
+import { NfcCashlessGuestAccess } from './NfcCashlessGuestAccess';
 import { FlowHeader } from './TableMenuFlow';
 import {
   confirmationSteps,
@@ -1113,6 +1114,7 @@ export default function TableMenuExperience({
         onViewAccount={onViewAccount}
         onTrackOrder={() => setView('tracking')}
       />
+      <NfcCashlessGuestAccess />
 
       {selectedProduct ? (
         <ReadyProductDetail

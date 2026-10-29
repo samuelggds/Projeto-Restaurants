@@ -463,6 +463,8 @@ model Restaurant {
   nfcRegistrationAudits         NfcRegistrationAudit[]
   nfcComandas                   NfcComanda[]
   nfcOrderConfirmations         NfcOrderConfirmation[]
+  nfcComandaAccesses            NfcComandaAccess[]
+  nfcCashlessPayments           NfcCashlessPayment[]
 }
 
 
@@ -2810,6 +2812,8 @@ model NfcComanda {
   payments           NfcComandaPayment[]
   orderConfirmations NfcOrderConfirmation[]
   orders             Order[]
+  accessCredentials  NfcComandaAccess[]
+  cashlessPayments   NfcCashlessPayment[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, customerId, openRequestKeyHash])
@@ -2894,4 +2898,59 @@ model NfcOrderConfirmation {
   @@unique([restaurantId, comandaId, requestKeyHash])
   @@index([restaurantId, cardId, expiresAt])
   @@index([restaurantId, comandaId, createdAt])
+}
+
+enum NfcCashlessPaymentStatus {
+  RESERVED
+  PROCESSING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELED
+  REFUNDED
+}
+model NfcComandaAccess {
+  id                String    @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  comandaId         String    @db.Uuid
+  codeHash          String    @db.Char(64)
+  whatsappConsentAt DateTime? @db.Timestamptz(3)
+  whatsappConsentByUserId Int?
+  sessionHash       String?   @unique @db.Char(64)
+  attempts          Int       @default(0)
+  lockedUntil       DateTime? @db.Timestamptz(3)
+  expiresAt         DateTime  @db.Timestamptz(3)
+  sessionExpiresAt  DateTime? @db.Timestamptz(3)
+  revokedAt         DateTime? @db.Timestamptz(3)
+  createdByUserId   Int
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  comanda           NfcComanda @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, comandaId, expiresAt])
+}
+model NfcCashlessPayment {
+  id                 String   @id @default(uuid()) @db.Uuid
+  restaurantId       Int
+  comandaId          String   @db.Uuid
+  method             PaymentMethod
+  status             NfcCashlessPaymentStatus @default(RESERVED)
+  amountCents        BigInt
+  idempotencyKeyHash String   @db.Char(64)
+  requestFingerprint String   @db.Char(64)
+  provider           String   @db.VarChar(40)
+  providerExternalId String?  @db.VarChar(160)
+  providerPaymentCode String? @db.Text
+  expiresAt          DateTime @db.Timestamptz(3)
+  paidAt             DateTime? @db.Timestamptz(3)
+  createdAt          DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+  restaurant         Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  comanda            NfcComanda @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, comandaId, idempotencyKeyHash])
+  @@unique([provider, providerExternalId])
+  @@index([restaurantId, comandaId, status, expiresAt])
 }
