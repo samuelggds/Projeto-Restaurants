@@ -122,7 +122,6 @@ function WaiterShell({
     ['tables', 'Mesas e QR Codes', 'Mesas', QrCode, 0],
     ['calls', 'Chamados', 'Chamados', BellRing, activeCallCount],
     ['payments', 'Pagamentos', 'Pagamentos', CreditCard, pendingPaymentCount],
-    ['nfc-registration', 'Clientes NFC', 'NFC', ContactRound, 0],
   ] as const;
   const titles: Record<WaiterView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
@@ -176,6 +175,15 @@ function WaiterShell({
           </N.Nav>
           <N.ShiftStatus $tone={operation.tone} aria-label="Funcionamento do restaurante"><small>Seu turno</small><b>{operation.hoursLabel}</b><span>{operation.label}</span></N.ShiftStatus>
           <N.SupportNav>
+            <button
+              type="button"
+              className={view === 'nfc-registration' ? 'active' : ''}
+              aria-current={view === 'nfc-registration' ? 'page' : undefined}
+              onClick={() => navigate('nfc-registration')}
+            >
+              <ContactRound />
+              Clientes e cartões NFC
+            </button>
             <button
               type="button"
               className={view === 'help' ? 'active' : ''}
@@ -251,6 +259,13 @@ function WaiterShell({
                 <X />
               </button>
             </header>
+            <button
+              type="button"
+              className={view === 'nfc-registration' ? 'active' : ''}
+              onClick={() => navigate('nfc-registration')}
+            >
+              <ContactRound /> Clientes e cartões NFC
+            </button>
             <button
               type="button"
               className={view === 'help' ? 'active' : ''}
