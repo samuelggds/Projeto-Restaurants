@@ -238,6 +238,22 @@ async function insertThrottledCustomerOutbox(
 }
 
 export async function enqueueWhatsappNotification(message: Message, db: Database = prisma) {
+  if (message.metadata.event === 'NFC_VISIT_ACCESS_CODE') {
+    const restaurantId = Number(message.metadata.restaurantId);
+    const credentialId = String(message.metadata.credentialId || '');
+    if (!Number.isSafeInteger(restaurantId) || restaurantId <= 0 || !/^[0-9a-f-]{36}$/iu.test(credentialId)) {
+      return { sent: false, reason: 'invalid_visit' } as const;
+    }
+    const rows = await db.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "NfcComandaAccess"
+      WHERE "id" = ${credentialId}::uuid AND "restaurantId" = ${restaurantId}
+        AND "whatsappConsentAt" IS NOT NULL AND "revokedAt" IS NULL AND "expiresAt" > NOW()
+      LIMIT 1`;
+    if (!rows.length) return { sent: false, reason: 'visit_consent_not_found' } as const;
+    const key = createHash('sha256').update(`nfc-visit:${restaurantId}:${credentialId}`).digest('hex');
+    const inserted = await insertOutbox(db, restaurantId, key, message);
+    return { sent: false, queued: inserted, duplicate: !inserted, provider: resolveWhatsAppDeliveryProvider() } as const;
+  }
   const orderId = Number(message.metadata.orderId);
   if (!Number.isSafeInteger(orderId) || orderId <= 0)
     return { sent: false, reason: 'invalid_order' } as const;
