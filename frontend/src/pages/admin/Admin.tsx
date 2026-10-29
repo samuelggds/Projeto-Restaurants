@@ -445,6 +445,7 @@ export function mapSettingsFromApi(
         : raw?.inPersonServiceMode === 'BOTH'
           ? 'BOTH'
           : 'QR_ONLY',
+    nfcDebtDeadlineMode: raw?.nfcDebtDeadlineMode === 'BUSINESS_CLOSING' ? 'BUSINESS_CLOSING' : 'TWENTY_FOUR_HOURS',
     waiterCallEnabled: raw?.waiterCallEnabled !== false,
     billRequestEnabled: raw?.billRequestEnabled !== false,
     tableAccount: mapTableAccountSettingsFromApi(tableAccountRaw),
@@ -557,6 +558,7 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     maxConcurrentOrders: settings.maxConcurrentOrders,
     tableOrderingEnabled: settings.tableOrderingEnabled,
     inPersonServiceMode: settings.inPersonServiceMode,
+    nfcDebtDeadlineMode: settings.nfcDebtDeadlineMode,
     waiterCallEnabled: settings.waiterCallEnabled,
     billRequestEnabled: settings.billRequestEnabled,
     fontFamily: settings.fontFamily,
