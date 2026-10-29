@@ -14,11 +14,14 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
     let active = true;
     void productsService.listProducts().then((data: unknown) => {
       if (!active) return;
-      setProducts((Array.isArray(data) ? data : []).flatMap((product: any) =>
-        Number.isSafeInteger(product.id) && product.active !== false ? [{
+      setProducts((Array.isArray(data) ? data : []).flatMap((item: unknown) => {
+        if (!item || typeof item !== 'object') return [];
+        const product = item as Record<string, unknown>;
+        return Number.isSafeInteger(product.id) && product.active !== false ? [{
           id: Number(product.id), name: String(product.name || ''), price: Number(product.price) || 0,
           stock: product.stock == null ? null : Number(product.stock),
-        }] : []));
+        }] : [];
+      }));
     }).catch(() => { if (active) setError('Não foi possível carregar os produtos.'); });
     return () => { active = false; };
   }, []);
