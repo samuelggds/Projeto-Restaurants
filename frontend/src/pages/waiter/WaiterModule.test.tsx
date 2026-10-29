@@ -138,6 +138,20 @@ describe('WaiterModule navigation and loading states', () => {
     expect(container.querySelector('h1')?.textContent).toBe('Pagamentos');
   });
 
+  it('abre cadastro NFC pelo menu secundário mantendo as cinco abas da operação', () => {
+    render();
+    const mainNav = container.querySelector('[aria-label="Navegação móvel do garçom"]') as HTMLElement;
+    expect(mainNav.querySelectorAll('button')).toHaveLength(5);
+    const trigger = container.querySelector('[aria-label="Abrir opções do garçom"]') as HTMLButtonElement;
+    act(() => trigger.click());
+    const more = container.querySelector('[role="dialog"]') as HTMLElement;
+    const nfc = [...more.querySelectorAll('button')].find(button => button.textContent?.includes('Clientes e cartões NFC'));
+    expect(nfc).toBeDefined();
+    act(() => nfc?.click());
+    expect(container.querySelector('h1')?.textContent).toBe('Clientes e cartões NFC');
+    expect(mainNav.querySelectorAll('button')).toHaveLength(5);
+  });
+
   it('atualiza e zera indicadores na sidebar desktop e mobile quando os estados mudam', () => {
     const ready = {
       id: '#11', channel: 'TABLE' as const, reference: 'Mesa 01',
