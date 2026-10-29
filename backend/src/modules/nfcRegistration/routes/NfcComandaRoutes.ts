@@ -5,6 +5,7 @@ import { z, ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { calculateNfcComandaDueAt } from '../domain/nfcComandaDeadline.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 
 const router = Router();
@@ -114,13 +115,13 @@ router.post('/open', async (req, res) => {
         const card = await tx.nfcCard.findFirst({ where: { id: payload.cardId, restaurantId, customerId: payload.customerId, status: 'ACTIVE' }, select: { id: true } });
         if (!card) throw new NfcFinancialError(409, 'Cartão não ativado ou não associado a este cliente.');
       }
-      const settings = await tx.restaurantSettings.findFirst({ where: { restaurantId }, select: { nfcCoverChargeCents: true } });
+      const settings = await tx.restaurantSettings.findFirst({ where: { restaurantId }, select: { nfcCoverChargeCents: true, nfcDebtDeadlineMode: true, businessHours: true, timezone: true } });
       const coverCents = settings?.nfcCoverChargeCents || 0;
       const created = await tx.nfcComanda.create({ data: {
         id: randomUUID(), restaurantId, customerId: payload.customerId, cardId: payload.cardId,
         tableNumber: payload.tableNumber ?? null, openRequestKeyHash: key,
         openedByUserId: actor(req), totalCents: BigInt(coverCents),
-        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        dueAt: calculateNfcComandaDueAt({ openedAt: new Date(), mode: settings?.nfcDebtDeadlineMode || 'TWENTY_FOUR_HOURS', businessHours: settings?.businessHours, timeZone: settings?.timezone }),
         ...(coverCents > 0 ? { items: { create: { id: randomUUID(), restaurantId,
           kind: 'COVER', description: 'Entrada / couvert', quantity: 1,
           unitPriceCents: BigInt(coverCents), totalCents: BigInt(coverCents) } } } : {}),
