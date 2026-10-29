@@ -332,3 +332,15 @@ regraváveis, verificação de NFC clonado e rate limit contra enumeração.
 - Testes pendentes: Android/iOS físicos, revogação após confirmação, duas
   tentativas concorrentes, reenvio idempotente, brute-force entre sessões,
   operador distinto, tenant diferente, CPF incorreto e lançamento único.
+
+### Implementação incremental — WhatsApp e consulta pública (PR #398)
+
+- Na abertura da comanda NFC com mesa definida, funcionário pode registrar autorização explícita do cliente para receber o código pelo WhatsApp, enfileirado automaticamente.
+- O código e a referência opaca da comanda viajam no payload criptografado da outbox, com deduplicação por credencial. A mensagem não contém CPF nem saldo.
+- Tentativas de acesso público exigem sessão e participante existentes no QR da mesa, comanda do mesmo restaurante/mesa e código válido. Há limite persistido por credencial e sessão pública temporária.
+- O frontend consulta apenas itens, total, saldo e valores já pagos; não apresenta CPF ou telefone. Flag `VITE_NFC_CASHLESS_HOMOLOGATION=true` exibe a interface experimental.
+- Backend mantém `NFC_CASHLESS_PUBLIC_ENABLED` **desligado por padrão** e retorna 503 no acesso público até autorização/homologação.
+- Pix dinâmico, cartão Point, confirmação por webhook, conciliação, estornos e liberação `NFC_ONLY`/`BOTH` **ainda pendentes**. Botões Pix e cartão são informativos e desabilitados.
+- Mensagem de WhatsApp necessita consentimento específico, `whatsappEnabled` ativo e provedor já configurado no restaurante.
+- CI/E2E, multi-tenant, concorrência, delivery de WhatsApp e homologação financeira devem ser conferidos antes de merge ou deploy.
+
