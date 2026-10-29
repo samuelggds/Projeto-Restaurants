@@ -324,3 +324,19 @@ test('pedido MESA chega ao garçom e à sessão apenas pelas rooms específicas'
     assert.equal(emissions.length, countBefore);
   }
 });
+
+
+test('pedido NFC não pago é visível somente na fila operacional da cozinha do restaurante certo', async () => {
+  kitchenOrderRepository.findAll = async (restaurantId, status) => {
+    assert.equal(restaurantId, 7);
+    assert.equal(status, undefined);
+    return [{ id: 808, restaurantId: 7, type: OrderType.NFC,
+      status: OrderStatus.PENDENTE, paid: false,
+      items: [{ id: 55, quantity: 1, product: { name: 'Batata frita' } }] }];
+  };
+  const orders = await listOrdersService.execute(7, undefined, UserRole.FUNCIONARIO, 44, FuncionarioSubRole.COZINHA);
+  assert.equal(orders.length, 1);
+  assert.equal(orders[0].type, OrderType.NFC);
+  assert.equal(orders[0].paid, false);
+  assert.equal(orders[0].items[0].product.name, 'Batata frita');
+});

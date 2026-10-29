@@ -1229,6 +1229,7 @@ model Order {
   tableId                         Int?
   tableSessionId                  Int?
   participantId                   Int?
+  nfcComandaId                    String?                    @db.Uuid
   type                            OrderType
   settlementMode                  TableOrderSettlementMode?
   tableFinancialStatus            TableOrderFinancialStatus?
@@ -1270,6 +1271,8 @@ model Order {
   table                           Table?                     @relation(fields: [tableId], references: [id])
   tableSession                    TableSession?              @relation(fields: [tableSessionId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   participant                     TableParticipant?          @relation(fields: [participantId, tableSessionId, restaurantId], references: [id, tableSessionId, restaurantId], onDelete: Restrict)
+  nfcComanda                      NfcComanda?               @relation(fields: [nfcComandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  nfcOrderConfirmation            NfcOrderConfirmation?
   user                            User?                      @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignedCourier                 User?                      @relation("CourierDeliveries", fields: [assignedCourierId], references: [id], onDelete: SetNull)
   items                           OrderItem[]
@@ -2348,6 +2351,7 @@ enum OrderType {
   DELIVERY
   MESA
   RETIRADA
+  NFC
 }
 
 enum PaymentMethod {
@@ -2805,6 +2809,7 @@ model NfcComanda {
   items              NfcComandaItem[]
   payments           NfcComandaPayment[]
   orderConfirmations NfcOrderConfirmation[]
+  orders             Order[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, customerId, openRequestKeyHash])
@@ -2818,6 +2823,7 @@ model NfcComandaItem {
   comandaId      String             @db.Uuid
   kind           NfcComandaItemKind
   sourceOrderId  Int?
+  sourceOrderItemId Int?
   description    String             @db.VarChar(160)
   quantity       Int                @default(1)
   unitPriceCents BigInt
@@ -2825,7 +2831,8 @@ model NfcComandaItem {
   createdAt      DateTime           @default(now()) @db.Timestamptz(3)
   comanda        NfcComanda         @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
-  @@unique([restaurantId, sourceOrderId])
+  @@unique([restaurantId, sourceOrderItemId])
+  @@index([restaurantId, sourceOrderId])
   @@index([restaurantId, comandaId, createdAt])
 }
 
@@ -2874,12 +2881,15 @@ model NfcOrderConfirmation {
   expiresAt         DateTime    @db.Timestamptz(3)
   verifiedAt        DateTime?   @db.Timestamptz(3)
   consumedAt        DateTime?   @db.Timestamptz(3)
+  orderId           Int?
   createdAt         DateTime    @default(now()) @db.Timestamptz(3)
   restaurant        Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   comanda           NfcComanda  @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   customer          NfcCustomer @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   card              NfcCard     @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  order             Order?      @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
 
+  @@unique([orderId, restaurantId])
   @@unique([id, restaurantId])
   @@unique([restaurantId, comandaId, requestKeyHash])
   @@index([restaurantId, cardId, expiresAt])

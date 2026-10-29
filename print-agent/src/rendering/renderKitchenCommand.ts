@@ -45,6 +45,7 @@ function money(value: number) {
 const TYPE_LABEL: Record<KitchenOrderPrintPayloadV1['order']['type'], string> = {
   DELIVERY: 'ENTREGA',
   MESA: 'MESA',
+  NFC: 'COMANDA NFC',
   RETIRADA: 'RETIRADA',
 };
 
@@ -74,7 +75,7 @@ function renderDeliveryAddress(order: KitchenOrderPrintPayloadV1['order'], width
 }
 
 function renderTableIdentity(order: KitchenOrderPrintPayloadV1['order'], width: number) {
-  if (order.type !== 'MESA' || order.tableNumber === undefined) return [];
+  if ((order.type !== 'MESA' && order.type !== 'NFC') || order.tableNumber === undefined) return [];
   const tableNumber = String(order.tableNumber).padStart(2, '0');
   const customerName = clean(order.customerName);
   const identity = customerName ? `MESA ${tableNumber} • ${customerName}` : `MESA ${tableNumber}`;

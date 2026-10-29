@@ -64,6 +64,7 @@ import {
 } from '../../tableAccount/services/tablePaymentLedger.js';
 import { tableAccountEvents } from '../../tableAccount/realtime/tableAccountEvents.js';
 import bcrypt from 'bcrypt';
+import crypto from 'node:crypto';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
@@ -73,6 +74,7 @@ type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
 
 type CreateOrderPayload = {
   creationRequest?: OrderCreationContext;
+  nfcChallengeId?: string;
   userId?: number | string | null;
   restaurantId?: number | string | null;
   userRestaurantId?: number | string | null;
@@ -216,6 +218,7 @@ class CreateOrderService {
 
   async execute({
     creationRequest,
+    nfcChallengeId,
     userId,
     restaurantId,
     userRestaurantId,
@@ -255,6 +258,8 @@ class CreateOrderService {
       contextRestaurantId: userRestaurantId,
     });
 
+    if (nfcChallengeId && type !== OrderType.NFC) throw new OrderRequestError('Confirmação NFC exige pedido NFC.');
+    if (type === OrderType.NFC && !nfcChallengeId) throw new OrderRequestError('Confirmação NFC obrigatória.');
     if (creationRequest) {
       const replay = await withTenantDbContext(resolvedRestaurantId, (tx) =>
         replayCreatedOrder(tx, resolvedRestaurantId, creationRequest),
@@ -502,6 +507,23 @@ class CreateOrderService {
               creationRequest,
             );
             if (replay) return { order: replay, replayed: true };
+            let nfcContext: { comandaId: string; customerId: string; cardId: string } | null = null;
+            if (nfcChallengeId) {
+              const challenge = await tx.nfcOrderConfirmation.findFirst({
+                where: { id: nfcChallengeId, restaurantId: resolvedRestaurantId },
+                select: { id: true, comandaId: true, customerId: true, cardId: true, verifiedAt: true, consumedAt: true, expiresAt: true, draftItems: true },
+              });
+              if (!challenge || !challenge.verifiedAt || challenge.expiresAt <= new Date() || challenge.consumedAt) throw new OrderRequestError('Confirmação NFC expirada ou já utilizada.');
+              const locked = await tx.$queryRaw<Array<{ id: string }>>`
+                SELECT "id" FROM "NfcComanda" WHERE "id" = ${challenge.comandaId}::uuid AND "restaurantId" = ${resolvedRestaurantId} FOR UPDATE
+              `;
+              if (locked.length !== 1) throw new OrderRequestError('Comanda NFC indisponível.');
+              const comanda = await tx.nfcComanda.findFirst({ where: { id: challenge.comandaId, restaurantId: resolvedRestaurantId }, select: { status: true, dueAt: true, cardId: true, customerId: true, totalCents: true, paidCents: true } });
+              const card = await tx.nfcCard.findFirst({ where: { id: challenge.cardId, restaurantId: resolvedRestaurantId, status: 'ACTIVE' }, select: { customerId: true } });
+              if (!comanda || comanda.status !== 'OPEN' || comanda.dueAt <= new Date() || comanda.cardId !== challenge.cardId || comanda.customerId !== challenge.customerId || card?.customerId !== challenge.customerId) throw new OrderRequestError('Comanda NFC, cartão ou prazo inválidos.');
+              if (JSON.stringify(challenge.draftItems) !== JSON.stringify(items)) throw new OrderRequestError('Itens diferentes dos confirmados pelo cliente.');
+              nfcContext = { comandaId: challenge.comandaId, customerId: challenge.customerId, cardId: challenge.cardId };
+            }
             let tableParticipant: {
               id: number;
               userId: number | null;
@@ -562,7 +584,7 @@ class CreateOrderService {
             const resolvedUserId =
               type === OrderType.MESA
                 ? (tableParticipant?.userId ?? null)
-                : await this.resolveOrderUser({
+                : type === OrderType.NFC ? null : await this.resolveOrderUser({
                     tx,
                     userId,
                     restaurantId: resolvedRestaurantId,
@@ -767,6 +789,7 @@ class CreateOrderService {
                 observation: mergedObservation || null,
                 userId: resolvedUserId,
                 restaurantId: resolvedRestaurantId,
+                nfcComandaId: nfcContext?.comandaId ?? null,
                 tableId: normalizedTableId,
                 ...(type === OrderType.MESA
                   ? {
@@ -870,6 +893,27 @@ class CreateOrderService {
               });
             }
 
+            if (nfcContext && nfcChallengeId) {
+              const totalCents = BigInt(decimalMoneyToCents(pricing.total, 'total NFC'));
+              const nfcUnitPrices = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
+              const units = persistedOrderItems.map((item, index) => {
+                const unitPrices = nfcUnitPrices.filter(unit => unit.orderItemIndex === index);
+                const lineCents = unitPrices.reduce((sum, unit) => sum + BigInt(unit.unitPriceCents), 0n);
+                return {
+                  id: crypto.randomUUID(), restaurantId: resolvedRestaurantId,
+                  comandaId: nfcContext.comandaId, kind: 'ORDER' as const,
+                  sourceOrderId: order.id, sourceOrderItemId: item.id,
+                  description: products[index].name, quantity: Number(item.quantity),
+                  unitPriceCents: BigInt(decimalMoneyToCents(item.price, 'preço unitário NFC')),
+                  totalCents: lineCents,
+                };
+              });
+              if (units.reduce((sum, item) => sum + item.totalCents, 0n) !== totalCents) throw new OrderRequestError('Preço NFC não confere com a comanda.');
+              await tx.nfcComandaItem.createMany({ data: units });
+              await tx.nfcComanda.updateMany({ where: { id: nfcContext.comandaId, restaurantId: resolvedRestaurantId, status: 'OPEN' }, data: { totalCents: { increment: totalCents } } });
+              const changed = await tx.nfcOrderConfirmation.updateMany({ where: { id: nfcChallengeId, restaurantId: resolvedRestaurantId, consumedAt: null }, data: { consumedAt: new Date(), orderId: order.id } });
+              if (changed.count !== 1) throw new OrderRequestError('Pedido NFC já processado.');
+            }
             const requestedQuantityByProduct = new Map<number, number>();
             orderItems.forEach((item) => {
               const snapshot = item.configurationSnapshot as

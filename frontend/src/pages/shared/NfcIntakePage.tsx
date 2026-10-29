@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
+import nfcComandaService from '../../Services/nfcComandaService';
 
 const Frame = styled.main`
   min-height: 100dvh; display: grid; place-items: center; padding: 20px;
@@ -66,7 +67,8 @@ export default function NfcIntakePage() {
     setBusy(true); setMessage('');
     try {
       await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
-      setResult('Identidade confirmada para este pedido. O lançamento definitivo aguarda integração com a operação.');
+      const order = await nfcOrderChallengeService.finalize(orderChallenge.id);
+      setResult(`Pedido #${order.orderId} confirmado e enviado à operação como NÃO PAGO. A cozinha receberá o pedido conforme a capacidade do restaurante.`);
       setOrderChallenge(null); setOrderPrefix('');
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
@@ -84,7 +86,12 @@ export default function NfcIntakePage() {
         ...(customerId ? { customerId } : { name, cpf, phone }),
         tableNumber: table.trim() ? Number(table) : null,
       });
-      setResult(`Cartão ${assignment.displayCode} vinculado com sucesso ao cliente.`);
+      try {
+        const comanda = await nfcComandaService.open(assignment.customerId, assignment.cardId, assignment.tableNumber);
+        setResult(`Cartão ${assignment.displayCode} vinculado e comanda ${comanda.id.slice(0, 8).toUpperCase()} aberta. O garçom ou atendente já pode selecionar produtos no painel NFC.`);
+      } catch {
+        setResult(`Cartão ${assignment.displayCode} vinculado. A comanda ainda não foi aberta: procure o cliente na seção "Clientes e cartões NFC" e abra a comanda antes de registrar pedidos.`);
+      }
     } catch (error) {
       const response = error as { response?: { data?: { error?: string } } };
       setMessage(response.response?.data?.error || 'Não foi possível vincular o cartão. Confira os dados ou a situação do cartão.');
@@ -96,7 +103,7 @@ export default function NfcIntakePage() {
       !user ? <><p>Para proteger os clientes, faça login como administrador, garçom ou atendente. Depois, aproxime novamente o cartão para voltar a esta tela.</p><Link to="/restaurant-required">Acessar seu restaurante</Link></> :
       !allowed ? <p role="alert">Esta conta não tem autorização para cadastrar clientes NFC.</p> :
       !validToken ? <p role="alert">O cartão não contém um identificador NFC válido.</p> :
-      result ? <p className="success" role="status">{result} A comanda deverá ser aberta no fluxo de atendimento.</p> :
+      result ? <p className="success" role="status">{result}</p> :
       <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
       {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>

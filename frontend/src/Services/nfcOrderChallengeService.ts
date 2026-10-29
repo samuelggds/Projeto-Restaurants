@@ -12,6 +12,10 @@ class NfcOrderChallengeService {
       '/nfc-orders/challenges/pending', { token });
     return response.data.challenge;
   }
+  async finalize(challengeId: string) {
+    const response = await api.post<{ orderId: number; paid: boolean; status: string }>(`/nfc-orders/challenges/${encodeURIComponent(challengeId)}/finalize`, {});
+    return response.data;
+  }
   async verify(challengeId: string, token: string, cpfPrefix: string) {
     const response = await api.post<{ verified: boolean }>(
       `/nfc-orders/challenges/${encodeURIComponent(challengeId)}/verify`, { token, cpfPrefix });

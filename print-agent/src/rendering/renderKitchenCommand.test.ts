@@ -186,3 +186,16 @@ test('render TEST contém identificação e confirmação de conexão', () => {
   assert.match(rendered, /TESTE DE IMPRESSÃO/u);
   assert.match(rendered, /Conexão com a impressora OK/u);
 });
+
+
+test('comanda NFC imprime pedido não pago na cozinha sem tratá-lo como retirada', () => {
+  const rendered = renderKitchenCommand({
+    ...payload,
+    order: { ...payload.order, type: 'NFC', paid: false, paymentMethod: undefined,
+      deliveryAddress: undefined, tableNumber: 12, customerName: undefined },
+  }, 'MM80');
+  assert.match(rendered, /TIPO: COMANDA NFC/u);
+  assert.match(rendered, /PENDENTE/u);
+  assert.match(rendered, /MESA 12/u);
+  assert.doesNotMatch(rendered, /RETIRADA NO LOCAL|ENTREGA:/u);
+});
