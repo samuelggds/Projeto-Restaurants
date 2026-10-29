@@ -1,6 +1,6 @@
 -- NFC customer and card registration is additive and disabled for checkout/ordering.
 -- These tables are always accessed with the authenticated restaurantId.
-CREATE TYPE "NfcCardStatus" AS ENUM ('PENDING_WRITE', 'ACTIVE', 'REVOKED');
+CREATE TYPE "NfcCardStatus" AS ENUM ('PENDING_WRITE', 'READY', 'ACTIVE', 'REVOKED');
 
 CREATE TABLE "NfcCustomer" (
   "id" UUID NOT NULL,
@@ -22,7 +22,7 @@ ALTER TABLE "NfcCustomer" ADD CONSTRAINT "NfcCustomer_restaurantId_fkey"
 CREATE TABLE "NfcCard" (
   "id" UUID NOT NULL,
   "restaurantId" INTEGER NOT NULL,
-  "customerId" UUID NOT NULL,
+  "customerId" UUID,
   "displayCode" VARCHAR(32) NOT NULL,
   "tokenHash" CHAR(64) NOT NULL,
   "status" "NfcCardStatus" NOT NULL DEFAULT 'PENDING_WRITE',

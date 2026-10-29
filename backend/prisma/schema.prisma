@@ -2712,6 +2712,7 @@ model NfcCustomer {
 
 enum NfcCardStatus {
   PENDING_WRITE
+  READY
   ACTIVE
   REVOKED
 }
@@ -2721,7 +2722,7 @@ enum NfcCardStatus {
 model NfcCard {
   id               String        @id @default(uuid()) @db.Uuid
   restaurantId     Int
-  customerId       String        @db.Uuid
+  customerId       String?       @db.Uuid
   displayCode      String        @db.VarChar(32)
   tokenHash        String        @unique @db.Char(64)
   status           NfcCardStatus @default(PENDING_WRITE)
@@ -2734,7 +2735,7 @@ model NfcCard {
   createdAt        DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
   restaurant       Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  customer         NfcCustomer   @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  customer         NfcCustomer?  @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   comandas         NfcComanda[]
 
   @@unique([id, restaurantId])
