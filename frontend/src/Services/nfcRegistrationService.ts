@@ -7,7 +7,20 @@ export type NfcCustomerRecord = {
 class NfcRegistrationService {
   async list(page = 1) {
     const response = await api.get<{ customers: NfcCustomerRecord[]; page: number; total: number; pageSize: number }>('/nfc-registration/customers', { params: { page } });
-    return response.data;
+    const result = response.data;
+    if (
+      !result ||
+      !Array.isArray(result.customers) ||
+      !Number.isSafeInteger(result.page) ||
+      !Number.isSafeInteger(result.total) ||
+      !Number.isSafeInteger(result.pageSize) ||
+      result.page < 1 ||
+      result.total < 0 ||
+      result.pageSize < 1
+    ) {
+      throw new Error('Resposta de cadastro NFC inválida.');
+    }
+    return result;
   }
   async create(payload: { name: string; cpf: string; phone: string }) {
     const response = await api.post<{ customer: NfcCustomerRecord }>('/nfc-registration/customers', payload);
