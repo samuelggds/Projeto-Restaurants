@@ -256,3 +256,36 @@ padrão; isolamento por tenant e concorrência na abertura de comandas.
 
 **Validação pendente:** testes E2E com aparelhos Android físicos e cartões
 regraváveis, verificação de NFC clonado e rate limit contra enumeração.
+
+### Correção do fluxo de recepção — leitura antes do cadastro
+
+- O colaborador autenticado (ADMIN, GARCOM ou ATENDENTE) **primeiro aproxima
+  um cartão preparado** do aparelho, e o sistema abre a tela de recepção.
+- O formulário deve mostrar **nome, CPF, telefone, mesa opcional**, e verificar
+  CPF já existente dentro do mesmo `restaurantId` antes de criar duplicata.
+- O vínculo do cartão físico com o cliente deve acontecer como parte da
+  conclusão da recepção. A mesa pertence à visita/`NfcComanda`, **não** ao
+  cadastro permanente de `NfcCustomer`.
+- Cartão **virgem** (NTAG213/216 sem NDEF) não abre página ao ser aproximado:
+  exige etapa anterior de **provisionamento do cartão do restaurante**, que
+  grava um token/URL aleatório sem dados pessoais, e mantém o cartão em estoque
+  não associado até a recepção. Nenhuma leitura de UID sozinha é autenticação.
+- **Android**: o navegador compatível com Web NFC, numa tela já aberta em
+  HTTPS, pode ler o token; a leitura só deve continuar com funcionário
+  autenticado. **iPhone/iOS**: tags NFC com URL NDEF podem abrir uma página
+  via leitura do sistema, mas Safari não oferece Web NFC; o app web não pode
+  exigir leitura/gravação programática no iOS. Para identificação e vínculo
+  seguros, usar URL assinada com atendimento autenticado, QR impresso ou
+  leitor/app nativo, conforme homologação.
+- Cliente já cadastrado: localizar, verificar débitos e reutilizar o cadastro
+  histórico; não recriar a identidade nem transferir dívida.
+- Cliente novo: cadastrar e vincular cartão ao tenant numa transação única,
+  auditada, verificando token pré-provisionado e estado livre. Duas leituras ou
+  duas tentativas simultâneas não podem associar o mesmo cartão a duas pessoas.
+- Um cartão deve voltar ao estoque **somente depois de desassociado com
+  autorização**; vínculos e tokens antigos são revogados e históricos
+  financeiros permanecem no cliente anterior.
+- O fluxo atual do PR #396 ainda é `cadastro -> emissão -> gravação`, **não
+  representa a recepção final desejada**. Precisamos implementar os cartões
+  pré-provisionados, a UI de recepção e o vínculo atômico antes de afirmar que
+  a aproximação inicial funciona nos dois sistemas.
