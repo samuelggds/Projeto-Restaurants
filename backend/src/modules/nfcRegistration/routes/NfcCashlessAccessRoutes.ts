@@ -53,9 +53,9 @@ router.post('/staff/comandas/:id/access-code', authMiddleware, nfcRegistrationAc
     const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     const result = await prisma.$transaction(async tx => {
       await setTenantDbContext(tx, restaurantId);
-      const rows = await tx.$queryRaw<Array<{ id: string }>>\`
-        SELECT "id" FROM "NfcComanda" WHERE "restaurantId" = \${restaurantId}
-          AND "id" = \${comandaId}::uuid FOR UPDATE\`;
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcComanda" WHERE "restaurantId" = ${restaurantId}
+          AND "id" = ${comandaId}::uuid FOR UPDATE`;
       if (!rows.length) throw new VisitError(404, 'Comanda indisponível.');
       const comanda = await tx.nfcComanda.findFirst({ where: { id: comandaId, restaurantId, status: 'OPEN' },
         select: { id: true, customerId: true, tableNumber: true } });
@@ -110,9 +110,9 @@ router.post('/guest/verify', ...guestGuards, async (req, res) => {
       await setTenantDbContext(tx, restaurantId);
       const tableNumber = await loadTableNumber(tx, restaurantId, tableSession.tableId);
       // Serialize attempts across concurrent workers. Invalid attempts persist, including at the limit.
-      const rows = await tx.$queryRaw<Array<{ id: string }>>\`
-        SELECT "id" FROM "NfcComandaAccess" WHERE "restaurantId" = \${restaurantId}
-          AND "comandaId" = \${input.comandaId}::uuid AND "revokedAt" IS NULL FOR UPDATE\`;
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcComandaAccess" WHERE "restaurantId" = ${restaurantId}
+          AND "comandaId" = ${input.comandaId}::uuid AND "revokedAt" IS NULL FOR UPDATE`;
       if (!rows.length) throw new VisitError(403, 'Código ou comanda inválidos.');
       const access = await tx.nfcComandaAccess.findFirst({ where: { id: rows[0].id, restaurantId } });
       const comanda = await tx.nfcComanda.findFirst({ where: { restaurantId, id: input.comandaId, status: 'OPEN' },
