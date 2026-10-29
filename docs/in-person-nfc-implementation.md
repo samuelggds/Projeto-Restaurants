@@ -110,3 +110,65 @@ mantém o direito de concluir atendimentos anteriores.
 - A numeração da mesa não integra o perfil do cliente: entrará com as sessões.
 - Ainda pendente: testes de banco multi-tenant reais, geração de Prisma Client,
   revisão de segurança/arquitetura, programação e ativação NDEF, E2E e CI.
+
+
+### Regra de liquidação, bloqueio por inadimplência e reuso físico de cartões — 29/10/2026
+
+**Decisão funcional aprovada:** dívida é do **cliente NFC dentro de um restaurante**,
+e não do cartão nem da mesa. Nenhuma dívida será transferida ao próximo
+portador de um cartão físico.
+
+1. `OPEN`: a comanda atual pode receber pedidos enquanto a sessão estiver
+   autorizada. O saldo em aberto da **mesma visita** não gera bloqueio imediato.
+2. `UNPAID`: se o cliente deixa de pagar, o encerramento registra o saldo
+   pendente e bloqueia **novas sessões e novos pedidos** desse cliente naquele
+   restaurante. Bloqueio consultado no backend, independentemente do cartão.
+3. `PAYMENT_PENDING`: pagamento iniciado, mas ainda não confirmado pelo
+   gateway, **não desbloqueia** o cliente. Somente evidência de liquidação
+   confirmada pelo provedor ou por operador autorizado para dinheiro libera.
+4. `PAID`: quando o saldo devido chega a zero por pagamentos definitivamente
+   confirmados, o registro histórico é marcado como pago e a verificação de
+   bloqueio é refeita. Se ainda existir **qualquer outra comanda inadimplente**
+   desse cliente no mesmo restaurante, o bloqueio continua.
+5. Pagamento parcial reduz a dívida na contabilidade, sem alterar para
+   `PAID` ou liberar novas compras. Estorno ou contestação pode reabrir
+   pendência e reativar o bloqueio conforme o saldo efetivamente devido.
+6. A liberação automática **não é uma alteração de flag por pedido HTTP**:
+   deve ser resultado de conciliação atômica do ledger de pagamentos. Registrar
+   chave de idempotência única por restaurante, sessão e evento externo;
+   duplicatas de webhook, duplo clique e confirmações simultâneas não podem
+   contabilizar pagamento duas vezes.
+7. Ao devolver o cartão físico, a associação e o token NFC da visita anterior
+   devem ser **revogados** antes de reprogramar/reemitir outro identificador
+   aleatório e vincular a outro cliente. Uma comanda em aberto, dispositivo
+   extraviado ou gravação não confirmada impede reuso automático. O débito
+   não é apagado e nunca é associado ao próximo usuário do plástico.
+8. A tentativa de **abrir nova comanda** deve verificar o bloqueio **na
+   mesma transação**, com trava ou operação atômica sobre o cliente e as
+   comandas pendentes, impedindo duas aberturas concorrentes. O mesmo vale
+   para o fechamento, reatribuição do cartão e liquidação.
+9. A regra é sempre escopada a `restaurantId` derivado do usuário autenticado:
+   não existe blacklist global. Dados de outro restaurante não podem vazar nem
+   influenciar o bloqueio. No modo `BOTH`, só é possível aplicar essa regra a
+   QR Code e demais canais quando houver identificação confiável do **mesmo
+   cliente**; acesso anônimo não pode ser bloqueado por mera posse de cartão.
+10. Proibir exclusão de dívida como forma de liberar; ajustes legítimos,
+    estornos, renegociações e cancelamentos exigem autorização, justificativa
+    e trilha imutável. Não depender de texto exibido no frontend para autorizar.
+11. O bloqueio persiste até a dívida ser regularizada, sem um prazo arbitrário,
+    mas deve mostrar ao funcionário o valor pendente e um caminho para quitação.
+    Nenhum NFC ou cartão físico constitui autorização para cobrar ou alterar
+    valores sem validação do backend.
+
+**Critérios de teste da etapa de comandas:** cliente A inadimplente não pode
+abrir comanda no mesmo restaurante, mas pode em restaurante B; novo portador do
+cartão de A não herda a dívida; pagar parcial mantém bloqueio; pagar integral
+libera somente se todas as dívidas foram quitadas; pagamentos simultâneos e
+webhooks duplicados não geram crédito duplicado; devolução/estorno restabelece
+pendência; troca ou perda de cartão não muda o débito; duas aberturas concorrentes
+não podem contornar o bloqueio.
+
+**Estado atual:** essa regra foi registrada para a etapa 3/4. O PR #396 ainda
+não implementa sessões financeiras NFC, pagamentos, liberação automática ou
+movimentação de estoque NFC. Essas operações permanecerão desabilitadas até
+o fluxo contábil completo, a reconciliação e os E2E de segurança.
