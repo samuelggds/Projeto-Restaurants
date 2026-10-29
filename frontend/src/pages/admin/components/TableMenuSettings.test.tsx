@@ -58,6 +58,25 @@ describe('TableMenuSettings', () => {
     );
   }
 
+  it('exibe três modalidades sem permitir ativar NFC antes da homologação', async () => {
+    await renderSettings();
+
+    const qrOnly = container.querySelector<HTMLInputElement>(
+      'input[name="inPersonServiceMode"][value="QR_ONLY"]',
+    );
+    const nfcOnly = container.querySelector<HTMLInputElement>(
+      'input[name="inPersonServiceMode"][value="NFC_ONLY"]',
+    );
+    const both = container.querySelector<HTMLInputElement>(
+      'input[name="inPersonServiceMode"][value="BOTH"]',
+    );
+    expect(qrOnly?.checked).toBe(true);
+    expect(qrOnly?.disabled).toBe(false);
+    expect(nfcOnly?.disabled).toBe(true);
+    expect(both?.disabled).toBe(true);
+    expect(container.textContent).toContain('Em desenvolvimento');
+  });
+
   it('reflete os recursos operacionais do cardápio de mesa', async () => {
     await renderSettings();
 

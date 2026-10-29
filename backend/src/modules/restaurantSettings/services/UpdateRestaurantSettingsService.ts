@@ -5,6 +5,7 @@ import prisma from '../../../config/prisma.js';
 import orderCapacityQueueService from '../../orders/services/OrderCapacityQueueService.js';
 import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
+import { normalizeInPersonServiceMode } from '../utils/inPersonServiceMode.js';
 import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
@@ -46,6 +47,7 @@ type UpdateRestaurantSettingsPayload = {
   openFinancePixEnabled?: boolean;
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
+  inPersonServiceMode?: unknown;
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   pixProvider?: string;
@@ -191,6 +193,7 @@ class UpdateRestaurantSettingsService {
     openFinancePixEnabled,
     acceptsCard,
     tableOrderingEnabled,
+    inPersonServiceMode,
     waiterCallEnabled,
     billRequestEnabled,
     pixProvider,
@@ -593,6 +596,10 @@ class UpdateRestaurantSettingsService {
         tableOrderingEnabled === undefined
           ? undefined
           : normalizeStrictBoolean(tableOrderingEnabled, 'Pedidos por QR Code', true),
+      inPersonServiceMode:
+        inPersonServiceMode === undefined
+          ? undefined
+          : normalizeInPersonServiceMode(inPersonServiceMode),
       waiterCallEnabled:
         waiterCallEnabled === undefined
           ? undefined

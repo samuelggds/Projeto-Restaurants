@@ -8,6 +8,16 @@ import {
 } from './Admin';
 
 describe('mapeamento das configurações administrativas', () => {
+  it('mantém QR Code como padrão e preserva a preferência de atendimento no ciclo da API', () => {
+    expect(mapSettingsFromApi({ restaurant: {} }).inPersonServiceMode).toBe('QR_ONLY');
+    expect(mapSettingsFromApi({ inPersonServiceMode: 'INVALID' }).inPersonServiceMode).toBe('QR_ONLY');
+    for (const inPersonServiceMode of ['QR_ONLY', 'NFC_ONLY', 'BOTH'] as const) {
+      const settings = mapSettingsFromApi({ inPersonServiceMode });
+      expect(settings.inPersonServiceMode).toBe(inPersonServiceMode);
+      expect(mapSettingsToApi(settings).inPersonServiceMode).toBe(inPersonServiceMode);
+    }
+  });
+
   it('resolve o slug da loja pública a partir do restaurante autenticado', () => {
     expect(
       restaurantSlugFromSettingsResponse({

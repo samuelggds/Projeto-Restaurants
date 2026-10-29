@@ -90,6 +90,32 @@ export const Hero = styled.section`
   }
 `;
 
+export const ServiceModeGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  @media (max-width: 850px) { grid-template-columns: 1fr; }
+`;
+
+export const ServiceModeOption = styled.label<{ $selected: boolean }>`
+  display: flex;
+  gap: 12px;
+  padding: 17px;
+  min-width: 0;
+  border: 1px solid ${({ $selected }) => ($selected ? '#d64d08' : 'var(--border)')};
+  border-radius: 14px;
+  background: ${({ $selected }) => ($selected ? '#fff6ee' : '#fff')};
+  cursor: pointer;
+  input { margin: 4px 0 0; flex: 0 0 auto; accent-color: #d64d08; }
+  div { display: grid; gap: 5px; min-width: 0; }
+  strong { color: #1f2937; font-size: 14px; line-height: 1.3; }
+  span { color: #626c78; font-size: 12px; line-height: 1.45; }
+  small { color: #965120; font-size: 11px; font-weight: 700; }
+  &:has(input:disabled) { cursor: not-allowed; background: #f7f7f7; border-color: #e5e7eb; }
+  &:focus-within { outline: 2px solid #d64d08; outline-offset: 2px; }
+`;
+
 export const SetupGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);

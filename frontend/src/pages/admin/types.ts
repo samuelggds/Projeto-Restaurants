@@ -341,6 +341,7 @@ export type AdminSettings = {
   soundNotifications: boolean;
   maxConcurrentOrders: number;
   tableOrderingEnabled: boolean;
+  inPersonServiceMode: 'QR_ONLY' | 'NFC_ONLY' | 'BOTH';
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
   tableAccount: TableAccountAdminSettings;

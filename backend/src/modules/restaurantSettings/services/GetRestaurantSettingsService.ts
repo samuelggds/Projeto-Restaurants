@@ -23,6 +23,7 @@ type RestaurantSettingsFallback = {
   openFinancePixEnabled: boolean;
   acceptsCard: boolean;
   tableOrderingEnabled: boolean;
+  inPersonServiceMode: 'QR_ONLY' | 'NFC_ONLY' | 'BOTH';
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
   pixProvider: string;
@@ -130,6 +131,7 @@ class GetRestaurantSettingsService {
         openFinancePixEnabled: false,
         acceptsCard: true,
         tableOrderingEnabled: true,
+        inPersonServiceMode: 'QR_ONLY',
         waiterCallEnabled: true,
         billRequestEnabled: true,
         pixProvider: 'MERCADO_PAGO',
