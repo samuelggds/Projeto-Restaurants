@@ -555,6 +555,21 @@ export async function deliverNotificationOutbox(db: Database = prisma, send: typ
   const processRow = async (row: Row) => {
     try {
       const message = JSON.parse(decryptCredential(row.payload, context(row.id)) || '') as Message;
+      if (message.metadata.event === 'NFC_VISIT_ACCESS_CODE') {
+        const credentialId = String(message.metadata.credentialId || '');
+        if (!/^[0-9a-f-]{36}$/iu.test(credentialId)) throw new Error('Invalid visit message');
+        const credentials = await db.$queryRaw<Array<{ id: string }>>`
+          SELECT "id" FROM "NfcComandaAccess"
+          WHERE "restaurantId" = ${row.restaurantId} AND "id" = ${credentialId}::uuid
+            AND "revokedAt" IS NULL AND "whatsappConsentAt" IS NOT NULL
+            AND "expiresAt" > NOW() LIMIT 1`;
+        if (!credentials.length) {
+          await db.$executeRaw`UPDATE "NotificationOutbox" SET "status" = 'DISCARDED',
+            "payload" = NULL, "completedAt" = clock_timestamp(), "lockedUntil" = NULL,
+            "lockToken" = NULL WHERE "id" = ${row.id}::uuid AND "lockToken" = ${lockToken}::uuid`;
+          return;
+        }
+      }
       const settings = await db.restaurantSettings.findUnique({
         where: { restaurantId: row.restaurantId },
         select: { whatsappEnabled: true, receiveStatusNotifications: true },
