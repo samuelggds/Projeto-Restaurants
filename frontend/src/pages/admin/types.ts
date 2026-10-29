@@ -343,6 +343,7 @@ export type AdminSettings = {
   maxConcurrentOrders: number;
   tableOrderingEnabled: boolean;
   inPersonServiceMode: 'QR_ONLY' | 'NFC_ONLY' | 'BOTH';
+  nfcDebtDeadlineMode: 'TWENTY_FOUR_HOURS' | 'BUSINESS_CLOSING';
   waiterCallEnabled: boolean;
   billRequestEnabled: boolean;
   tableAccount: TableAccountAdminSettings;
