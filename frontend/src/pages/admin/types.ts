@@ -23,6 +23,7 @@ export type SettingsSection =
   | 'delivery'
   | 'table'
   | 'table-account'
+  | 'nfc-registration'
   | 'whatsapp'
   | 'printing'
   | 'employee-payments'

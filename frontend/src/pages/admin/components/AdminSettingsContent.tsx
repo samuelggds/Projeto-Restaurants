@@ -25,6 +25,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { PromotionsSettings } from './PromotionsSettings';
 import { TableAccountSettings } from './TableAccountSettings';
+import { NfcRegistrationPanel } from '../../shared/NfcRegistrationPanel';
 import { KitchenPrintingSettings } from './KitchenPrintingSettings';
 import { PremiumTableFeatureGate } from './PremiumTableFeatureGate';
 
@@ -111,6 +112,7 @@ export function AdminSettingsContent(props: Props) {
           <TableMenuSettings settings={settings} update={update} />
         </PremiumTableFeatureGate>
       );
+    if (section === 'nfc-registration') return <NfcRegistrationPanel roleLabel="administrador" />;
     if (section === 'table-account')
       return (
         <PremiumTableFeatureGate>

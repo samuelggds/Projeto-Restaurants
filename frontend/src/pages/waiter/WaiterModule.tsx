@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  ContactRound,
   LayoutGrid,
   LogOut,
   MoreHorizontal,
@@ -26,6 +27,7 @@ import { WaiterPaymentsPage } from './pages/WaiterPaymentsPage';
 import * as S from './Waiter.styles';
 import * as N from './WaiterNavigation.styles';
 import { EmployeeHelpCenter } from '../../features/employee-help/EmployeeHelpCenter';
+import { NfcRegistrationPanel } from '../shared/NfcRegistrationPanel';
 import { reportEmployeeIssue } from '../../features/employee-help/reportEmployeeIssue';
 import { useEmployeeIssueNotifications } from '../../features/employee-help/useEmployeeIssueNotifications';
 import { useDialogFocusManagement } from '../../shared/hooks/useDialogFocusManagement';
@@ -33,7 +35,7 @@ import { getWaiterOperatingStatus } from './domain/restaurantOperatingStatus';
 import { badgeDisplayCount, waiterNavigationCounters } from './domain/waiterNavigationCounters';
 import { useRestaurantAvailabilityClock } from '../Home/hooks/useHomePageRuntime';
 
-export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments';
+export type WaiterView = 'overview' | 'deliveries' | 'tables' | 'calls' | 'payments' | 'nfc-registration';
 export interface WaiterModuleProps extends BaseProps {
   initialView?: WaiterView;
   onViewChange?: (view: WaiterView) => void;
@@ -120,6 +122,7 @@ function WaiterShell({
     ['tables', 'Mesas e QR Codes', 'Mesas', QrCode, 0],
     ['calls', 'Chamados', 'Chamados', BellRing, activeCallCount],
     ['payments', 'Pagamentos', 'Pagamentos', CreditCard, pendingPaymentCount],
+    ['nfc-registration', 'Clientes NFC', 'NFC', ContactRound, 0],
   ] as const;
   const titles: Record<WaiterView | 'help', [string, string]> = {
     overview: ['Visão geral', 'Área operacional exclusiva do garçom'],
@@ -127,6 +130,7 @@ function WaiterShell({
     tables: ['Mesas e QR Codes', 'Abra e feche as mesas cadastradas pelo administrador'],
     calls: ['Chamados', 'Atenda rapidamente as solicitações do salão'],
     payments: ['Pagamentos', 'Confira contas e confirme recebimentos presenciais'],
+    'nfc-registration': ['Clientes e cartões NFC', 'Cadastre clientes e prepare cartões de consumo'],
     help: ['Central de ajuda', 'Manual visual da operação do garçom'],
   };
   const Page =
@@ -138,6 +142,7 @@ function WaiterShell({
           tables: WaiterTablesPage,
           calls: WaiterCallsPage,
           payments: WaiterPaymentsPage,
+          'nfc-registration': NfcRegistrationPanel,
         }[view];
   const [title, subtitle] = titles[view];
   return (

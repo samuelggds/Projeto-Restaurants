@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   PackagePlus,
   Truck,
+  ContactRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { AttendantView } from '../types';
@@ -65,6 +66,12 @@ export const viewMeta: Record<
     title: 'Reservas de mesas',
     subtitle: 'Gerencie reservas, check-in, ausências e histórico do restaurante.',
     icon: CalendarDays,
+  },
+  'nfc-registration': {
+    label: 'Clientes NFC',
+    title: 'Cadastro de clientes e cartões',
+    subtitle: 'Cadastre clientes e prepare cartões individuais NFC.',
+    icon: ContactRound,
   },
   calls: {
     label: 'Chamados',
