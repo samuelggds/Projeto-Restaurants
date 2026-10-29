@@ -88,10 +88,10 @@ export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { cu
         <div className="tile"><small>Saldo em dívida</small><strong>{money(state.outstandingCents)}</strong></div>
         <div className="tile"><small>Comandas cadastradas</small><strong>{state.comandas.length}</strong></div>
       </div>
-      {state.blocked && <p className="warning">Cliente possui comanda inadimplente neste restaurante. Novas comandas ficam bloqueadas até quitação.</p>}
+      {state.blocked && <p className="warning">Cliente possui saldo vencido neste restaurante. Novas comandas ficam bloqueadas até quitação.</p>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => setSelectedId(comanda.id)}>
-          <span><strong>Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
+          <span><strong>Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · Vence: {dateTime(comanda.dueAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
           <span><span className={`status ${comanda.status === 'PAID' ? 'paid' : comanda.status === 'UNPAID' ? 'unpaid' : 'open'}`}>{label(comanda.status)}</span><small>{money(comanda.totalCents)}</small></span>
         </button>)}
         {!state.comandas.length && <p className="info">Este cliente ainda não possui comandas NFC registradas.</p>}
@@ -103,6 +103,7 @@ export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { cu
         <div className="content">
           <div>
             <div className="pair"><span>Abertura</span><b>{dateTime(selected.openedAt)}</b></div>
+            <div className="pair"><span>Prazo para pagamento</span><b>{dateTime(selected.dueAt)}</b></div>
             <div className="pair"><span>Encerramento</span><b>{dateTime(selected.closedAt)}</b></div>
             <div className="pair"><span>Quitação</span><b>{dateTime(selected.paidAt)}</b></div>
           </div>
