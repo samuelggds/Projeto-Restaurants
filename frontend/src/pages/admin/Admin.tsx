@@ -439,6 +439,12 @@ export function mapSettingsFromApi(
     tableOrderingEnabled: Boolean(
       raw?.tableOrderingEnabled ?? adminMockSettings.tableOrderingEnabled,
     ),
+    inPersonServiceMode:
+      raw?.inPersonServiceMode === 'NFC_ONLY'
+        ? 'NFC_ONLY'
+        : raw?.inPersonServiceMode === 'BOTH'
+          ? 'BOTH'
+          : 'QR_ONLY',
     waiterCallEnabled: raw?.waiterCallEnabled !== false,
     billRequestEnabled: raw?.billRequestEnabled !== false,
     tableAccount: mapTableAccountSettingsFromApi(tableAccountRaw),
@@ -550,6 +556,7 @@ export function mapSettingsToApi(settings: AdminSettings): Record<string, unknow
     soundNotifications: settings.soundNotifications,
     maxConcurrentOrders: settings.maxConcurrentOrders,
     tableOrderingEnabled: settings.tableOrderingEnabled,
+    inPersonServiceMode: settings.inPersonServiceMode,
     waiterCallEnabled: settings.waiterCallEnabled,
     billRequestEnabled: settings.billRequestEnabled,
     fontFamily: settings.fontFamily,

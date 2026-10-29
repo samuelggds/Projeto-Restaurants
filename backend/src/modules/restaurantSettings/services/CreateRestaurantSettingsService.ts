@@ -4,6 +4,7 @@ import restaurantSettingsRepository from '../repositories/RestaurantSettingsRepo
 import prisma from '../../../config/prisma.js';
 import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
+import { normalizeInPersonServiceMode } from '../utils/inPersonServiceMode.js';
 import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
@@ -50,6 +51,7 @@ type CreateRestaurantSettingsPayload = {
   openFinancePixEnabled?: boolean;
   acceptsCard?: boolean;
   tableOrderingEnabled?: boolean;
+  inPersonServiceMode?: unknown;
   waiterCallEnabled?: boolean;
   billRequestEnabled?: boolean;
   pixProvider?: string;
@@ -137,6 +139,7 @@ class CreateRestaurantSettingsService {
     openFinancePixEnabled,
     acceptsCard,
     tableOrderingEnabled,
+    inPersonServiceMode,
     waiterCallEnabled,
     billRequestEnabled,
     pixProvider,
@@ -406,6 +409,7 @@ class CreateRestaurantSettingsService {
         'Pedidos por QR Code',
         true,
       ),
+      inPersonServiceMode: normalizeInPersonServiceMode(inPersonServiceMode),
       waiterCallEnabled: normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
       billRequestEnabled: normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
       pixProvider: requestedPixProvider,

@@ -1566,6 +1566,7 @@ model RestaurantSettings {
   acceptsPix            Boolean         @default(true)
   acceptsCard           Boolean         @default(true)
   tableOrderingEnabled  Boolean         @default(true)
+  inPersonServiceMode   InPersonServiceMode @default(QR_ONLY)
   waiterCallEnabled     Boolean         @default(true)
   billRequestEnabled    Boolean         @default(true)
 
@@ -2328,6 +2329,12 @@ enum OrderStatus {
   SAIU_PARA_ENTREGA
   ENTREGUE
   CANCELADO
+}
+
+enum InPersonServiceMode {
+  QR_ONLY
+  NFC_ONLY
+  BOTH
 }
 
 enum OrderType {

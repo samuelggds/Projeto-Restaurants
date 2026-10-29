@@ -51,6 +51,27 @@ function validateTableNumber(value: string) {
   return '';
 }
 
+const IN_PERSON_SERVICE_MODES = [
+  {
+    value: 'QR_ONLY',
+    label: 'Somente QR Code de mesa',
+    description: 'Mantém o cardápio por mesa e o atendimento atual, sem mudanças.',
+    available: true,
+  },
+  {
+    value: 'NFC_ONLY',
+    label: 'Somente cartão NFC',
+    description: 'Comandas individuais por cliente, mesa opcional e couvert configurável.',
+    available: false,
+  },
+  {
+    value: 'BOTH',
+    label: 'QR Code e cartão NFC',
+    description: 'Disponibiliza as duas formas de atendimento no mesmo restaurante.',
+    available: false,
+  },
+] as const;
+
 export function TableMenuSettings({ settings, update }: Props) {
   const [tables, setTables] = useState<AdminTableQrRecord[]>([]);
   const [number, setNumber] = useState('');
@@ -252,6 +273,36 @@ export function TableMenuSettings({ settings, update }: Props) {
           <QrCode />
         </span>
       </T.Hero>
+
+      <S.Card>
+        <h2>Modalidade de atendimento presencial</h2>
+        <p>
+          Escolha como o restaurante vai operar. Os cartões NFC individuais estão em implementação:
+          até sua homologação, o QR Code continua como única opção ativa.
+        </p>
+        <T.ServiceModeGrid role="radiogroup" aria-label="Modalidade de atendimento presencial">
+          {IN_PERSON_SERVICE_MODES.map((option) => (
+            <T.ServiceModeOption
+              key={option.value}
+              $selected={settings.inPersonServiceMode === option.value}
+            >
+              <input
+                type="radio"
+                name="inPersonServiceMode"
+                value={option.value}
+                checked={settings.inPersonServiceMode === option.value}
+                disabled={!option.available}
+                onChange={() => update('inPersonServiceMode', option.value)}
+              />
+              <div>
+                <strong>{option.label}</strong>
+                <span>{option.description}</span>
+                {!option.available && <small>Em desenvolvimento — indisponível para ativação</small>}
+              </div>
+            </T.ServiceModeOption>
+          ))}
+        </T.ServiceModeGrid>
+      </S.Card>
 
       <T.SetupGrid>
         <T.CreateCard>

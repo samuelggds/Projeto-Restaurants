@@ -64,6 +64,7 @@ export const adminMockSettings: AdminSettings = {
   soundNotifications: true,
   maxConcurrentOrders: 20,
   tableOrderingEnabled: true,
+  inPersonServiceMode: 'QR_ONLY',
   waiterCallEnabled: true,
   billRequestEnabled: true,
   tableAccount: {
