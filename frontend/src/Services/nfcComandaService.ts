@@ -40,9 +40,6 @@ class NfcComandaService {
     if (!result.data?.queued) throw new Error('Não foi possível enfileirar o acesso no WhatsApp.');
     return result.data;
   }
-  async confirmCash(paymentId: string) {
-    const result = await api.post(`/nfc-comandas/payments/${encodeURIComponent(paymentId)}/confirm-cash`, {});
-    return result.data;
-  }
+
 }
 export default new NfcComandaService();
