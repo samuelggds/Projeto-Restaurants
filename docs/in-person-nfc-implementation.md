@@ -228,3 +228,31 @@ digital NFC ainda não foram habilitados neste PR.
 Testes adicionais: turno com fechamento no mesmo dia; turno atravessando
 meia-noite; horário fora de expediente; agenda não configurada; 24h como
 padrão; isolamento por tenant e concorrência na abertura de comandas.
+
+
+### Fluxo de entrada do cliente e vínculo por NFC
+
+1. O garçom, atendente ou ADMIN autenticado recebe o cliente e lhe entrega um
+   cartão NTAG213/216 gravável. Se o cliente ainda não existir neste restaurante,
+   registra nome, CPF válido e telefone; caso exista, localiza pelo CPF.
+2. O colaborador emite um identificador aleatório em estado `PENDING_WRITE`.
+   Nome, CPF e telefone ficam criptografados no banco, nunca no chip.
+3. Em um Android compatível, Chrome e HTTPS, o colaborador grava no NFC um
+   identificador URL NDEF. Uma **nova leitura** do mesmo cartão deve retornar
+   exatamente o token recém-emitido para autorizar a ativação no backend.
+4. A API `POST /nfc-registration/cards/:id/activate` compara o hash do token,
+   exige o mesmo `restaurantId`, estado `PENDING_WRITE`, efetua a transição
+   atômica para `ACTIVE` e grava auditoria do operador. Tentativas duplicadas
+   não criam novo cartão.
+5. A leitura `POST /nfc-registration/cards/resolve` permite identificar apenas
+   cartões `ACTIVE` do próprio restaurante. Uma URL NDEF não autoriza nenhuma
+   mutação sem autenticação/RBAC.
+6. Cartões revogados são rejeitados; uma reutilização exige um novo token,
+   outra programação e nova confirmação física, sem transferir débito/histórico.
+7. Navegadores que não ofereçam Web NFC exibem uma mensagem de
+   incompatibilidade, nunca ativam um cartão automaticamente.
+8. Ativação física não implica abertura de comanda, pedido, baixa de estoque
+   ou pagamento. Esses processos exigem fluxo próprio e homologação.
+
+**Validação pendente:** testes E2E com aparelhos Android físicos e cartões
+regraváveis, verificação de NFC clonado e rate limit contra enumeração.
