@@ -80,6 +80,7 @@ class TableRepository {
             slug: true,
             settings: {
               select: {
+                inPersonServiceMode: true,
                 tableOrderingEnabled: true,
                 waiterCallEnabled: true,
                 billRequestEnabled: true,
