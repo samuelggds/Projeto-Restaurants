@@ -172,3 +172,32 @@ não podem contornar o bloqueio.
 não implementa sessões financeiras NFC, pagamentos, liberação automática ou
 movimentação de estoque NFC. Essas operações permanecerão desabilitadas até
 o fluxo contábil completo, a reconciliação e os E2E de segurança.
+
+### Prazo automático de quitação — 29/10/2026
+
+- A primeira versão usa **24 horas corridas a partir da abertura da comanda**.
+  `dueAt` fica persistido no banco como timestamp UTC, não depende da hora do
+  celular ou da aba aberta. Uma futura configuração por restaurante precisará
+  ter migração e critérios de congelamento do prazo por visita.
+- Até `dueAt`, a comanda `OPEN` com saldo em aberto **não bloqueia novos itens
+  na mesma visita**. O módulo de pedidos NFC, quando habilitado, deverá verificar
+  a comanda ativa, mesmo após reload, sem criar outra.
+- Assim que `dueAt <= NOW()` e houver saldo pendente, a elegibilidade passa
+  a **bloqueada** para novos atendimentos/pedidos NFC do mesmo cliente e tenant,
+  mesmo que nenhum operador tenha encerrado a comanda. A verificação é derivada
+  da dívida no backend, sem depender de cron, cache ou flag persistida.
+- Comanda encerrada antes do prazo sem quitação pode permanecer `UNPAID` e
+  continua registrada como devida, mas deve respeitar o prazo original para
+  bloquear o cliente. O prazo não é reiniciado por fechamento ou troca de cartão.
+- Pagamento parcial não reinicia a contagem e a liberação depende de quitação
+  integral confirmada. Nunca considerar pagamento em `PENDING` como liquidado.
+- Reutilização do cartão exige revogação do vínculo anterior, sempre mantendo
+  dívida e histórico no cliente anterior.
+- Critérios: 23h59m com débito ainda liberado; 24h exatas com débito bloqueado;
+  quitado antes do vencimento não bloqueia; mesmo CPF em outro restaurante não
+  é afetado; tentativas simultâneas não contornam a verificação transacional.
+
+**Atenção:** a abertura de uma **nova** comanda continua proibida quando já
+existe outra `OPEN`, mesmo antes do vencimento. O cliente deve **continuar na
+mesma comanda** para consumir. Lançamento de produtos e integração de pagamento
+digital NFC ainda não foram habilitados neste PR.
