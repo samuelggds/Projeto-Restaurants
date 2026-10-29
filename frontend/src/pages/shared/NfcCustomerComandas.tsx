@@ -57,6 +57,8 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [tableNumber, setTableNumber] = useState('');
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  const [visitNotice, setVisitNotice] = useState('');
   const reload = useCallback(async () => {
     const response = await nfcComandaService.customerComandas(customerId);
     setState(response);
@@ -82,8 +84,17 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
       if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 100000)) {
         throw new Error('Número da mesa inválido.');
       }
-      await nfcComandaService.open(customerId, cardId, parsed);
+      const created = await nfcComandaService.open(customerId, cardId, parsed);
+      if (whatsappConsent && parsed !== null) {
+        try {
+          await nfcComandaService.sendVisitAccessCode(created.id);
+          setVisitNotice('Código de acesso enfileirado para o WhatsApp autorizado.');
+        } catch {
+          setVisitNotice('Comanda aberta, mas não foi possível enviar o código. Confira o WhatsApp do restaurante.');
+        }
+      }
       await reload();
+      setWhatsappConsent(false);
       setTableNumber('');
     } catch {
       setError('Não foi possível abrir a comanda. Confira se o cartão está ativo e se o cliente possui pendências.');
@@ -100,6 +111,7 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
     {!state && !error && <p role="status">Carregando comandas...</p>}
     {error && <p className="warning" role="alert"><ShieldAlert size={16} /> {error}</p>}
     {state && <>
+      {visitNotice && <p role="status" className="info">{visitNotice}</p>}
       <div className="summary">
         <div className="tile"><small>Situação do cliente</small><strong>{state.blocked ? 'Bloqueado' : state.hasOpenComanda ? 'Em atendimento' : 'Liberado'}</strong></div>
         <div className="tile"><small>Saldo em dívida</small><strong>{money(state.outstandingCents)}</strong></div>
@@ -118,6 +130,11 @@ export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false
             Abrir comanda
           </button>
         </div>
+        <label className="info" style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <input type="checkbox" checked={whatsappConsent} onChange={event => setWhatsappConsent(event.target.checked)} />
+          Cliente autorizou receber o código temporário desta visita no WhatsApp cadastrado.
+        </label>
+        <p className="info">O envio automático exige uma mesa informada e integração WhatsApp ativa.</p>
       </div>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => setSelectedId(comanda.id)}>
