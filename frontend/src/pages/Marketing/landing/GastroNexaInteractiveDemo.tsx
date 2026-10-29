@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import './GastroNexaInteractiveDemo.css';
 
-type Mode = 'delivery' | 'mesas' | 'gestao';
+type Mode = 'delivery' | 'mesas' | 'nfc';
 const modes: { id: Mode; title: string }[] = [
   { id: 'delivery', title: '🛵 Delivery' },
   { id: 'mesas', title: '▦ QR Code na mesa' },
-  { id: 'gestao', title: '▤ Gestão de pedidos' },
+  { id: 'nfc', title: '◉ Cashless NFC' },
 ];
 const products = [
   { name: 'Smash da casa', emoji: '🍔', price: 3290 },
@@ -16,7 +16,7 @@ const products = [
 const copy: Record<Mode, string[]> = {
   delivery: ['Escolha os produtos do cardápio', 'Confira o carrinho e os valores', 'Pedido registrado na operação', 'Acompanhe o andamento'],
   mesas: ['Acesse o cardápio pelo QR da mesa', 'Confira os itens da mesa 08', 'Envie o pedido à equipe', 'Acompanhe o atendimento'],
-  gestao: ['Pedido recebido pela operação', 'Confira os itens no painel', 'Encaminhe à cozinha', 'Acompanhe até a conclusão'],
+  nfc: ['Funcionário vincula o cartão ao cliente', 'Cliente utiliza o cartão para pedir', 'Consumo registrado na comanda', 'Pagamento Pix ou Point · em homologação'],
 };
 const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -43,7 +43,7 @@ export function GastroNexaInteractiveDemo() {
       <div className="gn-try-main">
         <div className="gn-try-copy">
           <span className="gn-try-chip">ETAPA {step + 1} DE 4 · DEMONSTRAÇÃO</span>
-          <h3>{mode === 'delivery' ? 'Um delivery organizado.' : mode === 'mesas' ? 'Autoatendimento pelo QR da mesa.' : 'Cada pedido no lugar certo.'}</h3>
+          <h3>{mode === 'delivery' ? 'Um delivery organizado.' : mode === 'mesas' ? 'Autoatendimento pelo QR da mesa.' : 'Um cartão. Sua comanda.'}</h3>
           <p>{mode === 'delivery' ? 'Uma experiência de compra simples para o cliente e uma operação clara para a equipe.' : mode === 'mesas' ? 'O cliente usa o cardápio da mesa, enquanto a equipe acompanha os pedidos.' : 'Veja como o pedido passa pelas etapas do restaurante.'}</p>
           <strong>{copy[mode][step]}</strong>
           <div className="gn-try-dots" aria-label="Etapas">
@@ -57,10 +57,10 @@ export function GastroNexaInteractiveDemo() {
         </div>
         <div className="gn-try-area">
           <div className="gn-try-phone">
-            <div className="gn-try-phoneheader">Gastro<span>Nexa</span><small>{mode === 'mesas' ? 'Mesa 08 · QR' : mode === 'gestao' ? 'Painel de pedidos' : 'Cardápio digital'}</small></div>
+            <div className="gn-try-phoneheader">Gastro<span>Nexa</span><small>{mode === 'mesas' ? 'Mesa 08 · QR' : mode === 'nfc' ? 'Recepção NFC · Prévia' : 'Cardápio digital'}</small></div>
             <div className="gn-try-body" key={mode + step}>
               {step === 0 && <>
-                <strong style={{fontSize:13,color:'#243a2d'}}>{mode === 'gestao' ? 'Pedido recebido' : 'Escolha seus produtos'}</strong>
+                <strong style={{fontSize:13,color:'#243a2d'}}>{mode === 'nfc' ? 'Pedido recebido' : 'Escolha seus produtos'}</strong>
                 {products.map((product,idx) => <button type="button" key={product.name} className="gn-try-product" onClick={() => choose(idx)} aria-pressed={selected.includes(idx)} style={{cursor:'pointer',background:selected.includes(idx)?'#fff3e6':'white'}}>
                   <span style={{fontSize:21}}>{product.emoji}</span><span style={{flex:1}}><b>{product.name}</b><small>{selected.includes(idx)?'✓ Selecionado':'Toque para escolher'}</small></span><strong>{money(product.price)}</strong>
                 </button>)}
@@ -80,7 +80,7 @@ export function GastroNexaInteractiveDemo() {
           </div>
         </div>
       </div>
-      <p className="gn-try-note">Demonstração ilustrativa e animada. Não movimenta dinheiro, não consulta clientes reais nem cria pedidos no restaurante. Os recursos disponíveis variam conforme o plano contratado.</p>
+      <p className="gn-try-note">Demonstração ilustrativa e animada. Cashless NFC ainda está em desenvolvimento e homologação financeira. Não movimenta dinheiro, não consulta clientes reais nem cria pedidos no restaurante. Os recursos disponíveis variam conforme o plano contratado.</p>
     </div>
   </section>;
 }
