@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { ArrowRight, ContactRound, CreditCard, RefreshCw, Search, ShieldAlert, ShieldCheck, Smartphone, UserPlus } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
+import { NfcLinkedCustomers } from './NfcLinkedCustomers';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Wrap = styled.section`
@@ -70,7 +71,7 @@ const Wrap = styled.section`
   .nfc-payment-note button svg { width: 17px; height: 17px; }
   .nfc-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #f3f5f6; border-radius: 13px; padding: 5px; }
   .nfc-tabs button { border: 0; border-radius: 9px; background: transparent; min-height: 47px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 9px; color: #6a7277; font: inherit; font-weight: 750; font-size: 13px; cursor: pointer; }
-  .nfc-tabs button[aria-selected="true"] { background: #fff; color: #c34f12; box-shadow: 0 2px 9px #20272b12; }
+  .nfc-tabs button[aria-selected="true"], .nfc-tabs button[aria-pressed="true"] { background: #fff; color: #c34f12; box-shadow: 0 2px 9px #20272b12; }
   .nfc-tabs button svg { width: 17px; height: 17px; }
   .nfc-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; align-items: end; }
   .nfc-form .nfc-wide { grid-column: 1 / -1; }
@@ -160,6 +161,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isUnassignedProvision, setIsUnassignedProvision] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [screen, setScreen] = useState<'registration' | 'linked'>('registration');
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
   const load = useCallback(async (nextPage: number) => {
@@ -285,6 +287,17 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
         </div>
       </header>
 
+      <nav className="nfc-tabs" aria-label="Áreas do atendimento NFC">
+        <button type="button" aria-current={screen === 'registration' ? 'page' : undefined}
+          aria-pressed={screen === 'registration'} onClick={() => setScreen('registration')}>
+          <UserPlus aria-hidden="true" /> Cadastro e cartões
+        </button>
+        <button type="button" aria-current={screen === 'linked' ? 'page' : undefined}
+          aria-pressed={screen === 'linked'} onClick={() => setScreen('linked')}>
+          <ContactRound aria-hidden="true" /> Clientes vinculados
+        </button>
+      </nav>
+      {screen === 'linked' ? <NfcLinkedCustomers /> : <>
       <div className="nfc-layout">
         <div className="nfc-main">
           <section className="surface" aria-labelledby="nfc-reader-title">
@@ -439,6 +452,7 @@ export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
           <button type="button" className="secondary" disabled={pending || page * 20 >= total} onClick={() => void load(page + 1)}>Próxima</button>
         </div>
       </section>
+      </>}
     </Wrap>
   );
 
