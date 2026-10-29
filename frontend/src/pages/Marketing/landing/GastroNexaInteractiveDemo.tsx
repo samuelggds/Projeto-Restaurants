@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, CreditCard, Play, Pause, RotateCcw, QrCode, Smartphone, ShoppingBag, Wifi } from 'lucide-react';
+import { Check, Play, Pause, RotateCcw, QrCode, ShoppingBag, Wifi } from 'lucide-react';
 import './GastroNexaInteractiveDemo.css';
 
 type Mode = 'delivery' | 'mesas' | 'nfc';
