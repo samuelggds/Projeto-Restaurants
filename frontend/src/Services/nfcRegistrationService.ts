@@ -59,6 +59,15 @@ class NfcRegistrationService {
     );
     return result.data.assignment;
   }
+  async returnPaidCard(token: string, cpf: string) {
+    const response = await api.post<{ released: true; cardId: string; displayCode: string; status: 'READY' }>(
+      '/nfc-registration/cards/return', { token, cpf },
+    );
+    if (!response.data?.released || response.data.status !== 'READY') {
+      throw new Error('Liberação do cartão não foi confirmada pelo servidor.');
+    }
+    return response.data;
+  }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
   }
