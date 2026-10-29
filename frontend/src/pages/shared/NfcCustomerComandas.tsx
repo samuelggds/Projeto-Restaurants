@@ -51,11 +51,12 @@ const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 
 const dateTime = (value?: string | null) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrado';
 const label = (status: NfcComanda['status']) => status === 'PAID' ? 'Paga' : status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento';
 
-export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { customerId: string; canConfirmCash?: boolean }) {
+export function NfcCustomerComandas({ customerId, cardId, canConfirmCash = false }: { customerId: string; cardId?: string; canConfirmCash?: boolean }) {
   const [state, setState] = useState<NfcCustomerComandas | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [tableNumber, setTableNumber] = useState('');
   const reload = useCallback(async () => {
     const response = await nfcComandaService.customerComandas(customerId);
     setState(response);
@@ -73,6 +74,21 @@ export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { cu
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, [selectedId]);
+  async function openComanda() {
+    if (busy || !cardId || state?.hasOpenComanda || state?.blocked) return;
+    setBusy(true); setError('');
+    try {
+      const parsed = tableNumber.trim() ? Number(tableNumber) : null;
+      if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > 100000)) {
+        throw new Error('Número da mesa inválido.');
+      }
+      await nfcComandaService.open(customerId, cardId, parsed);
+      await reload();
+      setTableNumber('');
+    } catch {
+      setError('Não foi possível abrir a comanda. Confira se o cartão está ativo e se o cliente possui pendências.');
+    } finally { setBusy(false); }
+  }
   async function confirm(paymentId: string) {
     if (busy || !window.confirm('Confirma que o restaurante recebeu este valor em dinheiro?')) return;
     setBusy(true); setError('');
@@ -90,6 +106,19 @@ export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { cu
         <div className="tile"><small>Comandas cadastradas</small><strong>{state.comandas.length}</strong></div>
       </div>
       {state.blocked && <p className="warning">Cliente possui saldo vencido neste restaurante. Novas comandas ficam bloqueadas até quitação.</p>}
+      {cardId && !state.hasOpenComanda && !state.blocked && <div className="tile">
+        <strong>Abrir comanda NFC</strong>
+        <p className="info">Informe a mesa apenas se o cliente estiver usando uma.</p>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input type="number" aria-label="Número da mesa opcional" min="1" max="100000"
+            value={tableNumber} onChange={e => setTableNumber(e.target.value)}
+            placeholder="Mesa (opcional)" style={{ padding: 9, border: '1px solid #d5dce2', borderRadius: 8, width: 145 }} />
+          <button type="button" disabled={busy} onClick={() => void openComanda()}
+            style={{ background: '#d65b14', color: '#fff', border: 0, padding: '10px 14px', borderRadius: 9, cursor: 'pointer' }}>
+            Abrir comanda
+          </button>
+        </div>
+      </div>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => setSelectedId(comanda.id)}>
           <span><strong>Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · Vence: {dateTime(comanda.dueAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
