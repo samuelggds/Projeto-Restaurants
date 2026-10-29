@@ -117,6 +117,7 @@ class ResolvePublicTableService {
       number: table.number,
       restaurantId: table.restaurantId,
       restaurantSlug: table.restaurant.slug,
+      inPersonServiceMode: settings?.inPersonServiceMode || 'QR_ONLY',
       tableOrderingEnabled: settings?.tableOrderingEnabled !== false,
       waiterCallEnabled: settings?.waiterCallEnabled !== false,
       billRequestEnabled: settings?.billRequestEnabled !== false,
