@@ -27,6 +27,8 @@ CREATE TABLE "NfcCard" (
   "tokenHash" CHAR(64) NOT NULL,
   "status" "NfcCardStatus" NOT NULL DEFAULT 'PENDING_WRITE',
   "issuedByUserId" INTEGER NOT NULL,
+  "activatedByUserId" INTEGER,
+  "activatedAt" TIMESTAMPTZ(3),
   "revokedByUserId" INTEGER,
   "revokedAt" TIMESTAMPTZ(3),
   "revokeReason" VARCHAR(160),
