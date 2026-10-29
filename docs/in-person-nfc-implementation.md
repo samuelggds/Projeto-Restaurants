@@ -2,7 +2,8 @@
 
 ## Registro de decisões — 29/10/2026
 
-Estado: **etapa 1 em implementação**, com liberação operacional somente do QR Code.
+Estado: **etapa 1 incorporada ao main**; etapa 2 de cadastro NFC em PR rascunho.
+A opção de pedidos NFC continua desabilitada até homologação completa.
 Este documento é o registro contínuo das regras acordadas. Alterações posteriores
 devem acrescentar decisões e testes em PRs pequenos, sem alterar as regras existentes
 sem uma decisão explícita.
@@ -72,3 +73,26 @@ mantém o direito de concluir atendimentos anteriores.
 - Mesa `null`, associação e transferência de mesa.
 - Troca de modalidade com atendimentos e pagamentos pendentes.
 - Fluxos QR existentes, WebKit/Chromium, backend E2E e CI sem redução de rigor.
+
+
+### Etapa 2 — cadastro seguro de clientes e cartões (PR incremental)
+
+- Um cadastro NFC pertence ao `restaurantId` autenticado e tem UUID público próprio,
+  separado de `User` (cliente delivery) e de qualquer comanda.
+- CPF é validado e único por restaurante; cliente não precisa fornecer e-mail/senha.
+- Nome, CPF e telefone são dados pessoais criptografados no banco; deduplicação
+  do CPF usa HMAC com segredo do servidor e escopo tenant, nunca CPF em claro.
+- Cartões são emitidos como `PENDING_WRITE`, recebem token aleatório de alta
+  entropia, guardado no banco **somente como hash**. O token de programação é
+  devolvido uma única vez após emissão.
+- A equipe autorizada grava no cartão um URL NDEF com esse token, confirma a
+  programação e o cartão passa a `ACTIVE`. Uma falha de gravação não ativa o
+  cartão. Tags clonadas continuam sem privilégio de funcionário.
+- Um cliente pode ter apenas um cartão pendente/ativo por vez; revogação e
+  reemissão não apagam cliente e histórico. Eventos auditáveis por funcionário.
+- Somente ADMIN, GARCOM e ATENDENTE autenticados têm acesso às operações NFC.
+  COZINHA, MOTOQUEIRO, CLIENTE e SUPER_ADMIN não entram por essas rotas.
+- Mesa opcional será registrada na **sessão da visita** (etapa 3), não no cadastro
+  permanente, para evitar relacionamentos incorretos.
+- Nenhuma alteração de `inPersonServiceMode` ou abertura de comanda é liberada
+  por este PR. Permanecem bloqueadas NFC_ONLY e BOTH até a homologação.
