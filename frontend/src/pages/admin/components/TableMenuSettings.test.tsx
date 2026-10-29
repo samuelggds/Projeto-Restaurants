@@ -58,7 +58,7 @@ describe('TableMenuSettings', () => {
     );
   }
 
-  it('exibe três modalidades sem permitir ativar NFC antes da homologação', async () => {
+  it('exibe três modalidades e permite ativar NFC ou ambos', async () => {
     await renderSettings();
 
     const qrOnly = container.querySelector<HTMLInputElement>(
@@ -72,9 +72,9 @@ describe('TableMenuSettings', () => {
     );
     expect(qrOnly?.checked).toBe(true);
     expect(qrOnly?.disabled).toBe(false);
-    expect(nfcOnly?.disabled).toBe(true);
-    expect(both?.disabled).toBe(true);
-    expect(container.textContent).toContain('Em desenvolvimento');
+    expect(nfcOnly?.disabled).toBe(false);
+    expect(both?.disabled).toBe(false);
+    expect(container.textContent).toContain('Somente cartão NFC');
   });
 
   it('reflete os recursos operacionais do cardápio de mesa', async () => {
