@@ -16,7 +16,6 @@ const openSchema = z.strictObject({
   cardId: z.uuid().optional(),
   tableNumber: z.number().int().positive().max(100000).nullable().optional(),
 });
-const cashSchema = z.strictObject({ amountCents: z.number().int().positive().max(100000000) });
 const requestKey = (value: unknown) => {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(value)) throw new NfcFinancialError(422, 'Idempotency-Key obrigatória e inválida.');
   return createHash('sha256').update(value).digest('hex');
@@ -75,7 +74,7 @@ async function assertNoPendingCash(tx: Prisma.TransactionClient, restaurantId: n
     where: { restaurantId, comandaId, method: PaymentMethod.DINHEIRO, status: 'PENDING' },
   });
   if (count !== 0) throw new NfcFinancialError(409,
-    'Existe recebimento em dinheiro aguardando confirmação. Confirme ou cancele antes de continuar.');
+    'Existe registro financeiro antigo de dinheiro pendente. Solicite ao administrador o cancelamento do registro antes de continuar.');
 }
 async function customerDebt(tx: Prisma.TransactionClient, restaurantId: number, customerId: string, now = new Date()) {
   const rows = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: [NfcComandaStatus.UNPAID, NfcComandaStatus.OPEN] }, dueAt: { lte: now } },
@@ -173,39 +172,9 @@ router.post('/:comandaId/close', async (req, res) => {
     return res.json({ status: updated });
   } catch (error) { return fail(res, error); }
 });
-router.post('/:comandaId/payments/cash', async (req, res) => {
-  try {
-    const restaurantId = tenant(req), comandaId = id(req.params.comandaId);
-    const { amountCents } = cashSchema.parse(req.body), key = requestKey(req.headers['idempotency-key']);
-    const fingerprint = createHash('sha256').update(String(amountCents) + ':CASH').digest('hex');
-    const result = await prisma.$transaction(async (tx) => {
-      await setTenantDbContext(tx, restaurantId);
-      await lockComanda(tx, restaurantId, comandaId);
-      const comanda = await tx.nfcComanda.findFirst({ where: { restaurantId, id: comandaId }, select: { id: true, customerId: true, status: true, totalCents: true, paidCents: true } });
-      if (!comanda) throw new NfcFinancialError(404, 'Comanda não encontrada.');
-      const old = await tx.nfcComandaPayment.findFirst({ where: { restaurantId, comandaId, requestKeyHash: key } });
-      if (old) {
-        if (old.requestFingerprint !== fingerprint) throw new NfcFinancialError(409, 'Chave de pagamento reutilizada com outro valor.');
-        return { paymentId: old.id, status: old.status };
-      }
-      if (comanda.status !== 'OPEN' && comanda.status !== 'UNPAID') {
-        throw new NfcFinancialError(409, 'Comanda já quitada.');
-      }
-      await assertNoActiveCashlessCheckout(tx, restaurantId, comandaId);
-      await assertNoPendingCash(tx, restaurantId, comandaId);
-      const due = comanda.totalCents - comanda.paidCents;
-      if (BigInt(amountCents) > due) throw new NfcFinancialError(422, 'Valor superior ao saldo devido.');
-      const payment = await tx.nfcComandaPayment.create({ data: { id: randomUUID(), restaurantId, comandaId,
-        amountCents: BigInt(amountCents), method: PaymentMethod.DINHEIRO, status: 'PENDING',
-        requestKeyHash: key, requestFingerprint: fingerprint, recordedByUserId: actor(req) } });
-      return { paymentId: payment.id, status: payment.status };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(201).json({ ...result, warning: 'Aguardando confirmação de recebimento pelo administrador.' });
-  } catch (error) { return fail(res, error); }
-});
-// Staff can release an unreceived cash reservation; this is not a refund.
-router.post('/payments/:paymentId/cancel-cash', async (req, res) => {
+// Legacy cleanup only: cancel a pre-existing, unconfirmed cash reservation. This never creates or credits cash.
+// New NFC payments accept exclusively Pix or Mercado Pago Point; do not add a manual approval path.
+router.post('/payments/:paymentId/cancel-legacy-cash', async (req, res) => {
   try {
     if (String(req.user.role) !== 'ADMIN') throw new NfcFinancialError(403, 'Somente o administrador pode cancelar recebimento de dinheiro.');
     const restaurantId = tenant(req), paymentId = id(req.params.paymentId);
@@ -226,41 +195,6 @@ router.post('/payments/:paymentId/cancel-cash', async (req, res) => {
       });
       if (updated.count !== 1) throw new NfcFinancialError(409, 'Recebimento já alterado.');
       return { status: 'REVERSED', repeated: false };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return res.json(result);
-  } catch (error) { return fail(res, error); }
-});
-router.post('/payments/:paymentId/confirm-cash', async (req, res) => {
-  try {
-    if (String(req.user.role) !== 'ADMIN') throw new NfcFinancialError(403, 'Somente o administrador pode confirmar recebimento de dinheiro.');
-    const restaurantId = tenant(req), paymentId = id(req.params.paymentId);
-    const result = await prisma.$transaction(async (tx) => {
-      await setTenantDbContext(tx, restaurantId);
-      const prelim = await tx.nfcComandaPayment.findFirst({ where: { id: paymentId, restaurantId }, select: { comandaId: true } });
-      if (!prelim) throw new NfcFinancialError(404, 'Pagamento não encontrado.');
-      await lockComanda(tx, restaurantId, prelim.comandaId);
-      const payment = await tx.nfcComandaPayment.findFirst({ where: { id: paymentId, restaurantId } });
-      if (!payment) throw new NfcFinancialError(404, 'Pagamento não encontrado.');
-      if (payment.status === 'CONFIRMED') return { status: 'CONFIRMED', repeated: true };
-      if (payment.status !== 'PENDING' || payment.method !== 'DINHEIRO') throw new NfcFinancialError(409, 'Pagamento inválido para confirmação manual.');
-      await assertNoActiveCashlessCheckout(tx, restaurantId, payment.comandaId);
-      const comanda = await tx.nfcComanda.findFirst({ where: { id: payment.comandaId, restaurantId } });
-      if (!comanda || comanda.status === 'PAID' || comanda.totalCents - comanda.paidCents < payment.amountCents) throw new NfcFinancialError(409, 'Saldo insuficiente ou comanda já liquidada.');
-      const confirmed = await tx.nfcComandaPayment.updateMany({ where: { id: paymentId, restaurantId, status: 'PENDING' },
-        data: { status: 'CONFIRMED', confirmedByUserId: actor(req), confirmedAt: new Date() } });
-      if (confirmed.count !== 1) throw new NfcFinancialError(409, 'Pagamento já processado por outro operador.');
-      const fullyPaid = comanda.totalCents === comanda.paidCents + payment.amountCents;
-      const credited = await tx.nfcComanda.updateMany({ where: { restaurantId, id: payment.comandaId, status: { in: ['OPEN', 'UNPAID'] },
-        paidCents: { lte: comanda.totalCents - payment.amountCents } },
-        data: { paidCents: { increment: payment.amountCents },
-          ...(fullyPaid && comanda.status === 'UNPAID' ? { status: 'PAID', paidAt: new Date() } : {}) } });
-      if (credited.count !== 1) throw new NfcFinancialError(409, 'O saldo mudou; pagamento não creditado.');
-      if (fullyPaid && comanda.status === 'UNPAID' && comanda.cardId) await tx.nfcCard.updateMany({
-        where: { id: comanda.cardId, restaurantId, customerId: comanda.customerId, status: 'ACTIVE' },
-        data: { status: 'REVOKED', revokedByUserId: actor(req), revokedAt: new Date(), revokeReason: 'CARD_RETURNED_AFTER_PAYMENT' },
-      });
-      await tx.nfcRegistrationAudit.create({ data: { restaurantId, actorUserId: actor(req), customerId: comanda.customerId, cardId: comanda.cardId, action: fullyPaid ? 'COMANDA_PAID' : 'PAYMENT_PARTIAL' } });
-      return { status: 'CONFIRMED', fullyPaid, repeated: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return res.json(result);
   } catch (error) { return fail(res, error); }
