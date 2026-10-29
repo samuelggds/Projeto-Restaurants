@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { CheckCircle2, Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
 import nfcComandaService, { type NfcComanda, type NfcCustomerComandas } from '../../Services/nfcComandaService';
+import { NfcPrepareOrder } from './NfcPrepareOrder';
 
 const Frame = styled.section`
   display: grid; gap: 12px; min-width: 0;
@@ -116,6 +117,7 @@ export function NfcCustomerComandas({ customerId, canConfirmCash = false }: { cu
             <div className="pair"><span>Pago e confirmado</span><b>{money(selected.paidCents)}</b></div>
             <div className="pair total"><span>Saldo pendente</span><b>{money(selected.outstandingCents)}</b></div>
           </section>
+          {selected.status === 'OPEN' && selected.cardId && <section className="divider"><NfcPrepareOrder comandaId={selected.id} /></section>}
           <section className="divider"><h4><CreditCard size={18}/> Histórico de pagamentos</h4>
             {selected.payments.map(payment => <div className="payment" key={payment.id}>
               <div className="pair"><span>{payment.method} · {dateTime(payment.createdAt)}</span><b>{money(payment.amountCents)}</b></div>
