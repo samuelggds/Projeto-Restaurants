@@ -37,6 +37,7 @@ const DigitalMenu = lazy(() => import('../pages/digital-menu/DigitalMenuIdentity
 const KitchenPage = lazy(() => import('../pages/kitchen/KitchenPage'));
 const WaiterPage = lazy(() => import('../pages/waiter/WaiterPage'));
 const AttendantPage = lazy(() => import('../pages/attendant/AttendantPage'));
+const NfcIntakePage = lazy(() => import('../pages/shared/NfcIntakePage'));
 const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
@@ -488,6 +489,7 @@ export default function AppRoutes() {
                 <Route path="/cookies" element={<StaticLegalPageRedirect page="cookies" />} />
                 <Route path="/cookies/" element={<StaticLegalPageRedirect page="cookies" />} />
                 <Route path="/super_admin/login" element={<Login />} />
+                <Route path="/nfc/:token" element={<NfcIntakePage />} />
                 <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
                 <Route element={<RouteAuthorizationGuard />}>
                   <Route path="/:restaurantSlug/login" element={<Login />} />
