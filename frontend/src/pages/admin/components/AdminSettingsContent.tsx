@@ -112,7 +112,7 @@ export function AdminSettingsContent(props: Props) {
           <TableMenuSettings settings={settings} update={update} />
         </PremiumTableFeatureGate>
       );
-    if (section === 'nfc-registration') return <NfcRegistrationPanel roleLabel="administrador" />;
+    if (section === 'nfc-registration') return <NfcRegistrationPanel roleLabel="administrador" canConfirmCash />;
     if (section === 'table-account')
       return (
         <PremiumTableFeatureGate>
