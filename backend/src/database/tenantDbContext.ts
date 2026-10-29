@@ -30,6 +30,7 @@ export const TENANT_RLS_TABLES = [
   'NfcComanda',
   'NfcComandaItem',
   'NfcComandaPayment',
+  'NfcOrderConfirmation',
   'OrderIssueThread',
   'OrderPaymentAttempt',
   'ProductComboGroup',

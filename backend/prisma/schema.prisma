@@ -462,6 +462,7 @@ model Restaurant {
   nfcCards                      NfcCard[]
   nfcRegistrationAudits         NfcRegistrationAudit[]
   nfcComandas                   NfcComanda[]
+  nfcOrderConfirmations         NfcOrderConfirmation[]
 }
 
 
@@ -2704,6 +2705,7 @@ model NfcCustomer {
   restaurant       Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   cards            NfcCard[]
   comandas         NfcComanda[]
+  orderConfirmations NfcOrderConfirmation[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, cpfFingerprint])
@@ -2729,6 +2731,8 @@ model NfcCard {
   issuedByUserId   Int
   activatedByUserId Int?
   activatedAt      DateTime?     @db.Timestamptz(3)
+  failedOrderConfirmAttempts Int @default(0)
+  orderConfirmationLockedUntil DateTime? @db.Timestamptz(3)
   revokedByUserId  Int?
   revokedAt        DateTime?     @db.Timestamptz(3)
   revokeReason     String?       @db.VarChar(160)
@@ -2737,6 +2741,7 @@ model NfcCard {
   restaurant       Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   customer         NfcCustomer?  @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   comandas         NfcComanda[]
+  orderConfirmations NfcOrderConfirmation[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, displayCode])
@@ -2799,6 +2804,7 @@ model NfcComanda {
   card               NfcCard?                 @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   items              NfcComandaItem[]
   payments           NfcComandaPayment[]
+  orderConfirmations NfcOrderConfirmation[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, customerId, openRequestKeyHash])
@@ -2848,4 +2854,34 @@ model NfcComandaPayment {
 enum NfcDebtDeadlineMode {
   TWENTY_FOUR_HOURS
   BUSINESS_CLOSING
+}
+
+
+// Confirmação presencial, curta e limitada, por cartão NFC + prefixo CPF.
+// Não é pedido finalizado: itens e estoque só mudam no serviço central de pedidos.
+model NfcOrderConfirmation {
+  id                String      @id @default(uuid()) @db.Uuid
+  restaurantId      Int
+  comandaId         String      @db.Uuid
+  customerId        String      @db.Uuid
+  cardId            String      @db.Uuid
+  createdByUserId   Int
+  requestKeyHash    String      @db.Char(64)
+  orderFingerprint  String      @db.Char(64)
+  draftItems        Json
+  observation       String?     @db.VarChar(400)
+  attempts          Int         @default(0)
+  expiresAt         DateTime    @db.Timestamptz(3)
+  verifiedAt        DateTime?   @db.Timestamptz(3)
+  consumedAt        DateTime?   @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(3)
+  restaurant        Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  comanda           NfcComanda  @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  customer          NfcCustomer @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  card              NfcCard     @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@unique([restaurantId, comandaId, requestKeyHash])
+  @@index([restaurantId, cardId, expiresAt])
+  @@index([restaurantId, comandaId, createdAt])
 }
