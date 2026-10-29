@@ -86,7 +86,7 @@ router.post('/staff/comandas/:id/access-code', authMiddleware, nfcRegistrationAc
       const queued = await enqueueWhatsappNotification({
         channel: 'whatsapp', from: source, to,
         message: 'Olá, ' + customerName + '! Seu código de acesso à comanda cashless de ' + restaurant.name +
-          ' é ' + code + '. Escaneie o QR Code oficial da sua mesa e selecione Acessar comanda NFC. Não compartilhe este código.',
+          ' é ' + code + '. Referência da comanda: ' + comandaId + '. Escaneie o QR Code oficial da sua mesa e selecione Acessar comanda NFC. Não compartilhe este código.',
         metadata: { event: 'NFC_VISIT_ACCESS_CODE', restaurantId, credentialId: saved.id },
       }, tx);
       if (!queued.queued) throw new VisitError(409, 'Não foi possível enfileirar o código. Nenhuma nova credencial foi emitida.');
