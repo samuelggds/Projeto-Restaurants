@@ -31,6 +31,7 @@ export default function NfcIntakePage() {
   const [lookupCpf, setLookupCpf] = useState('');
   const [existingCustomerName, setExistingCustomerName] = useState('');
   const [orderPrefix, setOrderPrefix] = useState('');
+  const [returnCpf, setReturnCpf] = useState('');
   const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -77,6 +78,20 @@ export default function NfcIntakePage() {
       setOrderPrefix('');
     } finally { setBusy(false); }
   };
+  const handleReturn = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!allowed || !validToken || busy || returnCpf.length !== 11) return;
+    setBusy(true); setMessage('');
+    try {
+      const returned = await nfcRegistrationService.returnPaidCard(token, returnCpf);
+      setReturnCpf('');
+      setResult(`Cartão ${returned.displayCode} devolvido, desvinculado e disponível para o próximo cliente. Histórico financeiro preservado.`);
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setMessage(response.response?.data?.error || 'Não foi possível liberar o cartão. Verifique CPF completo e quitação no servidor.');
+      setReturnCpf('');
+    } finally { setBusy(false); }
+  };
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!allowed || !validToken || busy) return;
@@ -116,6 +131,15 @@ export default function NfcIntakePage() {
       result ? <p className="success" role="status">{result}</p> :
       <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
+      <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
+        <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
+        <p>No caixa, após o pagamento Pix ou Point, o funcionário aproxima o cartão e o cliente digita o CPF completo. Se a comanda estiver quitada no backend, o vínculo será encerrado automaticamente.</p>
+        <label>CPF completo (11 dígitos)
+          <input type="password" inputMode="numeric" autoComplete="off" maxLength={11} minLength={11}
+            value={returnCpf} onChange={e => setReturnCpf(e.target.value.replace(/\D/g, '').slice(0, 11))} required />
+        </label>
+        <button type="submit" disabled={busy || returnCpf.length !== 11}>Verificar pagamento e liberar cartão</button>
+      </form>
       {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>
         <p>O cliente deve digitar os três primeiros números do seu CPF, sem mostrar o número completo ao funcionário. Esta confirmação expira em {new Date(orderChallenge.expiresAt).toLocaleTimeString('pt-BR')}.</p>
         <label>Três primeiros dígitos do CPF<input autoComplete="off" type="password" inputMode="numeric" pattern="[0-9]{3}" minLength={3} maxLength={3} value={orderPrefix} onChange={event => setOrderPrefix(event.target.value.replace(/\D/g,'').slice(0,3))} required /></label>
