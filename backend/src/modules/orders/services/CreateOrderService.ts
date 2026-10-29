@@ -894,15 +894,20 @@ class CreateOrderService {
             }
 
             if (nfcContext && nfcChallengeId) {
-              const totalCents = BigInt(Math.round(Number(pricing.total) * 100));
-              const units = persistedOrderItems.map((item, index) => ({
-                id: crypto.randomUUID(), restaurantId: resolvedRestaurantId,
-                comandaId: nfcContext.comandaId, kind: 'ORDER' as const,
-                sourceOrderId: order.id, sourceOrderItemId: item.id,
-                description: products[index].name, quantity: Number(item.quantity),
-                unitPriceCents: BigInt(Math.round(Number(item.price) * 100)),
-                totalCents: BigInt(Math.round(Number(item.price) * Number(item.quantity) * 100)),
-              }));
+              const totalCents = BigInt(decimalMoneyToCents(pricing.total, 'total NFC'));
+              const nfcUnitPrices = buildTableBillUnitSeeds(orderItems, pricing.couponDiscount);
+              const units = persistedOrderItems.map((item, index) => {
+                const unitPrices = nfcUnitPrices.filter(unit => unit.orderItemIndex === index);
+                const lineCents = unitPrices.reduce((sum, unit) => sum + BigInt(unit.unitPriceCents), 0n);
+                return {
+                  id: crypto.randomUUID(), restaurantId: resolvedRestaurantId,
+                  comandaId: nfcContext.comandaId, kind: 'ORDER' as const,
+                  sourceOrderId: order.id, sourceOrderItemId: item.id,
+                  description: products[index].name, quantity: Number(item.quantity),
+                  unitPriceCents: BigInt(decimalMoneyToCents(item.price, 'preço unitário NFC')),
+                  totalCents: lineCents,
+                };
+              });
               if (units.reduce((sum, item) => sum + item.totalCents, 0n) !== totalCents) throw new OrderRequestError('Preço NFC não confere com a comanda.');
               await tx.nfcComandaItem.createMany({ data: units });
               await tx.nfcComanda.updateMany({ where: { id: nfcContext.comandaId, restaurantId: resolvedRestaurantId, status: 'OPEN' }, data: { totalCents: { increment: totalCents } } });
