@@ -1,6 +1,6 @@
 import api from './api';
 
-export type NfcCardRecord = { id: string; displayCode: string; status: 'PENDING_WRITE' | 'ACTIVE' | 'REVOKED'; createdAt: string };
+export type NfcCardRecord = { id: string; displayCode: string; status: 'PENDING_WRITE' | 'READY' | 'ACTIVE' | 'REVOKED'; createdAt: string };
 export type NfcCustomerRecord = {
   id: string; name: string; cpfMasked: string; phoneMasked: string; createdAt: string; cards: NfcCardRecord[];
 };
