@@ -1,10 +1,26 @@
 import api from './api';
 
-export type NfcCardRecord = { id: string; displayCode: string; status: 'PENDING_WRITE' | 'ACTIVE' | 'REVOKED'; createdAt: string };
+export type NfcCardRecord = { id: string; displayCode: string; status: 'PENDING_WRITE' | 'READY' | 'ACTIVE' | 'REVOKED'; createdAt: string };
 export type NfcCustomerRecord = {
   id: string; name: string; cpfMasked: string; phoneMasked: string; createdAt: string; cards: NfcCardRecord[];
 };
+export type LinkedNfcCustomer = {
+  customerId: string; name: string; cpfMasked: string; phoneMasked: string;
+  card: { id: string; displayCode: string };
+  comanda: null | { id: string; tableNumber: number | null; openedAt: string;
+    status: 'NO_VISIT' | 'WAITING_ORDER' | 'IN_SERVICE' | 'PENDING' | 'PAID';
+    totalCents: number; paidCents: number; outstandingCents: number };
+};
+export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; page: number; pageSize: number };
 class NfcRegistrationService {
+  async linkedCustomers(q = '', page = 1) {
+    const response = await api.get<LinkedNfcCustomerPage>('/nfc-registration/linked-customers', { params: { q, page } });
+    if (!response.data || !Array.isArray(response.data.customers) || !Number.isSafeInteger(response.data.total)) {
+      throw new Error('Resposta de clientes NFC inválida.');
+    }
+    return response.data;
+  }
+
   async list(page = 1) {
     const response = await api.get<{ customers: NfcCustomerRecord[]; page: number; total: number; pageSize: number }>('/nfc-registration/customers', { params: { page } });
     const result = response.data;
