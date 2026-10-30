@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { ContactRound, CreditCard, RefreshCw, Search, X, ReceiptText } from 'lucide-react';
+import { ArrowUpRight, ContactRound, CreditCard, RefreshCw, Search, X, ReceiptText } from 'lucide-react';
 import nfcRegistrationService, { type LinkedNfcCustomer } from '../../Services/nfcRegistrationService';
 import nfcComandaService, { type NfcComanda } from '../../Services/nfcComandaService';
 
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('').toLocaleUpperCase('pt-BR');
 const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateTime = (value: string | null | undefined) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrado';
 const currentStatus = (row: LinkedNfcCustomer) =>
@@ -40,6 +41,11 @@ const Shell = styled.section`
   .row .cardcode { color: #e7631b; font-weight: 750; }
   .row .amount { text-align: right; font-weight: 800; }
   .row .actions { text-align: right; }
+  .row .customer-cell, .row .card-cell, .row .table-cell, .row .comanda-cell, .row .balance-cell { min-width: 0; }
+  .row .customer-copy { min-width: 0; overflow-wrap: anywhere; }
+  .row .list-avatar, .row .mobile-label { display: none; }
+  .row .cardcode { display: inline-flex; align-items: center; gap: 6px; }
+  .row .actions button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
   .chip { display: inline-block; margin-top: 5px; padding: 5px 8px; border-radius: 5px; color: #327957; background: #e9f5ed; font-size: 11px; font-weight: 700; }
   .chip.empty { color: #737f78; background: #f3f5f2; }
   .chip.pending { color: #a15d16; background: #fff0dc; }
@@ -49,21 +55,30 @@ const Shell = styled.section`
   .error { color: #ac3630; }
   @media(max-width:850px) {
     .columns { display: none; }
-    .row { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
-    .row > div:before { display: block; margin-bottom: 4px; font-size: 10px; font-weight: 750; color: #98a29b; }
-    .row > div:nth-child(2):before { content: 'Cartão NFC'; }
-    .row > div:nth-child(3):before { content: 'Mesa'; }
-    .row > div:nth-child(4):before { content: 'Comanda'; }
-    .row > div:nth-child(5):before { content: 'Em aberto'; }
-    .row .amount,.row .actions { text-align: left; }
+    .table-head { align-items: start; }
+    .row { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 17px 12px; padding: 19px 20px; }
+    .row .mobile-label { display: block; color: #9b9f9b; font-size: 11px; margin-bottom: 5px; }
+    .row .customer-cell { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; }
+    .row .list-avatar { width: 39px; height: 39px; flex: 0 0 39px; display: grid; place-items: center;
+      background: #fff0e5; border-radius: 12px; color: #cc5b1c; font-weight: 850; font-size: 12px; }
+    .row .customer-copy strong { font-size: 13px; }
+    .row .comanda-cell { grid-column: 1 / -1; }
+    .row .amount, .row .actions { text-align: left; }
+    .row .balance-cell { grid-column: 1; align-self: end; }
+    .row .amount { display: block; font-size: 18px; letter-spacing: -.025em; }
+    .row .actions { grid-column: 2; align-self: end; text-align: right; }
+    .row .actions button { min-height: 40px; }
+    .row .chip { margin-top: 7px; }
   }
   @media(max-width:480px) {
-    .row { padding: 15px; }
-    .searchbar { padding-inline: 15px; display: grid; grid-template-columns: 1fr; }
+    .row { padding: 19px 15px; }
+    .searchbar { padding-inline: 15px; display: grid; grid-template-columns: 1fr 1fr; }
+    .searchbar input { grid-column: 1 / -1; }
     .searchbar button { width: 100%; }
     .table-head { padding: 17px 15px; }
     .pagination { padding: 15px; }
-    .row .actions button { width: 100%; }
+    .row .actions button { width: 100%; font-size: 11px; padding-inline: 8px; }
+    .row .cardcode { font-size: 11px; }
   }
 `;
 
@@ -120,7 +135,7 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
     const id = customer.comanda?.id;
     if (!id) return;
     void nfcComandaService.customerComandas(customer.customerId).then(data => {
-      if (active) { setComanda(data.comandas.find(item => item.id === id && item.cardId === customer.card.id) ?? null); setLoading(false); }
+      if (active) { const found = data.comandas.find(item => item.id === id && item.cardId === customer.card.id); setComanda(found ?? null); if (!found) setError('A comanda foi alterada ou não está disponível para consulta. Atualize a lista de clientes.'); setLoading(false); }
     }).catch(() => { if (active) { setError('Não foi possível consultar a comanda no servidor.'); setLoading(false); } });
     return () => { active = false; };
   }, [customer]);
@@ -130,7 +145,7 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
       <header className="top"><span><ReceiptText aria-hidden="true"/> Detalhes da comanda</span><button type="button" className="close" ref={closeRef} aria-label="Fechar detalhes da comanda" onClick={onClose}><X aria-hidden="true"/></button></header>
       <div className="body">
         <div className="identity">
-          <div className="avatar" aria-hidden="true">{customer.name.split(/\s+/).slice(0,2).map(x=>x[0] ?? '').join('').toUpperCase()}</div>
+          <div className="avatar" aria-hidden="true">{initials(customer.name)}</div>
           <div className="identity-main"><h3 id="nfc-linked-modal-title">{customer.name}</h3><p>{customer.comanda ? 'Comanda '+customer.comanda.id.slice(0,8).toUpperCase()+' · visita atual' : 'Cartão vinculado · sem comanda aberta'}</p></div>
           <span className={'chip '+(customer.comanda?.status === 'PENDING' ? 'pending' : '')}>{status}</span>
         </div>
@@ -153,9 +168,9 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
           {!loading && !error && !comanda?.items.length && <p style={{fontSize:13,color:'#728077'}}>Nenhum consumo registrado nesta visita.</p>}
         </section>
         <div className="totals">
-          <div><span>Consumo total</span><strong>{loading || error ? '—' : money(comanda?.totalCents ?? 0)}</strong></div>
-          <div><span>Pagamentos confirmados</span><strong>{loading || error ? '—' : money(comanda?.paidCents ?? 0)}</strong></div>
-          <div className="balance"><span>Saldo em aberto</span><strong>{loading || error ? '—' : money(comanda?.outstandingCents ?? 0)}</strong></div>
+          <div><span>Consumo total</span><strong>{loading || error || !comanda ? '—' : money(comanda.totalCents)}</strong></div>
+          <div><span>Pagamentos confirmados</span><strong>{loading || error || !comanda ? '—' : money(comanda.paidCents)}</strong></div>
+          <div className="balance"><span>Saldo em aberto</span><strong>{loading || error || !comanda ? '—' : money(comanda.outstandingCents)}</strong></div>
         </div>
         {!loading && !error && comanda && <section className="items">
           <div className="items-head"><strong>Pagamentos registrados</strong></div>
@@ -217,14 +232,17 @@ export function NfcLinkedCustomers() {
       {error && <p className="note error" role="alert">{error}</p>}
       {!busy && !error && !records.length && <p className="note">Nenhum cliente com cartão ativo corresponde à busca.</p>}
       {!busy && !error && records.map(row => <div className="row" key={row.card.id}>
-        <div><strong>{row.name}</strong><small>{row.phoneMasked}</small></div>
-        <div className="cardcode"><CreditCard size={14} aria-hidden="true"/> {row.card.displayCode}</div>
-        <div>{row.comanda?.tableNumber ? 'Mesa '+String(row.comanda.tableNumber).padStart(2,'0') : 'Sem mesa'}</div>
-        <div><strong>{row.comanda ? '#'+row.comanda.id.slice(0,8).toUpperCase() : 'Sem comanda'}</strong><div><span className={'chip '+(!row.comanda || row.comanda.status==='WAITING_ORDER'?'empty':row.comanda.status==='PENDING'?'pending':'')}>{currentStatus(row)}</span></div></div>
-        <div className="amount">{row.comanda ? money(row.comanda.outstandingCents) : '—'}</div>
-        <div className="actions"><button type="button" onClick={() => setSelected(row)}>Ver comanda</button></div>
+        <div className="customer-cell">
+          <span className="list-avatar" aria-hidden="true">{initials(row.name)}</span>
+          <div className="customer-copy"><strong>{row.name}</strong><small>{row.phoneMasked}</small></div>
+        </div>
+        <div className="card-cell"><span className="mobile-label">Cartão NFC</span><span className="cardcode"><CreditCard size={14} aria-hidden="true"/> {row.card.displayCode}</span></div>
+        <div className="table-cell"><span className="mobile-label">Mesa</span>{row.comanda?.tableNumber ? 'Mesa '+String(row.comanda.tableNumber).padStart(2,'0') : 'Sem mesa'}</div>
+        <div className="comanda-cell"><span className="mobile-label">Comanda</span><strong>{row.comanda ? '#'+row.comanda.id.slice(0,8).toUpperCase() : 'Sem comanda'}</strong><div><span className={'chip '+(!row.comanda || row.comanda.status==='WAITING_ORDER'?'empty':row.comanda.status==='PENDING'?'pending':'')}>{currentStatus(row)}</span></div></div>
+        <div className="balance-cell"><span className="mobile-label">Em aberto</span><strong className="amount">{row.comanda ? money(row.comanda.outstandingCents) : '—'}</strong></div>
+        <div className="actions"><button type="button" onClick={() => setSelected(row)}>Ver comanda <ArrowUpRight size={13} aria-hidden="true"/></button></div>
       </div>)}
-      <div className="pagination"><span>{total} clientes com cartão vinculado</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>{setBusy(true);setPage(p=>p-1);}}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>{setBusy(true);setPage(p=>p+1);}}>Próxima</button></div></div>
+      <div className="pagination"><span>{total} clientes com cartão vinculado · Consumo individual por visita</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>{setBusy(true);setPage(p=>p-1);}}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>{setBusy(true);setPage(p=>p+1);}}>Próxima</button></div></div>
     </div>
     {selected && <LinkedCustomerModal key={selected.customerId + ':' + selected.card.id} customer={selected} onClose={()=>setSelected(null)}/>}
   </Shell>;
