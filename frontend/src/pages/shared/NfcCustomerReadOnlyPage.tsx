@@ -70,10 +70,10 @@ export default function NfcCustomerReadOnlyPage(){
  },[]);
  const verify=async(event:FormEvent)=>{
    event.preventDefault();
-   if(!validToken||cpf.length!==11||busy)return;
+   if(!validToken||cpf.length!==3||busy)return;
    setBusy(true);setError('');
    try{
-     const response=await api.post<{sessionToken:string}>('/nfc-customer-view/verify',{token,cpf},{skipBaseUrlFallback:true});
+     const response=await api.post<{sessionToken:string}>('/nfc-customer-view/verify',{token,cpfPrefix:cpf},{skipBaseUrlFallback:true});
      const value=response.data?.sessionToken;
      if(!value)throw new Error('Sessão inválida');
      setCpf('');setSession(value);
@@ -95,9 +95,9 @@ export default function NfcCustomerReadOnlyPage(){
    {!session&&<section className="card">
      {!validToken?<p className="error">Identificador do cartão inválido. Aproxime novamente o cartão NFC.</p>:
        <form className="form" onSubmit={e=>void verify(e)}>
-         <p>Para proteger seus pedidos, confirme o CPF completo cadastrado na recepção.</p>
-         <label>CPF completo (11 dígitos)<input type="password" autoComplete="off" inputMode="numeric" pattern="[0-9]{11}" maxLength={11} required value={cpf} onChange={e=>setCpf(e.target.value.replace(/\D/g,'').slice(0,11))}/></label>
-         <button type="submit" disabled={busy||cpf.length!==11}>{busy?'Verificando...':'Visualizar minha comanda'}</button>
+         <p>Para proteger seus pedidos, informe os 3 primeiros dígitos do CPF cadastrado na recepção.</p>
+         <label>3 primeiros dígitos do CPF<input type="password" autoComplete="off" inputMode="numeric" pattern="[0-9]{3}" maxLength={3} required value={cpf} onChange={e=>setCpf(e.target.value.replace(/\D/g,'').slice(0,3))}/></label>
+         <button type="submit" disabled={busy||cpf.length!==3}>{busy?'Verificando...':'Visualizar minha comanda'}</button>
          <p className="help">O cartão sozinho não revela dados. O acesso é temporário e encerra quando o cartão é devolvido.</p>
        </form>}
    </section>}
