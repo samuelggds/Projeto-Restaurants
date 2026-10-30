@@ -15,6 +15,7 @@ import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcId
 
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
+router.get('/feature-access', premiumNfcPlanMiddleware, (_req, res) => res.json({ enabled: true }));
 // Settlement and card return remain available to clear existing debts after downgrade.
 router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
