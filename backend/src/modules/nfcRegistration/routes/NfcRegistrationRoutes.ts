@@ -230,6 +230,7 @@ router.post('/cards/return', async (req, res) => {
         where: { restaurantId, id: card.id, status: 'ACTIVE', customerId: card.customerId },
         data: { customerId: null, status: 'READY', activatedAt: null, activatedByUserId: null,
           failedReturnCpfAttempts: 0, returnCpfLockedUntil: null,
+          failedGuestViewAttempts: 0, guestViewLockedUntil: null,
           failedOrderConfirmAttempts: 0, orderConfirmationLockedUntil: null },
       });
       if (returned.count !== 1) throw new NfcRegistrationError(409, 'Cartão já foi liberado por outro funcionário.');
