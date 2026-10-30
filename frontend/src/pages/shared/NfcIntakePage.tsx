@@ -125,7 +125,7 @@ export default function NfcIntakePage() {
   return <Frame><section className="surface" aria-label="Recepção de cartão NFC">
     <h1>GastroNexa · Recepção NFC</h1>
     {isLoading ? <p>Verificando acesso...</p> :
-      !user ? <><p>Para proteger os clientes, faça login como administrador, garçom ou atendente. Depois, aproxime novamente o cartão para voltar a esta tela.</p><Link to="/restaurant-required">Acessar seu restaurante</Link></> :
+      !user ? <><p>Cliente: consulte os pedidos e valores da sua visita em modo somente leitura.</p><Link to={`/nfc/cliente/${token}`}>Visualizar minha comanda NFC</Link><p>Funcionários: para vincular cartão, confirmar pedidos ou liberar a comanda, faça login no painel autorizado.</p><Link to="/restaurant-required">Acessar painel do restaurante</Link></> :
       !allowed ? <p role="alert">Esta conta não tem autorização para cadastrar clientes NFC.</p> :
       !validToken ? <p role="alert">O cartão não contém um identificador NFC válido.</p> :
       result ? <p className="success" role="status">{result}</p> :
