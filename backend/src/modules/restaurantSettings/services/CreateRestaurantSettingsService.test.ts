@@ -600,3 +600,21 @@ test('grava settings e identidade do restaurante dentro da mesma transação', a
   assert.equal(repositoryDb, tx);
   assert.equal(restaurantDbCalled, true);
 });
+
+test('bloqueia ativação de NFC no plano Básico e permite no Premium durante trial', async () => {
+  restaurantSettingsRepository.findByRestaurantId = async () => null;
+  restaurantSettingsRepository.create = async (data) => ({ id: 1, ...data });
+  prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
+  await assert.rejects(
+    () => createRestaurantSettingsService.execute({
+      restaurantId: 7, deliveryFee: 0, minimumOrder: 0, inPersonServiceMode: 'NFC_ONLY',
+    }),
+    /Premium e Gestão Total/i,
+  );
+  prisma.subscription.findUnique = async () => ({ plan: 'PREMIUM', status: 'TESTE' });
+  await assert.doesNotReject(
+    () => createRestaurantSettingsService.execute({
+      restaurantId: 7, deliveryFee: 0, minimumOrder: 0, inPersonServiceMode: 'BOTH',
+    }),
+  );
+});
