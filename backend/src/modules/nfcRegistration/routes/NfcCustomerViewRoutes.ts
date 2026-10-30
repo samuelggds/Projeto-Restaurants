@@ -63,22 +63,17 @@ router.post('/verify',async(req,res)=>{
      await tx.nfcCard.updateMany({where:{id:card.id,restaurantId:card.restaurantId,status:'ACTIVE',customerId:current.customerId},
        data:{failedGuestViewAttempts:0,guestViewLockedUntil:null}});
      // Scoped to this particular visit; expiry and revocation are checked on every read.
+     const visit=await tx.nfcComanda.findFirst({
+       where:{id:comanda.id,restaurantId:card.restaurantId},
+       select:{openedByUserId:true},
+     });
+     if(!visit)throw new Error('Visita indisponível');
      await tx.nfcComandaAccess.create({data:{
        restaurantId:card.restaurantId,comandaId:comanda.id,
        codeHash:hash(crypto.randomBytes(32).toString('base64url')),
        sessionHash:hash(session),sessionExpiresAt:new Date(Date.now()+sessionLife),
-       expiresAt:new Date(Date.now()+sessionLife),createdByUserId:0,
-     }}).catch(async()=>{
-       // Existing access records require an actor FK. Reuse a verifiable staff actor from the comanda.
-       const visit=await tx.nfcComanda.findFirst({where:{id:comanda.id,restaurantId:card.restaurantId},select:{openedByUserId:true}});
-       if(!visit)throw new Error('Visita indisponível');
-       await tx.nfcComandaAccess.create({data:{
-         restaurantId:card.restaurantId,comandaId:comanda.id,
-         codeHash:hash(crypto.randomBytes(32).toString('base64url')),
-         sessionHash:hash(session),sessionExpiresAt:new Date(Date.now()+sessionLife),
-         expiresAt:new Date(Date.now()+sessionLife),createdByUserId:visit.openedByUserId,
-       }});
-     });
+       expiresAt:new Date(Date.now()+sessionLife),createdByUserId:visit.openedByUserId,
+     }});
      return {session};
    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
    if(!result||'blocked' in result)return genericError(res,429);
