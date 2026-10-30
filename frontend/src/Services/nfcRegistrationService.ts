@@ -13,6 +13,10 @@ export type LinkedNfcCustomer = {
 };
 export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; page: number; pageSize: number };
 class NfcRegistrationService {
+  async featureAccess() {
+    const result = await api.get<{ enabled: boolean }>('/nfc-registration/feature-access');
+    return result.data?.enabled === true;
+  }
   async linkedCustomers(q = '', page = 1) {
     const response = await api.get<LinkedNfcCustomerPage>('/nfc-registration/linked-customers', { params: { q, page } });
     if (!response.data || !Array.isArray(response.data.customers) || !Number.isSafeInteger(response.data.total)) {
