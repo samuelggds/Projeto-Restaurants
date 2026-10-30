@@ -146,7 +146,39 @@ const Wrap = styled.section`
 
 `;
 type Props = { roleLabel?: string };
-export function NfcRegistrationPanel({ roleLabel = 'equipe' }: Props) {
+export function NfcRegistrationPanel(props: Props) {
+  const [access, setAccess] = useState<'checking' | 'allowed' | 'blocked' | 'error'>('checking');
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void nfcRegistrationService.featureAccess().then(enabled => {
+      if (live) setAccess(enabled ? 'allowed' : 'blocked');
+    }).catch((error: unknown) => {
+      if (!live) return;
+      const response = error as { response?: { status?: number; data?: { code?: string } } };
+      setAccess(response.response?.status === 403 &&
+        response.response?.data?.code === 'PREMIUM_NFC_PLAN_REQUIRED' ? 'blocked' : 'error');
+    });
+    return () => { live = false; };
+  }, [retry]);
+  if (access === 'checking') return <div role="status">Verificando disponibilidade dos cartões NFC no plano contratado...</div>;
+  if (access === 'error') return <div role="alert">
+    Não foi possível consultar o plano NFC do restaurante.
+    <button type="button" onClick={() => { setAccess('checking'); setRetry(current => current + 1); }}>Tentar novamente</button>
+  </div>;
+  if (access === 'blocked') return <div role="status" style={{
+    padding: 28, borderRadius: 18, border: '1px solid #f1d8c8', background: '#fff8f3',
+    display: 'grid', gap: 12, color: '#30251f',
+  }}>
+    <h2 style={{ margin: 0 }}>Cartões NFC: recurso Premium</h2>
+    <p style={{ margin: 0 }}>Para cadastrar, preparar ou utilizar cartões NFC, o restaurante precisa do plano Premium ou Gestão Total ativo ou em teste.</p>
+    <p style={{ margin: 0 }}>O sistema de delivery permanece no Básico. O atendimento por QR Code segue as regras do plano de mesas.</p>
+    <a href="/admin?area=subscriptions&billing=plans" style={{ color: '#ce5918', fontWeight: 800 }}>Conhecer os planos</a>
+    <small>Se você possui uma comanda anterior a uma mudança de plano, procure o administrador para regularizar o pagamento e devolver o cartão.</small>
+  </div>;
+  return <NfcRegistrationWorkspace {...props} />;
+}
+function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [items, setItems] = useState<NfcCustomerRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
