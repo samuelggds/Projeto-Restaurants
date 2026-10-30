@@ -14,6 +14,7 @@ import nfcRegistrationRoutes from '../modules/nfcRegistration/routes/NfcRegistra
 import nfcComandaRoutes from '../modules/nfcRegistration/routes/NfcComandaRoutes.js';
 import nfcCashlessAccessRoutes from '../modules/nfcRegistration/routes/NfcCashlessAccessRoutes.js';
 import nfcOrderConfirmationRoutes from '../modules/nfcRegistration/routes/NfcOrderConfirmationRoutes.js';
+import nfcCustomerViewRoutes from '../modules/nfcRegistration/routes/NfcCustomerViewRoutes.js';
 import restaurantSettingsRoutes from '../modules/restaurantSettings/routes/RestaurantSettingsRoutes.js';
 import bannerRoutes from '../modules/banner/routes/BannerRoutes.js';
 import couponRoutes from '../modules/coupon/routes/CouponRoutes.js';
@@ -95,6 +96,7 @@ router.use('/nfc-registration', nfcRegistrationRoutes);
 router.use('/nfc-comandas', nfcComandaRoutes);
 router.use('/nfc-cashless', nfcCashlessAccessRoutes);
 router.use('/nfc-orders', nfcOrderConfirmationRoutes);
+router.use('/nfc-customer-view', nfcCustomerViewRoutes);
 router.use('/settings', restaurantSettingsRoutes);
 router.use('/banners', bannerRoutes);
 router.use('/coupons', couponRoutes);
