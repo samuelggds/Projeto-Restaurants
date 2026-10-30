@@ -28,3 +28,15 @@ export function hasHostedLandingAccess(
     String(plan || '').trim().toUpperCase() === 'GESTAO_TOTAL'
   );
 }
+
+/** NFC is a contracted feature, not an editable front-end setting. */
+export function hasNfcCardAccess(
+  plan: RestaurantPlan | null | undefined,
+  status: RestaurantSubscriptionStatus | null | undefined,
+) {
+  const normalized = String(plan || '').trim().toUpperCase();
+  return (
+    hasActiveRestaurantPlan(status) &&
+    (normalized === 'PREMIUM' || normalized === 'GESTAO_TOTAL')
+  );
+}

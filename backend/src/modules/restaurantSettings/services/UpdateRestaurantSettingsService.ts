@@ -7,6 +7,7 @@ import orderCapacityQueueService from '../../orders/services/OrderCapacityQueueS
 import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import { normalizeInPersonServiceMode } from '../utils/inPersonServiceMode.js';
+import { hasNfcCardAccess } from '../../billing/domain/planFeaturePolicy.js';
 import {
   normalizeEstablishmentAddress,
   validateEstablishmentAddress,
@@ -340,6 +341,15 @@ class UpdateRestaurantSettingsService {
       picpayToken === undefined ? undefined : String(picpayToken || '').trim() || null;
     const normalizedAsaasAccessToken =
       asaasAccessToken === undefined ? undefined : String(asaasAccessToken || '').trim() || null;
+    const selectedNfcMode = inPersonServiceMode === undefined ? undefined : normalizeInPersonServiceMode(inPersonServiceMode);
+    if (selectedNfcMode && selectedNfcMode !== 'QR_ONLY') {
+      const subscription = await prisma.subscription.findUnique({
+        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true },
+      });
+      if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+        throw new Error('Cartões NFC disponíveis somente nos planos Premium e Gestão Total ativos ou em teste.');
+      }
+    }
     const normalizedBusinessHours = normalizeBusinessHours(businessHours);
     const normalizedNfcDebtDeadlineMode = nfcDebtDeadlineMode === undefined ? undefined : normalizeNfcDebtDeadlineMode(nfcDebtDeadlineMode);
     const resultingDeadlineMode = normalizedNfcDebtDeadlineMode ?? settings.nfcDebtDeadlineMode;
@@ -607,7 +617,7 @@ class UpdateRestaurantSettingsService {
       inPersonServiceMode:
         inPersonServiceMode === undefined
           ? undefined
-          : normalizeInPersonServiceMode(inPersonServiceMode),
+          : selectedNfcMode,
       waiterCallEnabled:
         waiterCallEnabled === undefined
           ? undefined

@@ -4,6 +4,7 @@ import {
   hasActiveRestaurantPlan,
   hasCustomDomainAccess,
   hasHostedLandingAccess,
+  hasNfcCardAccess,
 } from './planFeaturePolicy.js';
 
 test('endereço GastroNexa por slug independe dos benefícios opcionais do plano', () => {
@@ -24,4 +25,16 @@ test('landing hospedada pela GastroNexa é exclusiva do Gestão Total ativo', ()
   assert.equal(hasHostedLandingAccess('PREMIUM', 'ATIVA'), false);
   assert.equal(hasHostedLandingAccess('GESTAO_TOTAL', 'ATIVA'), true);
   assert.equal(hasHostedLandingAccess('GESTAO_TOTAL', 'EXPIRADA'), false);
+});
+
+test('cartões NFC apenas Premium e Gestão Total com assinatura em teste ou ativa', () => {
+  for (const plan of ['PREMIUM', 'GESTAO_TOTAL']) {
+    assert.equal(hasNfcCardAccess(plan, 'TESTE'), true);
+    assert.equal(hasNfcCardAccess(plan, 'ATIVA'), true);
+    assert.equal(hasNfcCardAccess(plan, 'EXPIRADA'), false);
+    assert.equal(hasNfcCardAccess(plan, 'CANCELADA'), false);
+  }
+  assert.equal(hasNfcCardAccess('BASICO', 'ATIVA'), false);
+  assert.equal(hasNfcCardAccess('BASICO', 'TESTE'), false);
+  assert.equal(hasNfcCardAccess(undefined, undefined), false);
 });
