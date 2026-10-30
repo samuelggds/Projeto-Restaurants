@@ -6,6 +6,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
+import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
@@ -46,7 +47,7 @@ async function loadTableNumber(tx: Prisma.TransactionClient, restaurantId: numbe
 }
 // Staff issues a new code only when the customer has explicitly consented to the WhatsApp message.
 // The message is encrypted and inserted into the outbox in the same database transaction.
-router.post('/staff/comandas/:id/access-code', authMiddleware, nfcRegistrationAccessMiddleware, async (req, res) => {
+router.post('/staff/comandas/:id/access-code', authMiddleware, nfcRegistrationAccessMiddleware, premiumNfcPlanMiddleware, async (req, res) => {
   try {
     issueSchema.parse(req.body);
     const restaurantId = Number(req.user.restaurantId), comandaId = uuid.parse(req.params.id);
