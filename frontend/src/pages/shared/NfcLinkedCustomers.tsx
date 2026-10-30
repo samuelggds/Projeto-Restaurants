@@ -163,10 +163,24 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
           <div className="items-head"><strong>Consumo desta visita</strong><small>{comanda?.items.length ?? 0} itens</small></div>
           {loading && <p role="status">Carregando detalhes...</p>}
           {error && <p role="alert" style={{color:'#b42c28'}}>{error}</p>}
-          {!loading && !error && comanda?.items.map(item => <div className="item" key={item.id}>
-            <div className="item-title">{item.kind === 'COVER' ? 'Couvert / entrada' : 'Item do pedido'} · {dateTime(item.createdAt)}</div>
-            <div className="item-line"><span>{item.quantity} × {item.description}</span><strong>{money(item.totalCents)}</strong></div>
-          </div>)}
+          {!loading && !error && comanda?.orders?.map(order => {
+            const items = comanda.items.filter(item => item.kind === 'ORDER' && item.sourceOrderId === order.id);
+            const status = ({ PENDENTE: 'Recebido', PREPARANDO: 'Em preparo', PRONTO: 'Pronto',
+              SAIU_PARA_ENTREGA: 'Saiu para entrega', ENTREGUE: 'Entregue', CANCELADO: 'Cancelado' } as const)[order.status];
+            return <div className="item" key={order.id}>
+              <div className="item-title">Pedido #{order.id} · {dateTime(order.createdAt)} · {status}</div>
+              {items.map(item => <div className="item-line" key={item.id}>
+                <span>{item.quantity} × {item.description}</span><strong>{money(item.totalCents)}</strong>
+              </div>)}
+              {!items.length && <div className="item-line"><span>Sem itens financeiros associados à comanda</span></div>}
+            </div>;
+          })}
+          {!loading && !error && comanda?.items.filter(item => item.kind === 'COVER' ||
+            !comanda.orders?.some(order => order.id === item.sourceOrderId)).map(item =>
+            <div className="item" key={item.id}>
+              <div className="item-title">{item.kind === 'COVER' ? 'Couvert / entrada' : 'Consumo lançado na comanda'} · {dateTime(item.createdAt)}</div>
+              <div className="item-line"><span>{item.quantity} × {item.description}</span><strong>{money(item.totalCents)}</strong></div>
+            </div>)}
           {!loading && !error && !comanda?.items.length && <p style={{fontSize:13,color:'#728077'}}>Nenhum consumo registrado nesta visita.</p>}
         </section>
         <div className="totals">
