@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
