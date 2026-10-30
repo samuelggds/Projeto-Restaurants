@@ -413,7 +413,7 @@ router.get('/linked-customers', async (req, res) => {
         orderBy: { createdAt: 'desc' },
       });
       const linkedIds = activeCards.map(card => card.customerId).filter((value): value is string => !!value);
-      if (!linkedIds.length) return { customers: [], total: 0, page, pageSize };
+      if (!linkedIds.length) return { customers: [], total: 0, totalLinked: 0, page, pageSize };
       const customers = await tx.nfcCustomer.findMany({
         where: { restaurantId, id: { in: linkedIds } },
         select: { id: true, nameEncrypted: true, phoneEncrypted: true, cpfFingerprint: true, cpfEncrypted: true },
@@ -438,7 +438,7 @@ router.get('/linked-customers', async (req, res) => {
           totalCents: true, paidCents: true, openedAt: true },
       }) : [];
       return {
-        page, pageSize, total: matching.length,
+        page, pageSize, total: matching.length, totalLinked: new Set(linkedIds).size,
         customers: selected.map(({ card, customer, name, phone }) => {
           const current = accounts.find(a => a.customerId === customer.id && a.cardId === card.id);
           const amounts = current ? { totalCents: Number(current.totalCents), paidCents: Number(current.paidCents) } : null;

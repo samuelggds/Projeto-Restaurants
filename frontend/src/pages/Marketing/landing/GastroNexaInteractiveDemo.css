@@ -52,3 +52,19 @@
 @media(max-width:800px){.gn-showcase{padding:60px 0 40px}.gn-showcase-main{grid-template-columns:1fr}.gn-scene-illustration{height:450px;justify-content:center}.gn-scene-paper,.gn-scene-card{left:10%}.gn-showcase-steps{gap:5px}}
 @media(max-width:550px){.gn-showcase-tabs{grid-template-columns:1fr}.gn-showcase-tabs button{padding:12px 14px}.gn-showcase-heading h2{font-size:35px}.gn-scene-illustration{padding:10px;justify-content:flex-end;height:430px}.gn-scene-phone{width:208px}.gn-scene-paper,.gn-scene-card{left:0;transform:rotate(-9deg) scale(.8);transform-origin:left bottom}.gn-scene-signal{left:0;top:9%;font-size:10px;padding:7px}.gn-showcase-steps{grid-template-columns:repeat(3,minmax(0,1fr))}.gn-showcase-foot{display:grid}}
 @media(prefers-reduced-motion:reduce){.gn-scene-laser,.gn-scene-signal,.gn-scene-phone,.gn-scene-content{animation:none!important}}
+
+/* The physical NFC prop is illustrative. The same card has two faces and flips on click. */
+.gn-scene-flip { cursor: pointer; isolation: isolate; border: 1px solid #eed5c2; text-align:left; }
+.gn-scene-flip .gn-scene-card-front,.gn-scene-flip .gn-scene-card-back {
+  position:absolute; inset:0; padding:12px; border-radius:inherit; backface-visibility:hidden;
+  background:#fff; display:flex; flex-direction:column; justify-content:space-between;
+  transition:transform .6s ease;
+}
+.gn-scene-flip .gn-scene-card-front{transform:rotateY(0)}
+.gn-scene-flip .gn-scene-card-back{transform:rotateY(180deg)}
+.gn-scene-flip.flipped .gn-scene-card-front{transform:rotateY(-180deg)}
+.gn-scene-flip.flipped .gn-scene-card-back{transform:rotateY(0)}
+.gn-scene-flip strong{font-size:17px;color:#30231c;line-height:1.06}
+.gn-scene-flip strong em{color:#f26421;font-style:normal}
+.gn-scene-flip:focus-visible{outline:3px solid #f26421;outline-offset:5px}
+@media(prefers-reduced-motion:reduce){.gn-scene-flip .gn-scene-card-front,.gn-scene-flip .gn-scene-card-back{transition:none}}

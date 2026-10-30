@@ -1,7 +1,7 @@
 import api from './api';
 export type NfcComandaItem = {
   id: string; kind: 'COVER' | 'ORDER'; description: string; quantity: number;
-  unitPriceCents: number; totalCents: number; createdAt: string;
+  unitPriceCents: number; totalCents: number; createdAt: string; sourceOrderId: number | null;
 };
 export type NfcComandaPayment = {
   id: string; method: 'DINHEIRO' | 'PIX' | 'CARTAO';
@@ -13,6 +13,7 @@ export type NfcComanda = {
   status: 'OPEN' | 'UNPAID' | 'PAID'; totalCents: number; paidCents: number;
   outstandingCents: number; openedAt: string; dueAt: string; closedAt: string | null;
   paidAt: string | null; items: NfcComandaItem[]; payments: NfcComandaPayment[];
+  orders?: Array<{ id: number; createdAt: string; status: 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO' }>;
 };
 export type NfcCustomerComandas = {
   customerId: string; blocked: boolean; outstandingCents: number;

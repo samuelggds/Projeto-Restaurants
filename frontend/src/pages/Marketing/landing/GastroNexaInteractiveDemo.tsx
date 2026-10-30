@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Play, Pause, RotateCcw, QrCode, ShoppingBag, Wifi } from 'lucide-react';
 import './GastroNexaInteractiveDemo.css';
 
@@ -73,10 +73,13 @@ function Phone({mode,step}:{mode:Mode;step:number}) {
     </div><div className="gn-scene-home"/>
   </div>;
 }
-function Illustration({mode,step}:{mode:Mode;step:number}){
+function Illustration({mode,step,faceBack,onFlip}:{mode:Mode;step:number;faceBack:boolean;onFlip:()=>void}){
  return <div className={'gn-scene-illustration gn-scene-'+mode}>
    {mode==='mesas' && <div className="gn-scene-paper"><small>MESA EM ATENDIMENTO</small><strong>Mesa 08</strong><QrCode size={92}/><p>Aponte a câmera.<br/>Seu próximo pedido começa aqui.</p></div>}
-   {mode==='nfc' && <div className="gn-scene-card"><b>GX <span>GastroNexa</span></b><h4>Aproxime.<br/>Escolha.<br/><em>Peça.</em></h4><Wifi size={49}/><small>www.gastronexa.com.br</small></div>}
+   {mode==='nfc' && <button type="button" className={'gn-scene-card gn-scene-flip '+(faceBack?'flipped':'')} onClick={onFlip} aria-label={faceBack?'Ver frente do cartão NFC':'Virar cartão NFC para ver o verso'} title="Clique para virar o cartão">
+   <span className="gn-scene-card-front"><b>GX <span>GastroNexa</span></b><strong>Comanda<br/>individual.</strong><small>Seu pedido começa aqui · toque para virar</small></span>
+   <span className="gn-scene-card-back"><b>GX <span>GastroNexa</span></b><strong>Aproxime.<br/>Escolha.<br/><em>Peça.</em></strong><Wifi size={38}/><small>www.gastronexa.com.br</small></span>
+ </button>}
    {(mode==='mesas'&&step===0 || mode==='nfc'&&(step===0||step===1||step===4))&&<div className="gn-scene-signal">{mode==='mesas'?<QrCode size={22}/>:<Wifi size={22}/>} {mode==='mesas'?'Escaneando QR Code':'Lendo cartão NFC'}</div>}
    <Phone mode={mode} step={step}/>
  </div>;
@@ -85,10 +88,26 @@ export function GastroNexaInteractiveDemo() {
  const [mode,setMode]=useState<Mode>('mesas');
  const [step,setStep]=useState(0);
  const [playing,setPlaying]=useState(false);
+ const [faceBack,setFaceBack]=useState(false);
+ const [autoplayStarted,setAutoplayStarted]=useState(false);
+ const sectionRef=useRef<HTMLElement>(null);
  const stages=stage[mode].steps;
  useEffect(()=>{if(!playing)return;const id=window.setInterval(()=>setStep(previous=>(previous+1)%stages.length),3500);return()=>window.clearInterval(id);},[playing,stages.length]);
- const chooseMode=(id:Mode)=>{setMode(id);setStep(0);setPlaying(false);};
- return <section className="gn-try gn-showcase" id="demonstracao" aria-label="Demonstração animada GastroNexa">
+ useEffect(()=>{
+   if (autoplayStarted || typeof IntersectionObserver === 'undefined') return;
+   const root=sectionRef.current;
+   if (!root) return;
+   const observer=new IntersectionObserver(entries=>{
+     if (!entries.some(entry=>entry.isIntersecting)) return;
+     setAutoplayStarted(true);
+     observer.disconnect();
+     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setPlaying(true);
+   },{threshold:0.15});
+   observer.observe(root);
+   return ()=>observer.disconnect();
+ },[autoplayStarted]);
+ const chooseMode=(id:Mode)=>{setMode(id);setStep(0);setFaceBack(false);setPlaying(false);};
+ return <section ref={sectionRef} className="gn-try gn-showcase" id="demonstracao" aria-label="Demonstração animada GastroNexa">
    <div className="gn-try-wrap">
      <header className="gn-showcase-heading"><div className="gn-showcase-label">● EXPLORE A EXPERIÊNCIA GASTRONEXA <span>PRÉVIA</span></div><h2>Uma plataforma.<br/><em>Três formas de conectar.</em></h2><p>Do pedido no delivery ao atendimento no salão: conheça as experiências para o seu cliente, sua equipe e seu restaurante.</p></header>
      <div className="gn-showcase-tabs" role="group" aria-label="Escolha a experiência">
@@ -101,7 +120,7 @@ export function GastroNexaInteractiveDemo() {
          <div className="gn-showcase-actions"><button type="button" className="gn-showcase-primary" onClick={()=>setPlaying(v=>!v)}>{playing?<Pause size={16}/>:<Play size={16}/>} {playing?'Pausar animação':'Ver animação'}</button><button type="button" className="gn-showcase-reset" onClick={()=>{setPlaying(false);setStep(0);}}><RotateCcw size={16}/> Rever esta experiência</button></div>
          <small className="gn-showcase-caption">{playing?'Reproduzindo a experiência selecionada.':'Selecione uma experiência ou explore as etapas.'}</small>
        </div>
-       <Illustration mode={mode} step={step}/>
+       <Illustration mode={mode} step={step} faceBack={faceBack} onFlip={()=>setFaceBack(back=>!back)}/>
      </div>
      <nav className="gn-showcase-steps" aria-label="Etapas da experiência">{stages.map((s,i)=><button type="button" key={s.name} aria-current={i===step?'step':undefined} onClick={()=>{setStep(i);setPlaying(false);}}><small>{String(i+1).padStart(2,'0')}</small><strong>{s.name}</strong></button>)}</nav>
      <footer className="gn-showcase-foot"><span>Prévia de apresentação · nenhum cadastro, pedido ou pagamento real é enviado.</span><span>www.gastronexa.com.br</span></footer>
