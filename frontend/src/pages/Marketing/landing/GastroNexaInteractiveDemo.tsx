@@ -82,41 +82,65 @@ function Phone({mode,step,local,phoneApproach}:{mode:Mode;step:number;local:numb
     </div><div className="gn-scene-home"/>
   </div>;
 }
-function Illustration({mode,step,faceBack,onFlip}:{mode:Mode;step:number;faceBack:boolean;onFlip:()=>void}){
- return <div className={'gn-scene-illustration gn-scene-'+mode}>
-   {mode==='mesas' && <div className="gn-scene-paper"><small>MESA EM ATENDIMENTO</small><strong>Mesa 08</strong><QrCode size={92}/><p>Aponte a câmera.<br/>Seu próximo pedido começa aqui.</p></div>}
-   {mode==='nfc' && <button type="button" className={'gn-scene-card gn-scene-flip '+(faceBack?'flipped':'')} onClick={onFlip} aria-label={faceBack?'Ver frente do cartão NFC':'Virar cartão NFC para ver o verso'} title="Clique para virar o cartão">
-   <span className="gn-scene-card-front"><b>GX <span>GastroNexa</span></b><strong>Comanda<br/>individual.</strong><small>Seu pedido começa aqui · toque para virar</small></span>
-   <span className="gn-scene-card-back"><b>GX <span>GastroNexa</span></b><strong>Aproxime.<br/>Escolha.<br/><em>Peça.</em></strong><Wifi size={38}/><small>www.gastronexa.com.br</small></span>
- </button>}
-   {(mode==='mesas'&&step===0 || mode==='nfc'&&(step===0||step===1||step===4))&&<div className="gn-scene-signal">{mode==='mesas'?<QrCode size={22}/>:<Wifi size={22}/>} {mode==='mesas'?'Escaneando QR Code':'Lendo cartão NFC'}</div>}
-   <Phone mode={mode} step={step}/>
- </div>;
-}
 export function GastroNexaInteractiveDemo() {
  const [mode,setMode]=useState<Mode>('mesas');
- const [step,setStep]=useState(0);
+ const [elapsed,setElapsed]=useState(0);
  const [playing,setPlaying]=useState(false);
- const [faceBack,setFaceBack]=useState(false);
- const [autoplayStarted,setAutoplayStarted]=useState(false);
- const sectionRef=useRef<HTMLElement>(null);
+ const [visible,setVisible]=useState(false);
+ const [faceOverride,setFaceOverride]=useState<number|null>(null);
+ const [reducedMotion,setReducedMotion]=useState(()=>typeof window!=='undefined'&&typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+ const illustrationRef=useRef<HTMLDivElement>(null);
+ const elapsedRef=useRef(0);
+ const autoplayStarted=useRef(false);
+ const [motionOptIn,setMotionOptIn]=useState(false);
+ const frame=frameAt(mode,elapsed);
+ const {step,local,progress}=frame;
  const stages=stage[mode].steps;
- useEffect(()=>{if(!playing)return;const id=window.setInterval(()=>setStep(previous=>(previous+1)%stages.length),3500);return()=>window.clearInterval(id);},[playing,stages.length]);
  useEffect(()=>{
-   if (autoplayStarted || typeof IntersectionObserver === 'undefined') return;
-   const root=sectionRef.current;
-   if (!root) return;
-   const observer=new IntersectionObserver(entries=>{
-     if (!entries.some(entry=>entry.isIntersecting)) return;
-     setAutoplayStarted(true);
-     observer.disconnect();
-     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setPlaying(true);
-   },{threshold:0.15});
-   observer.observe(root);
+   if(typeof window.matchMedia!=='function')return;
+   const preference=window.matchMedia('(prefers-reduced-motion: reduce)');
+   const change=()=>{setReducedMotion(preference.matches);if(preference.matches){setMotionOptIn(false);setPlaying(false);}};
+   preference.addEventListener('change',change);
+   return()=>preference.removeEventListener('change',change);
+ },[]);
+ useEffect(()=>{
+   const illustration=illustrationRef.current;
+   if(!illustration)return;
+   const updateVisibility=(isVisible:boolean)=>{
+     setVisible(isVisible);
+     if(isVisible&&!autoplayStarted.current){autoplayStarted.current=true;if(!reducedMotion)setPlaying(true);}
+   };
+   if(typeof IntersectionObserver==='undefined'){updateVisibility(true);return;}
+   const observer=new IntersectionObserver(entries=>updateVisibility(entries.some(entry=>entry.isIntersecting&&(entry.intersectionRatio??1)>=.2)),{threshold:.2});
+   observer.observe(illustration);
    return ()=>observer.disconnect();
- },[autoplayStarted]);
- const chooseMode=(id:Mode)=>{setMode(id);setStep(0);setFaceBack(false);setPlaying(false);};
- return <section ref={sectionRef} className="gn-try gn-showcase" id="demonstracao" aria-label="Demonstração animada GastroNexa">
+ },[reducedMotion]);
+ useEffect(()=>{
+   if(!playing||!visible)return;
+   let request=0,previous:number|null=null;
+   const tick=(timestamp:number)=>{
+     if(previous!==null&&!document.hidden){elapsedRef.current=(elapsedRef.current+Math.min(timestamp-previous,100))%frame.duration;setElapsed(elapsedRef.current);}
+     previous=timestamp;request=window.requestAnimationFrame(tick);
+   };
+   request=window.requestAnimationFrame(tick);
+   return()=>window.cancelAnimationFrame(request);
+ },[playing,visible,frame.duration]);
+ const seek=(time:number)=>{elapsedRef.current=time;setElapsed(time);setFaceOverride(null);};
+ const chooseMode=(id:Mode)=>{setMode(id);seek(0);setPlaying(!reducedMotion||motionOptIn);};
+ const togglePlay=()=>{if(!playing){setMotionOptIn(true);setFaceOverride(null);}setPlaying(value=>!value);};
+ const restart=()=>{setMotionOptIn(true);seek(0);setPlaying(true);};
+ const selectStep=(index:number)=>{
+   const start=durations[mode].slice(0,index).reduce((sum,time)=>sum+time,0);
+   const still=mode==='nfc'?(index===0?3100:index===1?4400:1600):2300;
+   seek(start+still);setPlaying(false);
+ };
+ const angle=faceOverride??(mode==='nfc'&&step===0?180*ease((local-650)/850)+180*ease((local-3550)/800):0);
+ const approach=mode==='nfc'&&step===1?ease((local-350)/1300)*(1-ease((local-2900)/1100)):0;
+ const phoneApproach=mode==='mesas'&&step===0?ease(local/1200)*(1-ease((local-3250)/950)):0;
+ const wave=(1-Math.cos(local/310))/2;
+ const faceBack=Math.cos(angle*Math.PI/180)<0;
+ const propStyle={transform:`translate3d(calc(var(--gn-approach-x) * ${approach}),calc(var(--gn-approach-y) * ${approach}),0) rotate(${-12+approach*12}deg) scale(${1-approach*.08})`} as CSSProperties;
+ return <section className="gn-try gn-showcase" id="demonstracao" aria-label="Demonstração animada GastroNexa">
    <div className="gn-try-wrap">
      <header className="gn-showcase-heading"><div className="gn-showcase-label">● EXPLORE A EXPERIÊNCIA GASTRONEXA <span>PRÉVIA</span></div><h2>Uma plataforma.<br/><em>Três formas de conectar.</em></h2><p>Do pedido no delivery ao atendimento no salão: conheça as experiências para o seu cliente, sua equipe e seu restaurante.</p></header>
      <div className="gn-showcase-tabs" role="group" aria-label="Escolha a experiência">
@@ -124,14 +148,24 @@ export function GastroNexaInteractiveDemo() {
      </div>
      <div className="gn-showcase-main">
        <div className="gn-showcase-copy"><small>● {mode==='nfc'?'COM A EQUIPE AUTORIZADA':mode==='mesas'?'NO SALÃO, PELO CELULAR DO CLIENTE':'PEDIDOS NO CELULAR DO CLIENTE'}</small><h3>{mode==='mesas'?<>A mesa chama.<br/><em>O cliente escolhe.</em></>:mode==='nfc'?<>Um cartão.<br/><em>Sua comanda.</em></>:<>Seu delivery.<br/><em>Sem complicar.</em></>}</h3><p>{stage[mode].explanation}</p>
-         <div className="gn-showcase-checks">{(mode==='mesas'?['Mesa identificada pelo QR Code','Pedidos enviados à cozinha','Consumo individual por participante']:mode==='nfc'?['Recepção com nome, CPF e telefone','Mesa opcional e identificação por cartão','Consulta e pagamento na evolução do módulo']:['Cardápio digital no celular','Carrinho e pedido demonstrativos','Acompanhamento visual da operação']).map(x=><span key={x}><Check size={15}/>{x}</span>)}</div>
-         <div className="gn-showcase-current" aria-live="polite"><small>{String(step+1).padStart(2,'0')} / {mode==='nfc'?'PRÉVIA CASHLESS':mode==='mesas'?'QR CODE DE MESA':'DELIVERY'}</small><strong>{stages[step].headline}</strong><p>{stages[step].details}</p></div>
-         <div className="gn-showcase-actions"><button type="button" className="gn-showcase-primary" onClick={()=>setPlaying(v=>!v)}>{playing?<Pause size={16}/>:<Play size={16}/>} {playing?'Pausar animação':'Ver animação'}</button><button type="button" className="gn-showcase-reset" onClick={()=>{setPlaying(false);setStep(0);}}><RotateCcw size={16}/> Rever esta experiência</button></div>
-         <small className="gn-showcase-caption">{playing?'Reproduzindo a experiência selecionada.':'Selecione uma experiência ou explore as etapas.'}</small>
+         <div className="gn-showcase-checks">{(mode==='mesas'?['Mesa identificada pelo QR Code','Pedidos enviados à cozinha','Consumo individual por participante']:mode==='nfc'?['Recepção com nome, CPF e telefone','Mesa opcional e cartão vinculado à visita','Pedido confirmado com cartão e 3 dígitos do CPF']:['Cardápio digital no celular','Carrinho e pedido demonstrativos','Acompanhamento visual da operação']).map(x=><span key={x}><Check size={15}/>{x}</span>)}</div>
+         <div className="gn-showcase-current" aria-live="polite"><small>{String(step+1).padStart(2,'0')} / {mode==='nfc'?'CASHLESS NFC':mode==='mesas'?'QR CODE DE MESA':'DELIVERY'}</small><strong>{stages[step].headline}</strong><p>{stages[step].details}</p></div>
+         <div className="gn-showcase-actions"><button type="button" className="gn-showcase-primary" onClick={togglePlay}>{playing?<Pause size={16}/>:<Play size={16}/>} {playing?'Pausar animação':'Ver animação'}</button><button type="button" className="gn-showcase-reset" onClick={restart}><RotateCcw size={16}/> Rever esta experiência</button></div>
+         <small className="gn-showcase-caption">{playing?'Reproduzindo a experiência selecionada.':reducedMotion&&!motionOptIn?'Movimento reduzido ativado. Use “Ver animação” para reproduzir.':'Animação pausada. Continue ou explore as etapas.'}</small>
        </div>
-       <Illustration mode={mode} step={step} faceBack={faceBack} onFlip={()=>setFaceBack(back=>!back)}/>
+       <div ref={illustrationRef} className={'gn-scene-illustration gn-scene-'+mode} data-mode={mode} data-step={step} data-playing={playing} data-elapsed={Math.round(elapsed)} data-card-angle={Math.round(angle)} data-approach={approach.toFixed(3)} data-phone-approach={phoneApproach.toFixed(3)}>
+         {mode==='mesas'&&<div className="gn-scene-paper" style={{transform:`rotate(${-12+(step===0?Math.sin(local/650)*2:0)}deg)`}}><small>MESA EM ATENDIMENTO</small><strong>Mesa 08</strong><QrCode size={92}/><p>Aponte a câmera.<br/>Seu próximo pedido começa aqui.</p></div>}
+         {mode==='nfc'&&<button type="button" className={'gn-scene-card gn-scene-flip'+(faceBack?' flipped':'')} style={propStyle} onClick={()=>{setPlaying(false);setFaceOverride(faceBack?0:180);}} aria-label={faceBack?'Ver frente do cartão NFC':'Virar cartão NFC para ver o verso'} title="Clique para virar o cartão">
+           <span className="gn-scene-card-front" style={{transform:`perspective(700px) rotateY(${angle}deg)`}}><Brand/><strong>Comanda<br/>individual.</strong><small>Seu pedido começa aqui · toque para virar</small></span>
+           <span className="gn-scene-card-back" style={{transform:`perspective(700px) rotateY(${angle+180}deg)`}}><Brand/><strong>Aproxime.<br/><em>Confirme.</em></strong><Wifi size={24}/><small>www.gastronexa.com.br</small></span>
+         </button>}
+         {(mode==='mesas'&&step===0||mode==='nfc'&&step===1)&&<div className="gn-scene-signal" style={{transform:`translateY(${-wave*5}px)`,boxShadow:`0 8px ${16+wave*12}px #e9632640`}}>{mode==='mesas'?<QrCode size={22}/>:<Wifi size={22}/>} {mode==='mesas'?local>2800?'QR Code identificado':local<1500?'Aproxime o iPhone da mesa':'Escaneando QR Code':local>2100?'Cartão identificado':'Aproxime o cartão'}</div>}
+         {mode==='nfc'&&step===1&&<div className="gn-scene-nfc-rings" style={{opacity:approach*(.3+wave*.7),transform:`scale(${.8+wave*.35})`}}><i/><i/><Wifi size={22}/></div>}
+         <Phone mode={mode} step={step} local={local} phoneApproach={phoneApproach}/>
+         <div className="gn-scene-progress" aria-hidden="true"><span style={{transform:`scaleX(${progress})`}}/></div>
+       </div>
      </div>
-     <nav className="gn-showcase-steps" aria-label="Etapas da experiência">{stages.map((s,i)=><button type="button" key={s.name} aria-current={i===step?'step':undefined} onClick={()=>{setStep(i);setPlaying(false);}}><small>{String(i+1).padStart(2,'0')}</small><strong>{s.name}</strong></button>)}</nav>
+     <nav className="gn-showcase-steps" style={{'--gn-steps':stages.length} as CSSProperties} aria-label="Etapas da experiência">{stages.map((s,i)=><button type="button" key={s.name} aria-current={i===step?'step':undefined} onClick={()=>selectStep(i)}><small>{String(i+1).padStart(2,'0')}</small><strong>{s.name}</strong></button>)}</nav>
      <footer className="gn-showcase-foot"><span>Prévia de apresentação · nenhum cadastro, pedido ou pagamento real é enviado.</span><span>www.gastronexa.com.br</span></footer>
    </div>
  </section>;
