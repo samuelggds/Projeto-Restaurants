@@ -7,7 +7,7 @@ type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
 type PublicPlan = { code: PlanCode; name: string; description: string; monthlyFee: number; trialDays: number; features: string[]; featured: boolean };
 const fallback: PublicPlan[] = [
   {code:'BASICO',name:'Básico',description:'Operação de delivery para quem está começando.',monthlyFee:99.9,trialDays:7,featured:false,features:['Sistema de delivery','Implantação inicial assistida','Cadastro inicial de até 50 produtos','Suporte padrão']},
-  {code:'PREMIUM',name:'Premium',description:'Delivery e atendimento de mesas com QR Code.',monthlyFee:199.9,trialDays:15,featured:false,features:['Sistema de delivery','Cardápio digital com QR Code de mesa','Implantação inicial assistida','Suporte prioritário']},
+  {code:'PREMIUM',name:'Premium',description:'Delivery e atendimento de mesas com QR Code.',monthlyFee:199.9,trialDays:15,featured:false,features:['Sistema de delivery','Cardápio digital com QR Code de mesa','Cartões NFC com comandas individuais (em homologação)','Implantação inicial assistida','Suporte prioritário']},
   {code:'GESTAO_TOTAL',name:'Gestão Total',description:'Tudo do Premium com apoio contínuo sob solicitação.',monthlyFee:299.9,trialDays:15,featured:true,features:['Tudo do Plano Premium','Implantação inicial assistida','Gestão assistida contínua sob solicitação','Suporte prioritário']},
 ];
 const order: Record<PlanCode, number> = {BASICO:1,PREMIUM:2,GESTAO_TOTAL:3};
@@ -32,7 +32,11 @@ export function ApprovedMarketingPlans({onSelectPlan}:{onSelectPlan:(code:PlanCo
  const sorted=useMemo(()=>[...plans].sort((a,b)=>order[a.code]-order[b.code]),[plans]);
  return <div className="price-grid">
  {sorted.map(plan=>{
-  const detail=presentPlanBenefits(plan.features);
+  // Marketing only: final entitlement is always verified server-side.
+  const features = plan.code === 'BASICO' || plan.features.some(feature => /cartões? NFC/i.test(feature))
+    ? plan.features
+    : [...plan.features, 'Cartões NFC com comandas individuais (em homologação)'];
+  const detail=presentPlanBenefits(features);
   const primary=detail.sections.flatMap(s=>s.items);
   return <article className={'price-card'+(plan.featured?' featured':'')} key={plan.code}>
    {plan.featured?<span className="price-ribbon">SOLUÇÃO MAIS COMPLETA</span>:null}
