@@ -13,6 +13,7 @@ const tokenPattern=/^[A-Za-z0-9_-]{32,128}$/u;
 const sessionPattern=/^[A-Za-z0-9_-]{43}$/u;
 const verify=z.strictObject({token:z.string().regex(tokenPattern),cpf:z.string().regex(/^\d{11}$/u)});
 const sessionLife=15*60_000;
+// Customer read-only sessions have a short lifetime; all reads revalidate the active card and visit.
 const hash=(text:string)=>crypto.createHash('sha256').update(text).digest('hex');
 const fingerprintsMatch=(expected:string,actual:string[])=>actual.some(value=>{
  const a=Buffer.from(expected,'hex'),b=Buffer.from(value,'hex');
