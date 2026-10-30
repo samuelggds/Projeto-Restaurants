@@ -58,7 +58,7 @@ export default function NfcCustomerReadOnlyPage(){
    refreshing.current=true;
    try{
      const response=await api.get<{comanda:Visit;updatedAt:string}>('/nfc-customer-view/account',{
-       headers:{'x-nfc-customer-session':sessionToken},skipBaseUrlFallback:true,
+       headers:{'x-nfc-customer-session':sessionToken,'x-nfc-card-token':token},skipBaseUrlFallback:true,
      });
      if(!response.data?.comanda)throw new Error('Comanda indisponível');
      setVisit(response.data.comanda);setUpdated(response.data.updatedAt);setError('');
@@ -67,7 +67,7 @@ export default function NfcCustomerReadOnlyPage(){
      if(status===401||status===403){setSession('');setVisit(null);setError('Acesso encerrado. Aproxime novamente o cartão e confirme sua identidade.');}
      else setError('Não foi possível atualizar a comanda. Verifique a conexão.');
    }finally{refreshing.current=false;}
- },[]);
+ },[token]);
  const verify=async(event:FormEvent)=>{
    event.preventDefault();
    if(!validToken||cpf.length!==3||busy)return;
