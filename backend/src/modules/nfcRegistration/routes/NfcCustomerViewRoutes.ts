@@ -6,6 +6,7 @@ import { setTenantDbContext, withTenantDbContext } from '../../../database/tenan
 import { decryptNfcPii } from '../security/nfcCustomerPii.js';
 import { nextNfcReturnCpfFailure } from '../domain/nfcReturnCpfLockout.js';
 import { hasNfcCardAccess } from '../../billing/domain/planFeaturePolicy.js';
+import { verifyNfcCustomerCpfPrefix, nfcCustomerSessionHash } from '../domain/nfcCustomerViewVerification.js';
 
 const router=Router();
 const tokenPattern=/^[A-Za-z0-9_-]{32,128}$/u;
@@ -14,8 +15,6 @@ const verify=z.strictObject({token:z.string().regex(tokenPattern),cpfPrefix:z.st
 const sessionLife=15*60_000;
 // Customer read-only sessions have a short lifetime; all reads revalidate the active card and visit.
 const hash=(text:string)=>crypto.createHash('sha256').update(text).digest('hex');
-const customerSessionHash=(token:string)=>hash('nfc-customer-readonly:'+token);
-const prefixMatches=(cpf:string,prefix:string)=>{const a=Buffer.from(cpf.slice(0,3));const b=Buffer.from(prefix);return a.length===b.length&&crypto.timingSafeEqual(a,b);};
 function noStore(res:import('express').Response){res.setHeader('Cache-Control','no-store, private');res.setHeader('Pragma','no-cache');res.setHeader('Referrer-Policy','no-referrer');}
 function genericError(res:import('express').Response,status=403){noStore(res);return res.status(status).json({error:'Não foi possível confirmar a visita. Confira o cartão, CPF e situação da comanda.'});}
 async function activeVisit(token:string){
@@ -51,7 +50,7 @@ router.post('/verify',async(req,res)=>{
        select:{id:true},orderBy:{openedAt:'desc'},
      });
      if(!customer||!comanda)return null;
-     if(!prefixMatches(decryptNfcPii(card.restaurantId,current.customerId,'cpf',customer.cpfEncrypted),input.cpfPrefix)){
+     if(!verifyNfcCustomerCpfPrefix(decryptNfcPii(card.restaurantId,current.customerId,'cpf',customer.cpfEncrypted),input.cpfPrefix)){
        const failure=nextNfcReturnCpfFailure(current.failedGuestViewAttempts,new Date());
        await tx.nfcCard.updateMany({where:{id:card.id,restaurantId:card.restaurantId,status:'ACTIVE',customerId:current.customerId},
          data:{failedGuestViewAttempts:failure.attempts,guestViewLockedUntil:failure.lockedUntil}});
@@ -69,7 +68,7 @@ router.post('/verify',async(req,res)=>{
      await tx.nfcComandaAccess.create({data:{
        restaurantId:card.restaurantId,comandaId:comanda.id,
        codeHash:hash(crypto.randomBytes(32).toString('base64url')),
-       sessionHash:customerSessionHash(session),sessionExpiresAt:new Date(Date.now()+sessionLife),
+       sessionHash:nfcCustomerSessionHash(session),sessionExpiresAt:new Date(Date.now()+sessionLife),
        expiresAt:new Date(Date.now()+sessionLife),createdByUserId:visit.openedByUserId,
      }});
      return {session};
@@ -87,11 +86,11 @@ router.get('/account',async(req,res)=>{
  try{
    const session=String(req.get('x-nfc-customer-session')||'');
    if(!sessionPattern.test(session))return genericError(res,401);
-   const result=await prisma.nfcComandaAccess.findFirst({where:{sessionHash:customerSessionHash(session),revokedAt:null,
+   const result=await prisma.nfcComandaAccess.findFirst({where:{sessionHash:nfcCustomerSessionHash(session),revokedAt:null,
      sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},select:{restaurantId:true,comandaId:true}});
    if(!result)return genericError(res,401);
    const payload=await withTenantDbContext(result.restaurantId,async tx=>{
-     const record=await tx.nfcComandaAccess.findFirst({where:{sessionHash:customerSessionHash(session),restaurantId:result.restaurantId,
+     const record=await tx.nfcComandaAccess.findFirst({where:{sessionHash:nfcCustomerSessionHash(session),restaurantId:result.restaurantId,
        comandaId:result.comandaId,revokedAt:null,sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},select:{id:true}});
      if(!record)return null;
      const comanda=await tx.nfcComanda.findFirst({where:{id:result.comandaId,restaurantId:result.restaurantId,status:'OPEN'},
