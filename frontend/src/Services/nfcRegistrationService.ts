@@ -11,11 +11,11 @@ export type LinkedNfcCustomer = {
     status: 'NO_VISIT' | 'WAITING_ORDER' | 'IN_SERVICE' | 'PENDING' | 'PAID';
     totalCents: number; paidCents: number; outstandingCents: number };
 };
-export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; page: number; pageSize: number };
+export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; totalLinked: number; page: number; pageSize: number };
 class NfcRegistrationService {
   async linkedCustomers(q = '', page = 1) {
     const response = await api.get<LinkedNfcCustomerPage>('/nfc-registration/linked-customers', { params: { q, page } });
-    if (!response.data || !Array.isArray(response.data.customers) || !Number.isSafeInteger(response.data.total)) {
+    if (!response.data || !Array.isArray(response.data.customers) || !Number.isSafeInteger(response.data.total) || !Number.isSafeInteger(response.data.totalLinked)) {
       throw new Error('Resposta de clientes NFC inválida.');
     }
     return response.data;
