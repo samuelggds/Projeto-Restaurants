@@ -9,11 +9,15 @@ import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLi
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
+import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
 import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcIdSchema, nfcPageSchema, normalizeNfcCpf, normalizeNfcPhone, NfcRegistrationError } from '../domain/nfcRegistrationRules.js';
 
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
+router.get('/feature-access', premiumNfcPlanMiddleware, (_req, res) => res.json({ enabled: true }));
+// Settlement and card return remain available to clear existing debts after downgrade.
+router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
 const tokenSchema = ZodToken();
 function ZodToken() { return /^[A-Za-z0-9_-]{32,128}$/u; }

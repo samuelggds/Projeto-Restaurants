@@ -7,11 +7,12 @@ import { z, ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
+import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { decryptNfcPii } from '../security/nfcCustomerPii.js';
 
 const router = Router();
-router.use(authMiddleware, nfcRegistrationAccessMiddleware);
+router.use(authMiddleware, nfcRegistrationAccessMiddleware, premiumNfcPlanMiddleware);
 const LIMIT = 3, LOCK_MS = 15 * 60_000, CHALLENGE_MS = 2 * 60_000;
 const uuid = z.uuid();
 const keyPattern = /^[A-Za-z0-9_-]{16,128}$/u;

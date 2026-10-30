@@ -24,6 +24,7 @@ export const PLAN_CONFIG = {
     features: [
       'Sistema de delivery',
       'Cardápio digital com QR Code de mesa',
+      'Cartões NFC com comandas individuais (sujeito à homologação financeira)',
       'Implantação inicial assistida',
       'Cadastro inicial de até 100 produtos',
       'Endereço público GastroNexa com /slug',

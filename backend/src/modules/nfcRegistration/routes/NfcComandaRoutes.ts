@@ -7,6 +7,7 @@ import { setTenantDbContext, withTenantDbContext } from '../../../database/tenan
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { calculateNfcComandaDueAt } from '../domain/nfcComandaDeadline.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
+import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
@@ -112,7 +113,7 @@ router.get('/customers/:customerId/status', async (req, res) => {
   } catch (error) { return fail(res, error); }
 });
 // NFC ordering/checkout remains closed until operational integration and provider homologation.
-router.post('/open', async (req, res) => {
+router.post('/open', premiumNfcPlanMiddleware, async (req, res) => {
   try {
     const restaurantId = tenant(req), payload = openSchema.parse(req.body), key = requestKey(req.headers['idempotency-key']);
     const saved = await prisma.$transaction(async (tx) => {

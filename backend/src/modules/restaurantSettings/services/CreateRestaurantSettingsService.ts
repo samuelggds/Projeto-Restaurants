@@ -5,6 +5,7 @@ import prisma from '../../../config/prisma.js';
 import updateDeliveryFeeSettingsService from './UpdateDeliveryFeeSettingsService.js';
 import { normalizeRestaurantImage } from '../utils/normalizeRestaurantImage.js';
 import { normalizeInPersonServiceMode } from '../utils/inPersonServiceMode.js';
+import { hasNfcCardAccess } from '../../billing/domain/planFeaturePolicy.js';
 import { normalizeNfcDebtDeadlineMode, assertNfcClosingSchedule } from '../../nfcRegistration/domain/nfcComandaDeadline.js';
 import {
   normalizeEstablishmentAddress,
@@ -388,6 +389,15 @@ class CreateRestaurantSettingsService {
       }
     }
 
+    const selectedMode = normalizeInPersonServiceMode(inPersonServiceMode);
+    if (selectedMode !== 'QR_ONLY') {
+      const subscription = await prisma.subscription.findUnique({
+        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true },
+      });
+      if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+        throw new Error('Cartões NFC disponíveis somente nos planos Premium e Gestão Total ativos ou em teste.');
+      }
+    }
     const settingsCreateData: Prisma.RestaurantSettingsUncheckedCreateInput = {
       restaurantId: Number(restaurantId),
       deliveryFee: normalizeNonNegativeMoney(deliveryFee, 'Taxa de entrega'),
@@ -414,7 +424,7 @@ class CreateRestaurantSettingsService {
         'Pedidos por QR Code',
         true,
       ),
-      inPersonServiceMode: normalizeInPersonServiceMode(inPersonServiceMode),
+      inPersonServiceMode: selectedMode,
       waiterCallEnabled: normalizeStrictBoolean(waiterCallEnabled, 'Chamados ao garçom', true),
       billRequestEnabled: normalizeStrictBoolean(billRequestEnabled, 'Solicitação da conta', true),
       pixProvider: requestedPixProvider,
