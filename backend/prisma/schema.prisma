@@ -2741,6 +2741,8 @@ model NfcCard {
   orderConfirmationLockedUntil DateTime? @db.Timestamptz(3)
   failedReturnCpfAttempts Int @default(0)
   returnCpfLockedUntil DateTime? @db.Timestamptz(3)
+  failedGuestViewAttempts Int @default(0)
+  guestViewLockedUntil DateTime? @db.Timestamptz(3)
   revokedByUserId  Int?
   revokedAt        DateTime?     @db.Timestamptz(3)
   revokeReason     String?       @db.VarChar(160)
