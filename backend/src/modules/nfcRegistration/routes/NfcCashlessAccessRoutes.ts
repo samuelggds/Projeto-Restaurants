@@ -6,7 +6,7 @@ import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
-import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
+import { premiumNfcPlanMiddleware, premiumNfcGuestPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
@@ -104,7 +104,7 @@ function cashlessPublicHomologationGate(_req: import('express').Request, res: im
   }
   return next();
 }
-const guestGuards = [cashlessPublicHomologationGate, optionalTableSessionAuthMiddleware, sessionMiddleware, tableParticipantMiddleware] as const;
+const guestGuards = [cashlessPublicHomologationGate, optionalTableSessionAuthMiddleware, sessionMiddleware, tableParticipantMiddleware, premiumNfcGuestPlanMiddleware] as const;
 router.post('/guest/verify', ...guestGuards, async (req, res) => {
   try {
     const input = verifySchema.parse(req.body);
