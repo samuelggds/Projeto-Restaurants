@@ -86,21 +86,33 @@ router.get('/account',async(req,res)=>{
  try{
    const session=String(req.get('x-nfc-customer-session')||'');
    if(!sessionPattern.test(session))return genericError(res,401);
-   const result=await prisma.nfcComandaAccess.findFirst({where:{sessionHash:nfcCustomerSessionHash(session),revokedAt:null,
-     sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},select:{restaurantId:true,comandaId:true}});
-   if(!result)return genericError(res,401);
-   const payload=await withTenantDbContext(result.restaurantId,async tx=>{
-     const record=await tx.nfcComandaAccess.findFirst({where:{sessionHash:nfcCustomerSessionHash(session),restaurantId:result.restaurantId,
-       comandaId:result.comandaId,revokedAt:null,sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},select:{id:true}});
+   const cardToken=String(req.get('x-nfc-card-token')||'');
+   if(!tokenPattern.test(cardToken))return genericError(res,401);
+   const card=await activeVisit(cardToken);
+   if(!card)return genericError(res,401);
+   // Resolve tenant only through the card, then query RLS-protected access records
+   // inside a transaction with a trusted tenant context.
+   const subscription=await prisma.subscription.findUnique({where:{restaurantId:card.card.restaurantId},
+     select:{plan:true,status:true}});
+   if(!hasNfcCardAccess(subscription?.plan,subscription?.status))return genericError(res,403);
+   const payload=await withTenantDbContext(card.card.restaurantId,async tx=>{
+     const record=await tx.nfcComandaAccess.findFirst({
+       where:{sessionHash:nfcCustomerSessionHash(session),restaurantId:card.card.restaurantId,
+         revokedAt:null,sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},
+       select:{id:true,comandaId:true},
+     });
      if(!record)return null;
-     const comanda=await tx.nfcComanda.findFirst({where:{id:result.comandaId,restaurantId:result.restaurantId,status:'OPEN'},
+     const comanda=await tx.nfcComanda.findFirst({
+       where:{id:record.comandaId,restaurantId:card.card.restaurantId,
+         cardId:card.card.id,customerId:card.card.customerId!,status:'OPEN'},
        select:{id:true,customerId:true,cardId:true,tableNumber:true,status:true,openedAt:true,
          totalCents:true,paidCents:true,
          items:{select:{id:true,kind:true,description:true,quantity:true,totalCents:true,createdAt:true,sourceOrderId:true},orderBy:{createdAt:'asc'}},
          orders:{select:{id:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}},
-       }});
+       },
+     });
      if(!comanda?.cardId)return null;
-     const card=await tx.nfcCard.findFirst({where:{restaurantId:result.restaurantId,id:comanda.cardId,
+     const card=await tx.nfcCard.findFirst({where:{restaurantId:card.card.restaurantId,id:comanda.cardId,
        customerId:comanda.customerId,status:'ACTIVE'},select:{id:true,displayCode:true}});
      if(!card)return null;
      return {id:comanda.id,cardCode:card.displayCode,tableNumber:comanda.tableNumber,status:comanda.status,openedAt:comanda.openedAt,
