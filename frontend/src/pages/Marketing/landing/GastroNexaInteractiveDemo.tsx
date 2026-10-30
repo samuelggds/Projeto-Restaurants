@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Check, Play, Pause, RotateCcw, QrCode, ShoppingBag, Wifi } from 'lucide-react';
 import './GastroNexaInteractiveDemo.css';
 
@@ -6,7 +6,7 @@ type Mode = 'delivery' | 'mesas' | 'nfc';
 const modes: {id:Mode; label:string; sub:string}[] = [
   {id:'delivery',label:'Cardápio delivery',sub:'Entrega e retirada'},
   {id:'mesas',label:'QR Code na mesa',sub:'Pedidos pelo cliente'},
-  {id:'nfc',label:'Cashless NFC',sub:'Prévia · em desenvolvimento'},
+  {id:'nfc',label:'Cashless NFC',sub:'Comanda individual com a equipe'},
 ];
 const stage: Record<Mode,{ title:string; headline:string; explanation:string; steps:{name:string; headline:string; details:string}[] }> = {
   delivery:{
@@ -33,40 +33,49 @@ const stage: Record<Mode,{ title:string; headline:string; explanation:string; st
   },
   nfc:{
     title:'Um cartão. Sua comanda.',headline:'Aproxime. Escolha. Peça.',
-    explanation:'A equipe identifica o cliente, vincula um cartão à visita e acompanha o consumo na comanda individual.',
+    explanation:'A equipe cadastra o cliente e lança os itens. O cliente confirma com o cartão e os 3 primeiros dígitos do CPF, em uma comanda individual.',
     steps:[
-      {name:'Recepção pela equipe',headline:'O atendimento começa na recepção.',details:'Um funcionário autorizado associa o cartão ao cliente. A mesa é opcional.'},
-      {name:'Confirmar pedido',headline:'Uma aproximação, uma confirmação.',details:'O cartão identifica a visita e o cliente confirma os pedidos conforme a regra de CPF.'},
-      {name:'Registrar consumo',headline:'Pedido na cozinha. Conta em aberto.',details:'O pedido passa a integrar a comanda individual como não pago.'},
-      {name:'Consultar comanda',headline:'Consulta da visita, pelo cliente.',details:'Visualize a consulta prevista por QR Code e código temporário de visita.'},
-      {name:'Quitar e devolver',headline:'Quitação verificada. Cartão liberado.',details:'A equipe aproxima o cartão, solicita o CPF completo e confere pagamentos confirmados no servidor.'},
+      {name:'Recepção pela equipe',headline:'O atendimento começa na recepção.',details:'A equipe cadastra nome, CPF e telefone, vincula o cartão à visita e informa a mesa, se houver.'},
+      {name:'Confirmar pedido',headline:'Aproxime o cartão. Confirme com CPF.',details:'A equipe lança os itens. No iPhone, o cartão abre o acesso pelo Safari; o cliente confirma com os 3 primeiros dígitos do CPF.'},
+      {name:'Registrar consumo',headline:'Pedido na cozinha. Conta em aberto.',details:'A confirmação por cartão e CPF registra o pedido na comanda da visita. O pagamento é feito separadamente.'},
     ]
   },
 };
 const format = (cents:number)=> (cents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const clamp = (value:number)=>Math.max(0,Math.min(1,value));
+const ease = (value:number)=>{const t=clamp(value);return t*t*(3-2*t);};
+const durations:Record<Mode,number[]>={delivery:[3200,3200,3200,2800,3200],mesas:[4200,3200,3200,2800,3200],nfc:[5200,5800,4200]};
+function frameAt(mode:Mode,elapsed:number){
+  const times=durations[mode],duration=times.reduce((sum,time)=>sum+time,0);
+  let local=elapsed%duration,step=0;
+  while(step<times.length-1&&local>=times[step]){local-=times[step];step+=1;}
+  return {step,local,duration,progress:local/times[step]};
+}
+function Brand(){return <span className="gn-scene-brand-mark"><img src="/gastronexa-logo.svg" alt=""/>Gastro<span>Nexa</span></span>;}
 const demoProducts=[{name:'Pizza calabresa',emoji:'🍕',price:4990},{name:'Refrigerante',emoji:'🥤',price:700},{name:'Água mineral',emoji:'💧',price:500}];
-function Phone({mode,step}:{mode:Mode;step:number}) {
-  return <div className="gn-scene-phone" aria-label="Celular ilustrativo da demonstração">
+function Phone({mode,step,local,phoneApproach}:{mode:Mode;step:number;local:number;phoneApproach:number}) {
+  const scanner=(1-Math.cos(Math.max(0,local-1500)/210))/2;
+  const typed=(text:string,delay:number)=>text.slice(0,Math.floor(clamp((local-delay)/650)*text.length));
+  const phoneStyle=mode==='mesas'?{transform:`translate3d(calc(var(--gn-phone-qr-x) * ${phoneApproach}),calc(var(--gn-phone-qr-y) * ${phoneApproach}),0) rotate(${-8*phoneApproach}deg) scale(${1-phoneApproach*.08})`} as CSSProperties:undefined;
+  return <div className="gn-scene-phone" style={phoneStyle} aria-label="iPhone ilustrativo da demonstração">
     <div className="gn-scene-notch"/><div className="gn-scene-status">9:41 <span>● ᴡɪғɪ ▰</span></div>
-    <div className="gn-scene-brand">GX&nbsp; Gastro<span>Nexa</span></div>
+    <div className="gn-scene-brand"><Brand/></div>
     <div className="gn-scene-content" key={mode+'-'+step}>
       {mode==='mesas' ? <>
         <small className="gn-scene-tag">Mesa 08 · {step<2?'Em atendimento':'Cliente exemplo'}</small>
-        {step===0 ? <><h4>Escaneie o QR da mesa.</h4><p>A câmera abre o cardápio identificado.</p><div className="gn-scene-scanner"><QrCode size={86}/><div className="gn-scene-laser"/></div></> :
-        step===1 ? <><h4>Seu lugar.<br/>Seu pedido.</h4><p>Identifique-se para acompanhar somente seu consumo.</p><label>Nome<input readOnly value="Cliente exemplo"/></label><label>Telefone<input readOnly value="(00) 00000-0000"/></label><b className="gn-scene-cta">Acessar cardápio da mesa</b></> :
+        {step===0 ? <><h4>Escaneie o QR da mesa.</h4><p>A câmera abre o cardápio identificado.</p><div className="gn-scene-scanner"><QrCode size={86}/><div className="gn-scene-laser" style={{transform:`translateY(${scanner*122}px)`,opacity:local>=1500&&local<=2800?1:0}}/></div>{local>2800&&<div className="gn-scene-positive"><Check size={13}/> Mesa 08 identificada</div>}</> :
+        step===1 ? <><h4>Seu lugar.<br/>Seu pedido.</h4><p>Identifique-se para acompanhar somente seu consumo.</p><label>Nome<input readOnly tabIndex={-1} value={typed("Cliente exemplo",150)}/></label><label>Telefone<input readOnly tabIndex={-1} value={typed("(00) 00000-0000",900)}/></label><b className="gn-scene-cta">Acessar cardápio da mesa</b></> :
         step===2 ? <><h4>Escolha seus produtos.</h4>{demoProducts.slice(0,2).map(p=><div className="gn-scene-product" key={p.name}>{p.emoji} <span>{p.name}</span><b>{format(p.price)}</b></div>)}<b className="gn-scene-cta">Enviar pedido</b></> :
         step===3 ? <><h4>Pedido enviado!</h4><p>Itens vinculados ao seu consumo individual.</p><div className="gn-scene-product">🍕 Pizza calabresa <b>{format(4990)}</b></div><div className="gn-scene-positive"><Check size={13}/> Pedido enviado para a cozinha.</div></> :
         <><h4>Sua mesa.<br/>Seu consumo.</h4><div className="gn-scene-product">🍕 Pizza calabresa <b>{format(4990)}</b></div><div className="gn-scene-positive"><Check size={13}/> Acompanhamento do pedido</div><b className="gn-scene-cta">Ver conta individual</b></>}
       </> : mode==='nfc' ? <>
-        <small className="gn-scene-tag">{step===3?'Consulta da visita':step===4?'Quitação · prévia':'Equipe autorizada · prévia'}</small>
-        {step===0 ? <><h4>Recepção do cliente</h4><p>Cartão preparado identificado. Vincule o cliente à visita.</p><label>Nome<input readOnly value="Cliente exemplo"/></label><label>CPF<input readOnly value="000.000.000-00"/></label><label>Telefone<input readOnly value="(00) 00000-0000"/></label><b className="gn-scene-cta">Vincular cartão e abrir comanda</b></> :
-        step===1 ? <><h4>Confirmação do pedido</h4><div className="gn-scene-positive"><Wifi size={13}/> Cartão NFC identificado</div><p>Primeiros 3 dígitos do CPF para confirmar o pedido.</p><div className="gn-scene-digits">● ● ●</div><b className="gn-scene-cta">Confirmar pedido</b></> :
-        step===2 ? <><h4>Comanda individual</h4><p>Cliente exemplo · visita atual</p><div className="gn-scene-positive"><Check size={13}/> Pedido enviado para a cozinha.</div><div className="gn-scene-product">🍕 Pizza calabresa <b>{format(4990)}</b></div><div className="gn-scene-product">Saldo em aberto <b>{format(4990)}</b></div><span className="gn-scene-unpaid">NÃO PAGO</span></> :
-        step===3 ? <><h4>Sua comanda,<br/>com você.</h4><p>Acesso previsto por QR Code e código de visita fornecido pela equipe.</p><div className="gn-scene-digits">4 8 3 9 2 0</div><div className="gn-scene-positive">Cardápio somente para consulta</div><b className="gn-scene-cta">Consultar minha comanda</b></> :
-        <><h4>Verificação de quitação</h4><div className="gn-scene-positive"><Wifi size={13}/> Cartão aproximado</div><p>CPF completo verificado, junto com os pagamentos no servidor.</p><div className="gn-scene-positive"><Check size={13}/> Cartão liberado apenas após quitação</div><small>Prévia do fluxo planejado. Sem operação real.</small></>}
+        <small className="gn-scene-tag">Equipe autorizada · visita atual</small>
+        {step===0 ? <><h4>Recepção do cliente</h4><p>A equipe vincula o cartão à visita.</p><label>Nome<input readOnly tabIndex={-1} value={typed('Cliente exemplo',100)}/></label><label>CPF<input readOnly tabIndex={-1} value={typed('000.000.000-00',750)}/></label><div className="gn-scene-form-row"><label>Telefone<input readOnly tabIndex={-1} value={typed('(00) 00000-0000',1400)}/></label><label>Mesa (opcional)<input readOnly tabIndex={-1} value={typed('08',2000)}/></label></div><b className="gn-scene-cta">{local>2850?'Cartão vinculado à visita ✓':'Vincular cartão e abrir comanda'}</b><small className="gn-scene-note">Dados fictícios de demonstração.</small></> :
+        step===1 ? <><h4>Confirmação do pedido</h4><div className="gn-scene-product">🍕 Pizza calabresa <b>{format(4990)}</b></div><p>A equipe lançou os itens. O cliente confirma.</p><div className={local>2100?'gn-scene-positive':'gn-scene-wait'}><Wifi size={13}/> {local>2100?'Cartão NFC identificado':'Aproxime o cartão do iPhone'}</div>{local>1500&&local<2850?<div className="gn-scene-notification"><Wifi size={15}/><span><b>Notificação NFC</b><small>Toque para abrir no Safari</small></span></div>:<p>Confirme com os 3 primeiros dígitos do CPF.</p>}<div className="gn-scene-digits">{[0,1,2].map(i=><span key={i}>{local>3000+i*340?'0':'●'}</span>)}</div><b className="gn-scene-cta">{local>4350?'Pedido confirmado ✓':'Confirmar pedido'}</b></> :
+        <><h4>Comanda individual</h4><p>Cliente exemplo · visita atual</p><div className="gn-scene-positive"><Check size={13}/> Pedido enviado para a cozinha.</div><div className="gn-scene-product">🍕 Pizza calabresa <b>{format(4990)}</b></div><div className="gn-scene-product">Saldo em aberto <b>{format(4990)}</b></div><span className="gn-scene-unpaid">NÃO PAGO</span><p>NFC confirma o pedido.<br/>O pagamento é feito separadamente.</p></>}
       </> : <>
         <small className="gn-scene-tag">Cardápio digital · delivery</small>
-        {step<3 ? <><h4>{step===0?'Seu pedido começa aqui.':step===1?'Escolha seus favoritos.':'Confira seu carrinho.'}</h4>{demoProducts.slice(0,step===0?2:3).map(p=><div className="gn-scene-product" key={p.name}>{p.emoji} <span>{p.name}</span><b>{format(p.price)}</b></div>)}<b className="gn-scene-cta">{step===2?'Confirmar pedido':'Continuar comprando'}</b></> :
+        {step<3 ? <><h4>{step===0?'Seu pedido começa aqui.':step===1?'Escolha seus favoritos.':'Confira seu carrinho.'}</h4>{demoProducts.slice(0,step===0?2:3).map((p,i)=><div className="gn-scene-product" key={p.name} style={{transform:`translateY(${(1-ease((local-i*220)/700))*15}px)`,opacity:.4+.6*ease((local-i*220)/700)}}>{p.emoji} <span>{p.name}</span><b>{format(p.price)}</b></div>)}<b className="gn-scene-cta">{step===2?'Confirmar pedido':'Continuar comprando'}</b></> :
         step===3 ? <><h4>Pedido enviado!</h4><p>Uma demonstração do recebimento de pedidos.</p><div className="gn-scene-positive"><Check size={13}/> Pedido enviado à operação.</div></> :
         <><h4>Acompanhe seu pedido.</h4>{['Recebido','Em preparo','Pronto para entrega'].map(x=><div className="gn-scene-product" key={x}><Check size={13}/>{x}</div>)}</>}
       </>}
