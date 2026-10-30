@@ -4,21 +4,18 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
-import { nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
+import { decryptNfcPii } from '../security/nfcCustomerPii.js';
 import { nextNfcReturnCpfFailure } from '../domain/nfcReturnCpfLockout.js';
 import { hasNfcCardAccess } from '../../billing/domain/planFeaturePolicy.js';
 
 const router=Router();
 const tokenPattern=/^[A-Za-z0-9_-]{32,128}$/u;
 const sessionPattern=/^[A-Za-z0-9_-]{43}$/u;
-const verify=z.strictObject({token:z.string().regex(tokenPattern),cpf:z.string().regex(/^\d{11}$/u)});
+const verify=z.strictObject({token:z.string().regex(tokenPattern),cpfPrefix:z.string().regex(/^\d{3}$/u)});
 const sessionLife=15*60_000;
 // Customer read-only sessions have a short lifetime; all reads revalidate the active card and visit.
 const hash=(text:string)=>crypto.createHash('sha256').update(text).digest('hex');
-const fingerprintsMatch=(expected:string,actual:string[])=>actual.some(value=>{
- const a=Buffer.from(expected,'hex'),b=Buffer.from(value,'hex');
- return a.length===b.length&&crypto.timingSafeEqual(a,b);
-});
+const prefixMatches=(cpf:string,prefix:string)=>{const a=Buffer.from(cpf.slice(0,3));const b=Buffer.from(prefix);return a.length===b.length&&crypto.timingSafeEqual(a,b);};
 function noStore(res:import('express').Response){res.setHeader('Cache-Control','no-store, private');res.setHeader('Pragma','no-cache');res.setHeader('Referrer-Policy','no-referrer');}
 function genericError(res:import('express').Response,status=403){noStore(res);return res.status(status).json({error:'Não foi possível confirmar a visita. Confira o cartão, CPF e situação da comanda.'});}
 async function activeVisit(token:string){
@@ -48,13 +45,13 @@ router.post('/verify',async(req,res)=>{
      }});
      if(!current?.customerId)return null;
      if(current.guestViewLockedUntil&&current.guestViewLockedUntil>new Date())return {blocked:true as const};
-     const customer=await tx.nfcCustomer.findFirst({where:{id:current.customerId,restaurantId:card.restaurantId},select:{cpfFingerprint:true}});
+     const customer=await tx.nfcCustomer.findFirst({where:{id:current.customerId,restaurantId:card.restaurantId},select:{cpfEncrypted:true}});
      const comanda=await tx.nfcComanda.findFirst({
        where:{restaurantId:card.restaurantId,customerId:current.customerId,cardId:card.id,status:'OPEN'},
        select:{id:true},orderBy:{openedAt:'desc'},
      });
      if(!customer||!comanda)return null;
-     if(!fingerprintsMatch(customer.cpfFingerprint,nfcCpfFingerprints(card.restaurantId,input.cpf))){
+     if(!prefixMatches(decryptNfcPii(card.restaurantId,current.customerId,'cpf',customer.cpfEncrypted),input.cpfPrefix)){
        const failure=nextNfcReturnCpfFailure(current.failedGuestViewAttempts,new Date());
        await tx.nfcCard.updateMany({where:{id:card.id,restaurantId:card.restaurantId,status:'ACTIVE',customerId:current.customerId},
          data:{failedGuestViewAttempts:failure.attempts,guestViewLockedUntil:failure.lockedUntil}});
@@ -77,7 +74,8 @@ router.post('/verify',async(req,res)=>{
      }});
      return {session};
    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
-   if(!result||'blocked' in result)return genericError(res,429);
+   if(!result)return genericError(res);
+   if('blocked' in result)return genericError(res,429);
    noStore(res);
    return res.json({sessionToken:result.session,expiresInSeconds:sessionLife/1000});
  }catch(error){
