@@ -112,10 +112,10 @@ router.get('/account',async(req,res)=>{
        },
      });
      if(!comanda?.cardId)return null;
-     const card=await tx.nfcCard.findFirst({where:{restaurantId:card.card.restaurantId,id:comanda.cardId,
+     const activeCard=await tx.nfcCard.findFirst({where:{restaurantId:card.card.restaurantId,id:comanda.cardId,
        customerId:comanda.customerId,status:'ACTIVE'},select:{id:true,displayCode:true}});
-     if(!card)return null;
-     return {id:comanda.id,cardCode:card.displayCode,tableNumber:comanda.tableNumber,status:comanda.status,openedAt:comanda.openedAt,
+     if(!activeCard)return null;
+     return {id:comanda.id,cardCode:activeCard.displayCode,tableNumber:comanda.tableNumber,status:comanda.status,openedAt:comanda.openedAt,
        totalCents:Number(comanda.totalCents),paidCents:Number(comanda.paidCents),
        outstandingCents:Math.max(0,Number(comanda.totalCents-comanda.paidCents)),
        items:comanda.items.map(item=>({...item,totalCents:Number(item.totalCents)})),orders:comanda.orders};
