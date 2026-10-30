@@ -27,6 +27,7 @@ const Shell = styled.section`
   .table-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 19px 20px; }
   .table-head strong { display: flex; align-items: center; gap: 9px; font-size: 15px; }
   .table-head svg { color: #e7631b; width: 17px; height: 17px; }
+  .searchbar .search-label { display: none; font-size: 11px; color: #58655c; font-weight: 800; }
   .searchbar { display: flex; gap: 9px; align-items: center; padding: 0 20px 17px; }
   .searchbar input { min-height: 43px; min-width: 0; flex: 1; border: 1px solid #d6ded7; border-radius: 9px; padding: 10px; font: inherit; font-size: 13px; }
   .searchbar button, .pagination button, .row button { border: 1px solid #dee6df; border-radius: 9px; background: #fff; color: #26332b; padding: 10px 12px; font: inherit; font-size: 12px; font-weight: 750; min-height: 39px; cursor: pointer; }
@@ -73,6 +74,7 @@ const Shell = styled.section`
   @media(max-width:480px) {
     .row { padding: 19px 15px; }
     .searchbar { padding-inline: 15px; display: grid; grid-template-columns: 1fr 1fr; }
+    .searchbar .search-label { display: block; grid-column: 1 / -1; }
     .searchbar input { grid-column: 1 / -1; }
     .searchbar button { width: 100%; }
     .table-head { padding: 17px 15px; }
@@ -193,6 +195,7 @@ export function NfcLinkedCustomers() {
   const [page, setPage] = useState(1);
   const [records, setRecords] = useState<LinkedNfcCustomer[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalLinked, setTotalLinked] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
@@ -203,6 +206,7 @@ export function NfcLinkedCustomers() {
     void nfcRegistrationService.linkedCustomers(applied, page).then(result => {
       if (!active) return;
       setRecords(result.customers);
+      setTotalLinked(result.totalLinked);
       setTotal(result.total);
       setPageSize(result.pageSize);
       setError('');
@@ -218,12 +222,12 @@ export function NfcLinkedCustomers() {
   return <Shell aria-label="Clientes com cartão NFC vinculado">
     <div className="intro">
       <div><p className="eyebrow">Clientes e comandas</p><h2>Clientes NFC.</h2><p className="muted">Todos os clientes com cartão ativo vinculado, em um só lugar.</p></div>
-      <span className="count"><ContactRound aria-hidden="true"/> {total} clientes vinculados</span>
+      <span className="count"><ContactRound aria-hidden="true"/> {totalLinked} clientes vinculados</span>
     </div>
     <div className="table">
       <div className="table-head"><strong><ContactRound aria-hidden="true"/> Cartões vinculados</strong><span className="muted">Selecione um cliente para ver a comanda.</span></div>
       <form className="searchbar" onSubmit={e => { e.preventDefault(); setBusy(true); setPage(1); setApplied(query.trim()); setRevision(i => i + 1); }}>
-        <input type="search" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80} aria-label="Buscar por nome, telefone ou CPF" placeholder="Pesquisar por nome, telefone ou CPF completo" />
+        <label htmlFor="nfc-linked-search" className="search-label">Buscar cliente</label><input id="nfc-linked-search" type="search" value={query} onChange={e=>setQuery(e.target.value)} maxLength={80} aria-label="Buscar por nome, telefone ou CPF" placeholder="Nome, CPF ou telefone" />
         <button type="submit"><Search size={15} aria-hidden="true"/> Buscar</button>
         <button type="button" onClick={() => { setBusy(true); setQuery(''); setApplied(''); setPage(1); setRevision(i => i + 1); }}><RefreshCw size={15} aria-hidden="true"/> Limpar</button>
       </form>
@@ -242,7 +246,7 @@ export function NfcLinkedCustomers() {
         <div className="balance-cell"><span className="mobile-label">Em aberto</span><strong className="amount">{row.comanda ? money(row.comanda.outstandingCents) : '—'}</strong></div>
         <div className="actions"><button type="button" onClick={() => setSelected(row)}>Ver comanda <ArrowUpRight size={13} aria-hidden="true"/></button></div>
       </div>)}
-      <div className="pagination"><span>{total} clientes com cartão vinculado · Consumo individual por visita</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>{setBusy(true);setPage(p=>p-1);}}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>{setBusy(true);setPage(p=>p+1);}}>Próxima</button></div></div>
+      <div className="pagination"><span>Exibindo {total > 0 ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, total)} de {total} clientes · Consumo individual por visita</span><div className="controls"><button type="button" disabled={busy || page===1} onClick={()=>{setBusy(true);setPage(p=>p-1);}}>Anterior</button><span>Página {page}</span><button type="button" disabled={busy || page*pageSize>=total} onClick={()=>{setBusy(true);setPage(p=>p+1);}}>Próxima</button></div></div>
     </div>
     {selected && <LinkedCustomerModal key={selected.customerId + ':' + selected.card.id} customer={selected} onClose={()=>setSelected(null)}/>}
   </Shell>;
