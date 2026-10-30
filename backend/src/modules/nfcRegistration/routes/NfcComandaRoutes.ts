@@ -38,7 +38,9 @@ const accountSelect = {
   id: true, customerId: true, cardId: true, tableNumber: true,
   status: true, totalCents: true, paidCents: true, openedAt: true, dueAt: true,
   closedAt: true, paidAt: true,
-  items: { select: { id: true, kind: true, description: true, quantity: true, unitPriceCents: true, totalCents: true, createdAt: true }, orderBy: { createdAt: 'asc' as const } },
+  items: { select: { id: true, kind: true, sourceOrderId: true, description: true, quantity: true, unitPriceCents: true, totalCents: true, createdAt: true }, orderBy: { createdAt: 'asc' as const } },
+  // Only real orders linked to this tenant-bound comanda. Never synthesize order status on the client.
+  orders: { select: { id: true, createdAt: true, status: true }, orderBy: { createdAt: 'asc' as const } },
   payments: { select: { id: true, method: true, amountCents: true, status: true, createdAt: true, confirmedAt: true, reversedAt: true }, orderBy: { createdAt: 'desc' as const } },
 };
 const money = (value: bigint) => Number(value);
