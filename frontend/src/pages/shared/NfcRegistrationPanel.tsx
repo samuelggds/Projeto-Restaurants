@@ -5,6 +5,7 @@ import { ContactRound, CreditCard, ShieldCheck, UserPlus } from 'lucide-react';
 
 
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
+import { NfcCustomerRegistry } from './NfcCustomerRegistry';
 import { NfcCardInventory } from './NfcCardInventory';
 import { NfcGuidedReception } from './NfcGuidedReception';
 import { NfcCardPreparation } from './NfcCardPreparation';
@@ -191,7 +192,7 @@ export function NfcRegistrationPanel(props: Props) {
   return <NfcRegistrationWorkspace {...props} />;
 }
 function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
-  const [screen, setScreen] = useState<'registration' | 'linked' | 'inventory' | 'prepare' | 'recover'>('registration');
+  const [screen, setScreen] = useState<'registration' | 'registry' | 'linked' | 'inventory' | 'prepare' | 'recover'>('registration');
   const [inventoryRefresh, setInventoryRefresh] = useState(0);
   return <Wrap aria-label="Clientes e cartões NFC" data-nfc-ui="unified">
     <header className="nfc-hero">
@@ -207,6 +208,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
     <div className="nfc-mobile-animation"><NfcReceptionAnimation /></div>
     {screen !== 'prepare' && screen !== 'recover' && <nav className="nfc-tabs" aria-label="Áreas do atendimento NFC">
       <button type="button" aria-pressed={screen === 'registration'} onClick={() => setScreen('registration')}><UserPlus aria-hidden="true" /> Atendimento</button>
+      <button type="button" aria-pressed={screen === 'registry'} onClick={() => setScreen('registry')}><ContactRound aria-hidden="true" /> Cadastro de clientes</button>
       <button type="button" aria-pressed={screen === 'linked'} onClick={() => setScreen('linked')}><ContactRound aria-hidden="true" /> Clientes vinculados</button>
       <button type="button" aria-pressed={screen === 'inventory'} onClick={() => setScreen('inventory')}><CreditCard aria-hidden="true" /> Cartões</button>
     </nav>}
@@ -214,6 +216,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
       screen === 'prepare' ? <NfcCardPreparation onBack={() => setScreen('inventory')} onPrepared={() => setInventoryRefresh(v => v + 1)} /> :
       screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh}
         onPrepare={() => setScreen('prepare')} onRegister={() => setScreen('prepare')} /> :
+      screen === 'registry' ? <NfcCustomerRegistry /> :
       screen === 'linked' ? <><div className="nfc-actions" style={{ justifyContent: 'flex-end' }}><button type="button" className="secondary" onClick={() => setScreen('recover')}>Recuperar cartão perdido</button></div><NfcLinkedCustomers /></> :
       <NfcGuidedReception onCompleted={() => setInventoryRefresh(v => v + 1)} />}
   </Wrap>;
