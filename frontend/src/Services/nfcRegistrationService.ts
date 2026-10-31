@@ -131,6 +131,10 @@ class NfcRegistrationService {
       `/nfc-registration/cards/${cardId}/reuse-complete`,{token});
     return result.data.card;
   }
+  async deleteUnused(cardId: string) {
+    const response = await api.delete<{ deleted: true }>(`/nfc-registration/cards/${encodeURIComponent(cardId)}`);
+    if (response.data?.deleted !== true) throw new Error('Exclusão não confirmada pelo servidor.');
+  }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
   }
