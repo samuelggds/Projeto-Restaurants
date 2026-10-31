@@ -69,9 +69,11 @@ router.get('/cards/inventory', async (req, res) => {
         select: { id: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true },
       }) : [];
       const customersById = new Map(customers.map(customer => [customer.id, customer]));
-      const activeIds = cards.filter(card => card.status === 'ACTIVE').map(card => card.id);
-      const accounts = activeIds.length ? await tx.nfcComanda.findMany({
-        where: { restaurantId, cardId: { in: activeIds }, status: { in: ['OPEN', 'UNPAID'] } },
+      // Include paid comandas for the latest visit and historical revoked tags.
+      // Revoked cards remain history; they are not ACTIVE customer links.
+      const assignedCardIds = cards.filter(card => card.customerId !== null).map(card => card.id);
+      const accounts = assignedCardIds.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId: { in: assignedCardIds }, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
         orderBy: { openedAt: 'desc' },
         select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true },
       }) : [];
