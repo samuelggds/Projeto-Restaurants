@@ -11,9 +11,9 @@ export async function premiumNfcPlanMiddleware(req: Request, res: Response, next
   try {
     const subscription = await prisma.subscription.findUnique({
       where: { restaurantId },
-      select: { plan: true, status: true },
+      select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
     });
-    if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+    if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
         code: 'PREMIUM_NFC_PLAN_REQUIRED',
         error: 'Cartões NFC disponíveis apenas nos planos Premium e Gestão Total com assinatura ativa ou em teste.',
@@ -33,9 +33,9 @@ export async function premiumNfcGuestPlanMiddleware(req: Request, res: Response,
   }
   try {
     const subscription = await prisma.subscription.findUnique({
-      where: { restaurantId }, select: { plan: true, status: true },
+      where: { restaurantId }, select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
     });
-    if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+    if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
         code: 'PREMIUM_NFC_PLAN_REQUIRED',
         error: 'Acesso NFC disponível somente nos planos Premium e Gestão Total ativos ou em teste.',
