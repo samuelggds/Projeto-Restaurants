@@ -4,7 +4,10 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { nfcInventoryVisualState } from '../domain/nfcInventoryVisualState.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
@@ -17,6 +20,31 @@ import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcId
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
 router.get('/feature-access', premiumNfcPlanMiddleware, (_req, res) => res.json({ enabled: true }));
+router.get('/payment-availability', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const readiness = await getMercadoPagoAccountReadiness({ restaurantId, settings });
+    const pixConfigured = String(settings?.pixProvider || '').toUpperCase() === 'MERCADO_PAGO';
+    const pointConfigured = String(settings?.cardGateway || '').toUpperCase() === 'MERCADO_PAGO';
+    // NFC-specific payment creation, webhook reconciliation and settlement are
+    // NOT homologated. Never advertise available checkout from account OAuth alone.
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({
+      connected: readiness.connected && readiness.status === 'CONNECTED',
+      pixConfigured: readiness.readyForPix && pixConfigured,
+      pointConfigured: readiness.readyForCard && pointConfigured,
+      pixEnabled: false,
+      pointEnabled: false,
+      reason: readiness.connected
+        ? 'A conta Mercado Pago está conectada, mas as cobranças NFC por Pix e Point ainda exigem integração financeira e homologação.'
+        : 'Conecte e configure o Mercado Pago no painel administrativo. As cobranças NFC continuam em homologação.',
+    });
+  } catch {
+    return res.status(503).json({ error: 'Não foi possível validar a disponibilidade dos pagamentos NFC.' });
+  }
+});
+
 // Settlement and card return remain available to clear existing debts after downgrade.
 router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
@@ -69,11 +97,18 @@ router.get('/cards/inventory', async (req, res) => {
         select: { id: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true },
       }) : [];
       const customersById = new Map(customers.map(customer => [customer.id, customer]));
-      const activeIds = cards.filter(card => card.status === 'ACTIVE').map(card => card.id);
-      const accounts = activeIds.length ? await tx.nfcComanda.findMany({
-        where: { restaurantId, cardId: { in: activeIds }, status: { in: ['OPEN', 'UNPAID'] } },
+      // Include paid comandas for the latest visit and historical revoked tags.
+      // Revoked cards remain history; they are not ACTIVE customer links.
+      const assignedCardIds = cards.filter(card => card.customerId !== null).map(card => card.id);
+      const accounts = assignedCardIds.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId: { in: assignedCardIds }, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
         orderBy: { openedAt: 'desc' },
-        select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true },
+        select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true, dueAt: true },
+      }) : [];
+      const customerDebts = customerIds.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId: { in: customerIds },
+          status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } },
+        select: { customerId: true, totalCents: true, paidCents: true },
       }) : [];
       const counts = { READY: 0, ACTIVE: 0, REVOKED: 0, PENDING_WRITE: 0 };
       for (const item of grouped) counts[item.status] = item._count._all;
@@ -84,6 +119,8 @@ router.get('/cards/inventory', async (req, res) => {
           const comanda = accounts.find(account => account.cardId === card.id);
           return {
             id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
+            blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
+            visualStatus: nfcInventoryVisualState(card.status, card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents), comanda),
             customer: customer ? {
               id: customer.id,
               name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted),
@@ -627,6 +664,49 @@ router.post('/cards/provision', async (req, res) => {
     return res.status(201).json({ card, ndefUrl: 'https://www.gastronexa.com.br/nfc/' + token });
   } catch (error) { return safe(res, error); }
 });
+// Remove only unused, unassigned cards. A formerly linked card must be
+// revoked instead to preserve the visit, customer, orders and audit trail.
+router.delete('/cards/:id', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const cardId = ensureId(req.params.id);
+    const deleted = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId" = ${restaurantId} AND "id" = ${cardId}::uuid
+        FOR UPDATE
+      `;
+      if (!rows.length) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const card = await tx.nfcCard.findFirst({
+        where: { id: cardId, restaurantId },
+        select: { id: true, displayCode: true, status: true, customerId: true, activatedAt: true, revokedAt: true },
+      });
+      if (!card || card.customerId !== null || card.activatedAt !== null || card.revokedAt !== null ||
+        !['PENDING_WRITE', 'READY'].includes(card.status)) {
+        throw new NfcRegistrationError(409, 'Somente cartões sem cliente e nunca utilizados podem ser excluídos.');
+      }
+      const [comandas, confirmations] = await Promise.all([
+        tx.nfcComanda.count({ where: { restaurantId, cardId } }),
+        tx.nfcOrderConfirmation.count({ where: { restaurantId, cardId } }),
+      ]);
+      if (comandas > 0 || confirmations > 0) {
+        throw new NfcRegistrationError(409, 'Cartão possui histórico de comanda ou pedidos e não pode ser excluído.');
+      }
+      const removed = await tx.nfcCard.deleteMany({
+        where: { id: cardId, restaurantId, customerId: null, status: { in: ['PENDING_WRITE', 'READY'] }, activatedAt: null, revokedAt: null },
+      });
+      if (removed.count !== 1) throw new NfcRegistrationError(409, 'O cartão foi alterado. Atualize a lista.');
+      await tx.nfcRegistrationAudit.create({
+        data: { restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_DELETED_UNUSED' },
+      });
+      return { id: card.id, displayCode: card.displayCode };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({ deleted: true, card: deleted });
+  } catch (error) { return safe(res, error); }
+});
+
 router.post('/cards/:id/prepare', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
