@@ -124,7 +124,7 @@ export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
       if (!token || !cardCode) throw new Error('Leia e valide primeiro um cartão NFC disponível.');
       const number = table.trim() ? Number(table) : null;
       if (number !== null && (!Number.isSafeInteger(number) || number < 1 || number > 100000)) throw new Error('Informe um número de mesa válido.');
-      let existing = customer;
+      const existing = customer;
       if (mode === 'new') {
         const found = await nfcRegistrationService.lookup(digits(cpf));
         if (found) {
