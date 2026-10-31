@@ -7,6 +7,7 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { nfcInventoryVisualState } from '../domain/nfcInventoryVisualState.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
@@ -119,6 +120,7 @@ router.get('/cards/inventory', async (req, res) => {
           return {
             id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
             blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
+            visualStatus: nfcInventoryVisualState(card.status, card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents), comanda),
             customer: customer ? {
               id: customer.id,
               name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted),
