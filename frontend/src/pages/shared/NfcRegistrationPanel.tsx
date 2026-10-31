@@ -198,6 +198,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [screen, setScreen] = useState<'registration' | 'linked' | 'inventory'>('registration');
   const [showAdvancedRegistration, setShowAdvancedRegistration] = useState(false);
+  const [showHistoricalCustomers, setShowHistoricalCustomers] = useState(false);
   const [inventoryRefresh, setInventoryRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
@@ -412,9 +413,9 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         </button>
       </nav>
       {screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh} onPrepare={() => { setScreen('registration'); void provision(); }} onRegister={() => { setShowAdvancedRegistration(true); setScreen('registration'); }} /> : screen === 'linked' ? <NfcLinkedCustomers /> : <>
-      {!showAdvancedRegistration && !newCardUrl && !reuseCardUrl && <NfcGuidedReception onCompleted={() => setInventoryRefresh(value => value + 1)} />}
+      {!newCardUrl && !reuseCardUrl && <NfcGuidedReception onCompleted={() => setInventoryRefresh(value => value + 1)} />}
       <div className="nfc-actions" style={{ justifyContent: 'flex-end' }}>
-        <button type="button" className="secondary" onClick={() => setShowAdvancedRegistration(value => !value)}>{showAdvancedRegistration ? 'Ocultar gestão avançada' : 'Gestão avançada de cartões e clientes'}</button>
+        <button type="button" className="secondary" onClick={() => setShowAdvancedRegistration(value => !value)}>{showAdvancedRegistration ? 'Fechar ferramentas de recuperação' : 'Recuperar cartão perdido ou fazer gravação especial'}</button>
       </div>
       {(showAdvancedRegistration || Boolean(newCardUrl) || Boolean(reuseCardUrl)) && <>
       <div className="nfc-layout">
@@ -558,7 +559,10 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         </aside>
       </div>
 
-      <section className="surface nfc-customers" id="nfc-customer-list" aria-label="Clientes cadastrados">
+      <div className="nfc-actions" style={{ justifyContent: 'flex-end' }}>
+        <button type="button" className="secondary" onClick={() => setShowHistoricalCustomers(value => !value)}>{showHistoricalCustomers ? 'Ocultar histórico de cadastros' : 'Consultar histórico de cadastros (suporte)'}</button>
+      </div>
+      {showHistoricalCustomers && <section className="surface nfc-customers" id="nfc-customer-list" aria-label="Histórico de cadastros NFC">
         <div className="nfc-section-heading">
           <div className="nfc-section-title">
             <span className="nfc-section-icon"><CreditCard aria-hidden="true" /></span>
@@ -618,7 +622,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
           <small>Página {page}</small>
           <button type="button" className="secondary" disabled={pending || page * 20 >= total} onClick={() => void load(page + 1)}>Próxima</button>
         </div>
-      </section>
+      </section>}
       </>}
       </>}
     </Wrap>
