@@ -411,7 +411,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
           <CreditCard aria-hidden="true" /> Cartões
         </button>
       </nav>
-      {screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh} onPrepare={() => { setScreen('registration'); void provision(); }} /> : screen === 'linked' ? <NfcLinkedCustomers /> : <>
+      {screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh} onPrepare={() => { setScreen('registration'); void provision(); }} onRegister={() => { setShowAdvancedRegistration(true); setScreen('registration'); }} /> : screen === 'linked' ? <NfcLinkedCustomers /> : <>
       {!showAdvancedRegistration && !newCardUrl && !reuseCardUrl && <NfcGuidedReception onCompleted={() => setInventoryRefresh(value => value + 1)} />}
       <div className="nfc-actions" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="secondary" onClick={() => setShowAdvancedRegistration(value => !value)}>{showAdvancedRegistration ? 'Ocultar gestão avançada' : 'Gestão avançada de cartões e clientes'}</button>
