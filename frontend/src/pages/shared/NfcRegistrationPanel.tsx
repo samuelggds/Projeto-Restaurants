@@ -7,6 +7,7 @@ import nfcComandaService from '../../Services/nfcComandaService';
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
 import { NfcCardInventory } from './NfcCardInventory';
 import { NfcGuidedReception } from './NfcGuidedReception';
+import { NfcReceptionAnimation } from './NfcReceptionAnimation';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Wrap = styled.section`
@@ -122,6 +123,11 @@ const Wrap = styled.section`
   .nfc-pagination small { font-size: 12px; margin: 0 3px; }
   @media (max-width: 1120px) { .nfc-layout { grid-template-columns: minmax(0,1fr) 290px; } }
   @media (max-width: 900px) { .nfc-layout { grid-template-columns: minmax(0,1fr); } .nfc-aside { grid-template-columns: repeat(2,minmax(0,1fr)); align-items: stretch; } }
+  .nfc-mobile-animation { display: none; }
+  @media (max-width: 760px) {
+    .nfc-hero { display: none; }
+    .nfc-mobile-animation { display: block; }
+  }
   @media (max-width: 650px) {
     gap: 13px;
     .nfc-hero { padding: 21px; border-radius: 17px; }
@@ -398,6 +404,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         </div>
       </header>
 
+      <div className="nfc-mobile-animation"><NfcReceptionAnimation /></div>
       <nav className="nfc-tabs" aria-label="Áreas do atendimento NFC">
         <button type="button" aria-current={screen === 'registration' ? 'page' : undefined}
           aria-pressed={screen === 'registration'} onClick={() => setScreen('registration')}>
