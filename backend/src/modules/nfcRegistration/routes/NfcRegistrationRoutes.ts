@@ -77,6 +77,11 @@ router.get('/cards/inventory', async (req, res) => {
         orderBy: { openedAt: 'desc' },
         select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true, dueAt: true },
       }) : [];
+      const customerDebts = customerIds.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId: { in: customerIds },
+          status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } },
+        select: { customerId: true, totalCents: true, paidCents: true },
+      }) : [];
       const counts = { READY: 0, ACTIVE: 0, REVOKED: 0, PENDING_WRITE: 0 };
       for (const item of grouped) counts[item.status] = item._count._all;
       return {
@@ -86,7 +91,7 @@ router.get('/cards/inventory', async (req, res) => {
           const comanda = accounts.find(account => account.cardId === card.id);
           return {
             id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
-            blockedByDebt: card.status === 'ACTIVE' && accounts.some(account => account.cardId === card.id && account.totalCents > account.paidCents && (account.status === 'UNPAID' || (account.status === 'OPEN' && account.dueAt <= new Date()))),
+            blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
             customer: customer ? {
               id: customer.id,
               name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted),
