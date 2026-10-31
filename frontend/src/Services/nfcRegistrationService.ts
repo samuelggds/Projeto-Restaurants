@@ -14,7 +14,7 @@ export type LinkedNfcCustomer = {
 export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; totalLinked: number; page: number; pageSize: number };
 export type NfcInventoryStatus = 'PENDING_WRITE' | 'READY' | 'ACTIVE' | 'REVOKED';
 export type NfcInventoryCard = {
-  id: string; displayCode: string; status: NfcInventoryStatus; createdAt: string; blockedByDebt: boolean;
+  id: string; displayCode: string; status: NfcInventoryStatus; createdAt: string; blockedByDebt: boolean; visualStatus: 'READY' | 'ACTIVE' | 'OPEN_BALANCE' | 'BLOCKED' | 'PENDING_WRITE' | 'REVOKED';
   customer: null | { id: string; name: string; cpfMasked: string; phoneMasked: string };
   comanda: null | { id: string; tableNumber: number | null; status: string;
     totalCents: number; paidCents: number; outstandingCents: number };
