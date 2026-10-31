@@ -119,6 +119,24 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
     });
     return () => { current = false; };
   }, [page, filter, refreshKey]);
+  useEffect(() => {
+    // Refresh from the server; never treat Socket.IO notifications as financial data.
+    let active = true;
+    const refresh = async () => {
+      if (document.hidden) return;
+      try {
+        const next = await nfcRegistrationService.inventory(page, filter);
+        if (active) {
+          setData(next);
+          setSelected(previous => previous ? next.cards.find(card => card.id === previous.id) ?? null : null);
+        }
+      } catch { /* Keep the previous snapshot until the next successful refresh. */ }
+    };
+    const onVisible = () => { void refresh(); };
+    const interval = window.setInterval(() => { void refresh(); }, 5000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { active = false; window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
+  }, [page, filter, refreshKey]);
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
   useEffect(() => {
     let active = true;
