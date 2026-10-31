@@ -36,6 +36,11 @@ class NfcRegistrationService {
     }
     return result;
   }
+  async paymentAvailability() {
+    const response = await api.get<{ connected: boolean; pixConfigured: boolean; pointConfigured: boolean;
+      pixEnabled: boolean; pointEnabled: boolean; reason: string }>('/nfc-registration/payment-availability');
+    return response.data;
+  }
   async featureAccess() {
     const result = await api.get<{ enabled: boolean }>('/nfc-registration/feature-access');
     return result.data?.enabled === true;
