@@ -252,7 +252,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
           {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Nenhuma comanda atual foi identificada. Não é possível liberar o cartão sem conferência financeira no servidor.</p>}
           {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
             <label className="cpf-field">CPF completo para confirmar a devolução
-              <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/\\D/g,'').slice(0,11))} placeholder="11 dígitos do CPF" />
+              <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))} placeholder="11 dígitos do CPF" />
             </label>}
           {selected.status === 'ACTIVE' && !selected.blockedByDebt && selected.comanda?.status === 'OPEN' &&
             <section className="action-panel" aria-label="Ações da comanda ativa">
