@@ -110,12 +110,15 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     setActionBusy(true); setActionError('');
     try {
       const token = await scanNfcCard();
+      const scanned = await nfcRegistrationService.resolve(token);
+      if (scanned.id !== selected.id) {
+        throw new Error('Cartão físico diferente do cartão selecionado. Nenhuma liberação foi realizada.');
+      }
       const result = await nfcRegistrationService.returnPaidCard(token, cpf, selected.comanda.id);
       if (result.cardId !== selected.id) {
-        setActionNotice('Cartão conferido, mas o identificador não corresponde ao cartão selecionado. Atualize o estoque.');
-      } else {
-        setActionNotice('Cartão liberado e disponível para outro cliente.');
+        throw new Error('O retorno não corresponde ao cartão selecionado. Atualize o estoque.');
       }
+      setActionNotice('Cartão liberado e disponível para outro cliente.');
       setSelected(null); setCpf('');
       await load();
     } catch (cause) {
