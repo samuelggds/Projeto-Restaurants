@@ -98,6 +98,16 @@ class NfcRegistrationService {
     } }>('/nfc-registration/cards/recover-lost', payload);
     return response.data.recovery;
   }
+  async prepareRevokedCardReuse(cardId:string,cpf:string){
+    const result=await api.post<{card:{id:string;displayCode:string};ndefUrl:string}>(
+      `/nfc-registration/cards/${cardId}/reuse-prepare`,{cpf});
+    return result.data;
+  }
+  async completeRevokedCardReuse(cardId:string,token:string){
+    const result=await api.post<{card:{id:string;displayCode:string;status:'READY'}}> (
+      `/nfc-registration/cards/${cardId}/reuse-complete`,{token});
+    return result.data.card;
+  }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
   }
