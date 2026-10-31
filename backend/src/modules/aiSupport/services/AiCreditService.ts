@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
+import { hasPremiumFeatureAccess } from '../../billing/domain/planFeaturePolicy.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 const FREE_RESTAURANT_GRANT_MICROS = 2_000_000n;
@@ -114,12 +115,9 @@ async function assertPremiumAiPlan(
 ) {
   const subscription = await db.subscription.findUnique({
     where: { restaurantId },
-    select: { plan: true, status: true },
+    select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
   });
-  const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  const hasPremiumFeatures =
-    subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL';
-  if (!isActive || !hasPremiumFeatures) throw new PremiumAiPlanRequiredError();
+  if (!hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) throw new PremiumAiPlanRequiredError();
 }
 
 async function hasPremiumAiPlan(
@@ -128,13 +126,9 @@ async function hasPremiumAiPlan(
 ) {
   const subscription = await db.subscription.findUnique({
     where: { restaurantId },
-    select: { plan: true, status: true },
+    select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
   });
-  const isActive = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
-  return Boolean(
-    isActive &&
-      (subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL'),
-  );
+  return hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant);
 }
 
 async function assertActiveAdmin(
