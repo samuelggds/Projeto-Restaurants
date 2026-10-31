@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { CreditCard, RefreshCw, X } from 'lucide-react';
+import { CreditCard, X } from 'lucide-react';
 import nfcRegistrationService, { type NfcInventoryCard, type NfcInventoryStatus } from '../../Services/nfcRegistrationService';
 
 type Filter = 'ALL' | NfcInventoryStatus;
@@ -66,10 +66,13 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try { setData(await nfcRegistrationService.inventory(page, filter)); }
-    catch { setError('Não foi possível carregar o estoque NFC. Tente novamente.'); }
-    finally { setLoading(false); }
+    try {
+      const inventory = await nfcRegistrationService.inventory(page, filter);
+      setData(inventory);
+      setError('');
+    } catch {
+      setError('Não foi possível carregar o estoque NFC. Tente novamente.');
+    } finally { setLoading(false); }
   }, [page, filter]);
   useEffect(() => { void load(); }, [load, refreshKey]);
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
@@ -79,12 +82,12 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     <div className="top"><div><h3>Seus cartões, de relance.</h3><p>Selecione um cartão para consultar seu vínculo e a comanda.</p></div>
       <button className="prepare" type="button" onClick={onPrepare}>Preparar cartão</button></div>
     <div className="filters" aria-label="Filtrar cartões">
-      {FILTERS.map(({ key, label }) => <button type="button" key={key} aria-pressed={filter === key} onClick={() => { setPage(1); setFilter(key); }}>
+      {FILTERS.map(({ key, label }) => <button type="button" key={key} aria-pressed={filter === key} onClick={() => { setLoading(true); setError(''); setPage(1); setFilter(key); }}>
         {label} {key === 'ALL' ? allCount : (counts?.[key] ?? 0)}
       </button>)}
     </div>
     <p className="note">{allCount} cartões no estoque · Verde: disponível · Laranja: vinculado · Cinza: revogado</p>
-    {error && <p role="alert">{error} <button type="button" onClick={() => void load()}>Tentar novamente</button></p>}
+    {error && <p role="alert">{error} <button type="button" onClick={() => { setLoading(true); setError(''); void load(); }}>Tentar novamente</button></p>}
     {loading ? <p role="status">Carregando cartões...</p> :
       !data?.cards.length ? <p role="status">Nenhum cartão neste filtro.</p> :
       <div className="cards">
@@ -96,8 +99,8 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
         </button>)}
       </div>}
     <div className="pagination"><span className="note">Página {page} · {data?.total ?? 0} neste filtro</span>
-      <div><button type="button" disabled={loading || page <= 1} onClick={() => setPage(v => v - 1)}>Anterior</button>{' '}
-        <button type="button" disabled={loading || !data || page * data.pageSize >= data.total} onClick={() => setPage(v => v + 1)}>Próxima</button></div>
+      <div><button type="button" disabled={loading || page <= 1} onClick={() => { setLoading(true); setPage(v => v - 1); }}>Anterior</button>{' '}
+        <button type="button" disabled={loading || !data || page * data.pageSize >= data.total} onClick={() => { setLoading(true); setPage(v => v + 1); }}>Próxima</button></div>
     </div>
     {selected && <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={`Gerenciar cartão ${selected.displayCode}`}>
