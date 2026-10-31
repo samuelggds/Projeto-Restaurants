@@ -36,7 +36,36 @@ const Layout = styled.section`
   .full{width:100%}.person{display:grid;gap:5px;background:var(--r-soft);padding:16px;border-radius:10px}
   .person small{color:var(--r-muted)}.error{color:light-dark(#a42c28,#ffaba4);font-size:13px}
   .actions{display:flex;gap:9px;flex-wrap:wrap}.actions button{flex:1}
-  @media(max-width:400px){.fields{grid-template-columns:1fr}.wide{grid-column:auto}.brand{font-size:23px}}
+  .brand{font-weight:500}
+  .surface{box-shadow:0 5px 20px #00000008}
+  .person{border:1px solid var(--r-line)}
+  .person strong{font-size:14px}
+  .primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:9px;font-weight:500}
+  .fields label,.surface>form label{font-weight:500}
+  @media(max-width:550px){
+    padding:24px 16px 20px;border-radius:12px;
+    .brand{font-size:25px;margin-bottom:23px}
+    .surface{padding:22px 20px;gap:16px}
+    h1{font-size:25px;line-height:1.2}
+    .lead{line-height:1.65}
+    .fields{grid-template-columns:1fr;gap:15px}
+    .wide{grid-column:auto}
+    input:not([type=checkbox]){font-size:16px}
+    .modes button{font-size:12px;gap:6px;padding-inline:5px}
+    .context{gap:9px}
+    .context div{font-size:11px}
+    .person{padding:15px 12px}
+    .actions{flex-direction:column}
+    .actions button{width:100%}
+  }
+  @media(max-width:360px){
+    padding-inline:12px;
+    .surface{padding:21px 16px}
+    .brand{font-size:23px}
+    h1{font-size:24px}
+    .modes button{font-size:11px}
+    .modes svg{display:none}
+  }
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 `;
 
