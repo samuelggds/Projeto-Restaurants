@@ -92,6 +92,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   const [cpf, setCpf] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [showOrder, setShowOrder] = useState(false);
+  const [paymentAvailability, setPaymentAvailability] = useState<Awaited<ReturnType<typeof nfcRegistrationService.paymentAvailability>> | null>(null);
   const [reuseCpf, setReuseCpf] = useState('');
   const [reuseUrl, setReuseUrl] = useState('');
   const load = useCallback(async () => {
@@ -117,6 +118,13 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
     return () => { current = false; };
   }, [page, filter, refreshKey]);
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
+  useEffect(() => {
+    let active = true;
+    void nfcRegistrationService.paymentAvailability().then(value => {
+      if (active) setPaymentAvailability(value);
+    }).catch(() => { if (active) setPaymentAvailability(null); });
+    return () => { active = false; };
+  }, [refreshKey]);
   const openCard = (card: NfcInventoryCard) => {
     setSelected(card); setCpf(''); setActionError(''); setActionNotice('');
     setShowOrder(false); setReuseCpf(''); setReuseUrl('');
@@ -260,13 +268,13 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
               <p>Cardápio, carrinho e confirmação NFC utilizam os serviços de produtos e pedidos do restaurante. O backend confere cartão, CPF, itens e permissões.</p>
               <button type="button" className="go" onClick={() => setShowOrder(value => !value)}>{showOrder ? 'Ocultar cardápio' : 'Abrir cardápio e adicionar pedido'}</button>
               {showOrder && <NfcPrepareOrder comandaId={selected.comanda.id} />}
-              <div className="payment-methods"><button type="button" disabled>PIX · Em homologação</button><button type="button" disabled>Maquininha · Em homologação</button></div>
+              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'PIX · Aguardando homologação NFC' : 'PIX · Mercado Pago não configurado'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Point · Aguardando homologação NFC' : 'Point · Mercado Pago não configurado'}</button></div>
             </section>}
           {selected.status === 'ACTIVE' && selected.blockedByDebt &&
             <section className="action-panel" aria-label="Pagamento de comanda bloqueada">
               <h4>Cliente bloqueado por pendência financeira</h4>
               <p>Novos pedidos indisponíveis. Regularize a dívida no servidor antes de permitir outra compra.</p>
-              <div className="payment-methods"><button type="button" disabled>Quitar por PIX · Em homologação</button><button type="button" disabled>Quitar na maquininha · Em homologação</button></div>
+              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'Quitar por PIX · Aguardando homologação NFC' : 'PIX · Mercado Pago não configurado'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Quitar na Point · Aguardando homologação NFC' : 'Point · Mercado Pago não configurado'}</button></div>
               <p>Não há confirmação manual de pagamento NFC. As cobranças só serão habilitadas após a integração real com o gateway.</p>
             </section>}
           {selected.status === 'ACTIVE' && !selected.blockedByDebt && !selected.comanda &&
