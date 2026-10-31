@@ -219,6 +219,17 @@ router.post('/cards/recover-lost', async (req, res) => {
       });
       if (processing > 0) throw new NfcRegistrationError(409,
         'Há um pagamento em processamento. Aguarde a conciliação antes de substituir o cartão.');
+      const pendingLedger = await tx.nfcComandaPayment.count({
+        where: { restaurantId, comandaId: comanda.id, status: 'PENDING' },
+      });
+      if (pendingLedger > 0) throw new NfcRegistrationError(409,
+        'Há um lançamento financeiro pendente. Aguarde a conciliação.');
+      const pendingVerifiedOrder = await tx.nfcOrderConfirmation.count({
+        where: { restaurantId, comandaId: comanda.id, consumedAt: null,
+          verifiedAt: { not: null }, expiresAt: { gt: new Date() } },
+      });
+      if (pendingVerifiedOrder > 0) throw new NfcRegistrationError(409,
+        'Há pedido confirmado aguardando finalização. Aguarde o processamento antes de trocar o cartão.');
 
       const now = new Date();
       if (previous.status === 'ACTIVE') {
