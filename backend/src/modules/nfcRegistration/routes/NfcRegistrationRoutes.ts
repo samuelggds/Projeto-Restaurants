@@ -39,6 +39,71 @@ function serialize(restaurantId: number, customer: { id: string; nameEncrypted: 
   const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
   return { id: customer.id, name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted), cpfMasked: maskNfcCpf(cpf), phoneMasked: maskNfcPhone(phone), createdAt: customer.createdAt, cards: customer.cards };
 }
+// Staff-only inventory. Tenant scoping applies to cards, customers and accounts;
+ // never return the NDEF token/hash or unmasked personal data in a listing.
+const cardInventorySchema = z.strictObject({
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  status: z.enum(['ALL', 'READY', 'ACTIVE', 'REVOKED', 'PENDING_WRITE']).default('ALL'),
+});
+const cardInventoryPageSize = 40;
+router.get('/cards/inventory', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const { page, status } = cardInventorySchema.parse(req.query);
+    const result = await withTenantDbContext(restaurantId, async tx => {
+      const where: Prisma.NfcCardWhereInput = { restaurantId, ...(status !== 'ALL' ? { status } : {}) };
+      const [cards, total, grouped] = await Promise.all([
+        tx.nfcCard.findMany({
+          where,
+          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          skip: (page - 1) * cardInventoryPageSize,
+          take: cardInventoryPageSize,
+        }),
+        tx.nfcCard.count({ where }),
+        tx.nfcCard.groupBy({ by: ['status'], where: { restaurantId }, _count: { _all: true } }),
+      ]);
+      const customerIds = cards.map(card => card.customerId).filter((id): id is string => !!id);
+      const customers = customerIds.length ? await tx.nfcCustomer.findMany({
+        where: { restaurantId, id: { in: customerIds } },
+        select: { id: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true },
+      }) : [];
+      const customersById = new Map(customers.map(customer => [customer.id, customer]));
+      const activeIds = cards.filter(card => card.status === 'ACTIVE').map(card => card.id);
+      const accounts = activeIds.length ? await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId: { in: activeIds }, status: { in: ['OPEN', 'UNPAID'] } },
+        orderBy: { openedAt: 'desc' },
+        select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true },
+      }) : [];
+      const counts = { READY: 0, ACTIVE: 0, REVOKED: 0, PENDING_WRITE: 0 };
+      for (const item of grouped) counts[item.status] = item._count._all;
+      return {
+        page, pageSize: cardInventoryPageSize, total, counts,
+        cards: cards.map(card => {
+          const customer = card.customerId ? customersById.get(card.customerId) : undefined;
+          const comanda = accounts.find(account => account.cardId === card.id);
+          return {
+            id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
+            customer: customer ? {
+              id: customer.id,
+              name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted),
+              cpfMasked: maskNfcCpf(decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted)),
+              phoneMasked: maskNfcPhone(decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted)),
+            } : null,
+            comanda: comanda ? {
+              id: comanda.id, tableNumber: comanda.tableNumber, status: comanda.status,
+              totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
+              outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
+            } : null,
+          };
+        }),
+      };
+    });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json(result);
+  } catch (error) { return safe(res, error); }
+});
+
 router.get('/customers', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId);

@@ -5,6 +5,7 @@ import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/n
 import { NfcCustomerComandas } from './NfcCustomerComandas';
 import nfcComandaService from '../../Services/nfcComandaService';
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
+import { NfcCardInventory } from './NfcCardInventory';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Wrap = styled.section`
@@ -70,7 +71,7 @@ const Wrap = styled.section`
   .nfc-person-actions .danger { color: #ae332f; border-color: #f0d1ce; }
   .nfc-actions button svg, .nfc-reader-actions button svg, .nfc-section-heading button svg,
   .nfc-payment-note button svg { width: 17px; height: 17px; }
-  .nfc-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #f3f5f6; border-radius: 13px; padding: 5px; }
+  .nfc-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 6px; background: #f3f5f6; border-radius: 13px; padding: 5px; }
   .nfc-tabs button { border: 0; border-radius: 9px; background: transparent; min-height: 47px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; padding: 9px; color: #6a7277; font: inherit; font-weight: 750; font-size: 13px; cursor: pointer; }
   .nfc-tabs button[aria-selected="true"], .nfc-tabs button[aria-pressed="true"] { background: #fff; color: #c34f12; box-shadow: 0 2px 9px #20272b12; }
   .nfc-tabs button svg { width: 17px; height: 17px; }
@@ -194,7 +195,8 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const [isUnassignedProvision, setIsUnassignedProvision] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [screen, setScreen] = useState<'registration' | 'linked'>('registration');
+  const [screen, setScreen] = useState<'registration' | 'linked' | 'inventory'>('registration');
+  const [inventoryRefresh, setInventoryRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
   const [recoveryComandaId,setRecoveryComandaId]=useState('');
@@ -296,6 +298,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         setInfo('Cartão NFC gravado, conferido e ativado para o cliente.');
       }
       setNewCardUrl(''); setPendingCardId(null);
+      setInventoryRefresh(value => value + 1);
       await load(page);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha no vínculo NFC. O cartão não foi ativado.');
@@ -362,6 +365,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
       await nfcRegistrationService.completeRevokedCardReuse(reuseCardId,token);
       setInfo('Cartão regravado, conferido e disponível (READY) para um novo cliente.');
       setReuseCardUrl('');setReuseCardId(null);
+      setInventoryRefresh(value => value + 1);
       await load(page);
     }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível concluir a reutilização.');}
     finally{setPending(false);}
@@ -400,8 +404,12 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
           aria-pressed={screen === 'linked'} onClick={() => setScreen('linked')}>
           <ContactRound aria-hidden="true" /> Clientes vinculados
         </button>
+        <button type="button" aria-current={screen === 'inventory' ? 'page' : undefined}
+          aria-pressed={screen === 'inventory'} onClick={() => setScreen('inventory')}>
+          <CreditCard aria-hidden="true" /> Cartões
+        </button>
       </nav>
-      {screen === 'linked' ? <NfcLinkedCustomers /> : <>
+      {screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh} onPrepare={() => { setScreen('registration'); void provision(); }} /> : screen === 'linked' ? <NfcLinkedCustomers /> : <>
       <div className="nfc-layout">
         <div className="nfc-main">
           <section className="surface" aria-labelledby="nfc-reader-title">

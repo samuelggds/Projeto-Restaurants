@@ -12,7 +12,30 @@ export type LinkedNfcCustomer = {
     totalCents: number; paidCents: number; outstandingCents: number };
 };
 export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; totalLinked: number; page: number; pageSize: number };
+export type NfcInventoryStatus = 'PENDING_WRITE' | 'READY' | 'ACTIVE' | 'REVOKED';
+export type NfcInventoryCard = {
+  id: string; displayCode: string; status: NfcInventoryStatus; createdAt: string;
+  customer: null | { id: string; name: string; cpfMasked: string; phoneMasked: string };
+  comanda: null | { id: string; tableNumber: number | null; status: string;
+    totalCents: number; paidCents: number; outstandingCents: number };
+};
+export type NfcInventoryPage = {
+  page: number; pageSize: number; total: number;
+  counts: Record<NfcInventoryStatus, number>;
+  cards: NfcInventoryCard[];
+};
 class NfcRegistrationService {
+  async inventory(page = 1, status: NfcInventoryStatus | 'ALL' = 'ALL') {
+    const response = await api.get<NfcInventoryPage>('/nfc-registration/cards/inventory', {
+      params: { page, status },
+    });
+    const result = response.data;
+    if (!result || !Array.isArray(result.cards) || !result.counts ||
+      !Number.isSafeInteger(result.total) || !Number.isSafeInteger(result.page)) {
+      throw new Error('Inventário NFC inválido.');
+    }
+    return result;
+  }
   async featureAccess() {
     const result = await api.get<{ enabled: boolean }>('/nfc-registration/feature-access');
     return result.data?.enabled === true;
