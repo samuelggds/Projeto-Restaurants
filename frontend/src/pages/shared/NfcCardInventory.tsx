@@ -18,8 +18,8 @@ const money = (value: number) => (value / 100).toLocaleString('pt-BR', { style: 
 const statusLabel: Record<NfcInventoryStatus, string> = {
   READY: 'Disponível', ACTIVE: 'Vinculado', REVOKED: 'Revogado', PENDING_WRITE: 'Aguardando gravação',
 };
-const visualStatus = (card: NfcInventoryCard) => card.status === 'REVOKED' ? 'REVOKED' : card.status === 'PENDING_WRITE' ? 'PENDING_WRITE' : card.blockedByDebt ? 'BLOCKED' : card.status === 'ACTIVE' ? 'ACTIVE' : 'READY';
-const visualLabel = (card: NfcInventoryCard) => card.blockedByDebt && card.status === 'ACTIVE' ? 'Bloqueado por pendência' : statusLabel[card.status];
+const visualStatus = (card: NfcInventoryCard) => card.visualStatus;
+const visualLabel = (card: NfcInventoryCard) => card.visualStatus === 'BLOCKED' ? 'Bloqueado por pendência' : card.visualStatus === 'OPEN_BALANCE' ? 'Comanda em aberto · saldo a pagar' : statusLabel[card.status];
 const UI = styled.section`
   display: grid; gap: 18px; min-width: 0;
   *, *::before, *::after { box-sizing: border-box; }
@@ -41,11 +41,13 @@ const UI = styled.section`
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #a5b0b7; }
   .dot[data-status="ACTIVE"] { background: #258352; }
   .dot[data-status="BLOCKED"] { background: #ce3737; }
+  .dot[data-status="OPEN_BALANCE"] { background: #2671c9; }
   .dot[data-status="READY"] { background: #278b60; }
   .dot[data-status="REVOKED"] { background: #7d8991; }
   .dot[data-status="PENDING_WRITE"] { background: #e8751b; }
   .status[data-status="ACTIVE"] { color: #1a7448; background: #e8f6ed; }
   .status[data-status="BLOCKED"] { color: #b12d2d; background: #ffeded; }
+  .status[data-status="OPEN_BALANCE"] { color: #15599e; background: #eaf3ff; }
   .status[data-status="REVOKED"] { color: #53606b; background: #edf0f2; }
   .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   .pagination button:disabled { opacity: .45; cursor: not-allowed; }
@@ -219,7 +221,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
         {label} {key === 'ALL' ? allCount : (counts?.[key] ?? 0)}
       </button>)}
     </div>
-    <p className="note">{allCount} cartões no estoque · Verde: ativo/disponível · Vermelho: bloqueado por dívida · Laranja: aguarda gravação · Cinza: revogado</p>
+    <p className="note">{allCount} cartões no estoque · Verde: ativo/disponível · Azul: comanda a pagar · Vermelho: bloqueado · Laranja: gravação · Cinza: revogado</p>
     {error && <p role="alert">{error} <button type="button" onClick={() => { setLoading(true); setError(''); void load(); }}>Tentar novamente</button></p>}
     {loading ? <p role="status">Carregando cartões...</p> :
       !data?.cards.length ? <p role="status">Nenhum cartão neste filtro.</p> :
@@ -229,6 +231,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
           <span><CreditCard aria-hidden="true" /><i className="dot" data-status={visualStatus(card)} aria-hidden="true" /></span>
           <strong>{String((data.page - 1) * data.pageSize + index + 1).padStart(2, '0')}</strong>
           <small>{card.displayCode}</small>
+          {card.visualStatus === 'OPEN_BALANCE' && card.comanda && <small>Saldo: {money(card.comanda.outstandingCents)}</small>}
         </button>)}
       </div>}
     <div className="pagination"><span className="note">Página {page} · {data?.total ?? 0} neste filtro</span>
