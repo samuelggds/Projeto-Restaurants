@@ -5,6 +5,8 @@ import {
   hasCustomDomainAccess,
   hasHostedLandingAccess,
   hasNfcCardAccess,
+  hasPremiumFeatureAccess,
+  hasTemporaryFullFeatureAccess,
 } from './planFeaturePolicy.js';
 
 test('endereço GastroNexa por slug independe dos benefícios opcionais do plano', () => {
@@ -37,4 +39,25 @@ test('cartões NFC apenas Premium e Gestão Total com assinatura em teste ou ati
   assert.equal(hasNfcCardAccess('BASICO', 'ATIVA'), false);
   assert.equal(hasNfcCardAccess('BASICO', 'TESTE'), false);
   assert.equal(hasNfcCardAccess(undefined, undefined), false);
+});
+
+test('liberação SUPER_ADMIN cobre recursos e expira no instante definido sem quitar fatura', () => {
+  const expires = new Date('2026-11-01T12:00:00.000Z');
+  const restaurant = { active: true, accessBlockReason: 'NONE', billingTemporaryAccessUntil: expires };
+  const before = new Date(expires.getTime()-1);
+  for(const plan of ['BASICO','PREMIUM','GESTAO_TOTAL']){
+    assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',restaurant,before),true);
+    assert.equal(hasPremiumFeatureAccess(plan,'EXPIRADA',restaurant,before),true);
+    assert.equal(hasNfcCardAccess(plan,'EXPIRADA',restaurant,before),true);
+    assert.equal(hasCustomDomainAccess(plan,'EXPIRADA',restaurant,before),true);
+    assert.equal(hasHostedLandingAccess(plan,'EXPIRADA',restaurant,before),true);
+    assert.equal(hasPremiumFeatureAccess(plan,'EXPIRADA',restaurant,expires),false);
+    assert.equal(hasNfcCardAccess(plan,'EXPIRADA',restaurant,expires),false);
+    assert.equal(hasHostedLandingAccess(plan,'EXPIRADA',restaurant,expires),false);
+  }
+  assert.equal(hasTemporaryFullFeatureAccess('CANCELADA',restaurant,before),false);
+  assert.equal(hasPremiumFeatureAccess('BASICO','CANCELADA',restaurant,before),false);
+  assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,active:false},before),false);
+  assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,accessBlockReason:'MANUAL'},before),false);
+  assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,billingTemporaryAccessUntil:null},before),false);
 });
