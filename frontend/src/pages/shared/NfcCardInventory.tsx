@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { CreditCard, X } from 'lucide-react';
+import { scanNfcCard } from './nfcWebReader';
 import nfcRegistrationService, { type NfcInventoryCard, type NfcInventoryStatus } from '../../Services/nfcRegistrationService';
 
 type Filter = 'ALL' | NfcInventoryStatus;
@@ -54,6 +55,13 @@ const UI = styled.section`
   .account { border-top: 1px solid #e5eaec; padding-top: 17px; display: grid; gap: 9px; }
   .account strong { color: #26333a; }
   .warning { background: #fff8f2; border: 1px solid #f0d8c8; border-radius: 10px; padding: 12px; font-size: 12px; }
+  .card-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+  .card-actions button { border-radius: 9px; padding: 10px 14px; font-weight: 750; border: 1px solid #dce3e7; background: white; }
+  .card-actions .release { background: #188454; color: white; border-color: #188454; }
+  .card-actions .revoke { color: #a8352c; border-color: #f0c8c5; }
+  .card-actions button:disabled { opacity: .55; cursor: not-allowed; }
+  .cpf-field { display: grid; gap: 7px; font-size: 12px; font-weight: 750; }
+  .cpf-field input { border: 1px solid #dce3e7; border-radius: 9px; padding: 12px; font: inherit; }
   .close { justify-self: stretch; border: 1px solid #dce3e7; border-radius: 9px; background: #fff; padding: 11px; }
   @media(max-width:500px) { .modal-body { padding: 17px; } .details { grid-template-columns: 1fr; } .modal-head { padding: 17px; } }
 `;
@@ -65,6 +73,10 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
   const [selected, setSelected] = useState<NfcInventoryCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionNotice, setActionNotice] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
   const load = useCallback(async () => {
     try {
       const inventory = await nfcRegistrationService.inventory(page, filter);
@@ -88,6 +100,44 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     return () => { current = false; };
   }, [page, filter, refreshKey]);
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
+  const openCard = (card: NfcInventoryCard) => {
+    setSelected(card); setCpf(''); setActionError(''); setActionNotice('');
+  };
+  const releaseCard = async () => {
+    if (!selected || selected.status !== 'ACTIVE' || !selected.comanda ||
+      selected.comanda.status !== 'PAID' || selected.comanda.outstandingCents !== 0 ||
+      cpf.length !== 11 || actionBusy) return;
+    setActionBusy(true); setActionError('');
+    try {
+      const token = await scanNfcCard();
+      const result = await nfcRegistrationService.returnPaidCard(token, cpf, selected.comanda.id);
+      if (result.cardId !== selected.id) {
+        setActionNotice('Cartão conferido, mas o identificador não corresponde ao cartão selecionado. Atualize o estoque.');
+      } else {
+        setActionNotice('Cartão liberado e disponível para outro cliente.');
+      }
+      setSelected(null); setCpf('');
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível liberar o cartão.'));
+    } finally { setActionBusy(false); }
+  };
+  const revokeCard = async () => {
+    if (!selected || !['ACTIVE','PENDING_WRITE'].includes(selected.status) || actionBusy) return;
+    const reason = window.prompt('Motivo da revogação (mínimo de 5 caracteres):');
+    if (!reason || reason.trim().length < 5) return;
+    if (!window.confirm('Confirma a revogação deste cartão? Esta ação não elimina dívidas ou comandas.')) return;
+    setActionBusy(true); setActionError('');
+    try {
+      await nfcRegistrationService.revoke(selected.id, reason.trim());
+      setSelected(null);
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || 'Não foi possível revogar o cartão.');
+    } finally { setActionBusy(false); }
+  };
   const counts = data?.counts;
   const allCount = counts ? Object.values(counts).reduce((sum, count) => sum + count, 0) : 0;
   return <UI aria-label="Estoque de cartões NFC">
@@ -103,7 +153,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     {loading ? <p role="status">Carregando cartões...</p> :
       !data?.cards.length ? <p role="status">Nenhum cartão neste filtro.</p> :
       <div className="cards">
-        {data.cards.map((card, index) => <button type="button" className="card" key={card.id} onClick={() => setSelected(card)}
+        {data.cards.map((card, index) => <button type="button" className="card" key={card.id} onClick={() => openCard(card)}
           aria-label={`Consultar ${card.displayCode}: ${statusLabel[card.status]}`}>
           <span><CreditCard aria-hidden="true" /><i className="dot" data-status={card.status} aria-hidden="true" /></span>
           <strong>{String((data.page - 1) * data.pageSize + index + 1).padStart(2, '0')}</strong>
@@ -114,11 +164,12 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       <div><button type="button" disabled={loading || page <= 1} onClick={() => { setLoading(true); setPage(v => v - 1); }}>Anterior</button>{' '}
         <button type="button" disabled={loading || !data || page * data.pageSize >= data.total} onClick={() => { setLoading(true); setPage(v => v + 1); }}>Próxima</button></div>
     </div>
+    {actionNotice && <p role="status" className="state">{actionNotice}</p>}
     {selected && <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={`Gerenciar cartão ${selected.displayCode}`}>
         <div className="modal-head"><h3>{selected.displayCode}</h3><button type="button" onClick={() => setSelected(null)} aria-label="Fechar detalhes"><X /></button></div>
         <div className="modal-body"><span className="status">{statusLabel[selected.status]}</span>
-          <p>{selected.customer ? 'Vinculado à visita deste cliente.' : 'Nenhum cliente vinculado a este cartão.'}</p>
+          <p>{selected.status === 'REVOKED' ? 'Cartão revogado, associado historicamente a este cliente.' : selected.customer ? 'Vinculado à visita deste cliente.' : 'Nenhum cliente vinculado a este cartão.'}</p>
           {selected.customer && <div className="details">
             <div className="detail"><small>Cliente</small><strong>{selected.customer.name}</strong></div>
             <div className="detail"><small>CPF</small><strong>{selected.customer.cpfMasked}</strong></div>
@@ -127,9 +178,26 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
           </div>}
           {selected.comanda && <div className="account">
             <strong>Comanda da visita</strong>
-            <div className="details"><div className="detail"><small>Comanda</small><strong>{selected.comanda.id.slice(0,8).toUpperCase()}</strong></div>
-              <div className="detail"><small>Saldo pendente</small><strong>{money(selected.comanda.outstandingCents)}</strong></div></div>
+            <div className="details">
+              <div className="detail"><small>Comanda</small><strong>{selected.comanda.id.slice(0,8).toUpperCase()}</strong></div>
+              <div className="detail"><small>Situação</small><strong>{selected.comanda.status === 'PAID' ? 'Quitada' : selected.comanda.status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento'}</strong></div>
+              <div className="detail"><small>Consumo total</small><strong>{money(selected.comanda.totalCents)}</strong></div>
+              <div className="detail"><small>Pagamentos registrados</small><strong>{money(selected.comanda.paidCents)}</strong></div>
+              <div className="detail"><small>Saldo pendente</small><strong>{money(selected.comanda.outstandingCents)}</strong></div>
+            </div>
           </div>}
+          {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Nenhuma comanda atual foi identificada. Não é possível liberar o cartão sem conferência financeira no servidor.</p>}
+          {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
+            <label className="cpf-field">CPF completo para confirmar a devolução
+              <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/\\D/g,'').slice(0,11))} placeholder="11 dígitos do CPF" />
+            </label>}
+          {actionError && <p className="warning" role="alert">{actionError}</p>}
+          <div className="card-actions">
+            {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
+              <button type="button" className="release" disabled={actionBusy || cpf.length !== 11} onClick={() => void releaseCard()}>{actionBusy ? 'Conferindo...' : 'Liberar cartão por NFC'}</button>}
+            {(selected.status === 'ACTIVE' || selected.status === 'PENDING_WRITE') &&
+              <button type="button" className="revoke" disabled={actionBusy} onClick={() => void revokeCard()}>Revogar cartão</button>}
+          </div>
           {selected.status === 'ACTIVE' && <p className="warning">A liberação exige aproximação do cartão, CPF completo do cliente e quitação confirmada pelo servidor. Use o atendimento NFC para finalizar com segurança.</p>}
           {selected.status === 'REVOKED' && <p className="warning">Cartão revogado: não permite novos atendimentos. A reemissão segue a conferência financeira e a regravação segura.</p>}
           <button type="button" className="close" onClick={() => setSelected(null)}>Fechar</button>
