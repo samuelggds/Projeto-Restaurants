@@ -141,6 +141,20 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setActionError(response.response?.data?.error || 'Não foi possível revogar o cartão.');
     } finally { setActionBusy(false); }
   };
+  const deleteUnusedCard = async () => {
+    if (!selected || selected.customer || !['READY', 'PENDING_WRITE'].includes(selected.status) || actionBusy) return;
+    if (!window.confirm('Excluir definitivamente este cartão sem cliente?')) return;
+    setActionBusy(true); setActionError('');
+    try {
+      await nfcRegistrationService.deleteUnused(selected.id);
+      setSelected(null);
+      setActionNotice('Cartão excluído do estoque.');
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || 'Cartão com histórico não pode ser excluído.');
+    } finally { setActionBusy(false); }
+  };
   const counts = data?.counts;
   const allCount = counts ? Object.values(counts).reduce((sum, count) => sum + count, 0) : 0;
   return <UI aria-label="Estoque de cartões NFC">
@@ -199,7 +213,9 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
             {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
               <button type="button" className="release" disabled={actionBusy || cpf.length !== 11} onClick={() => void releaseCard()}>{actionBusy ? 'Conferindo...' : 'Liberar cartão por NFC'}</button>}
             {(selected.status === 'ACTIVE' || selected.status === 'PENDING_WRITE') &&
-              <button type="button" className="revoke" disabled={actionBusy} onClick={() => void revokeCard()}>Revogar cartão</button>}
+              <button type="button" className="revoke" disabled={actionBusy} onClick={() => void revokeCard()}>Revogar cartão</button>
+            {!selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE') &&
+              <button type="button" className="revoke" disabled={actionBusy} onClick={() => void deleteUnusedCard()}>Excluir cartão</button>}}
           </div>
           {selected.status === 'ACTIVE' && <p className="warning">A liberação exige aproximação do cartão, CPF completo do cliente e quitação confirmada pelo servidor. Use o atendimento NFC para finalizar com segurança.</p>}
           {selected.status === 'REVOKED' && <p className="warning">Cartão revogado: não permite novos atendimentos. A reemissão segue a conferência financeira e a regravação segura.</p>}
