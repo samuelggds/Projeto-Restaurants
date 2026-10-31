@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
+import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
+import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
@@ -17,6 +19,31 @@ import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcId
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
 router.get('/feature-access', premiumNfcPlanMiddleware, (_req, res) => res.json({ enabled: true }));
+router.get('/payment-availability', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const settings = await restaurantSettingsRepository.findByRestaurantId(restaurantId);
+    const readiness = await getMercadoPagoAccountReadiness({ restaurantId, settings });
+    const pixConfigured = String(settings?.pixProvider || '').toUpperCase() === 'MERCADO_PAGO';
+    const pointConfigured = String(settings?.cardGateway || '').toUpperCase() === 'MERCADO_PAGO';
+    // NFC-specific payment creation, webhook reconciliation and settlement are
+    // NOT homologated. Never advertise available checkout from account OAuth alone.
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({
+      connected: readiness.connected && readiness.status === 'CONNECTED',
+      pixConfigured: readiness.readyForPix && pixConfigured,
+      pointConfigured: readiness.readyForCard && pointConfigured,
+      pixEnabled: false,
+      pointEnabled: false,
+      reason: readiness.connected
+        ? 'A conta Mercado Pago está conectada, mas as cobranças NFC por Pix e Point ainda exigem integração financeira e homologação.'
+        : 'Conecte e configure o Mercado Pago no painel administrativo. As cobranças NFC continuam em homologação.',
+    });
+  } catch {
+    return res.status(503).json({ error: 'Não foi possível validar a disponibilidade dos pagamentos NFC.' });
+  }
+});
+
 // Settlement and card return remain available to clear existing debts after downgrade.
 router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
