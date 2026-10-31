@@ -6,6 +6,7 @@ import { ZodError } from 'zod';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
+import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
@@ -124,6 +125,89 @@ router.post('/cards/:id/revoke', async (req, res) => {
   } catch (error) { return safe(res, error); }
 });
 
+// Two-phase reissue: invalidate the old tag, program a new one, then verify physical read.
+const restoreSchema = z.strictObject({cpf:z.string().trim().min(11).max(18)});
+async function ensureAllSettled(tx:Prisma.TransactionClient,restaurantId:number,customerId:string){
+  const bills=await tx.nfcComanda.findMany({where:{restaurantId,customerId},
+    select:{id:true,status:true,totalCents:true,paidCents:true}});
+  if(!canReuseRevokedNfcCard('REVOKED',customerId,bills))
+    throw new NfcRegistrationError(409,'Cliente possui comanda aberta ou pendência; cartão não pode ser liberado.');
+  const ids=bills.map(x=>x.id);
+  if(!ids.length)return;
+  const [cashless,ledger,orders]=await Promise.all([
+    tx.nfcCashlessPayment.count({where:{restaurantId,comandaId:{in:ids},status:{in:['RESERVED','PROCESSING']}}}),
+    tx.nfcComandaPayment.count({where:{restaurantId,comandaId:{in:ids},status:'PENDING'}}),
+    tx.nfcOrderConfirmation.count({where:{restaurantId,comandaId:{in:ids},consumedAt:null,expiresAt:{gt:new Date()}}}),
+  ]);
+  if(cashless||ledger||orders)throw new NfcRegistrationError(409,'Há pagamento ou pedido em processamento.');
+  await tx.nfcComandaAccess.updateMany({where:{restaurantId,comandaId:{in:ids},revokedAt:null},
+    data:{revokedAt:new Date(),sessionHash:null}});
+}
+router.post('/cards/:id/reuse-prepare',async(req,res)=>{
+  try{
+    const restaurantId=Number(req.user.restaurantId),cardId=ensureId(req.params.id);
+    const cpf=normalizeNfcCpf(restoreSchema.parse(req.body).cpf);
+    const token=crypto.randomBytes(32).toString('base64url');
+    const card=await prisma.$transaction(async tx=>{
+      await setTenantDbContext(tx,restaurantId);
+      const preview=await tx.nfcCard.findFirst({where:{id:cardId,restaurantId,status:'REVOKED'},
+        select:{customerId:true}});
+      if(!preview?.customerId)throw new NfcRegistrationError(409,'Apenas cartões revogados com titular anterior.');
+      await tx.$queryRaw`SELECT "id" FROM "NfcCustomer" WHERE "restaurantId"=${restaurantId}
+        AND "id"=${preview.customerId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT "id" FROM "NfcCard" WHERE "restaurantId"=${restaurantId}
+        AND "id"=${cardId}::uuid FOR UPDATE`;
+      const current=await tx.nfcCard.findFirst({where:{restaurantId,id:cardId,status:'REVOKED',
+        customerId:preview.customerId},select:{id:true,customerId:true,displayCode:true}});
+      if(!current?.customerId)throw new NfcRegistrationError(409,'Vínculo alterado.');
+      const customer=await tx.nfcCustomer.findFirst({where:{restaurantId,id:current.customerId},
+        select:{cpfFingerprint:true}});
+      if(!customer||!nfcCpfFingerprints(restaurantId,cpf).some(value=>
+        crypto.timingSafeEqual(Buffer.from(value,'hex'),Buffer.from(customer.cpfFingerprint,'hex'))))
+        throw new NfcRegistrationError(403,'CPF completo inválido.');
+      await ensureAllSettled(tx,restaurantId,current.customerId);
+      const updated=await tx.nfcCard.updateMany({where:{restaurantId,id:cardId,status:'REVOKED',
+        customerId:current.customerId},data:{status:'PENDING_WRITE',tokenHash:normalizeTagToken(token)}});
+      if(updated.count!==1)throw new NfcRegistrationError(409,'Cartão alterado.');
+      await tx.nfcRegistrationAudit.create({data:{restaurantId,actorUserId:Number(req.user.id),
+        cardId,customerId:current.customerId,action:'CARD_REUSE_PREPARED'}});
+      return {id:current.id,displayCode:current.displayCode};
+    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+    res.setHeader('Cache-Control','no-store');
+    return res.json({card,ndefUrl:'https://www.gastronexa.com.br/nfc/'+token});
+  }catch(error){return safe(res,error);}
+});
+router.post('/cards/:id/reuse-complete',async(req,res)=>{
+  try{
+    const restaurantId=Number(req.user.restaurantId),cardId=ensureId(req.params.id);
+    const tokenHash=normalizeTagToken(req.body?.token);
+    const ready=await prisma.$transaction(async tx=>{
+      await setTenantDbContext(tx,restaurantId);
+      const preview=await tx.nfcCard.findFirst({where:{id:cardId,restaurantId,status:'PENDING_WRITE',
+        tokenHash,customerId:{not:null}},select:{customerId:true}});
+      if(!preview?.customerId)throw new NfcRegistrationError(409,'Cartão ainda não preparado.');
+      await tx.$queryRaw`SELECT "id" FROM "NfcCustomer" WHERE "restaurantId"=${restaurantId}
+        AND "id"=${preview.customerId}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT "id" FROM "NfcCard" WHERE "restaurantId"=${restaurantId}
+        AND "id"=${cardId}::uuid FOR UPDATE`;
+      const card=await tx.nfcCard.findFirst({where:{id:cardId,restaurantId,status:'PENDING_WRITE',
+        tokenHash,customerId:preview.customerId},select:{id:true,customerId:true,displayCode:true}});
+      if(!card?.customerId)throw new NfcRegistrationError(409,'Identificador ou vínculo alterado.');
+      await ensureAllSettled(tx,restaurantId,card.customerId);
+      const updated=await tx.nfcCard.updateMany({where:{id:cardId,restaurantId,status:'PENDING_WRITE',
+        customerId:card.customerId,tokenHash},data:{status:'READY',customerId:null,
+          activatedAt:null,activatedByUserId:null,failedOrderConfirmAttempts:0,
+          orderConfirmationLockedUntil:null,failedReturnCpfAttempts:0,
+          returnCpfLockedUntil:null,failedGuestViewAttempts:0,guestViewLockedUntil:null}});
+      if(updated.count!==1)throw new NfcRegistrationError(409,'Cartão alterado.');
+      await tx.nfcRegistrationAudit.create({data:{restaurantId,actorUserId:Number(req.user.id),
+        customerId:card.customerId,cardId,action:'CARD_REUSE_READY'}});
+      return {id:card.id,displayCode:card.displayCode,status:'READY' as const};
+    },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+    res.setHeader('Cache-Control','no-store');
+    return res.json({card:ready});
+  }catch(error){return safe(res,error);}
+});
 // An authorized attendant can replace a lost card without creating a new visit or
 // modifying payments. The replacement must be a physical, pre-programmed READY tag.
 const recoverLostSchema = z.strictObject({
