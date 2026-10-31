@@ -200,6 +200,10 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [recoveryComandaId,setRecoveryComandaId]=useState('');
   const [recoveryComandas,setRecoveryComandas]=useState<Array<{id:string;status:string;outstandingCents:number}>>([]);
   const [recoveryCpf,setRecoveryCpf]=useState('');
+  const [reuseCardId,setReuseCardId]=useState<string|null>(null);
+  const [reuseCardUrl,setReuseCardUrl]=useState('');
+  const [reuseCpf,setReuseCpf]=useState('');
+
   const [recoveryPhone,setRecoveryPhone]=useState('');
   const [identityChecked,setIdentityChecked]=useState(false);
   const [revokeConfirmed,setRevokeConfirmed]=useState(false);
@@ -334,6 +338,33 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
       const response = cause as { response?: { data?: { error?: string } } };
       setError(response.response?.data?.error || 'Não foi possível transferir a comanda. Confira CPF, telefone, cartão preparado e pagamentos em andamento.');
     } finally { setPending(false); }
+  };
+  const prepareReuse = async(cardId:string) => {
+    if(pending||reuseCpf.replace(/\D/g,'').length!==11)return;
+    setPending(true);setError('');setInfo('');
+    try{
+      const result=await nfcRegistrationService.prepareRevokedCardReuse(cardId,reuseCpf);
+      setReuseCardId(cardId);setReuseCardUrl(result.ndefUrl);setReuseCpf('');
+      setInfo('Cartão antigo invalidado. Grave o novo identificador no cartão físico e confirme a leitura.');
+      await load(page);
+    }catch(cause){
+      const e=cause as {response?:{data?:{error?:string}}};
+      setError(e.response?.data?.error||'Há pendências financeiras ou o cartão não pode ser reutilizado.');
+    }finally{setPending(false);}
+  };
+  const completeReuse = async() => {
+    if(!reuseCardId||!reuseCardUrl||pending)return;
+    setPending(true);setError('');
+    try{
+      await writeNfcCard(reuseCardUrl);
+      const token=await scanNfcCard();
+      if(token!==extractNfcToken(reuseCardUrl))throw new Error('A leitura não corresponde ao novo identificador.');
+      await nfcRegistrationService.completeRevokedCardReuse(reuseCardId,token);
+      setInfo('Cartão regravado, conferido e disponível (READY) para um novo cliente.');
+      setReuseCardUrl('');setReuseCardId(null);
+      await load(page);
+    }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível concluir a reutilização.');}
+    finally{setPending(false);}
   };
   const revoke = async (cardId: string) => {
     const reason = window.prompt('Informe o motivo da revogação (mínimo 5 caracteres):');
@@ -475,6 +506,11 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
           </section>
           {error && <div role="alert" className="nfc-message"><ShieldAlert aria-hidden="true" /> {error}</div>}
           {info && <div role="status" className="nfc-message">{info}</div>}
+          {reuseCardUrl && <section className="nfc-message" aria-label="Regravação de cartão revogado">
+            <strong>Regravar cartão revogado recuperado</strong>
+            <p>O cartão permanece indisponível até gravar um identificador novo e confirmar outra leitura física.</p>
+            <button type="button" disabled={pending} onClick={()=>void completeReuse()}>Gravar e confirmar liberação do cartão</button>
+          </section>}
           {newCardUrl && (
             <section className="nfc-message" aria-label="Programação do cartão NFC">
               <strong>{isUnassignedProvision ? 'Preparar cartão sem cliente' : 'Cartão aguardando programação e confirmação'}</strong>
@@ -528,6 +564,17 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
               <div className="nfc-person-actions">
                 <button type="button" className="secondary" onClick={() => setSelectedCustomerId(customer.id)}>Ver comandas</button>
                 {!customer.cards.some(card => card.status !== 'REVOKED') && <button type="button" disabled={pending} onClick={() => void issue(customer)}>Emitir cartão</button>}
+                {customer.cards.filter(card=>card.status==='REVOKED').map(card=>(
+                  <div key={card.id} style={{display:'grid',gap:7,minWidth:210}}>
+                    <label>CPF completo para liberar {card.displayCode}
+                      <input type="password" autoComplete="off" inputMode="numeric" maxLength={11}
+                        value={reuseCardId===card.id?'':reuseCpf}
+                        onChange={e=>setReuseCpf(e.target.value.replace(/\D/g,'').slice(0,11))}/>
+                    </label>
+                    <button type="button" className="secondary" disabled={pending||reuseCpf.length!==11||Boolean(reuseCardUrl)}
+                      onClick={()=>void prepareReuse(card.id)}>Deixar cartão recuperado virgem</button>
+                  </div>
+                ))}
                 {customer.cards.filter(card => card.status !== 'REVOKED' && card.status !== 'READY').map(card => (
                   <button type="button" key={card.id} className="danger" disabled={pending} onClick={() => void revoke(card.id)}>Revogar {card.displayCode}</button>
                 ))}
