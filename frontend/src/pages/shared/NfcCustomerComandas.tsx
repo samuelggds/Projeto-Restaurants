@@ -53,7 +53,7 @@ const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 
 const dateTime = (value?: string | null) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrado';
 const label = (status: NfcComanda['status']) => status === 'PAID' ? 'Paga' : status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento';
 
-export function NfcCustomerComandas({ customerId, cardId }: { customerId: string; cardId?: string }) {
+export function NfcCustomerComandas({ customerId, cardId, customerName }: { customerId: string; cardId?: string; customerName?: string }) {
   const [state, setState] = useState<NfcCustomerComandas | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,6 +119,7 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
     } finally { setBusy(false); }
   }
   return <Frame aria-label="Comandas e situação financeira NFC">
+    {customerName && <p className="info">Cliente: <strong>{customerName}</strong></p>}
     {!state && !error && <p role="status">Carregando comandas...</p>}
     {error && <p className="warning" role="alert"><ShieldAlert size={16} /> {error}</p>}
     {state && <>
@@ -149,7 +150,7 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
       </div>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => setSelectedId(comanda.id)}>
-          <span><strong>Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · Vence: {dateTime(comanda.dueAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
+          <span><strong>{customerName ? `${customerName} · ` : ''}Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · Vence: {dateTime(comanda.dueAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
           <span><span className={`status ${comanda.status === 'PAID' ? 'paid' : comanda.status === 'UNPAID' ? 'unpaid' : 'open'}`}>{label(comanda.status)}</span><small>{money(comanda.totalCents)}</small></span>
         </button>)}
         {!state.comandas.length && <p className="info">Este cliente ainda não possui comandas NFC registradas.</p>}
@@ -157,7 +158,7 @@ export function NfcCustomerComandas({ customerId, cardId }: { customerId: string
     </>}
     {selected && <Overlay onMouseDown={event => { if (event.target === event.currentTarget) setSelectedId(null); }}>
       <div className="dialog" role="dialog" aria-modal="true" aria-label="Detalhes da comanda NFC">
-        <header className="header"><div><small>GASTRONEXA · COMANDA INDIVIDUAL</small><h3>Comanda {selected.id.slice(0, 8).toUpperCase()}</h3><p>{label(selected.status)} · {selected.tableNumber ? `Mesa ${selected.tableNumber}` : 'Mesa não informada'}</p></div><button className="close" type="button" aria-label="Fechar comanda" onClick={() => setSelectedId(null)}><X size={20}/></button></header>
+        <header className="header"><div><small>GASTRONEXA · COMANDA INDIVIDUAL</small><h3>Comanda {selected.id.slice(0, 8).toUpperCase()}</h3>{customerName && <p>Cliente: {customerName}</p>}<p>{label(selected.status)} · {selected.tableNumber ? `Mesa ${selected.tableNumber}` : 'Mesa não informada'}</p></div><button className="close" type="button" aria-label="Fechar comanda" onClick={() => setSelectedId(null)}><X size={20}/></button></header>
         <div className="content">
           <div>
             <div className="pair"><span>Abertura</span><b>{dateTime(selected.openedAt)}</b></div>
