@@ -34,8 +34,8 @@ router.post('/verify',async(req,res)=>{
    const resolved=await activeVisit(input.token);
    if(!resolved)return genericError(res);
    const {card}=resolved;
-   const subscription=await prisma.subscription.findUnique({where:{restaurantId:card.restaurantId},select:{plan:true,status:true}});
-   if(!hasNfcCardAccess(subscription?.plan,subscription?.status))return genericError(res);
+   const subscription=await prisma.subscription.findUnique({where:{restaurantId:card.restaurantId},select:{plan:true,status:true,restaurant:{select:{active:true,accessBlockReason:true,billingTemporaryAccessUntil:true}}}});
+   if(!hasNfcCardAccess(subscription?.plan,subscription?.status,subscription?.restaurant))return genericError(res);
    const result=await prisma.$transaction(async tx=>{
      await setTenantDbContext(tx,card.restaurantId);
      // Lock card first so simultaneous wrong CPFs cannot bypass lockout.
@@ -94,8 +94,8 @@ router.get('/account',async(req,res)=>{
    // Resolve tenant only through the card, then query RLS-protected access records
    // inside a transaction with a trusted tenant context.
    const subscription=await prisma.subscription.findUnique({where:{restaurantId:card.card.restaurantId},
-     select:{plan:true,status:true}});
-   if(!hasNfcCardAccess(subscription?.plan,subscription?.status))return genericError(res,403);
+     select:{plan:true,status:true,restaurant:{select:{active:true,accessBlockReason:true,billingTemporaryAccessUntil:true}}}});
+   if(!hasNfcCardAccess(subscription?.plan,subscription?.status,subscription?.restaurant))return genericError(res,403);
    const payload=await withTenantDbContext(card.card.restaurantId,async tx=>{
      const record=await tx.nfcComandaAccess.findFirst({
        where:{sessionHash:nfcCustomerSessionHash(session),restaurantId:card.card.restaurantId,

@@ -1,4 +1,5 @@
 import tableRepository from '../repositories/TableRepository.js';
+import { hasPremiumFeatureAccess } from '../../billing/domain/planFeaturePolicy.js';
 
 type ResolvePublicTablePayload = {
   tableNumber: number | string;
@@ -98,11 +99,7 @@ class ResolvePublicTableService {
     }
 
     const subscription = table.restaurant.subscription;
-    const hasPremiumTableAccess =
-      (subscription?.plan === 'PREMIUM' || subscription?.plan === 'GESTAO_TOTAL') &&
-      (subscription.status === 'ATIVA' || subscription.status === 'TESTE');
-
-    if (!hasPremiumTableAccess) {
+    if (!hasPremiumFeatureAccess(subscription?.plan,subscription?.status,table.restaurant)) {
       throw new PublicTableResolutionError(
         'O cardápio de mesa não está disponível para este restaurante.',
         403,

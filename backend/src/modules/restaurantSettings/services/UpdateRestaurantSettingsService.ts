@@ -344,9 +344,9 @@ class UpdateRestaurantSettingsService {
     const selectedNfcMode = inPersonServiceMode === undefined ? undefined : normalizeInPersonServiceMode(inPersonServiceMode);
     if (selectedNfcMode && selectedNfcMode !== 'QR_ONLY') {
       const subscription = await prisma.subscription.findUnique({
-        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true },
+        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
       });
-      if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+      if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
         throw new Error('Cartões NFC disponíveis somente nos planos Premium e Gestão Total ativos ou em teste.');
       }
     }
@@ -403,12 +403,12 @@ class UpdateRestaurantSettingsService {
     if (enablingCustomDomain || enablingLanding) {
       const subscription = await prisma.subscription.findUnique({
         where: { restaurantId: Number(restaurantId) },
-        select: { plan: true, status: true },
+        select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
       });
-      if (enablingCustomDomain && !hasCustomDomainAccess(subscription?.plan, subscription?.status)) {
+      if (enablingCustomDomain && !hasCustomDomainAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
         throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
       }
-      if (enablingLanding && !hasHostedLandingAccess(subscription?.plan, subscription?.status)) {
+      if (enablingLanding && !hasHostedLandingAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
         throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
       }
     }

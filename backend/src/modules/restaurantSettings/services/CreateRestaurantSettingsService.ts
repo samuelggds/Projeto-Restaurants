@@ -373,17 +373,17 @@ class CreateRestaurantSettingsService {
     if (normalizedCustomDomainRequested || normalizedLandingPageEnabled) {
       const subscription = await prisma.subscription.findUnique({
         where: { restaurantId: Number(restaurantId) },
-        select: { plan: true, status: true },
+        select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
       });
       if (
         normalizedCustomDomainRequested &&
-        !hasCustomDomainAccess(subscription?.plan, subscription?.status)
+        !hasCustomDomainAccess(subscription?.plan, subscription?.status, subscription?.restaurant)
       ) {
         throw new Error('Domínio próprio está disponível somente nos planos Premium e Gestão Total ativos.');
       }
       if (
         normalizedLandingPageEnabled &&
-        !hasHostedLandingAccess(subscription?.plan, subscription?.status)
+        !hasHostedLandingAccess(subscription?.plan, subscription?.status, subscription?.restaurant)
       ) {
         throw new Error('A página personalizada do restaurante está disponível somente no plano Gestão Total ativo.');
       }
@@ -392,9 +392,9 @@ class CreateRestaurantSettingsService {
     const selectedMode = normalizeInPersonServiceMode(inPersonServiceMode);
     if (selectedMode !== 'QR_ONLY') {
       const subscription = await prisma.subscription.findUnique({
-        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true },
+        where: { restaurantId: Number(restaurantId) }, select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
       });
-      if (!hasNfcCardAccess(subscription?.plan, subscription?.status)) {
+      if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
         throw new Error('Cartões NFC disponíveis somente nos planos Premium e Gestão Total ativos ou em teste.');
       }
     }
