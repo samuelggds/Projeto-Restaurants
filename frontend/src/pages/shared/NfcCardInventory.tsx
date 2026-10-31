@@ -74,7 +74,19 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setError('Não foi possível carregar o estoque NFC. Tente novamente.');
     } finally { setLoading(false); }
   }, [page, filter]);
-  useEffect(() => { void load(); }, [load, refreshKey]);
+  useEffect(() => {
+    let current = true;
+    void nfcRegistrationService.inventory(page, filter).then(inventory => {
+      if (!current) return;
+      setData(inventory);
+      setError('');
+    }).catch(() => {
+      if (current) setError('Não foi possível carregar o estoque NFC. Tente novamente.');
+    }).finally(() => {
+      if (current) setLoading(false);
+    });
+    return () => { current = false; };
+  }, [page, filter, refreshKey]);
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
   const counts = data?.counts;
   const allCount = counts ? Object.values(counts).reduce((sum, count) => sum + count, 0) : 0;
