@@ -78,6 +78,9 @@ class TableRepository {
         restaurant: {
           select: {
             slug: true,
+            accessBlockReason: true,
+            billingTemporaryAccessUntil: true,
+            active: true,
             settings: {
               select: {
                 inPersonServiceMode: true,
