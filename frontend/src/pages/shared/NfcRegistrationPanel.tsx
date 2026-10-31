@@ -196,6 +196,12 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [screen, setScreen] = useState<'registration' | 'linked'>('registration');
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
+  const [recoveryComandaId,setRecoveryComandaId]=useState('');
+  const [recoveryCpf,setRecoveryCpf]=useState('');
+  const [recoveryPhone,setRecoveryPhone]=useState('');
+  const [identityChecked,setIdentityChecked]=useState(false);
+  const [revokeConfirmed,setRevokeConfirmed]=useState(false);
+
   const load = useCallback(async (nextPage: number) => {
     setPending(true); setError('');
     try { const result = await nfcRegistrationService.list(nextPage); setItems(result.customers); setTotal(result.total); setPage(nextPage); }
@@ -292,6 +298,31 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
       setInfo(`Cartão ${card.displayCode} identificado neste restaurante.`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Cartão NFC não identificado.');
+    } finally { setPending(false); }
+  };
+  const recoverLostCard = async () => {
+    if (!lookupCustomer || !recoveryComandaId || !identityChecked || !revokeConfirmed || pending) return;
+    setPending(true); setError(''); setInfo('');
+    try {
+      // A pre-programmed READY chip must be physically scanned at the counter.
+      const replacementToken = await scanNfcCard();
+      const recovery = await nfcRegistrationService.recoverLostCard({
+        customerId: lookupCustomer.id, comandaId: recoveryComandaId,
+        replacementToken, cpf: recoveryCpf, phone: recoveryPhone,
+        identityDocumentChecked: true, confirmLostCardRevocation: true,
+      });
+      setInfo('Cartão ' + recovery.displayCode + ' vinculado à mesma comanda. Saldo mantido: ' +
+        (recovery.outstandingCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) +
+        '. Acesso anterior revogado.');
+      setRecoveryCpf(''); setRecoveryPhone(''); setRecoveryComandaId('');
+      setIdentityChecked(false); setRevokeConfirmed(false);
+      await load(page);
+      const refreshed = await nfcRegistrationService.lookup(lookupCpf);
+      setLookupCustomer(refreshed);
+      setSelectedCustomerId(refreshed?.id ?? null);
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setError(response.response?.data?.error || 'Não foi possível transferir a comanda. Confira CPF, telefone, cartão preparado e pagamentos em andamento.');
     } finally { setPending(false); }
   };
   const revoke = async (cardId: string) => {
@@ -398,6 +429,32 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
                 )}
               </div>
             )}
+            {activeTab === 'existing' && lookupCustomer && <div className="nfc-financial" aria-label="Recuperação de cartão NFC perdido">
+              <h3>Recuperar cartão perdido</h3>
+              <p>Para uma comanda com saldo pendente, utilize um cartão virgem READY previamente gravado. A recuperação revoga o cartão perdido sem recriar a comanda ou a dívida.</p>
+              <label>Identificador completo da comanda existente
+                <input value={recoveryComandaId} onChange={e=>setRecoveryComandaId(e.target.value.trim())}
+                  placeholder="UUID da comanda (consulte em Ver comandas)" autoComplete="off" />
+              </label>
+              <label>CPF completo confirmado presencialmente
+                <input value={recoveryCpf} onChange={e=>setRecoveryCpf(e.target.value.replace(/\D/g,'').slice(0,11))}
+                  inputMode="numeric" type="password" autoComplete="off" maxLength={11} />
+              </label>
+              <label>Telefone cadastrado com DDD
+                <input value={recoveryPhone} onChange={e=>setRecoveryPhone(e.target.value)}
+                  inputMode="tel" autoComplete="off" />
+              </label>
+              <label><input type="checkbox" checked={identityChecked}
+                onChange={e=>setIdentityChecked(e.target.checked)} />
+                Conferi documento e identidade do titular no atendimento presencial.</label>
+              <label><input type="checkbox" checked={revokeConfirmed}
+                onChange={e=>setRevokeConfirmed(e.target.checked)} />
+                Confirmo a perda e a revogação definitiva do cartão anterior.</label>
+              <button type="button" disabled={pending || !/^[0-9a-f-]{36}$/iu.test(recoveryComandaId) ||
+                recoveryCpf.length!==11 || !recoveryPhone.trim() || !identityChecked || !revokeConfirmed}
+                onClick={()=>void recoverLostCard()}>Ler cartão substituto e recuperar comanda</button>
+              <p className="nfc-hint">A recuperação não aprova pagamentos, não altera saldo e não desbloqueia novas compras de comandas vencidas.</p>
+            </div>}
             <p className="nfc-hint">CPF e telefone são protegidos no servidor e aparecem mascarados nas consultas. Nenhum dado pessoal é gravado no chip.</p>
           </section>
           {error && <div role="alert" className="nfc-message"><ShieldAlert aria-hidden="true" /> {error}</div>}
