@@ -62,6 +62,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
   const [whatsappConsent, setWhatsappConsent] = useState(false);
   const [visitNotice, setVisitNotice] = useState('');
   const [returnCpf, setReturnCpf] = useState('');
+  const [returnToken, setReturnToken] = useState('');
   const reload = useCallback(async () => {
     const response = await nfcComandaService.customerComandas(customerId);
     setState(response);
@@ -80,18 +81,29 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
     return () => window.removeEventListener('keydown', handle);
   }, [selectedId]);
   async function confirmPaymentAndRelease() {
-    if (!selected || !selected.cardId || busy || !/^\d{11}$/.test(returnCpf)) return;
+    if (!selected || !selected.cardId || busy || !returnToken || !/^\d{11}$/.test(returnCpf)) return;
     setBusy(true); setError('');
     try {
-      const token = await scanNfcCard();
-      const released = await nfcRegistrationService.returnPaidCard(token, returnCpf, selected.id);
-      setReturnCpf(''); setSelectedId(null);
+      const released = await nfcRegistrationService.returnPaidCard(returnToken, returnCpf, selected.id);
+      setReturnCpf(''); setReturnToken(''); setSelectedId(null);
       setVisitNotice(`Pagamento conferido no backend. Cartão ${released.displayCode} desvinculado e disponível para o próximo cliente.`);
       await reload();
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setError(response.response?.data?.error || 'Pagamento ainda não confirmado ou cartão/CPF inválidos. Não foi possível liberar o cartão.');
       setReturnCpf('');
+    } finally { setBusy(false); }
+  }
+  async function readReturnCard() {
+    if (busy || !selected?.cardId) return;
+    setBusy(true); setError(''); setReturnToken(''); setReturnCpf('');
+    try {
+      const scannedToken = await scanNfcCard();
+      const card = await nfcRegistrationService.resolve(scannedToken);
+      if (card.id !== selected.cardId) throw new Error('Cartão físico não corresponde à comanda selecionada.');
+      setReturnToken(scannedToken);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Cartão não identificado.');
     } finally { setBusy(false); }
   }
   async function openComanda() {
@@ -149,7 +161,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
         <p className="info">O envio automático exige uma mesa informada e integração WhatsApp ativa.</p>
       </div>}
       <div className="entries">
-        {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => setSelectedId(comanda.id)}>
+        {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => { setSelectedId(comanda.id); setReturnToken(''); setReturnCpf(''); }}>
           <span><strong>{customerName ? `${customerName} · ` : ''}Comanda {comanda.id.slice(0, 8).toUpperCase()}</strong><small>Entrada: {dateTime(comanda.openedAt)} · Vence: {dateTime(comanda.dueAt)} · {comanda.tableNumber ? `Mesa ${comanda.tableNumber}` : 'Sem mesa'}</small></span>
           <span><span className={`status ${comanda.status === 'PAID' ? 'paid' : comanda.status === 'UNPAID' ? 'unpaid' : 'open'}`}>{label(comanda.status)}</span><small>{money(comanda.totalCents)}</small></span>
         </button>)}
@@ -187,15 +199,18 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
           {selected.cardId && <section className="divider" style={{ display: 'grid', gap: 10 }}>
             <h4><CreditCard size={18} /> Conferir pagamento e liberar cartão NFC</h4>
             <p className="info">Após o Pix ou Point ser confirmado no servidor, aproxime o cartão e peça ao cliente o CPF completo. A mesma operação valida a quitação e libera o cartão para novo cadastro.</p>
-            <label className="info" style={{ display: 'grid', gap: 5 }}>
-              CPF completo (11 dígitos)
+            <button type="button" disabled={busy} onClick={() => void readReturnCard()} style={{ padding: 12, borderRadius: 9, border: '1px solid #d65b14', background: '#fff', color: '#a64211', fontWeight: 750 }}>
+              {returnToken ? 'Cartão identificado — ler novamente' : '1. Aproximar cartão NFC'}
+            </button>
+            {returnToken && <label className="info" style={{ display: 'grid', gap: 5 }}>
+              2. CPF completo (11 dígitos)
               <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={returnCpf}
                 onChange={event => setReturnCpf(event.target.value.replace(/\D/g, '').slice(0, 11))}
                 placeholder="CPF completo do titular" style={{ padding: 11, border: '1px solid #cbd5df', borderRadius: 9 }} />
-            </label>
-            <button type="button" disabled={busy || returnCpf.length !== 11} onClick={() => void confirmPaymentAndRelease()}
+            </label>}
+            <button type="button" disabled={busy || !returnToken || returnCpf.length !== 11} onClick={() => void confirmPaymentAndRelease()}
               style={{ background: '#d65b14', color: '#fff', border: 0, padding: '12px 14px', borderRadius: 9 }}>
-              Aproximar cartão, verificar quitação e desvincular
+              3. Conferir quitação, liberar cliente e devolver cartão
             </button>
             {error && <p role="alert" className="warning">{error}</p>}
           </section>}
