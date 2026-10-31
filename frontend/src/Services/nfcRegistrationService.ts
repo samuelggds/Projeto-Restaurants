@@ -88,6 +88,16 @@ class NfcRegistrationService {
     }
     return response.data;
   }
+  async recoverLostCard(payload: {
+    customerId: string; comandaId: string; replacementToken: string;
+    cpf: string; phone: string; identityDocumentChecked: true; confirmLostCardRevocation: true;
+  }) {
+    const response = await api.post<{ recovery: {
+      customerId: string; comandaId: string; cardId: string; displayCode: string;
+      outstandingCents: number; totalCents: number; paidCents: number;
+    } }>('/nfc-registration/cards/recover-lost', payload);
+    return response.data.recovery;
+  }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
   }
