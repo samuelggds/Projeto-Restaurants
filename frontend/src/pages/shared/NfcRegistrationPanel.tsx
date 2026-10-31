@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { ArrowRight, ContactRound, CreditCard, RefreshCw, Search, ShieldAlert, ShieldCheck, Smartphone, UserPlus } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
+import nfcComandaService from '../../Services/nfcComandaService';
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
@@ -197,6 +198,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
   const [recoveryComandaId,setRecoveryComandaId]=useState('');
+  const [recoveryComandas,setRecoveryComandas]=useState<Array<{id:string;status:string;outstandingCents:number}>>([]);
   const [recoveryCpf,setRecoveryCpf]=useState('');
   const [recoveryPhone,setRecoveryPhone]=useState('');
   const [identityChecked,setIdentityChecked]=useState(false);
@@ -237,6 +239,13 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
     try {
       const customer = await nfcRegistrationService.lookup(lookupCpf);
       setLookupCustomer(customer);
+      setRecoveryComandaId('');
+      if (customer) {
+        const data = await nfcComandaService.customerComandas(customer.id);
+        setRecoveryComandas(data.comandas.filter(item =>
+          (item.status === 'OPEN' || item.status === 'UNPAID') && item.outstandingCents > 0)
+          .map(item => ({id:item.id,status:item.status,outstandingCents:item.outstandingCents})));
+      } else setRecoveryComandas([]);
       setSelectedCustomerId(customer?.id ?? null);
       setInfo(customer ? `Cadastro encontrado: ${customer.name} (${customer.cpfMasked}).` : 'Nenhum cliente encontrado para o CPF informado.');
     } catch { setError('Não foi possível consultar este CPF.'); }
@@ -319,6 +328,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
       await load(page);
       const refreshed = await nfcRegistrationService.lookup(lookupCpf);
       setLookupCustomer(refreshed);
+      setRecoveryComandas([]);
       setSelectedCustomerId(refreshed?.id ?? null);
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
@@ -432,9 +442,15 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
             {activeTab === 'existing' && lookupCustomer && <div className="nfc-financial" aria-label="Recuperação de cartão NFC perdido">
               <h3>Recuperar cartão perdido</h3>
               <p>Para uma comanda com saldo pendente, utilize um cartão virgem READY previamente gravado. A recuperação revoga o cartão perdido sem recriar a comanda ou a dívida.</p>
-              <label>Identificador completo da comanda existente
-                <input value={recoveryComandaId} onChange={e=>setRecoveryComandaId(e.target.value.trim())}
-                  placeholder="UUID da comanda (consulte em Ver comandas)" autoComplete="off" />
+              <label>Selecione a comanda com saldo pendente
+                <select value={recoveryComandaId} onChange={e=>setRecoveryComandaId(e.target.value)}
+                  style={{width:'100%',padding:12,border:'1px solid #cdd6dc',borderRadius:10}}>
+                  <option value="">Selecione uma comanda existente</option>
+                  {recoveryComandas.map(item=><option value={item.id} key={item.id}>
+                    {item.id.slice(0,8).toUpperCase()} · {item.status} ·
+                    {(item.outstandingCents/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+                  </option>)}
+                </select>
               </label>
               <label>CPF completo confirmado presencialmente
                 <input value={recoveryCpf} onChange={e=>setRecoveryCpf(e.target.value.replace(/\D/g,'').slice(0,11))}
