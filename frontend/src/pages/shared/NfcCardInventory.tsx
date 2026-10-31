@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { CreditCard, X } from 'lucide-react';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
+import { NfcCustomerComandas } from './NfcCustomerComandas';
 import nfcRegistrationService, { type NfcInventoryCard, type NfcInventoryStatus } from '../../Services/nfcRegistrationService';
 
 type Filter = 'ALL' | NfcInventoryStatus;
@@ -38,6 +39,7 @@ const UI = styled.section`
   .card > span { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
   .card svg { width: 17px; color: #9aa5ad; }
   .card strong { font-size: 15px; color: #17252e; }
+  .card .customer-name { font-size: 12px; color: #334155; font-weight: 750; overflow-wrap: anywhere; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #a5b0b7; }
   .dot[data-status="ACTIVE"] { background: #258352; }
   .dot[data-status="BLOCKED"] { background: #ce3737; }
@@ -94,6 +96,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   const [cpf, setCpf] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [showOrder, setShowOrder] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
   const [paymentAvailability, setPaymentAvailability] = useState<Awaited<ReturnType<typeof nfcRegistrationService.paymentAvailability>> | null>(null);
   const [reuseCpf, setReuseCpf] = useState('');
   const [reuseUrl, setReuseUrl] = useState('');
@@ -147,7 +150,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   }, [refreshKey]);
   const openCard = (card: NfcInventoryCard) => {
     setSelected(card); setCpf(''); setActionError(''); setActionNotice('');
-    setShowOrder(false); setReuseCpf(''); setReuseUrl('');
+    setShowOrder(false); setShowAccount(false); setReuseCpf(''); setReuseUrl('');
   };
   const releaseCard = async () => {
     if (!selected || selected.status !== 'ACTIVE' || !selected.comanda ||
@@ -249,6 +252,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
           <span><CreditCard aria-hidden="true" /><i className="dot" data-status={visualStatus(card)} aria-hidden="true" /></span>
           <strong>{String((data.page - 1) * data.pageSize + index + 1).padStart(2, '0')}</strong>
           <small>{card.displayCode}</small>
+          {card.customer && <span className="customer-name">{card.status === 'REVOKED' ? 'Histórico: ' : ''}{card.customer.name}</span>}
           {card.visualStatus === 'OPEN_BALANCE' && card.comanda && <small>Saldo: {money(card.comanda.outstandingCents)}</small>}
         </button>)}
       </div>}
@@ -269,7 +273,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
             <div className="detail"><small>Mesa</small><strong>{selected.comanda?.tableNumber ?? 'Não informada'}</strong></div>
           </div>}
           {selected.comanda && <div className="account">
-            <strong>Comanda da visita</strong>
+            <strong>Comanda de {selected.customer?.name || 'cliente não identificado'}</strong>
             <div className="details">
               <div className="detail"><small>Comanda</small><strong>{selected.comanda.id.slice(0,8).toUpperCase()}</strong></div>
               <div className="detail"><small>Situação</small><strong>{selected.comanda.status === 'PAID' ? 'Quitada' : selected.comanda.status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento'}</strong></div>
@@ -278,6 +282,13 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
               <div className="detail"><small>Saldo pendente</small><strong>{money(selected.comanda.outstandingCents)}</strong></div>
             </div>
           </div>}
+          {selected.customer && (selected.status === 'ACTIVE' || selected.status === 'REVOKED') &&
+            <section className="action-panel" aria-label="Consultar comanda e opções de pagamento">
+              <h4>Comanda de {selected.customer.name}</h4>
+              <p>Consulte os pedidos, o saldo e o histórico financeiro diretamente no atendimento. A cobrança PIX/Point NFC depende de integração homologada.</p>
+              <button type="button" className="go" onClick={() => setShowAccount(value => !value)}>{showAccount ? 'Ocultar comanda' : 'Ver comanda e pagamento'}</button>
+              {showAccount && <NfcCustomerComandas customerId={selected.customer.id} cardId={selected.status === 'ACTIVE' ? selected.id : undefined} customerName={selected.customer.name} />}
+            </section>}
           {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Nenhuma comanda atual foi identificada. Não é possível liberar o cartão sem conferência financeira no servidor.</p>}
           {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
             <label className="cpf-field">CPF completo para confirmar a devolução
