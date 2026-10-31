@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { CreditCard, X } from 'lucide-react';
-import { scanNfcCard } from './nfcWebReader';
+import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
+import { NfcPrepareOrder } from './NfcPrepareOrder';
 import nfcRegistrationService, { type NfcInventoryCard, type NfcInventoryStatus } from '../../Services/nfcRegistrationService';
 
 type Filter = 'ALL' | NfcInventoryStatus;
-type Props = { refreshKey?: number; onPrepare: () => void };
+type Props = { refreshKey?: number; onPrepare: () => void; onRegister: () => void };
 const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'ALL', label: 'Todos' },
   { key: 'READY', label: 'Disponíveis' },
@@ -68,11 +69,18 @@ const UI = styled.section`
   .card-actions button:disabled { opacity: .55; cursor: not-allowed; }
   .cpf-field { display: grid; gap: 7px; font-size: 12px; font-weight: 750; }
   .cpf-field input { border: 1px solid #dce3e7; border-radius: 9px; padding: 12px; font: inherit; }
+  .action-panel { display: grid; gap: 10px; border-top: 1px solid #e7ecef; padding-top: 15px; }
+  .action-panel h4 { margin: 0; font-size: 14px; }
+  .action-panel p { font-size: 12px; color: #64717a; }
+  .action-panel button { border: 1px solid #dce3e7; border-radius: 10px; padding: 11px 13px; background: #fff; font: inherit; font-weight: 750; cursor: pointer; }
+  .action-panel button:disabled { cursor: not-allowed; opacity: .55; }
+  .action-panel .go { background: #d65a1a; border-color: #d65a1a; color: white; }
+  .action-panel .payment-methods { display: flex; flex-wrap: wrap; gap: 8px; }
   .close { justify-self: stretch; border: 1px solid #dce3e7; border-radius: 9px; background: #fff; padding: 11px; }
   @media(max-width:500px) { .modal-body { padding: 17px; } .details { grid-template-columns: 1fr; } .modal-head { padding: 17px; } }
 `;
 
-export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
+export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Props) {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Awaited<ReturnType<typeof nfcRegistrationService.inventory>> | null>(null);
@@ -83,6 +91,9 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
   const [actionNotice, setActionNotice] = useState('');
   const [cpf, setCpf] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
+  const [showOrder, setShowOrder] = useState(false);
+  const [reuseCpf, setReuseCpf] = useState('');
+  const [reuseUrl, setReuseUrl] = useState('');
   const load = useCallback(async () => {
     try {
       const inventory = await nfcRegistrationService.inventory(page, filter);
@@ -108,6 +119,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
   useEffect(() => { if (!selected) return; const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [selected]);
   const openCard = (card: NfcInventoryCard) => {
     setSelected(card); setCpf(''); setActionError(''); setActionNotice('');
+    setShowOrder(false); setReuseCpf(''); setReuseUrl('');
   };
   const releaseCard = async () => {
     if (!selected || selected.status !== 'ACTIVE' || !selected.comanda ||
@@ -159,6 +171,34 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setActionError(response.response?.data?.error || 'Cartão com histórico não pode ser excluído.');
+    } finally { setActionBusy(false); }
+  };
+  const prepareRevoked = async () => {
+    if (!selected || selected.status !== 'REVOKED' || !selected.customer || reuseCpf.length !== 11 || actionBusy) return;
+    setActionBusy(true); setActionError('');
+    try {
+      const result = await nfcRegistrationService.prepareRevokedCardReuse(selected.id, reuseCpf);
+      setReuseUrl(result.ndefUrl);
+      setActionNotice('Regravação autorizada. Grave o novo identificador no cartão físico e confirme a leitura.');
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || 'Não foi possível autorizar a recuperação. Confira a quitação e o CPF completo.');
+    } finally { setActionBusy(false); }
+  };
+  const finishRevoked = async () => {
+    if (!selected || !reuseUrl || actionBusy) return;
+    setActionBusy(true); setActionError('');
+    try {
+      await writeNfcCard(reuseUrl);
+      const token = await scanNfcCard();
+      if (token !== extractNfcToken(reuseUrl)) throw new Error('Cartão físico diferente do identificador regravado.');
+      await nfcRegistrationService.completeRevokedCardReuse(selected.id, token);
+      setSelected(null); setReuseUrl(''); setReuseCpf('');
+      setActionNotice('Cartão recuperado e disponível para novo cliente.');
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'A regravação não foi confirmada.'));
     } finally { setActionBusy(false); }
   };
   const counts = data?.counts;
@@ -214,6 +254,37 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
             <label className="cpf-field">CPF completo para confirmar a devolução
               <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/\\D/g,'').slice(0,11))} placeholder="11 dígitos do CPF" />
             </label>}
+          {selected.status === 'ACTIVE' && !selected.blockedByDebt && selected.comanda?.status === 'OPEN' &&
+            <section className="action-panel" aria-label="Ações da comanda ativa">
+              <h4>Atendimento e pedidos</h4>
+              <p>Cardápio, carrinho e confirmação NFC utilizam os serviços de produtos e pedidos do restaurante. O backend confere cartão, CPF, itens e permissões.</p>
+              <button type="button" className="go" onClick={() => setShowOrder(value => !value)}>{showOrder ? 'Ocultar cardápio' : 'Abrir cardápio e adicionar pedido'}</button>
+              {showOrder && <NfcPrepareOrder comandaId={selected.comanda.id} />}
+              <div className="payment-methods"><button type="button" disabled>PIX · Em homologação</button><button type="button" disabled>Maquininha · Em homologação</button></div>
+            </section>}
+          {selected.status === 'ACTIVE' && selected.blockedByDebt &&
+            <section className="action-panel" aria-label="Pagamento de comanda bloqueada">
+              <h4>Cliente bloqueado por pendência financeira</h4>
+              <p>Novos pedidos indisponíveis. Regularize a dívida no servidor antes de permitir outra compra.</p>
+              <div className="payment-methods"><button type="button" disabled>Quitar por PIX · Em homologação</button><button type="button" disabled>Quitar na maquininha · Em homologação</button></div>
+              <p>Não há confirmação manual de pagamento NFC. As cobranças só serão habilitadas após a integração real com o gateway.</p>
+            </section>}
+          {selected.status === 'ACTIVE' && !selected.blockedByDebt && !selected.comanda &&
+            <p className="warning">Cliente vinculado sem comanda identificada. Abra a ficha do cliente para consultar e regularizar a visita antes de registrar pedidos.</p>}
+          {selected.status === 'PENDING_WRITE' &&
+            <section className="action-panel"><h4>Cartão aguardando gravação</h4>
+              <p>Finalize a programação pelo cadastro e confira a leitura física antes de usá-lo.</p>
+              <button type="button" className="go" onClick={() => { setSelected(null); onRegister(); }}>Ir para cadastro NFC</button>
+            </section>}
+          {selected.status === 'REVOKED' && selected.customer &&
+            <section className="action-panel" aria-label="Recuperação de cartão revogado">
+              <h4>Recuperar cartão revogado</h4>
+              <p>Somente após conferência do CPF completo e quitação de todas as comandas no servidor. O cartão físico precisa receber um novo identificador.</p>
+              {!reuseUrl ? <label className="cpf-field">CPF completo do titular anterior
+                <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={reuseCpf} onChange={e => setReuseCpf(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))} placeholder="11 dígitos do CPF" />
+              </label> : <p role="status">Recuperação autorizada. Regrave e confirme a leitura do mesmo cartão.</p>}
+              <button type="button" className="go" disabled={actionBusy || (!reuseUrl && reuseCpf.length !== 11)} onClick={() => void (reuseUrl ? finishRevoked() : prepareRevoked())}>{reuseUrl ? 'Gravar e confirmar cartão' : 'Liberar cartão por conferência'}</button>
+            </section>}
           {actionError && <p className="warning" role="alert">{actionError}</p>}
           <div className="card-actions">
             {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
