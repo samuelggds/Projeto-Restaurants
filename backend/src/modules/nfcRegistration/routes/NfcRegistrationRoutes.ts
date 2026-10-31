@@ -629,6 +629,49 @@ router.post('/cards/provision', async (req, res) => {
     return res.status(201).json({ card, ndefUrl: 'https://www.gastronexa.com.br/nfc/' + token });
   } catch (error) { return safe(res, error); }
 });
+// Remove only unused, unassigned cards. A formerly linked card must be
+// revoked instead to preserve the visit, customer, orders and audit trail.
+router.delete('/cards/:id', async (req, res) => {
+  try {
+    const restaurantId = Number(req.user.restaurantId);
+    const cardId = ensureId(req.params.id);
+    const deleted = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId" = ${restaurantId} AND "id" = ${cardId}::uuid
+        FOR UPDATE
+      `;
+      if (!rows.length) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const card = await tx.nfcCard.findFirst({
+        where: { id: cardId, restaurantId },
+        select: { id: true, displayCode: true, status: true, customerId: true, activatedAt: true, revokedAt: true },
+      });
+      if (!card || card.customerId !== null || card.activatedAt !== null || card.revokedAt !== null ||
+        !['PENDING_WRITE', 'READY'].includes(card.status)) {
+        throw new NfcRegistrationError(409, 'Somente cartões sem cliente e nunca utilizados podem ser excluídos.');
+      }
+      const [comandas, confirmations] = await Promise.all([
+        tx.nfcComanda.count({ where: { restaurantId, cardId } }),
+        tx.nfcOrderConfirmation.count({ where: { restaurantId, cardId } }),
+      ]);
+      if (comandas > 0 || confirmations > 0) {
+        throw new NfcRegistrationError(409, 'Cartão possui histórico de comanda ou pedidos e não pode ser excluído.');
+      }
+      const removed = await tx.nfcCard.deleteMany({
+        where: { id: cardId, restaurantId, customerId: null, status: { in: ['PENDING_WRITE', 'READY'] }, activatedAt: null, revokedAt: null },
+      });
+      if (removed.count !== 1) throw new NfcRegistrationError(409, 'O cartão foi alterado. Atualize a lista.');
+      await tx.nfcRegistrationAudit.create({
+        data: { restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_DELETED_UNUSED' },
+      });
+      return { id: card.id, displayCode: card.displayCode };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({ deleted: true, card: deleted });
+  } catch (error) { return safe(res, error); }
+});
+
 router.post('/cards/:id/prepare', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
