@@ -154,7 +154,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   };
   const releaseCard = async () => {
     if (!selected || selected.status !== 'ACTIVE' || !selected.comanda ||
-      selected.comanda.status !== 'PAID' || selected.comanda.outstandingCents !== 0 ||
+      selected.comanda.outstandingCents !== 0 ||
       cpf.length !== 11 || actionBusy) return;
     setActionBusy(true); setActionError('');
     try {
@@ -167,7 +167,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
       if (result.cardId !== selected.id) {
         throw new Error('O retorno não corresponde ao cartão selecionado. Atualize o estoque.');
       }
-      setActionNotice('Cartão liberado e disponível para outro cliente.');
+      setActionNotice('Pagamento conferido no servidor: cartão verde, desvinculado e disponível para novo cadastro.');
       setSelected(null); setCpf('');
       await load();
     } catch (cause) {
@@ -290,8 +290,8 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
               {showAccount && <NfcCustomerComandas customerId={selected.customer.id} cardId={selected.status === 'ACTIVE' ? selected.id : undefined} customerName={selected.customer.name} />}
             </section>}
           {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Nenhuma comanda atual foi identificada. Não é possível liberar o cartão sem conferência financeira no servidor.</p>}
-          {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
-            <label className="cpf-field">CPF completo para confirmar a devolução
+          {selected.status === 'ACTIVE' && selected.comanda?.outstandingCents === 0 &&
+            <label className="cpf-field">CPF completo para finalizar a visita
               <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))} placeholder="11 dígitos do CPF" />
             </label>}
           {selected.status === 'ACTIVE' && !selected.blockedByDebt && selected.comanda?.status === 'OPEN' &&
@@ -328,7 +328,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
           {actionError && <p className="warning" role="alert">{actionError}</p>}
           <div className="card-actions">
             {selected.status === 'ACTIVE' && selected.comanda?.status === 'PAID' && selected.comanda.outstandingCents === 0 &&
-              <button type="button" className="release" disabled={actionBusy || cpf.length !== 11} onClick={() => void releaseCard()}>{actionBusy ? 'Conferindo...' : 'Liberar cartão por NFC'}</button>}
+              <button type="button" className="release" disabled={actionBusy || cpf.length !== 11} onClick={() => void releaseCard()}>{actionBusy ? 'Conferindo...' : 'Confirmar CPF e liberar cartão'}</button>}
             {(selected.status === 'ACTIVE' || selected.status === 'PENDING_WRITE') &&
               <button type="button" className="revoke" disabled={actionBusy} onClick={() => void revokeCard()}>Revogar cartão</button>}
             {!selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE') &&
