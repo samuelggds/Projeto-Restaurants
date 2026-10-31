@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import styled from 'styled-components';
-import { ArrowLeft, ArrowRight, CheckCircle2, ContactRound, CreditCard, Smartphone, UserPlus, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ContactRound, CreditCard, Smartphone, UserPlus } from 'lucide-react';
+import { NfcReceptionAnimation } from './NfcReceptionAnimation';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
@@ -49,26 +50,12 @@ const Shell = styled.section`
   .primary svg, .secondary svg { width: 17px; height: 17px; }
   .state { background: #f5faf7; border: 1px solid #d8eade; padding: 14px; border-radius: 11px; font-size: 13px; color: #2c6652; }
   .error { padding: 12px; border-radius: 11px; background: #fff0ef; color: #a23729; font-size: 12px; }
-  .illustration { min-height: 415px; background: linear-gradient(145deg,#faf9f7 0%,#fff0e7 100%); border-left: 1px solid #f0e9e5; padding: 25px; display: grid; align-content: center; gap: 20px; }
-  .illustration .eyebrow { color: #9f785f; }
-  .illustration h3 { font-size: 18px; color: #26333a; }
-  .illustration p { font-size: 12px; color: #7b716c; line-height: 1.55; }
-  .devices { min-height: 230px; position: relative; display: flex; justify-content: center; align-items: center; }
-  .phone { height: 224px; width: 126px; border: 5px solid #28323b; border-radius: 23px; background: #fff; box-shadow: 0 15px 24px #b4795226; padding: 23px 9px 14px; display: grid; align-content: start; gap: 11px; transform: rotate(2deg); }
-  .phone b { color: #cb5219; font-size: 9px; }
-  .phone strong { color: #26323b; font-size: 13px; line-height: 1.15; }
-  .phone i { display: block; background: #f0f2f4; height: 9px; border-radius: 4px; }
-  .phone i:nth-of-type(2) { width: 75%; }
-  .floating-card { width: 123px; height: 79px; border-radius: 12px; background: #fff; position: absolute; top: 85px; left: 5%; box-shadow: 0 11px 24px #8f776b3b; padding: 13px; color: #ba4a16; transform: rotate(-16deg); display: grid; align-content: space-between; animation: nfc-hover 3s ease-in-out infinite alternate; }
-  .floating-card b { color: #222e37; font-size: 11px; }
-  .floating-card small { font-size: 8px; }
-  .devices > .waves { position: absolute; right: 4%; top: 46%; color: #dd8b5b; }
-  .safety { border-top: 1px solid #efdfd2; padding-top: 14px; }
-  .safety strong { font-size: 12px; color: #88522e; }
-  @keyframes nfc-hover { to { transform: translateY(-9px) rotate(-11deg); } }
-  @media (prefers-reduced-motion: reduce) { .floating-card { animation: none; } }
-  @media(max-width:860px) { .workspace { grid-template-columns: minmax(0,1fr); } .illustration { min-height: 270px; border-left: 0; border-top: 1px solid #f0e9e5; } .devices { min-height: 170px; } .phone { transform: scale(.78); } .floating-card { left: 25%; top: 65px; } }
-  @media(max-width:520px) { .fields { grid-template-columns: minmax(0,1fr); } .fields .wide { grid-column: auto; } .mode-switch button { font-size: 11px; } .step-sep { width: 12px; } .step { font-size: 11px; } .illustration { display: none; } }
+  .desktop-illustration { min-width: 0; }
+  @media (max-width: 860px) {
+    .workspace { grid-template-columns: minmax(0,1fr); }
+    .desktop-illustration { display: none; }
+  }
+  @media(max-width:520px) { .fields { grid-template-columns: minmax(0,1fr); } .fields .wide { grid-column: auto; } .mode-switch button { font-size: 11px; } .step-sep { width: 12px; } .step { font-size: 11px; } .desktop-illustration { display: none; } }
 `;
 
 export function NfcGuidedReception({ onCompleted }: Props) {
@@ -206,17 +193,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
         </>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
-      <aside className="illustration" aria-hidden="true">
-        <span className="eyebrow">Recepção NFC</span>
-        <h3>Um começo simples.</h3>
-        <p>Identifique o cliente e aproxime o cartão da visita.</p>
-        <div className="devices">
-          <div className="floating-card"><b>GastroNexa</b><small>Comanda individual <Wifi size={11} /></small></div>
-          <div className="phone"><b>GastroNexa</b><strong>Recepção<br/>de cliente</strong><i /><i /><i /></div>
-          <Wifi className="waves" size={30} />
-        </div>
-        <div className="safety"><strong>Uma visita. Uma comanda.</strong><p>O cartão identifica a visita; o consumo e os pagamentos são controlados pelo servidor.</p></div>
-      </aside>
+      <div className="desktop-illustration"><NfcReceptionAnimation decorative /></div>
     </div>
   </Shell>;
 }
