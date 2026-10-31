@@ -14,7 +14,7 @@ export type LinkedNfcCustomer = {
 export type LinkedNfcCustomerPage = { customers: LinkedNfcCustomer[]; total: number; totalLinked: number; page: number; pageSize: number };
 export type NfcInventoryStatus = 'PENDING_WRITE' | 'READY' | 'ACTIVE' | 'REVOKED';
 export type NfcInventoryCard = {
-  id: string; displayCode: string; status: NfcInventoryStatus; createdAt: string;
+  id: string; displayCode: string; status: NfcInventoryStatus; createdAt: string; blockedByDebt: boolean;
   customer: null | { id: string; name: string; cpfMasked: string; phoneMasked: string };
   comanda: null | { id: string; tableNumber: number | null; status: string;
     totalCents: number; paidCents: number; outstandingCents: number };
@@ -35,6 +35,11 @@ class NfcRegistrationService {
       throw new Error('Inventário NFC inválido.');
     }
     return result;
+  }
+  async paymentAvailability() {
+    const response = await api.get<{ connected: boolean; pixConfigured: boolean; pointConfigured: boolean;
+      pixEnabled: boolean; pointEnabled: boolean; reason: string }>('/nfc-registration/payment-availability');
+    return response.data;
   }
   async featureAccess() {
     const result = await api.get<{ enabled: boolean }>('/nfc-registration/feature-access');
@@ -130,6 +135,10 @@ class NfcRegistrationService {
     const result=await api.post<{card:{id:string;displayCode:string;status:'READY'}}> (
       `/nfc-registration/cards/${cardId}/reuse-complete`,{token});
     return result.data.card;
+  }
+  async deleteUnused(cardId: string) {
+    const response = await api.delete<{ deleted: true }>(`/nfc-registration/cards/${encodeURIComponent(cardId)}`);
+    if (response.data?.deleted !== true) throw new Error('Exclusão não confirmada pelo servidor.');
   }
   async revoke(cardId: string, reason: string) {
     await api.post(`/nfc-registration/cards/${cardId}/revoke`, { reason });
