@@ -6,6 +6,7 @@ import { NfcCustomerComandas } from './NfcCustomerComandas';
 import nfcComandaService from '../../Services/nfcComandaService';
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
 import { NfcCardInventory } from './NfcCardInventory';
+import { NfcGuidedReception } from './NfcGuidedReception';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Wrap = styled.section`
@@ -196,6 +197,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [isUnassignedProvision, setIsUnassignedProvision] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [screen, setScreen] = useState<'registration' | 'linked' | 'inventory'>('registration');
+  const [showAdvancedRegistration, setShowAdvancedRegistration] = useState(false);
   const [inventoryRefresh, setInventoryRefresh] = useState(0);
   const [activeTab, setActiveTab] = useState<'new' | 'existing'>('new');
   const [lookupCustomer, setLookupCustomer] = useState<NfcCustomerRecord | null>(null);
@@ -410,6 +412,11 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         </button>
       </nav>
       {screen === 'inventory' ? <NfcCardInventory refreshKey={inventoryRefresh} onPrepare={() => { setScreen('registration'); void provision(); }} /> : screen === 'linked' ? <NfcLinkedCustomers /> : <>
+      {!showAdvancedRegistration && !newCardUrl && !reuseCardUrl && <NfcGuidedReception onCompleted={() => setInventoryRefresh(value => value + 1)} />}
+      <div className="nfc-actions" style={{ justifyContent: 'flex-end' }}>
+        <button type="button" className="secondary" onClick={() => setShowAdvancedRegistration(value => !value)}>{showAdvancedRegistration ? 'Ocultar gestão avançada' : 'Gestão avançada de cartões e clientes'}</button>
+      </div>
+      {(showAdvancedRegistration || Boolean(newCardUrl) || Boolean(reuseCardUrl)) && <>
       <div className="nfc-layout">
         <div className="nfc-main">
           <section className="surface" aria-labelledby="nfc-reader-title">
@@ -612,6 +619,7 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
           <button type="button" className="secondary" disabled={pending || page * 20 >= total} onClick={() => void load(page + 1)}>Próxima</button>
         </div>
       </section>
+      </>}
       </>}
     </Wrap>
   );
