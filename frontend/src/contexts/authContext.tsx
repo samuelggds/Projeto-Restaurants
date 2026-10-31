@@ -29,6 +29,7 @@ type AuthUser = {
   restaurant?: {
     id?: number;
     restaurantId?: number;
+    name?: string;
   } | null;
   [key: string]: unknown;
 } | null;
