@@ -7,7 +7,7 @@ import { ContactRound, CreditCard, ShieldCheck, UserPlus } from 'lucide-react';
 import { NfcLinkedCustomers } from './NfcLinkedCustomers';
 import { NfcCustomerRegistry } from './NfcCustomerRegistry';
 import { NfcCardInventory } from './NfcCardInventory';
-import { NfcGuidedReception } from './NfcGuidedReception';
+import { NfcBackendRegistration } from './NfcBackendRegistration';
 import { NfcCardPreparation } from './NfcCardPreparation';
 import { NfcLostCardRecovery } from './NfcLostCardRecovery';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
@@ -218,6 +218,6 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
         onPrepare={() => setScreen('prepare')} onRegister={() => setScreen('prepare')} /> :
       screen === 'registry' ? <NfcCustomerRegistry /> :
       screen === 'linked' ? <><div className="nfc-actions" style={{ justifyContent: 'flex-end' }}><button type="button" className="secondary" onClick={() => setScreen('recover')}>Recuperar cartão perdido</button></div><NfcLinkedCustomers /></> :
-      <NfcGuidedReception onCompleted={() => setInventoryRefresh(v => v + 1)} />}
+      <NfcBackendRegistration onCompleted={() => setInventoryRefresh(v => v + 1)} onBackToPanel={() => setScreen('linked')} />}
   </Wrap>;
 }
