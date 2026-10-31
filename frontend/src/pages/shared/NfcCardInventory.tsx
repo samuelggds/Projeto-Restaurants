@@ -17,6 +17,8 @@ const money = (value: number) => (value / 100).toLocaleString('pt-BR', { style: 
 const statusLabel: Record<NfcInventoryStatus, string> = {
   READY: 'Disponível', ACTIVE: 'Vinculado', REVOKED: 'Revogado', PENDING_WRITE: 'Aguardando gravação',
 };
+const visualStatus = (card: NfcInventoryCard) => card.status === 'REVOKED' ? 'REVOKED' : card.status === 'PENDING_WRITE' ? 'PENDING_WRITE' : card.blockedByDebt ? 'BLOCKED' : card.status === 'ACTIVE' ? 'ACTIVE' : 'READY';
+const visualLabel = (card: NfcInventoryCard) => card.blockedByDebt && card.status === 'ACTIVE' ? 'Bloqueado por pendência' : statusLabel[card.status];
 const UI = styled.section`
   display: grid; gap: 18px; min-width: 0;
   *, *::before, *::after { box-sizing: border-box; }
@@ -36,10 +38,14 @@ const UI = styled.section`
   .card svg { width: 17px; color: #9aa5ad; }
   .card strong { font-size: 15px; color: #17252e; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #a5b0b7; }
-  .dot[data-status="ACTIVE"] { background: #d65a1a; }
+  .dot[data-status="ACTIVE"] { background: #258352; }
+  .dot[data-status="BLOCKED"] { background: #ce3737; }
   .dot[data-status="READY"] { background: #278b60; }
   .dot[data-status="REVOKED"] { background: #7d8991; }
-  .dot[data-status="PENDING_WRITE"] { background: #d6a331; }
+  .dot[data-status="PENDING_WRITE"] { background: #e8751b; }
+  .status[data-status="ACTIVE"] { color: #1a7448; background: #e8f6ed; }
+  .status[data-status="BLOCKED"] { color: #b12d2d; background: #ffeded; }
+  .status[data-status="REVOKED"] { color: #53606b; background: #edf0f2; }
   .pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
   .pagination button:disabled { opacity: .45; cursor: not-allowed; }
   .overlay { position: fixed; inset: 0; z-index: 11000; background: #17212a99; display: grid; place-items: center; padding: 15px; }
@@ -165,14 +171,14 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
         {label} {key === 'ALL' ? allCount : (counts?.[key] ?? 0)}
       </button>)}
     </div>
-    <p className="note">{allCount} cartões no estoque · Verde: disponível · Laranja: vinculado · Cinza: revogado</p>
+    <p className="note">{allCount} cartões no estoque · Verde: ativo/disponível · Vermelho: bloqueado por dívida · Laranja: aguarda gravação · Cinza: revogado</p>
     {error && <p role="alert">{error} <button type="button" onClick={() => { setLoading(true); setError(''); void load(); }}>Tentar novamente</button></p>}
     {loading ? <p role="status">Carregando cartões...</p> :
       !data?.cards.length ? <p role="status">Nenhum cartão neste filtro.</p> :
       <div className="cards">
         {data.cards.map((card, index) => <button type="button" className="card" key={card.id} onClick={() => openCard(card)}
-          aria-label={`Consultar ${card.displayCode}: ${statusLabel[card.status]}`}>
-          <span><CreditCard aria-hidden="true" /><i className="dot" data-status={card.status} aria-hidden="true" /></span>
+          aria-label={`Consultar ${card.displayCode}: ${visualLabel(card)}`}>
+          <span><CreditCard aria-hidden="true" /><i className="dot" data-status={visualStatus(card)} aria-hidden="true" /></span>
           <strong>{String((data.page - 1) * data.pageSize + index + 1).padStart(2, '0')}</strong>
           <small>{card.displayCode}</small>
         </button>)}
@@ -185,7 +191,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     {selected && <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={`Gerenciar cartão ${selected.displayCode}`}>
         <div className="modal-head"><h3>{selected.displayCode}</h3><button type="button" onClick={() => setSelected(null)} aria-label="Fechar detalhes"><X /></button></div>
-        <div className="modal-body"><span className="status">{statusLabel[selected.status]}</span>
+        <div className="modal-body"><span className="status" data-status={visualStatus(selected)}>{visualLabel(selected)}</span>
           <p>{selected.status === 'REVOKED' ? 'Cartão revogado, associado historicamente a este cliente.' : selected.customer ? 'Vinculado à visita deste cliente.' : 'Nenhum cliente vinculado a este cartão.'}</p>
           {selected.customer && <div className="details">
             <div className="detail"><small>Cliente</small><strong>{selected.customer.name}</strong></div>
