@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { withTenantDbContext, setTenantDbContext } from '../../../database/tenantDbContext.js';
 import prisma from '../../../config/prisma.js';
+import { decryptNfcPii } from '../../nfcRegistration/security/nfcCustomerPii.js';
 import { tableServiceCallEvents } from '../realtime/tableServiceCallEvents.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
@@ -25,11 +26,11 @@ router.get('/nfc', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware,
   const calls=await withTenantDbContext(restaurantId,tx=>tx.nfcServiceCall.findMany({
     where:{restaurantId,OR:[{status:{in:['WAITING','IN_PROGRESS']}},{status:'RESOLVED',resolvedAt:{gte:new Date(Date.now()-86400_000)}}]},
     select:{id:true,tableNumber:true,status:true,requestedAt:true,assignedToId:true,assignedTo:{select:{name:true}},resolvedAt:true,
-      card:{select:{displayCode:true}}},
+      card:{select:{displayCode:true}},comanda:{select:{customerId:true,customer:{select:{nameEncrypted:true}}}}},
     orderBy:{requestedAt:'asc'},take:200,
   }));
   res.setHeader('Cache-Control','no-store, private');
-  return res.json(calls.map(call=>({id:call.id,source:'NFC',cardCode:call.card.displayCode,tableNumber:call.tableNumber,type:'WAITER',status:call.status,requestedAt:call.requestedAt,assignedToId:call.assignedToId,assignedTo:call.assignedTo,resolvedAt:call.resolvedAt})));
+  return res.json(calls.map(call=>({id:call.id,source:'NFC',cardCode:call.card.displayCode,tableNumber:call.tableNumber,customerName:decryptNfcPii(restaurantId,call.comanda.customerId,'name',call.comanda.customer.nameEncrypted),type:'WAITER',status:call.status,requestedAt:call.requestedAt,assignedToId:call.assignedToId,assignedTo:call.assignedTo,resolvedAt:call.resolvedAt})));
  }catch{return res.status(503).json({error:'Chamados NFC indisponíveis.'});}
 });
 router.patch('/nfc/:id/status',authMiddleware,waiterMiddleware,premiumTablePlanMiddleware,async(req,res)=>{
