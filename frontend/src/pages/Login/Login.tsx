@@ -30,6 +30,7 @@ import {
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
 import { getRoleHome } from '../../routes/routeAuthorization';
+import { isNfcStaffReturnPath } from '../shared/nfcEntryNavigation';
 import {
   getRestaurantCategoryLabel,
   getRestaurantLoginVisual,
@@ -247,7 +248,7 @@ export default function Login() {
       // Staff NFC return paths are card-scoped and require regular authentication.
       // The NFC route itself checks tenant ownership and role in the backend.
       if (portal === 'STAFF' && safeNextPath &&
-          /^\/nfc\/[A-Za-z0-9_-]{32,128}\/?$/u.test(safeNextPath) &&
+          isNfcStaffReturnPath(safeNextPath) &&
           (user?.role === 'ADMIN' || (user?.role === 'FUNCIONARIO' &&
             ['GARCOM','ATENDENTE'].includes(String(user?.subRole || '').toUpperCase())))) {
         navigate(safeNextPath, { replace: true });
