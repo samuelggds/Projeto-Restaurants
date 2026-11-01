@@ -60,6 +60,8 @@ model User {
   couponRedemptions             CouponRedemption[]
   couponRecipients              CouponRecipient[]
   assignedTableServiceCalls     TableServiceCall[]           @relation("AssignedTableServiceCalls")
+  assignedNfcServiceCalls       NfcServiceCall[]             @relation("AssignedNfcServiceCalls")
+  resolvedNfcServiceCalls       NfcServiceCall[]             @relation("ResolvedNfcServiceCalls")
   resolvedTableServiceCalls     TableServiceCall[]           @relation("ResolvedTableServiceCalls")
   confirmedTablePayments        TablePaymentIntent[]         @relation("ManualTablePaymentConfirmations")
   tablePaymentEvents            TablePaymentEvent[]          @relation("TablePaymentEventActor")
@@ -431,6 +433,7 @@ model Restaurant {
   orderIssueThreads             OrderIssueThread[]
   couponRedemptions             CouponRedemption[]
   tableServiceCalls             TableServiceCall[]
+  nfcServiceCalls               NfcServiceCall[]
   tableReservations             TableReservation[]
   tableSessionTransfers         TableSessionTransfer[]
   tableSessions                 TableSession[]
@@ -2752,10 +2755,39 @@ model NfcCard {
   customer         NfcCustomer?  @relation(fields: [customerId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
   comandas         NfcComanda[]
   orderConfirmations NfcOrderConfirmation[]
+  serviceCalls NfcServiceCall[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, displayCode])
   @@index([restaurantId, customerId, status])
+}
+
+// Atendimento chamado por cliente NFC, independente de TableSession/QR Code.
+// O link do cartão e o CPF nunca identificam um restaurante por si só.
+model NfcServiceCall {
+  id           String                 @id @default(uuid()) @db.Uuid
+  restaurantId Int
+  cardId       String                 @db.Uuid
+  comandaId    String                 @db.Uuid
+  tableNumber  Int?
+  status       TableServiceCallStatus @default(WAITING)
+  assignedToId Int?
+  resolvedById Int?
+  requestedAt  DateTime               @default(now()) @db.Timestamptz(3)
+  assignedAt   DateTime?              @db.Timestamptz(3)
+  resolvedAt   DateTime?              @db.Timestamptz(3)
+  createdAt    DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime               @updatedAt @db.Timestamptz(3)
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  card         NfcCard                @relation(fields: [cardId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  comanda      NfcComanda             @relation(fields: [comandaId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  assignedTo   User?                  @relation("AssignedNfcServiceCalls", fields: [assignedToId, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+  resolvedBy   User?                  @relation("ResolvedNfcServiceCalls", fields: [resolvedById, restaurantId], references: [id, restaurantId], onDelete: Restrict)
+
+  @@unique([id, restaurantId])
+  @@index([restaurantId, status, requestedAt])
+  @@index([restaurantId, cardId, requestedAt])
+  @@index([restaurantId, comandaId, status])
 }
 
 model NfcRegistrationAudit {
@@ -2818,6 +2850,7 @@ model NfcComanda {
   orders             Order[]
   accessCredentials  NfcComandaAccess[]
   cashlessPayments   NfcCashlessPayment[]
+  serviceCalls       NfcServiceCall[]
 
   @@unique([id, restaurantId])
   @@unique([restaurantId, customerId, openRequestKeyHash])
