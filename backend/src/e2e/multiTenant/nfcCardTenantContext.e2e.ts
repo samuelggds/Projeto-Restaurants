@@ -55,14 +55,16 @@ test('NFC public card context resolves only the own tenant slug and grants no se
     const payment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminA, {
       method: 'POST', json: { token: rawToken },
     });
-    assert.equal(payment.response.status, 200, JSON.stringify(payment.data));
-    assert.deepEqual(payment.data.card, { status: 'READY', displayCode: 'NFC-TEST-CONTEXT' });
-    assert.equal(payment.data.comanda, null);
-    assert.equal(payment.data.pixEnabled, false);
-    assert.equal(payment.data.pointEnabled, false);
+    assert.equal(payment.response.status, 422, JSON.stringify(payment.data));
+    assert.equal(Object.hasOwn(payment.data, 'comanda'), false);
+    const protectedPayment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken, cpf: '12345678909' },
+    });
+    assert.equal(protectedPayment.response.status, 404);
+    assert.equal(Object.hasOwn(protectedPayment.data, 'comanda'), false);
     assert.equal(payment.response.headers.get('cache-control'), 'no-store, private');
     const otherRestaurantPayment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminB, {
-      method: 'POST', json: { token: rawToken },
+      method: 'POST', json: { token: rawToken, cpf: '12345678909' },
     });
     assert.equal(otherRestaurantPayment.response.status, 404);
     const anonymousPayment = await apiRequest(app.baseUrl, paymentEndpoint, undefined, {
