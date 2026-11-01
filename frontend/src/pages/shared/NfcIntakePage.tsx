@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import api from '../../Services/api';
 import styled from 'styled-components';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
@@ -42,6 +43,19 @@ export default function NfcIntakePage() {
   const allowed = Number(user?.restaurantId ?? user?.restaurant?.id) > 0 &&
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
+  const [staffLoginPath, setStaffLoginPath] = useState('');
+  useEffect(() => {
+    if (!validToken || allowed || isLoading) return;
+    let active = true;
+    void api.post<{ restaurantSlug: string }>('/nfc-customer-view/card-context', { token },
+      { skipBaseUrlFallback: true }).then(response => {
+      const slug = response.data?.restaurantSlug;
+      if (active && typeof slug === 'string' && /^[a-z0-9_-]{1,100}$/u.test(slug)) {
+        setStaffLoginPath('/' + slug + '/team');
+      }
+    }).catch(() => { if (active) setStaffLoginPath(''); });
+    return () => { active = false; };
+  }, [token, validToken, allowed, isLoading]);
   const lookup = async () => {
     setBusy(true); setMessage('');
     try {
@@ -126,7 +140,8 @@ export default function NfcIntakePage() {
   return <Frame><section className="surface" aria-label="Recepção de cartão NFC">
     <h1>GastroNexa · Recepção NFC</h1>
     {isLoading ? <p>Verificando acesso...</p> :
-      !allowed ? <><p>Cliente: consulte os pedidos e valores da sua visita em modo somente leitura.</p><Link to={`/nfc/cliente/${token}`}>Visualizar minha comanda NFC</Link><p>Funcionários: para vincular cartão, confirmar pedidos ou liberar a comanda, faça login no painel autorizado.</p><Link to="/restaurant-required">Acessar painel do restaurante</Link></> :
+      !allowed ? <><p>Cliente: consulte os pedidos e valores da sua visita em modo somente leitura.</p><Link to={`/nfc/cliente/${token}`}>Visualizar minha comanda NFC</Link><p>Funcionários: para vincular cartão, confirmar pedidos ou liberar a comanda, faça login no painel autorizado.</p>{staffLoginPath ? <Link to={staffLoginPath}>Entrar como funcionário do restaurante</Link>
+        : <p>Para entrar como funcionário, abra o endereço de login específico do seu restaurante.</p>}</> :
       !validToken ? <p role="alert">O cartão não contém um identificador NFC válido.</p> :
       result ? <p className="success" role="status">{result}</p> :
       <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
