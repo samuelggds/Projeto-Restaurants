@@ -707,6 +707,52 @@ router.post('/cards/payment-context', async (req, res) => {
       reason: 'Pix e Point NFC ainda aguardam integração financeira, confirmação do gateway e homologação.' });
   } catch (error) { return safe(res, error); }
 });
+// Staff-only comanda consultation; cannot be accessed from a public NFC link.
+const staffComandaSchema = z.strictObject({ token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u) });
+router.post('/cards/staff-comanda', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    const { token } = staffComandaSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId), tokenHash = normalizeTagToken(token);
+    const context = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: { in: ['ACTIVE', 'READY'] } },
+        select: { id: true, customerId: true, status: true, displayCode: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const comanda = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcComanda.findFirst({
+          where: { restaurantId, cardId: card.id, customerId: card.customerId,
+            status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+          orderBy: { openedAt: 'desc' },
+          select: {
+            id: true, status: true, tableNumber: true, totalCents: true, paidCents: true,
+            items: { select: { id: true, description: true, quantity: true, totalCents: true },
+              orderBy: { createdAt: 'asc' } },
+            orders: { select: { id: true, status: true }, orderBy: { createdAt: 'asc' } },
+            payments: { select: { id: true, status: true, amountCents: true },
+              orderBy: { createdAt: 'desc' } },
+          },
+        }) : null;
+      const customer = comanda && card.customerId
+        ? await tx.nfcCustomer.findFirst({
+          where: { restaurantId, id: card.customerId }, select: { id: true, nameEncrypted: true },
+        }) : null;
+      return {
+        card: { displayCode: card.displayCode, status: card.status },
+        customer: customer ? { name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) } : null,
+        comanda: comanda ? {
+          ...comanda, totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
+          outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
+          items: comanda.items.map(item => ({ ...item, totalCents: Number(item.totalCents) })),
+          payments: comanda.payments.map(payment => ({ ...payment, amountCents: Number(payment.amountCents) })),
+        } : null,
+      };
+    });
+    return res.json(context);
+  } catch (error) { return safe(res, error); }
+});
+
 router.post('/cards/attendance-context', async (req, res) => {
   try {
     const tokenHash = normalizeTagToken(req.body?.token);
