@@ -17,34 +17,40 @@ export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [cpf, setCpf] = useState('');
+  const [verifiedCpf, setVerifiedCpf] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const load = async () => {
+  const load = async (confirmedCpf: string) => {
     const response = await api.post<PaymentContext>('/nfc-registration/cards/payment-context',
-      { token }, { skipBaseUrlFallback: true });
+      { token, cpf: confirmedCpf }, { skipBaseUrlFallback: true });
     setData(response.data);
+    setVerifiedCpf(confirmedCpf);
     setError('');
   };
   useEffect(() => {
-    let active = true;
-    void api.post<PaymentContext>('/nfc-registration/cards/payment-context',
-      { token }, { skipBaseUrlFallback: true }).then(response => {
-      if (active) { setData(response.data); setError(''); }
-    }).catch(() => {
-      if (active) setError('Não foi possível verificar a comanda no servidor.');
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    setData(null); setVerifiedCpf(''); setCpf(''); setError(''); setMessage(''); setLoading(false);
   }, [token, status]);
+  const verify = async (event: FormEvent) => {
+    event.preventDefault();
+    if (loading || busy || !/^\d{11}$/u.test(cpf)) return;
+    setLoading(true); setError(''); setMessage('');
+    try { await load(cpf); setCpf(''); }
+    catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setError(response.response?.data?.error || 'Não foi possível validar o CPF do titular.');
+      setCpf(''); setVerifiedCpf(''); setData(null);
+    } finally { setLoading(false); }
+  };
   const finish = async (event: FormEvent) => {
     event.preventDefault();
     if (busy || cpf.length !== 11 || !data?.comanda || data.comanda.outstandingCents !== 0) return;
     setBusy(true); setMessage(''); setError('');
     try {
       const returned = await nfcRegistrationService.returnPaidCard(token, cpf, data.comanda.id);
-      setCpf('');
+      setCpf(''); setVerifiedCpf('');
       setMessage('Comanda quitada no servidor. Cartão liberado, mantendo o link gravado.');
       onReleased(returned.displayCode);
-      await load();
+      setData(null);
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setError(response.response?.data?.error || 'Liberação não autorizada. Confira o CPF completo e a quitação no servidor.');
@@ -53,8 +59,15 @@ export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
   };
   return <section aria-label="Pagamentos da comanda NFC" style={{ display: 'grid', gap: 12 }}>
     <h2>Pagamento da comanda NFC</h2>
-    <p>Cartão {data?.card.displayCode || displayCode}. O funcionário acessa a comanda sem exigir uma segunda leitura NFC no Safari.</p>
-    {loading ? <p role="status">Consultando valores no servidor...</p> : !data ? <p role="alert">{error}</p> : <>
+    <p>Cartão {displayCode}. O cliente deve informar o CPF completo para desbloquear os dados da comanda. Nenhuma segunda leitura NFC é necessária no Safari.</p>
+    {!data ? <form onSubmit={event => void verify(event)} style={{ display: 'grid', gap: 10 }}>
+      <label>CPF completo do titular (11 dígitos)
+        <input type="password" value={cpf} inputMode="numeric" autoComplete="off" minLength={11} maxLength={11}
+          onChange={event => setCpf(event.target.value.replace(/\D/gu, '').slice(0, 11))} required />
+      </label>
+      <button type="submit" disabled={loading || cpf.length !== 11}>{loading ? 'Validando titular...' : 'Verificar CPF e acessar pagamentos'}</button>
+      {error && <p role="alert">{error}</p>}
+    </form> : <>
       {!data.comanda ? <p role="status">Nenhuma comanda vinculada a este cartão. Cadastre o cliente e abra a comanda primeiro.</p> : <>
         <div style={{ display: 'grid', gap: 8, border: '1px solid #dce3e7', borderRadius: 12, padding: 15 }}>
           <strong>Situação: {data.comanda.status === 'PAID' ? 'Quitada' : 'Em atendimento / pagamento pendente'}</strong>
@@ -77,7 +90,7 @@ export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
           <button type="submit" disabled={busy || cpf.length !== 11}>{busy ? 'Conferindo...' : 'Verificar quitação e liberar cartão'}</button>
         </form>}
       </>}
-      <button type="button" onClick={() => { setLoading(true); void load().catch(() => setError('Falha ao atualizar a comanda.')).finally(() => setLoading(false)); }} disabled={loading || busy}>Atualizar saldo no servidor</button>
+      <button type="button" onClick={() => { setLoading(true); void load(verifiedCpf).catch(() => { setData(null); setVerifiedCpf(''); setError('Falha na verificação. Informe o CPF novamente.'); }).finally(() => setLoading(false)); }} disabled={loading || busy}>Atualizar saldo no servidor</button>
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
     </>}
