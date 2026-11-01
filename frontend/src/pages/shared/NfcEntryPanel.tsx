@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, ExternalLink, LockKeyhole, LogIn, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, LockKeyhole, LogIn, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -109,11 +109,13 @@ type Props = {
   customerPath: string;
   loginPath: string;
   onStaff: () => void;
+  onOrder: () => void;
+  staffMode?: 'staff' | 'order';
   onBack: () => void;
   children?: ReactNode;
 };
 
-export default function NfcEntryPanel({ view, validCard, loadingCard, customerPath, loginPath, onStaff, onBack, children }: Props) {
+export default function NfcEntryPanel({ view, validCard, loadingCard, customerPath, loginPath, onStaff, onOrder, onBack, staffMode = 'staff', children }: Props) {
   return <Shell><div className="entry-shell">
     <header className="entry-header">
       <div className="entry-logo"><img src="/gastronexa-logo.svg" alt="" /> <span>Gastro<span>Nexa</span></span></div>
@@ -140,6 +142,11 @@ export default function NfcEntryPanel({ view, validCard, loadingCard, customerPa
           <span className="entry-choice-copy"><strong>Acessar painel do restaurante</strong><small>Exclusivo para a equipe autorizada</small></span>
           <ArrowRight aria-hidden="true" />
         </button>
+        <button type="button" className="entry-choice entry-choice-staff" onClick={onOrder} disabled={!validCard}>
+          <span className="entry-choice-icon"><ShoppingBag /></span>
+          <span className="entry-choice-copy"><strong>Fazer pedido</strong><small>O garçom ou atendente prepara o pedido e o cliente confirma com 3 dígitos do CPF</small></span>
+          <ArrowRight aria-hidden="true" />
+        </button>
       </div>
       <p className="entry-note"><LockKeyhole /> Cada acesso tem sua própria confirmação.</p>
     </section> : <>
@@ -147,15 +154,15 @@ export default function NfcEntryPanel({ view, validCard, loadingCard, customerPa
       <section className="entry-card entry-staff-card" aria-label="Acesso da equipe NFC">
         <div className="entry-staff-icon"><ShieldCheck /></div>
         <p className="entry-staff-label">ACESSO DA EQUIPE</p>
-        <h1>Painel do restaurante.</h1>
-        <p>Use o login do restaurante para continuar.</p>
+        <h1>{staffMode === 'order' ? 'Fazer pedido NFC' : 'Painel do restaurante'}</h1>
+        <p>{staffMode === 'order' ? 'Entre como garçom ou atendente para registrar o pedido deste cartão.' : 'Use o login do restaurante para continuar.'}</p>
         <p>O login acontece no painel oficial, com o acesso da equipe autorizada.</p>
-        {loginPath ? <Link className="entry-login" to={loginPath} target="_blank" rel="noopener noreferrer">
-          <LogIn /> Ir para login do restaurante <ExternalLink aria-hidden="true" />
+        {loginPath ? <Link className="entry-login" to={loginPath}>
+          <LogIn /> Ir para login do restaurante
         </Link> : <div className="entry-unavailable" role="status">
           {loadingCard ? 'Identificando o restaurante do cartão...' : 'Não foi possível identificar o restaurante. Confira o cartão NFC.'}
         </div>}
-        {loginPath && <p className="entry-hint">Abre a página oficial em outra aba.</p>}
+        {loginPath && <p className="entry-hint">Após o login, você voltará ao atendimento deste cartão.</p>}
       </section>
       {children && <section className="entry-operations" aria-label="Atendimento NFC autenticado">{children}</section>}
     </>}
