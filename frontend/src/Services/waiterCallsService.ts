@@ -18,6 +18,14 @@ class WaiterCallsService {
     return response.data;
   }
 
+  async listNfcCalls() {
+    const response = await api.get('/waiter-calls/nfc');
+    return Array.isArray(response.data) ? response.data : [];
+  }
+  async updateNfcCallStatus(id: string, status: 'IN_PROGRESS' | 'RESOLVED') {
+    const response = await api.patch(`/waiter-calls/nfc/${encodeURIComponent(id)}/status`, { status });
+    return response.data;
+  }
   async listCalls(filters?: WaiterCallFilters) {
     const response = await api.get('/waiter-calls', {
       params: filters && Object.keys(filters).length ? filters : undefined,
