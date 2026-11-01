@@ -50,7 +50,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
-  const [staffChecking, setStaffChecking] = useState(false);
   const [staffRetry, setStaffRetry] = useState(0);
   const [retryContextVersion, setRetryContextVersion] = useState(0);
   const [cardContext, setCardContext] = useState<
@@ -84,7 +83,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
     let active = true;
-    setStaffChecking(true);
     void api.post<{ card: { status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
       '/nfc-registration/cards/attendance-context', { token }, { skipBaseUrlFallback: true },
     ).then(response => {
@@ -98,7 +96,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
           status === 401 ? 'Sua sessão expirou. Entre novamente na mesma aba para continuar.' :
           'Não foi possível verificar o cartão no servidor. Tente novamente.');
       }
-    }).finally(() => { if (active) setStaffChecking(false); });
+    });
     return () => { active = false; };
   }, [allowed, validToken, cardReady, staffRequested, isLoading, token, staffRetry]);
 
@@ -203,7 +201,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     onRetryCardContext={retryCardContext}
     staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
     staffLoggedIn={!isLoading && allowed}
-    staffChecking={isLoading || staffChecking || (!staffCardError && !staffCard)}
+    staffChecking={isLoading || (validToken && matchingContext === null) || (cardReady && !staffCardError && !staffCard)}
     staffError={staffCardError || (!cardReady ? cardContextError : '')}
     onRetryStaff={() => { setStaffCardError(''); setStaffCard(null); retryCardContext(); setStaffRetry(v => v + 1); }}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
