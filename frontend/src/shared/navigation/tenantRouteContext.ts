@@ -11,6 +11,7 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'kitchen',
   'login',
   'mesa',
+  'nfc',
   'orders',
   'profile',
   'recover-password',

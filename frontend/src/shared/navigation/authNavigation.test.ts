@@ -3,6 +3,7 @@ import {
   buildAuthEntryUrl,
   buildAuthEntryUrlForLocation,
   buildLoginUrl,
+  getRestaurantSlugFromLocation,
   buildSessionEntryUrl,
   getCurrentReturnPath,
   getSafeAuthSearchParams,
@@ -89,6 +90,23 @@ describe('authNavigation', () => {
   ])('não preserva área operacional %s como retorno de login', (value) => {
     expect(getSafeNextPath(value)).toBe('');
     expect(buildLoginUrl({ pathname: value })).toBe(TENANT_REQUIRED_PATH);
+  });
+
+  it('não inventa um restaurante ao acessar um link NFC legado sem contexto', () => {
+    const token = 'a'.repeat(43);
+    expect(getRestaurantSlugFromLocation({ pathname: '/nfc/' + token })).toBe('');
+    expect(buildSessionEntryUrl({ pathname: '/nfc/' + token }, 'FUNCIONARIO')).toBe(TENANT_REQUIRED_PATH);
+  });
+
+  it('recupera o slug explícito do cartão e reutiliza o contexto seguro para o link legado', () => {
+    const token = 'a'.repeat(43);
+    expect(getRestaurantSlugFromLocation({ pathname: '/north-pizza/nfc/' + token })).toBe('north-pizza');
+    expect(buildSessionEntryUrl({ pathname: '/north-pizza/nfc/' + token }, 'FUNCIONARIO')).toBe('/north-pizza/team');
+    // A navegação de equipe memoriza somente o slug público. O cartão legado
+    // pode reutilizar esse slug para abrir o portal, mas a API ainda verifica
+    // propriedade do cartão e autorização da conta antes de liberar operações.
+    expect(buildSessionEntryUrl({ pathname: '/nfc/' + token }, 'FUNCIONARIO')).toBe('/north-pizza/team');
+    expect(getRestaurantSlugFromLocation({ pathname: '/nfc/' + token })).toBe('');
   });
 
   it('mantém o slug e o retorno seguro na URL do login quando o cliente entra pelo restaurante', () => {

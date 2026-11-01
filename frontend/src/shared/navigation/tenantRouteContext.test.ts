@@ -29,6 +29,13 @@ describe('tenantRouteContext', () => {
     expect(window.sessionStorage.getItem(tenantRouteStorageKeys.session)).toBe('north-pizza');
   });
 
+  it('não confunde o caminho NFC legado com um restaurante', () => {
+    const token = 'a'.repeat(43);
+    expect(restoreTenantRouteContext('/nfc/' + token)).toBe('');
+    expect(window.localStorage.getItem(tenantRouteStorageKeys.persistent)).toBeNull();
+    expect(restoreTenantRouteContext('/north-pizza/nfc/' + token)).toBe('north-pizza');
+  });
+
   it('não trata rotas reservadas como slug de restaurante', () => {
     expect(restoreTenantRouteContext('/kitchen')).toBe('');
     expect(window.localStorage.getItem(tenantRouteStorageKeys.persistent)).toBeNull();
