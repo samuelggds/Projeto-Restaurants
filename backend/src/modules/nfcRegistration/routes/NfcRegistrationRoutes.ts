@@ -83,13 +83,24 @@ router.get('/cards/inventory', async (req, res) => {
       const [cards, total, grouped] = await Promise.all([
         tx.nfcCard.findMany({
           where,
-          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true },
+          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true, activatedAt: true, revokedAt: true },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           skip: (page - 1) * cardInventoryPageSize,
           take: cardInventoryPageSize,
         }),
         tx.nfcCard.count({ where }),
         tx.nfcCard.groupBy({ by: ['status'], where: { restaurantId }, _count: { _all: true } }),
+      ]);
+      // The inventory must not offer deletion for a returned/reused card with
+      // financial or order history, even though customerId was cleared.
+      const visibleCardIds = cards.map(card => card.id);
+      const [usedComandas, usedConfirmations] = visibleCardIds.length ? await Promise.all([
+        tx.nfcComanda.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
+        tx.nfcOrderConfirmation.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
+      ]) : [[], []];
+      const cardsWithHistory = new Set<string>([
+        ...usedComandas.map(item => item.cardId),
+        ...usedConfirmations.map(item => item.cardId),
       ]);
       const customerIds = cards.map(card => card.customerId).filter((id): id is string => !!id);
       const customers = customerIds.length ? await tx.nfcCustomer.findMany({
@@ -119,6 +130,9 @@ router.get('/cards/inventory', async (req, res) => {
           const comanda = accounts.find(account => account.cardId === card.id);
           return {
             id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
+            canDelete: card.customerId === null && card.activatedAt === null && card.revokedAt === null
+              && (card.status === 'READY' || card.status === 'PENDING_WRITE')
+              && !cardsWithHistory.has(card.id),
             blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
             visualStatus: nfcInventoryVisualState(card.status, card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents), comanda),
             customer: customer ? {
@@ -216,7 +230,7 @@ router.post('/cards/:id/revoke', async (req, res) => {
     const restaurantId = Number(req.user.restaurantId);
     const revoked = await prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, restaurantId);
-      const result = await tx.nfcCard.updateMany({ where: { id: cardId, restaurantId, status: { in: ['PENDING_WRITE', 'ACTIVE'] } }, data: { status: 'REVOKED', revokedByUserId: Number(req.user.id), revokedAt: new Date(), revokeReason: reason } });
+      const result = await tx.nfcCard.updateMany({ where: { id: cardId, restaurantId, status: { in: ['PENDING_WRITE', 'READY', 'ACTIVE'] } }, data: { status: 'REVOKED', revokedByUserId: Number(req.user.id), revokedAt: new Date(), revokeReason: reason } });
       if (result.count !== 1) throw new NfcRegistrationError(409, 'Cartão inexistente, já revogado ou pertencente a outro restaurante.');
       const card = await tx.nfcCard.findFirst({ where: { id: cardId, restaurantId }, select: { id: true, customerId: true, status: true } });
       if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado.');
