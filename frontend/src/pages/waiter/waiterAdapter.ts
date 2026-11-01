@@ -90,18 +90,20 @@ export function mapWaiterCalls(raw: unknown[], now = Date.now()): ServiceCall[] 
       : null;
     const requestedAt = String(call.requestedAt || call.createdAt || '').trim();
     const tableNumber = Number(table.number || call.tableNumber);
-    if (!call.id || !type || !status || !Number.isInteger(tableNumber) || tableNumber <= 0) {
+    const isNfc = call.source === 'NFC';
+    if (!call.id || !type || !status || (!isNfc && (!Number.isInteger(tableNumber) || tableNumber <= 0))) {
       return [];
     }
     return [
       {
         id: String(call.id),
-        tableNumber,
+        tableNumber: Number.isInteger(tableNumber) && tableNumber > 0 ? tableNumber : null,
+        ...(isNfc ? { source: 'NFC' as const, cardCode: String(call.cardCode || '') } : {}),
         type,
         status,
         elapsed: requestedAt ? formatElapsed(requestedAt, now) : '00:00',
         employeeName: String(assignedTo.name || call.employeeName || '').trim() || undefined,
-        customerName: String(participant.displayName || '').trim() || undefined,
+        customerName: String(call.customerName || participant.displayName || '').trim() || undefined,
         customerPhone: String(participant.phone || '').trim() || undefined,
         createdAt: requestedAt || undefined,
         resolvedAt: String(call.resolvedAt || '').trim() || undefined,
