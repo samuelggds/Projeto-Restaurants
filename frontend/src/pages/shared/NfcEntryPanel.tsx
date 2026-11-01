@@ -120,6 +120,7 @@ type Props = {
   staffSection: NfcStaffSection;
   onStaff: () => void;
   onHelp: () => void;
+  helpVisible: boolean;
   onSelectSection: (section: Exclude<NfcStaffSection, 'menu'>) => void;
   onBack: () => void;
   children?: ReactNode;
@@ -133,7 +134,7 @@ const sections = [
 
 export default function NfcEntryPanel({
   view, validCard, loadingCard, customerPath, loginPath, staffAuthorized,
-  staffRole, staffSection, onStaff, onHelp, onSelectSection, onBack, children,
+  staffRole, staffSection, onStaff, onHelp, helpVisible, onSelectSection, onBack, children,
 }: Props) {
   return <Shell className={view === 'staff' ? 'staff' : undefined}>
     <div className="nfc-frame">
@@ -159,6 +160,10 @@ export default function NfcEntryPanel({
             <ConciergeBell aria-hidden="true" /><span><strong>Solicitar atendimento</strong><small>Chamar garçom ou atendente</small></span><ArrowRight aria-hidden="true" />
           </button>
         </div>
+        {helpVisible && <section className="nfc-staff-card" role="status" aria-label="Solicitar atendimento">
+          <h2>Solicitar atendimento</h2>
+          <p>Para chamar a equipe, peça ajuda ao garçom ou atendente. O chamado digital por cartão NFC ainda não está integrado ao sistema de mesas e nenhuma solicitação foi enviada.</p>
+        </section>}
         <button type="button" className="nfc-entry-link" onClick={onStaff}>
           <LockKeyhole aria-hidden="true" /> Área da equipe — Entrar <ArrowRight aria-hidden="true" />
         </button>
