@@ -13,7 +13,7 @@ import { NfcPaymentPanel } from './NfcPaymentPanel';
 import { NfcStaffComanda } from './NfcStaffComanda';
 
 export default function NfcIntakePage() {
-  const { token = '' } = useParams();
+  const { token = '', restaurantSlug: urlSlug = '' } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const action = getNfcEntryAction(location.search);
@@ -42,29 +42,34 @@ export default function NfcIntakePage() {
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
+  const [retryContextVersion, setRetryContextVersion] = useState(0);
   const [cardContext, setCardContext] = useState<
-    { token: string; status: 'ready' | 'error'; slug: string } | null
+    { token: string; status: 'ready' | 'invalid' | 'unavailable'; slug: string } | null
   >(null);
   useEffect(() => {
     if (!validToken) return;
     let active = true;
-    void api.post<{ restaurantSlug: string }>('/nfc-customer-view/card-context', { token },
+    void api.post<{ restaurantSlug: string }>('/nfc-customer-view/card-context', { token, ...(urlSlug ? { restaurantSlug: urlSlug } : {}) },
       { skipBaseUrlFallback: true }).then(response => {
       const slug = response.data?.restaurantSlug;
       if (!active) return;
       if (typeof slug === 'string' && /^[a-z0-9_-]{1,100}$/u.test(slug)) {
         setCardContext({ token, status: 'ready', slug });
       } else {
-        setCardContext({ token, status: 'error', slug: '' });
+        setCardContext({ token, status: 'unavailable', slug: '' });
       }
-    }).catch(() => {
-      if (active) setCardContext({ token, status: 'error', slug: '' });
+    }).catch((cause: { response?: { status?: number } }) => {
+      if (active) setCardContext({ token, status: cause.response?.status === 404 || cause.response?.status === 422 ? 'invalid' : 'unavailable', slug: '' });
     });
     return () => { active = false; };
-  }, [token, validToken]);
+  }, [token, validToken, retryContextVersion, urlSlug]);
   const matchingContext = cardContext?.token === token ? cardContext : null;
-  const cardReady = validToken && matchingContext?.status === 'ready';
-  const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action)) : '';
+  const cardReady = validToken && matchingContext?.status === 'ready' && (!urlSlug || matchingContext.slug === urlSlug);
+  // Only a verified card context may select the tenant login route. A remembered
+  // browser tenant is not trustworthy enough to authorize another card.
+  const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action, matchingContext.slug)) : '';
+  const cardContextError = !validToken || matchingContext?.status === 'invalid' ? 'Cartão NFC inválido, revogado ou não encontrado. Confira o link gravado.' : matchingContext?.status === 'unavailable' ? 'Não foi possível consultar o servidor. Verifique a conexão e tente novamente.' : '';
+  const retryCardContext = () => { setCardContext(null); setRetryContextVersion(value => value + 1); };
   const staffRequested = view === 'staff';
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
@@ -82,7 +87,7 @@ export default function NfcIntakePage() {
   const chooseAction = (next: NfcEntryAction) => {
     setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
     setStaffTab(next === 'order' ? 'orders' : next === 'payment' ? 'payment' : 'menu');
-    navigate(buildNfcEntryPath(token, next));
+    navigate(buildNfcEntryPath(token, next, urlSlug || matchingContext?.slug));
   };
   const lookup = async () => {
     setBusy(true); setMessage('');
@@ -176,6 +181,8 @@ export default function NfcIntakePage() {
     loadingCard={validToken && matchingContext === null}
     customerPath={`/nfc/cliente/${token}`}
     loginPath={loginPath}
+    cardContextError={cardContextError}
+    onRetryCardContext={retryCardContext}
     staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
     staffSection={staffTab}
@@ -185,7 +192,7 @@ export default function NfcIntakePage() {
     onSelectSection={setStaffTab}
     onBack={() => {
       if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setReturnCpf(''); setMessage(''); setResult(''); return; }
-      navigate(buildNfcEntryPath(token));
+      navigate(buildNfcEntryPath(token, undefined, urlSlug || matchingContext?.slug));
       setName(''); setCpf(''); setPhone(''); setTable(''); setLookupCpf('');
       setCustomerId(''); setExistingCustomerName(''); setOrderPrefix('');
       setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult(''); setStaffTab('menu');

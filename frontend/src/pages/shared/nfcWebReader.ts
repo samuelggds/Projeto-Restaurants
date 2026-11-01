@@ -19,7 +19,7 @@ export function extractNfcToken(value: string): string | null {
   let url: URL;
   try { url = new URL(value); } catch { return null; }
   if (url.origin !== 'https://www.gastronexa.com.br') return null;
-  const match = /^\/nfc\/([A-Za-z0-9_-]{32,128})\/?$/.exec(url.pathname);
+  const match = /^\/(?:[a-z0-9][a-z0-9_-]{0,99}\/)?nfc\/([A-Za-z0-9_-]{32,128})\/?$/.exec(url.pathname);
   return match?.[1] || null;
 }
 function readText(record: NdefMessage['records'][number]) {

@@ -115,6 +115,8 @@ type Props = {
   loadingCard: boolean;
   customerPath: string;
   loginPath: string;
+  cardContextError: string;
+  onRetryCardContext: () => void;
   staffAuthorized: boolean;
   staffRole?: string;
   staffSection: NfcStaffSection;
@@ -133,7 +135,7 @@ const sections = [
 ] as const;
 
 export default function NfcEntryPanel({
-  view, validCard, loadingCard, customerPath, loginPath, staffAuthorized,
+  view, validCard, loadingCard, customerPath, loginPath, cardContextError, onRetryCardContext, staffAuthorized,
   staffRole, staffSection, onStaff, onHelp, helpVisible, onSelectSection, onBack, children,
 }: Props) {
   return <Shell className={view === 'staff' ? 'staff' : undefined}>
@@ -181,7 +183,8 @@ export default function NfcEntryPanel({
           <p className="nfc-subtitle">Somente profissionais autenticados do restaurante podem cadastrar cartões, registrar pedidos ou acessar pagamentos.</p>
           <section className="nfc-login">
             {loginPath ? <Link to={loginPath}><LogIn aria-hidden="true" /> Entrar como funcionário</Link> :
-              <p role="status">{loadingCard ? 'Verificando cartão...' : 'Restaurante indisponível ou cartão inválido.'}</p>}
+              <><p role="alert">{loadingCard ? 'Verificando o restaurante do cartão...' : cardContextError || 'Restaurante não identificado.'}</p>
+                {!loadingCard && <button type="button" onClick={onRetryCardContext}>Tentar novamente</button>}</>}
             <p>Depois do login no mesmo navegador, o atendimento deste cartão será retomado sem outra aproximação.</p>
           </section>
         </> : staffSection === 'menu' ? <>

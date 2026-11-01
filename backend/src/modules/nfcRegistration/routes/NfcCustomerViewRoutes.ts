@@ -30,10 +30,10 @@ async function activeVisit(token:string){
 }
 // A card only resolves the restaurant's public login slug. It never grants
 // access to the staff panel or reveals the linked customer or visit.
-const cardContextSchema=z.strictObject({token:z.string().regex(tokenPattern)});
+const cardContextSchema=z.strictObject({token:z.string().regex(tokenPattern),restaurantSlug:z.string().regex(/^[a-z0-9][a-z0-9_-]{0,99}$/u).optional()});
 router.post('/card-context',async(req,res)=>{
   try{
-    const {token}=cardContextSchema.parse(req.body);
+    const {token,restaurantSlug}=cardContextSchema.parse(req.body);
     const tokenHash=hash(token);
     // Look up the opaque token first, then validate the card in its RLS context.
     const card=await prisma.nfcCard.findUnique({
@@ -52,7 +52,7 @@ router.post('/card-context',async(req,res)=>{
       });
       return restaurant?.slug||null;
     });
-    if(!slug)return genericError(res,404);
+    if(!slug || (restaurantSlug && restaurantSlug !== slug))return genericError(res,404);
     noStore(res);
     return res.json({restaurantSlug:slug});
   }catch(error){

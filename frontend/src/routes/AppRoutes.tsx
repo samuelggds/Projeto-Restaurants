@@ -492,6 +492,7 @@ export default function AppRoutes() {
                 <Route path="/super_admin/login" element={<Login />} />
                 <Route path="/nfc/cliente/:token" element={<NfcCustomerReadOnlyPage />} />
                 <Route path="/nfc/:token" element={<NfcIntakePage />} />
+                <Route path="/:restaurantSlug/nfc/:token" element={<NfcIntakePage />} />
                 <Route path="/:restaurantSlug/admin/:accessKey" element={<AdminPortalEntry />} />
                 <Route element={<RouteAuthorizationGuard />}>
                   <Route path="/:restaurantSlug/login" element={<Login />} />
