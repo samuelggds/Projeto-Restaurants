@@ -5,6 +5,8 @@ const token = 'a'.repeat(43);
 describe('NFC staff entry navigation', () => {
   it('keeps the public card URL and strictly scoped staff/order/payment intents', () => {
     expect(buildNfcEntryPath(token)).toBe('/nfc/' + token);
+    expect(buildNfcEntryPath(token, 'staff', 'north-pizza')).toBe('/north-pizza/nfc/' + token + '?action=staff');
+    expect(isNfcStaffReturnPath('/north-pizza/nfc/' + token + '?action=staff')).toBe(true);
     expect(buildNfcEntryPath(token, 'staff')).toBe('/nfc/' + token + '?action=staff');
     expect(buildNfcEntryPath(token, 'order')).toBe('/nfc/' + token + '?action=order');
     expect(getNfcEntryAction('?action=order')).toBe('order');
@@ -28,6 +30,7 @@ describe('NFC staff entry navigation', () => {
   it.each([
     '/nfc/short?action=order',
     '/nfc/' + token + '?action=payments',
+    '/north-pizza/nfc/' + token + '?action=order&next=/admin',
     '/nfc/' + token + '?action=order&next=/admin',
     '/nfc/' + token + '?action=order#foo',
     '//evil.example/nfc/' + token,
