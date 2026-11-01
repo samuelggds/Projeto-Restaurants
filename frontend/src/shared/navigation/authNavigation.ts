@@ -56,6 +56,7 @@ const RESERVED_RESTAURANT_SLUGS = new Set([
   'kitchen',
   'login',
   'mesa',
+  'nfc',
   'orders',
   'profile',
   'recover-password',
@@ -150,6 +151,12 @@ export function getRestaurantSlugFromLocation(location: ReturnLocation) {
   const pathname = String(location.pathname || '/')
     .split(/[?#]/u, 1)[0]
     .replace(/\/+$/u, '') || '/';
+  // NFC cards have a tenant-scoped URL but are not themselves credentials.
+  // Extract only the public slug; the card/tenant relationship is independently
+  // checked by /nfc-customer-view/card-context and protected operation APIs.
+  const nfc = /^\/([^/]+)\/nfc\/[A-Za-z0-9_-]{32,128}$/u.exec(pathname);
+  if (nfc) return isUsableRestaurantSlug(nfc[1]);
+
   const match = pathname.match(
     /^\/([^/]+)(?:\/(?:login|register|recover-password|team|admin(?:\/[^/]+)?|mesa\/[^/]+))?$/u,
   );
