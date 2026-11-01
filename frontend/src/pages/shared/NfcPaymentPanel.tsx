@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import api from '../../Services/api';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 
@@ -27,9 +27,8 @@ export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
     setVerifiedCpf(confirmedCpf);
     setError('');
   };
-  useEffect(() => {
-    setData(null); setVerifiedCpf(''); setCpf(''); setError(''); setMessage(''); setLoading(false);
-  }, [token, status]);
+  // The parent keys this component by physical card and action; a fresh mount
+  // resets the private CPF and financial state without an effect.
   const verify = async (event: FormEvent) => {
     event.preventDefault();
     if (loading || busy || !/^\d{11}$/u.test(cpf)) return;
