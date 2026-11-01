@@ -1,24 +1,12 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import styled from 'styled-components';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router-dom';
+import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
-
-const Frame = styled.main`
-  min-height: 100dvh; display: grid; place-items: center; padding: 20px;
-  background: linear-gradient(145deg, #17212c, #333e4c); color: #1f2933;
-  .surface { width: min(100%, 500px); display: grid; gap: 15px; background: white; padding: 25px; border-radius: 20px; }
-  h1, p { margin: 0; } h1 { font-size: 23px; } p { color: #607080; line-height: 1.55; }
-  label { display: grid; gap: 6px; font-weight: 650; font-size: 14px; }
-  input { padding: 12px; border: 1px solid #cbd5df; border-radius: 9px; font: inherit; width: 100%; }
-  button { padding: 13px 15px; background: #e86419; color: white; border: 0; border-radius: 10px; font: inherit; font-weight: 800; }
-  button:disabled { opacity: .6; }
-  .error { background: #fff0ef; padding: 12px; color: #992d21; border-radius: 8px; }
-  .success { background: #e5f5ec; padding: 12px; color: #145e3e; border-radius: 8px; }
-`;
+import NfcEntryPanel from './NfcEntryPanel';
 
 export default function NfcIntakePage() {
   const { token = '' } = useParams();
@@ -42,6 +30,30 @@ export default function NfcIntakePage() {
   const allowed = Number(user?.restaurantId ?? user?.restaurant?.id) > 0 &&
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
+  const [view, setView] = useState<'home' | 'staff'>('home');
+  const [cardContext, setCardContext] = useState<
+    { token: string; status: 'ready' | 'error'; slug: string } | null
+  >(null);
+  useEffect(() => {
+    if (!validToken) return;
+    let active = true;
+    void api.post<{ restaurantSlug: string }>('/nfc-customer-view/card-context', { token },
+      { skipBaseUrlFallback: true }).then(response => {
+      const slug = response.data?.restaurantSlug;
+      if (!active) return;
+      if (typeof slug === 'string' && /^[a-z0-9_-]{1,100}$/u.test(slug)) {
+        setCardContext({ token, status: 'ready', slug });
+      } else {
+        setCardContext({ token, status: 'error', slug: '' });
+      }
+    }).catch(() => {
+      if (active) setCardContext({ token, status: 'error', slug: '' });
+    });
+    return () => { active = false; };
+  }, [token, validToken]);
+  const matchingContext = cardContext?.token === token ? cardContext : null;
+  const cardReady = validToken && matchingContext?.status === 'ready';
+  const loginPath = cardReady ? '/' + matchingContext.slug + '/team' : '';
   const lookup = async () => {
     setBusy(true); setMessage('');
     try {
@@ -123,11 +135,21 @@ export default function NfcIntakePage() {
       setMessage(response.response?.data?.error || 'Não foi possível vincular o cartão. Confira os dados ou a situação do cartão.');
     } finally { setBusy(false); }
   };
-  return <Frame><section className="surface" aria-label="Recepção de cartão NFC">
-    <h1>GastroNexa · Recepção NFC</h1>
-    {isLoading ? <p>Verificando acesso...</p> :
-      !allowed ? <><p>Cliente: consulte os pedidos e valores da sua visita em modo somente leitura.</p><Link to={`/nfc/cliente/${token}`}>Visualizar minha comanda NFC</Link><p>Funcionários: para vincular cartão, confirmar pedidos ou liberar a comanda, faça login no painel autorizado.</p><Link to="/restaurant-required">Acessar painel do restaurante</Link></> :
-      !validToken ? <p role="alert">O cartão não contém um identificador NFC válido.</p> :
+  return <NfcEntryPanel
+    view={view}
+    validCard={cardReady}
+    loadingCard={validToken && matchingContext === null}
+    customerPath={`/nfc/cliente/${token}`}
+    loginPath={loginPath}
+    onStaff={() => setView('staff')}
+    onBack={() => {
+      setView('home');
+      setName(''); setCpf(''); setPhone(''); setTable(''); setLookupCpf('');
+      setCustomerId(''); setExistingCustomerName(''); setOrderPrefix('');
+      setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult('');
+    }}
+  >
+    {view === 'staff' && allowed && validToken && cardReady && !isLoading && (
       result ? <p className="success" role="status">{result}</p> :
       <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
@@ -160,6 +182,7 @@ export default function NfcIntakePage() {
         </details>
         {message && <p className="error" role="alert">{message}</p>}
         <button type="submit" disabled={busy}>{busy ? 'Vinculando...' : 'Confirmar cadastro e vincular cartão'}</button>
-      </form></>}
-  </section></Frame>;
+      </form></>
+    )}
+  </NfcEntryPanel>;
 }
