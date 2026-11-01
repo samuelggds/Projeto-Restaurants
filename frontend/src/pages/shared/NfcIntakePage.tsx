@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { buildNfcEntryPath, getNfcEntryAction, type NfcEntryAction } from './nfcEntryNavigation';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
@@ -11,6 +12,9 @@ import { NfcPrepareOrder } from './NfcPrepareOrder';
 
 export default function NfcIntakePage() {
   const { token = '' } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const action = getNfcEntryAction(location.search);
   const { user, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -31,8 +35,8 @@ export default function NfcIntakePage() {
   const allowed = Number(user?.restaurantId ?? user?.restaurant?.id) > 0 &&
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
-  const [view, setView] = useState<'home' | 'staff'>('home');
-  const [staffTab, setStaffTab] = useState<'registration' | 'orders'>('registration');
+  const view: 'home' | 'staff' = action ? 'staff' : 'home';
+  const [staffTab, setStaffTab] = useState<'registration' | 'orders'>(action === 'order' ? 'orders' : 'registration');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
   const [cardContext, setCardContext] = useState<
@@ -57,8 +61,8 @@ export default function NfcIntakePage() {
   }, [token, validToken]);
   const matchingContext = cardContext?.token === token ? cardContext : null;
   const cardReady = validToken && matchingContext?.status === 'ready';
-  const loginPath = cardReady ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent('/nfc/' + token) : '';
-  const staffRequested = view === 'staff' || (allowed && cardReady);
+  const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action)) : '';
+  const staffRequested = view === 'staff';
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
     let active = true;
@@ -71,7 +75,11 @@ export default function NfcIntakePage() {
     });
     return () => { active = false; };
   }, [allowed, validToken, cardReady, staffRequested, isLoading, token]);
-  useEffect(() => { if (allowed && cardReady && !isLoading) setView('staff'); }, [allowed, cardReady, isLoading]);
+  useEffect(() => { setStaffTab(action === 'order' ? 'orders' : 'registration'); }, [action]);
+  const chooseAction = (next: NfcEntryAction) => {
+    setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
+    navigate(buildNfcEntryPath(token, next));
+  };
   const lookup = async () => {
     setBusy(true); setMessage('');
     try {
@@ -164,9 +172,11 @@ export default function NfcIntakePage() {
     loadingCard={validToken && matchingContext === null}
     customerPath={`/nfc/cliente/${token}`}
     loginPath={loginPath}
-    onStaff={() => setView('staff')}
+    staffMode={action === 'order' ? 'order' : 'staff'}
+    onStaff={() => chooseAction('staff')}
+    onOrder={() => chooseAction('order')}
     onBack={() => {
-      setView('home');
+      navigate(buildNfcEntryPath(token));
       setName(''); setCpf(''); setPhone(''); setTable(''); setLookupCpf('');
       setCustomerId(''); setExistingCustomerName(''); setOrderPrefix('');
       setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult('');
@@ -181,9 +191,9 @@ export default function NfcIntakePage() {
         <button type="button" aria-pressed={staffTab === 'registration'} onClick={() => setStaffTab('registration')}>Cadastro e vínculo</button>
         <button type="button" aria-pressed={staffTab === 'orders'} onClick={() => setStaffTab('orders')}>Pedidos</button>
       </nav>}
-      {staffCard && staffTab === 'orders' && (staffCard.comandaId
+      {staffCard && staffTab === 'orders' && (staffCard.status === 'ACTIVE' && staffCard.comandaId
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
-        : <p role="status">É necessário cadastrar ou vincular o cliente e abrir a comanda antes de anotar pedidos.</p>)}
+        : <div role="status"><p>Este cartão ainda não possui uma comanda aberta. Cadastre ou vincule o cliente antes de anotar pedidos.</p>{staffCard.status === 'READY' && <button type="button" onClick={() => setStaffTab('registration')}>Cadastrar ou acessar conta existente</button>}</div>)}
       {staffCard && staffTab === 'registration' && (<><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
       <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
