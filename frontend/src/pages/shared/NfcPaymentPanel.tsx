@@ -10,8 +10,8 @@ type PaymentContext = {
   reason: string;
 };
 const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
-  token: string; status: 'READY' | 'ACTIVE'; displayCode: string; onReleased: (code: string) => void;
+export function NfcPaymentPanel({ token, displayCode, onReleased }: {
+  token: string; displayCode: string; onReleased: (code: string) => void;
 }) {
   const [data, setData] = useState<PaymentContext | null>(null);
   const [loading, setLoading] = useState(true);
