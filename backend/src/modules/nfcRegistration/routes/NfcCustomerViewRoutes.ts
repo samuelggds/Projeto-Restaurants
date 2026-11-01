@@ -28,6 +28,38 @@ async function activeVisit(token:string){
  if(!card?.customerId)return null;
  return {card,tokenHash};
 }
+// A card only resolves the restaurant's public login slug. It never grants
+// access to the staff panel or reveals the linked customer or visit.
+const cardContextSchema=z.strictObject({token:z.string().regex(tokenPattern)});
+router.post('/card-context',async(req,res)=>{
+  try{
+    const {token}=cardContextSchema.parse(req.body);
+    const tokenHash=hash(token);
+    // Look up the opaque token first, then validate the card in its RLS context.
+    const card=await prisma.nfcCard.findUnique({
+      where:{tokenHash},select:{id:true,restaurantId:true},
+    });
+    if(!card)return genericError(res,404);
+    const slug=await withTenantDbContext(card.restaurantId,async tx=>{
+      const current=await tx.nfcCard.findFirst({
+        where:{id:card.id,restaurantId:card.restaurantId,tokenHash,
+          status:{in:['PENDING_WRITE','READY','ACTIVE']}},
+        select:{id:true},
+      });
+      if(!current)return null;
+      const restaurant=await tx.restaurant.findFirst({
+        where:{id:card.restaurantId,active:true},select:{slug:true},
+      });
+      return restaurant?.slug||null;
+    });
+    if(!slug)return genericError(res,404);
+    noStore(res);
+    return res.json({restaurantSlug:slug});
+  }catch(error){
+    if(error instanceof z.ZodError)return genericError(res,422);
+    return genericError(res,503);
+  }
+});
 router.post('/verify',async(req,res)=>{
  try{
    const input=verify.parse(req.body);
