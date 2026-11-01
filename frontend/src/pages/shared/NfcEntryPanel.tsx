@@ -118,11 +118,16 @@ type Props = {
   cardContextError: string;
   onRetryCardContext: () => void;
   staffAuthorized: boolean;
+  staffLoggedIn: boolean;
+  staffChecking: boolean;
+  staffError: string;
+  onRetryStaff: () => void;
   staffRole?: string;
   staffSection: NfcStaffSection;
   onStaff: () => void;
   onHelp: () => void;
   helpVisible: boolean;
+  helpContent?: ReactNode;
   onSelectSection: (section: Exclude<NfcStaffSection, 'menu'>) => void;
   onBack: () => void;
   children?: ReactNode;
@@ -136,7 +141,8 @@ const sections = [
 
 export default function NfcEntryPanel({
   view, validCard, loadingCard, customerPath, loginPath, cardContextError, onRetryCardContext, staffAuthorized,
-  staffRole, staffSection, onStaff, onHelp, helpVisible, onSelectSection, onBack, children,
+  staffLoggedIn, staffChecking, staffError, onRetryStaff,
+  staffRole, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, children,
 }: Props) {
   return <Shell className={view === 'staff' ? 'staff' : undefined}>
     <div className="nfc-frame">
@@ -164,7 +170,7 @@ export default function NfcEntryPanel({
         </div>
         {helpVisible && <section className="nfc-staff-card" role="status" aria-label="Solicitar atendimento">
           <h2>Solicitar atendimento</h2>
-          <p>Para chamar a equipe, peça ajuda ao garçom ou atendente. O chamado digital por cartão NFC ainda não está integrado ao sistema de mesas e nenhuma solicitação foi enviada.</p>
+          {helpContent}
         </section>}
         <button type="button" className="nfc-entry-link" onClick={onStaff}>
           <LockKeyhole aria-hidden="true" /> Área da equipe — Entrar <ArrowRight aria-hidden="true" />
@@ -177,7 +183,7 @@ export default function NfcEntryPanel({
           <span className="nfc-brand"><img src="/gastronexa-logo.svg" alt="" /> Gastro<b>Nexa</b></span>
           {staffAuthorized && <span className="nfc-staff-tag"><ShieldCheck aria-hidden="true" /> {staffRole || 'Equipe'} autenticado</span>}
         </div>
-        {!staffAuthorized ? <>
+        {!staffLoggedIn ? <>
           <span className="nfc-kicker">ACESSO EXCLUSIVO À EQUIPE</span>
           <h1 className="nfc-staff-title">Entre no seu painel.</h1>
           <p className="nfc-subtitle">Somente profissionais autenticados do restaurante podem cadastrar cartões, registrar pedidos ou acessar pagamentos.</p>
@@ -187,7 +193,11 @@ export default function NfcEntryPanel({
                 {!loadingCard && <button type="button" onClick={onRetryCardContext}>Tentar novamente</button>}</>}
             <p>Depois do login no mesmo navegador, o atendimento deste cartão será retomado sem outra aproximação.</p>
           </section>
-        </> : staffSection === 'menu' ? <>
+        </> : !staffAuthorized ? <section className="nfc-login" aria-live="polite">
+          <h2>{staffChecking ? 'Verificando cartão e restaurante...' : 'Acesso NFC indisponível'}</h2>
+          <p>{staffChecking ? 'Sua conta está autenticada. Conferindo o vínculo NFC e as permissões no servidor.' : staffError || 'Não foi possível consultar o cartão. A sessão da equipe permanece ativa.'}</p>
+          {!staffChecking && <button type="button" onClick={onRetryStaff}>Verificar novamente</button>}
+        </section> : staffSection === 'menu' ? <>
           <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
           <h1 className="nfc-staff-title">O que vamos fazer?</h1>
           <p className="nfc-subtitle">Escolha uma das opções para continuar.</p>
