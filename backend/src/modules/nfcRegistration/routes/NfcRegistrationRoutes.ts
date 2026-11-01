@@ -607,6 +607,43 @@ router.post('/cards/return', async (req, res) => {
 
 // Resolve card status only inside the authenticated staff tenant.
 // The NFC URL is not authorization and does not grant access to another restaurant.
+// Private, read-only payment context. Never mark a comanda paid from the browser.
+// NFC gateway checkout is disabled until MP Pix/Point reconciliation is homologated.
+router.post('/cards/payment-context', async (req, res) => {
+  try {
+    const tokenHash = normalizeTagToken(req.body?.token);
+    const restaurantId = Number(req.user.restaurantId);
+    const result = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: { in: ['READY', 'ACTIVE'] } },
+        select: { id: true, status: true, displayCode: true, customerId: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
+      const comanda = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcComanda.findFirst({
+          where: { restaurantId, cardId: card.id, customerId: card.customerId, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+          orderBy: { openedAt: 'desc' },
+          select: { id: true, status: true, totalCents: true, paidCents: true },
+        }) : null;
+      return {
+        card: { status: card.status, displayCode: card.displayCode },
+        comanda: comanda ? {
+          id: comanda.id, status: comanda.status,
+          totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
+          outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
+        } : null,
+      };
+    });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({
+      ...result,
+      pixEnabled: false,
+      pointEnabled: false,
+      reason: 'Pix e Point NFC aguardam implementação financeira, conciliação oficial do gateway e homologação. Nenhuma cobrança pode ser iniciada por esta tela.',
+    });
+  } catch (error) { return safe(res, error); }
+});
+
 router.post('/cards/attendance-context', async (req, res) => {
   try {
     const tokenHash = normalizeTagToken(req.body?.token);
