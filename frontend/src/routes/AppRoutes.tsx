@@ -78,6 +78,7 @@ import {
 import { consumeSignedOutEntryUrl } from '../shared/navigation/sessionEntry';
 import { CustomDomainTenantProvider } from '../shared/tenant/CustomDomainTenantProvider';
 import { useCustomDomainTenant } from '../shared/tenant/useCustomDomainTenant';
+import { isNfcStaffReturnPath } from '../pages/shared/nfcEntryNavigation';
 
 function getCustomerReturnPath(location: ReturnType<typeof useLocation>) {
   const isAuthEntry = /^\/[^/]+\/(?:login|register|recover-password)$/u.test(location.pathname);
@@ -327,6 +328,18 @@ export function RouteAuthorizationGuard() {
       customDomain: customDomain.isCustomDomain,
     });
     return 'redirectTo' in publicDecision ? <RouteLoading /> : <Outlet />;
+  }
+
+  // Keep the restaurant's TEAM login mounted through the auth state update.
+  // Otherwise the guard redirects to /waiter before Login can honor ?next=.
+  const teamSlug = /^\/([a-z0-9][a-z0-9_-]{0,99})\/team\/?$/u.exec(location.pathname)?.[1];
+  const teamNext = new URLSearchParams(location.search).get('next') || '';
+  const nextTenant = /^\/([a-z0-9][a-z0-9_-]{0,99})\/nfc\//u.exec(teamNext)?.[1];
+  const role = String(user?.role || '').toUpperCase();
+  const subRole = String(user?.subRole || '').toUpperCase();
+  if (teamSlug && nextTenant === teamSlug && isNfcStaffReturnPath(teamNext) &&
+      (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['GARCOM', 'ATENDENTE'].includes(subRole)))) {
+    return <Outlet />;
   }
 
   const decision = authorizeRoute(location.pathname, user, {
