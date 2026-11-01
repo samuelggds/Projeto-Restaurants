@@ -12,6 +12,11 @@ type CallEventPayload = {
 };
 
 export const tableServiceCallEvents = {
+  async nfcChanged(restaurantId: number, id: string, event: 'created' | 'updated') {
+    io.to(`restaurant:${restaurantId}:waiter`).emit(`waiter-call:${event}`, { restaurantId, id, source: 'NFC' });
+    io.to(`restaurant:${restaurantId}:admin`).emit(`waiter-call:${event}`, { restaurantId, id, source: 'NFC' });
+    attendantWorkspaceEvents.invalidated(restaurantId, 'CALLS');
+  },
   async created(payload: CallEventPayload) {
     io.to(`restaurant:${payload.restaurantId}:waiter`).emit('waiter-call:created', payload);
     io.to(`restaurant:${payload.restaurantId}:admin`).emit('waiter-call:created', payload);
