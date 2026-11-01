@@ -57,6 +57,19 @@ function normalizeTagToken(value: unknown) {
 }
 const customerSelect = { id: true, restaurantId: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true, createdAt: true, cards: { select: { id: true, displayCode: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' as const } } };
 const ensureId = (value: unknown) => nfcIdSchema.parse(value);
+// The slug comes exclusively from the authenticated tenant's database record.
+// It is routing context, never authorization or proof that someone owns a card.
+async function canonicalNfcCardUrl(restaurantId: number, token: string) {
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { id: restaurantId, active: true },
+    select: { slug: true },
+  });
+  const slug = restaurant?.slug;
+  if (!slug || !/^[a-z0-9][a-z0-9_-]{0,99}$/u.test(slug)) {
+    throw new NfcRegistrationError(409, 'O restaurante precisa de um slug válido para emitir cartões NFC.');
+  }
+  return 'https://www.gastronexa.com.br/' + slug + '/nfc/' + token;
+}
 function safe(res: import('express').Response, error: unknown) {
   const status = error instanceof ZodError ? 422 : error instanceof NfcRegistrationError ? error.statusCode : error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' ? 409 : 500;
   const message = error instanceof ZodError ? error.issues[0]?.message : error instanceof NfcRegistrationError ? error.message : status === 409 ? 'Já existe um cadastro ou cartão ativo para este cliente.' : 'Não foi possível concluir a operação NFC.';
@@ -207,6 +220,7 @@ router.post('/customers/:id/cards', async (req, res) => {
     const restaurantId = Number(req.user.restaurantId);
     const customerId = ensureId(req.params.id);
     const token = crypto.randomBytes(24).toString('base64url');
+    const ndefUrl = await canonicalNfcCardUrl(restaurantId, token);
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const cardId = crypto.randomUUID();
     const card = await prisma.$transaction(async (tx) => {
@@ -220,7 +234,7 @@ router.post('/customers/:id/cards', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     // The random registration value is returned ONCE. It contains no personal data.
     // Production tag-writing UX and activation are reserved for the next step.
-    return res.status(201).json({ card, ndefUrl: 'https://www.gastronexa.com.br/nfc/' + token, warning: 'Cartão pendente de gravação; ainda não pode ser usado em pedidos.' });
+    return res.status(201).json({ card, ndefUrl, warning: 'Cartão pendente de gravação; ainda não pode ser usado em pedidos.' });
   } catch (error) { return safe(res, error); }
 });
 router.post('/cards/:id/revoke', async (req, res) => {
@@ -264,6 +278,7 @@ router.post('/cards/:id/reuse-prepare',async(req,res)=>{
     const restaurantId=Number(req.user.restaurantId),cardId=ensureId(req.params.id);
     const cpf=normalizeNfcCpf(restoreSchema.parse(req.body).cpf);
     const token=crypto.randomBytes(32).toString('base64url');
+    const ndefUrl = await canonicalNfcCardUrl(restaurantId, token);
     const card=await prisma.$transaction(async tx=>{
       await setTenantDbContext(tx,restaurantId);
       const preview=await tx.nfcCard.findFirst({where:{id:cardId,restaurantId,status:'REVOKED'},
@@ -290,7 +305,7 @@ router.post('/cards/:id/reuse-prepare',async(req,res)=>{
       return {id:current.id,displayCode:current.displayCode};
     },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
     res.setHeader('Cache-Control','no-store');
-    return res.json({card,ndefUrl:'https://www.gastronexa.com.br/nfc/'+token});
+    return res.json({card,ndefUrl});
   }catch(error){return safe(res,error);}
 });
 router.post('/cards/:id/reuse-complete',async(req,res)=>{
@@ -829,6 +844,7 @@ router.post('/cards/provision', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId);
     const token = crypto.randomBytes(24).toString('base64url');
+    const ndefUrl = await canonicalNfcCardUrl(restaurantId, token);
     const tokenHash = normalizeTagToken(token);
     const cardId = crypto.randomUUID();
     const card = await prisma.$transaction(async tx => {
@@ -844,7 +860,7 @@ router.post('/cards/provision', async (req, res) => {
       return created;
     });
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(201).json({ card, ndefUrl: 'https://www.gastronexa.com.br/nfc/' + token });
+    return res.status(201).json({ card, ndefUrl });
   } catch (error) { return safe(res, error); }
 });
 // Remove only unused, unassigned cards. A formerly linked card must be
