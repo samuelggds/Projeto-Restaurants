@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import productsService from '../../Services/productsService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
+import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 
 type Item = { id: number; name: string; price: number; stock: number | null };
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
@@ -112,10 +113,7 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
       <div style={{border:'1px solid #dce3e7',borderRadius:12,padding:14,display:'grid',gap:8}}><strong>Resumo do pedido</strong>{selected.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:12}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}{observation.trim()&&<small>Observação geral: {observation.trim()}</small>}<strong>Total estimado: {brl(total)}</strong><small>Comanda: {comandaId.slice(0,8).toUpperCase()}. O servidor valida cartão, vínculo e valores.</small></div>
       <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>
       <p>Em iPhones, aproxime o cartão do aparelho e abra o link NFC da GastroNexa para confirmar.</p>
-      <label>Três primeiros dígitos do CPF
-        <input type="password" inputMode="numeric" autoComplete="off" pattern="[0-9]{3}" minLength={3} maxLength={3}
-          value={prefix} onChange={e => setPrefix(e.target.value.replace(/\D/g, '').slice(0, 3))} />
-      </label>
+        <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy} />
       <button type="button" disabled={busy || !token || prefix.length !== 3} onClick={() => void confirm()}>
         Confirmar identidade e enviar à cozinha como não pago
       </button>
