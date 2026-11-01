@@ -114,7 +114,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       <div style={{border:'1px solid #dce3e7',borderRadius:12,padding:14,display:'grid',gap:8}}><strong>Resumo do pedido</strong>{selected.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:12}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}{observation.trim()&&<small>Observação geral: {observation.trim()}</small>}<strong>Total estimado: {brl(total)}</strong><small>Comanda: {comandaId.slice(0,8).toUpperCase()}. O servidor valida cartão, vínculo e valores.</small></div>
       {!cardToken && <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>}
       {cardToken && <p role="status">Cartão recebido pelo link NFC. Confirme com os três dígitos do CPF do titular.</p>}
-      {!cardToken && <p>Em iPhones, use o link gravado no cartão NFC para abrir o atendimento.</p>
+      {!cardToken && <p>Em iPhones, use o link gravado no cartão NFC para abrir o atendimento.</p>}
         <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy} />
       <button type="button" disabled={busy || !token || prefix.length !== 3} onClick={() => void confirm()}>
         Confirmar identidade e enviar à cozinha como não pago
