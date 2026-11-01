@@ -31,6 +31,7 @@ export default function NfcIntakePage() {
   const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [helpVisible, setHelpVisible] = useState(false);
   const [result, setResult] = useState('');
   const role = String(user?.role ?? '').toUpperCase();
   const subRole = String(user?.subRole ?? '').toUpperCase();
@@ -178,8 +179,9 @@ export default function NfcIntakePage() {
     staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
     staffSection={staffTab}
-    onStaff={() => chooseAction('staff')}
-    onHelp={() => chooseAction('staff')}
+    onStaff={() => { setHelpVisible(false); chooseAction('staff'); }}
+    onHelp={() => setHelpVisible(value => !value)}
+    helpVisible={helpVisible}
     onSelectSection={setStaffTab}
     onBack={() => {
       if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setReturnCpf(''); setMessage(''); setResult(''); return; }
@@ -195,7 +197,7 @@ export default function NfcIntakePage() {
       {result && <p className="success" role="status">{result}</p>}
       {message && <p className="error" role="alert">{message}</p>}
 
-      {staffCard && staffTab === 'payment' && <NfcPaymentPanel token={token} status={staffCard.status} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
+      {staffCard && staffTab === 'payment' && <NfcPaymentPanel key={token} token={token} status={staffCard.status} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
       {staffCard && staffTab === 'consult' && <NfcStaffComanda token={token} />}
       {staffCard && staffTab === 'orders' && (staffCard.status === 'ACTIVE' && staffCard.comandaId
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
