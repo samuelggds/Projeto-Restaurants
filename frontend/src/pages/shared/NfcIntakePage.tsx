@@ -117,6 +117,8 @@ export default function NfcIntakePage() {
       const returned = await nfcRegistrationService.returnPaidCard(token, returnCpf);
       setReturnCpf('');
       setResult(`Cartão ${returned.displayCode} devolvido, desvinculado e disponível para o próximo cliente. Histórico financeiro preservado.`);
+      setStaffCard({ status: 'READY', displayCode: returned.displayCode, comandaId: null });
+      setStaffTab('registration');
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setMessage(response.response?.data?.error || 'Não foi possível liberar o cartão. Verifique CPF completo e quitação no servidor.');
@@ -145,8 +147,11 @@ export default function NfcIntakePage() {
           }
         }
         setResult(`Cartão ${assignment.displayCode} vinculado e comanda ${comanda.id.slice(0, 8).toUpperCase()} aberta. O garçom ou atendente já pode selecionar produtos no painel NFC.${notice}`);
+        setStaffCard({ status: 'ACTIVE', displayCode: assignment.displayCode, comandaId: comanda.id });
+        setStaffTab('orders');
       } catch {
         setResult(`Cartão ${assignment.displayCode} vinculado. A comanda ainda não foi aberta: procure o cliente na seção "Clientes e cartões NFC" e abra a comanda antes de registrar pedidos.`);
+        setStaffCard({ status: 'ACTIVE', displayCode: assignment.displayCode, comandaId: null });
       }
     } catch (error) {
       const response = error as { response?: { data?: { error?: string } } };
@@ -170,6 +175,8 @@ export default function NfcIntakePage() {
     {view === 'staff' && allowed && validToken && cardReady && !isLoading && (
       <><p role="status">Cartão NFC: {staffCard?.displayCode || 'Verificando acesso ao restaurante...'}</p>
       {staffCardError && <p className="error" role="alert">{staffCardError}</p>}
+      {result && <p className="success" role="status">{result}</p>}
+      {message && <p className="error" role="alert">{message}</p>}
       {staffCard && <nav aria-label="Atendimento NFC do cartão" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
         <button type="button" aria-pressed={staffTab === 'registration'} onClick={() => setStaffTab('registration')}>Cadastro e vínculo</button>
         <button type="button" aria-pressed={staffTab === 'orders'} onClick={() => setStaffTab('orders')}>Pedidos</button>
@@ -177,9 +184,7 @@ export default function NfcIntakePage() {
       {staffCard && staffTab === 'orders' && (staffCard.comandaId
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
         : <p role="status">É necessário cadastrar ou vincular o cliente e abrir a comanda antes de anotar pedidos.</p>)}
-      {staffCard && staffTab === 'registration' && (result
-        ? <p className="success" role="status">{result}</p>
-        : <><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
+      {staffCard && staffTab === 'registration' && (<><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
       <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
         <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
@@ -208,7 +213,6 @@ export default function NfcIntakePage() {
           {existingCustomerName && <p role="status">Cliente encontrado: {existingCustomerName}. Use este cadastro para evitar duplicidade.</p>}
           {customerId && <button type="button" onClick={() => { setCustomerId(''); setExistingCustomerName(''); }}>Cadastrar outro cliente</button>}
         </details>
-        {message && <p className="error" role="alert">{message}</p>}
         <button type="submit" disabled={busy}>{busy ? 'Vinculando...' : 'Confirmar cadastro e vincular cartão'}</button>
       </form>}</>)}
       </>
