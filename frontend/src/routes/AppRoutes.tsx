@@ -337,7 +337,7 @@ export function RouteAuthorizationGuard() {
   const nextTenant = /^\/([a-z0-9][a-z0-9_-]{0,99})\/nfc\//u.exec(teamNext)?.[1];
   const role = String(user?.role || '').toUpperCase();
   const subRole = String(user?.subRole || '').toUpperCase();
-  if (teamSlug && nextTenant === teamSlug && isNfcStaffReturnPath(teamNext) &&
+  if (user?.mustChangePassword !== true && teamSlug && nextTenant === teamSlug && isNfcStaffReturnPath(teamNext) &&
       (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['GARCOM', 'ATENDENTE'].includes(subRole)))) {
     return <Outlet />;
   }
