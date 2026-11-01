@@ -208,7 +208,7 @@ export default function NfcCustomerReadOnlyPage() {
         <div className="orders">
           {orders.map((order, index) => {
             const items = visit.items.filter(item => item.sourceOrderId === order.id);
-            return <details className="order" key={order.id} open={index === 0 ? true : undefined}>
+            return <details className="order" key={order.id} defaultOpen={index === 0}>
               <summary><div><div className="order-title">Pedido #{order.id}</div>
                 <p className="order-meta">{time(order.createdAt)} · {items.reduce((sum, item) => sum + item.quantity, 0)} itens</p></div>
                 <div className="order-side"><span className={'status' + (order.status === 'ENTREGUE' ? ' delivered' : '')}>
