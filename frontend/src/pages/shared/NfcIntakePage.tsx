@@ -197,7 +197,7 @@ export default function NfcIntakePage() {
       {result && <p className="success" role="status">{result}</p>}
       {message && <p className="error" role="alert">{message}</p>}
 
-      {staffCard && staffTab === 'payment' && <NfcPaymentPanel key={token} token={token} status={staffCard.status} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
+      {staffCard && staffTab === 'payment' && <NfcPaymentPanel key={token} token={token} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
       {staffCard && staffTab === 'consult' && <NfcStaffComanda token={token} />}
       {staffCard && staffTab === 'orders' && (staffCard.status === 'ACTIVE' && staffCard.comandaId
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
