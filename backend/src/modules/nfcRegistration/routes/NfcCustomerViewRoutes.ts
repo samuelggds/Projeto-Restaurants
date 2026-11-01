@@ -115,6 +115,44 @@ router.post('/verify',async(req,res)=>{
    return genericError(res,503);
  }
 });
+// Assistance requires the short-lived NFC customer session created after
+// 3 CPF prefix digits are verified. Raw card URLs cannot create calls.
+router.post('/assistance',async(req,res)=>{
+ try {
+   const body=z.strictObject({token:z.string().regex(tokenPattern),sessionToken:z.string().regex(sessionPattern)}).parse(req.body);
+   const card=await activeVisit(body.token);
+   if(!card)return genericError(res,401);
+   const restaurantId=card.card.restaurantId;
+   const subscription=await prisma.subscription.findUnique({where:{restaurantId},select:{plan:true,status:true,restaurant:{select:{active:true,accessBlockReason:true,billingTemporaryAccessUntil:true}}}});
+   if(!hasNfcCardAccess(subscription?.plan,subscription?.status,subscription?.restaurant))return genericError(res,403);
+   const response=await prisma.$transaction(async tx=>{
+     await setTenantDbContext(tx,restaurantId);
+     await tx.$queryRaw`SELECT "id" FROM "NfcCard" WHERE "id"=${card.card.id}::uuid AND "restaurantId"=${restaurantId} FOR UPDATE`;
+     const active=await tx.nfcCard.findFirst({where:{id:card.card.id,restaurantId,status:'ACTIVE',customerId:card.card.customerId},select:{id:true,customerId:true}});
+     if(!active?.customerId)return null;
+     const access=await tx.nfcComandaAccess.findFirst({where:{restaurantId,sessionHash:nfcCustomerSessionHash(body.sessionToken),revokedAt:null,sessionExpiresAt:{gt:new Date()},expiresAt:{gt:new Date()}},select:{comandaId:true}});
+     if(!access)return null;
+     const comanda=await tx.nfcComanda.findFirst({where:{id:access.comandaId,restaurantId,cardId:active.id,customerId:active.customerId,status:'OPEN'},select:{id:true,tableNumber:true}});
+     if(!comanda)return null;
+     const existing=await tx.nfcServiceCall.findFirst({where:{restaurantId,comandaId:comanda.id,status:{in:['WAITING','IN_PROGRESS']}},select:{id:true,status:true}});
+     if(existing)return {call:existing,duplicate:true};
+     const created=await tx.nfcServiceCall.create({data:{restaurantId,cardId:active.id,comandaId:comanda.id,tableNumber:comanda.tableNumber},select:{id:true,status:true}});
+     return {call:created,duplicate:false};
+   },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});
+   if(!response)return genericError(res,401);
+   noStore(res);
+   if(!response.duplicate){
+     try { const events=await import('../../waiterCalls/realtime/tableServiceCallEvents.js');
+       await events.tableServiceCallEvents.nfcChanged(restaurantId,response.call.id,'created');
+     }catch(error){console.error('[NFC_ASSISTANCE_REALTIME]',error);}
+   }
+   return res.status(response.duplicate?200:201).json({status:response.call.status,duplicate:response.duplicate});
+ }catch(error){
+   if(error instanceof z.ZodError)return genericError(res,422);
+   if(error instanceof Prisma.PrismaClientKnownRequestError && error.code==='P2002')return res.status(409).json({error:'Chamado já em processamento. Atualize a comanda.'});
+   return genericError(res,503);
+ }
+});
 router.get('/account',async(req,res)=>{
  try{
    const session=String(req.get('x-nfc-customer-session')||'');

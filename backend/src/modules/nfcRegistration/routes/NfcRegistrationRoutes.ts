@@ -8,6 +8,7 @@ import restaurantSettingsRepository from '../../restaurantSettings/repositories/
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { nfcInventoryVisualState } from '../domain/nfcInventoryVisualState.js';
+import { nfcCustomerDeletionEligibility } from '../services/nfcCustomerDeletionEligibility.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
@@ -172,13 +173,54 @@ router.get('/customers', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId);
     const page = nfcPageSchema.parse(req.query.page);
-    const where = { restaurantId };
+    const where = { restaurantId, archivedAt: null };
     const [customers, total] = await Promise.all([
       prisma.nfcCustomer.findMany({ where, select: customerSelect, orderBy: { createdAt: 'desc' }, take: pageSize, skip: (page - 1) * pageSize }),
       prisma.nfcCustomer.count({ where }),
     ]);
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ customers: customers.map((customer) => serialize(restaurantId, customer)), page, total, pageSize });
+  } catch (error) { return safe(res, error); }
+});
+// Removing a registered customer never erases their settled financial history.
+// An unused customer can be hard-deleted; once used, only archive the profile.
+router.delete('/customers/:id', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    if (String(req.user.role).toUpperCase() !== 'ADMIN') {
+      throw new NfcRegistrationError(403, 'Somente o administrador pode excluir cadastros NFC.');
+    }
+    const restaurantId = Number(req.user.restaurantId), customerId = ensureId(req.params.id);
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCustomer" WHERE "restaurantId"=${restaurantId} AND "id"=${customerId}::uuid FOR UPDATE
+      `;
+      if (rows.length !== 1) throw new NfcRegistrationError(404, 'Cliente não encontrado neste restaurante.');
+      const customer = await tx.nfcCustomer.findFirst({
+        where: { id: customerId, restaurantId, archivedAt: null }, select: { id: true },
+      });
+      if (!customer) throw new NfcRegistrationError(409, 'Cliente já foi excluído ou está arquivado.');
+      const eligibility = await nfcCustomerDeletionEligibility(tx, restaurantId, customerId);
+      if (!eligibility.eligible) throw new NfcRegistrationError(409, eligibility.reason || 'Cliente não liberado para exclusão.');
+      const hasHistory = (await tx.nfcComanda.count({ where: { restaurantId, customerId } })) > 0 ||
+        (await tx.nfcCard.count({ where: { restaurantId, customerId } })) > 0 ||
+        (await tx.nfcRegistrationAudit.count({ where: { restaurantId, customerId } })) > 0;
+      // Preserve all audit and payment references. Even a never-used customer
+      // with a registration audit is archived rather than physically erased.
+      if (hasHistory) {
+        await tx.nfcCustomer.updateMany({ where: { restaurantId, id: customerId, archivedAt: null },
+          data: { archivedAt: new Date() } });
+      } else {
+        await tx.nfcCustomer.deleteMany({ where: { restaurantId, id: customerId, archivedAt: null } });
+      }
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), customerId: hasHistory ? customerId : null,
+        action: 'CUSTOMER_REMOVED',
+      } });
+      return { removed: true, archived: hasHistory };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json(result);
   } catch (error) { return safe(res, error); }
 });
 router.post('/customers/lookup', async (req, res) => {

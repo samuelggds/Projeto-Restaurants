@@ -163,6 +163,7 @@ export function authorizeRoute(
     return role === 'SUPER_ADMIN' ? { allowed: true } : { allowed: false, redirectTo: home };
   }
 
+  if (/^\/(?:[a-z0-9][a-z0-9_-]{0,99}\/)?nfc\/[A-Za-z0-9_-]{32,128}\/?$/u.test(path)) return { allowed: true };
   if (path === TENANT_REQUIRED_PATH) return { allowed: true };
   if (path === '/change-password') return { allowed: true };
   if (isPath(path, '/attendant')) {
