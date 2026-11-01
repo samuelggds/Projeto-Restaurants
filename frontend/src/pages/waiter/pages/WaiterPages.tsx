@@ -803,7 +803,8 @@ function CallRow({
         {call.type === 'BILL' ? <ReceiptText /> : <BellRing />}
       </span>
       <span className="info">
-        <b>Mesa {String(call.tableNumber).padStart(2, '0')}</b>
+        <b>{call.tableNumber ? `Mesa ${String(call.tableNumber).padStart(2, '0')}` : call.customerName || call.cardCode || 'Comanda NFC'}</b>
+        {call.source === 'NFC' && <small>{[call.tableNumber && call.customerName, call.cardCode].filter(Boolean).join(' · ')}</small>}
         <span>{callTitle(call.type)}</span>
         {call.employeeName && <small>Responsável: {call.employeeName}</small>}
       </span>
@@ -892,7 +893,7 @@ export function WaiterCallsPage() {
   const normalizedQuery = normalizeSearch(query);
   const filtered = calls.filter((call) =>
     normalizeSearch(
-      `mesa ${call.tableNumber} ${callTitle(call.type)} ${call.employeeName || ''}`,
+      `mesa ${call.tableNumber ?? ''} ${call.customerName || ''} ${call.cardCode || ''} ${callTitle(call.type)} ${call.employeeName || ''}`,
     ).includes(normalizedQuery),
   );
   const waiting = filtered
@@ -1040,7 +1041,7 @@ export function WaiterCallsPage() {
             title="Concluídos"
             description="Histórico recente dos chamados atendidos pela equipe."
             calls={resolved.slice(0, visibleCounts.resolved)}
-            action={async (call) => setDeleteCandidate(call)}
+            action={async (call) => { if (call.source === 'NFC') throw new Error('O histórico de chamados NFC é preservado para auditoria.'); setDeleteCandidate(call); }}
             actionLabel="Excluir"
             actionIcon="delete"
             footer={
