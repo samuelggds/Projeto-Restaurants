@@ -7,6 +7,7 @@ import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
+import { NfcAssistanceRequest } from './NfcAssistanceRequest';
 import NfcEntryPanel, { type NfcStaffSection } from './NfcEntryPanel';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcPaymentPanel } from './NfcPaymentPanel';
@@ -42,6 +43,8 @@ export default function NfcIntakePage() {
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
+  const [staffChecking, setStaffChecking] = useState(false);
+  const [staffRetry, setStaffRetry] = useState(0);
   const [retryContextVersion, setRetryContextVersion] = useState(0);
   const [cardContext, setCardContext] = useState<
     { token: string; status: 'ready' | 'invalid' | 'unavailable'; slug: string } | null
@@ -74,15 +77,23 @@ export default function NfcIntakePage() {
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
     let active = true;
+    setStaffChecking(true);
     void api.post<{ card: { status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
       '/nfc-registration/cards/attendance-context', { token }, { skipBaseUrlFallback: true },
     ).then(response => {
       if (active) { setStaffCard(response.data.card); setStaffCardError(''); }
-    }).catch(() => {
-      if (active) { setStaffCard(null); setStaffCardError('Cartão não pertence ao restaurante autenticado ou está indisponível.'); }
-    });
+    }).catch((error: { response?: { status?: number; data?: { error?: string } } }) => {
+      if (active) {
+        setStaffCard(null);
+        const status = error.response?.status;
+        setStaffCardError(status === 404 ? 'Cartão não disponível para este restaurante ou ainda não preparado.' :
+          status === 403 ? error.response?.data?.error || 'Seu restaurante não possui acesso à operação NFC.' :
+          status === 401 ? 'Sua sessão expirou. Entre novamente na mesma aba para continuar.' :
+          'Não foi possível verificar o cartão no servidor. Tente novamente.');
+      }
+    }).finally(() => { if (active) setStaffChecking(false); });
     return () => { active = false; };
-  }, [allowed, validToken, cardReady, staffRequested, isLoading, token]);
+  }, [allowed, validToken, cardReady, staffRequested, isLoading, token, staffRetry]);
 
   const chooseAction = (next: NfcEntryAction) => {
     setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
@@ -184,11 +195,16 @@ export default function NfcIntakePage() {
     cardContextError={cardContextError}
     onRetryCardContext={retryCardContext}
     staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
+    staffLoggedIn={!isLoading && allowed}
+    staffChecking={isLoading || staffChecking || (!staffCardError && !staffCard)}
+    staffError={staffCardError || (!cardReady ? cardContextError : '')}
+    onRetryStaff={() => { setStaffCardError(''); setStaffCard(null); retryCardContext(); setStaffRetry(v => v + 1); }}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
     staffSection={staffTab}
     onStaff={() => { setHelpVisible(false); chooseAction('staff'); }}
     onHelp={() => setHelpVisible(value => !value)}
     helpVisible={helpVisible}
+    helpContent={helpVisible ? <NfcAssistanceRequest key={token} token={token} /> : null}
     onSelectSection={setStaffTab}
     onBack={() => {
       if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setReturnCpf(''); setMessage(''); setResult(''); return; }
