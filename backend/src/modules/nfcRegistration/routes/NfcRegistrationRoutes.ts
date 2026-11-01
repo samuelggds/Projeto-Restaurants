@@ -591,6 +591,29 @@ router.post('/cards/return', async (req, res) => {
   } catch (error) { return safe(res, error); }
 });
 
+// Resolve card status only inside the authenticated staff tenant.
+// The NFC URL is not authorization and does not grant access to another restaurant.
+router.post('/cards/attendance-context', async (req, res) => {
+  try {
+    const tokenHash = normalizeTagToken(req.body?.token);
+    const restaurantId = Number(req.user.restaurantId);
+    const result = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: { in: ['READY', 'ACTIVE'] } },
+        select: { id: true, status: true, displayCode: true, customerId: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
+      const comanda = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcComanda.findFirst({
+          where: { restaurantId, cardId: card.id, customerId: card.customerId, status: 'OPEN' },
+          select: { id: true },
+        }) : null;
+      return { status: card.status, displayCode: card.displayCode, comandaId: comanda?.id ?? null };
+    });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({ card: result });
+  } catch (error) { return safe(res, error); }
+});
 router.post('/cards/resolve', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId);
