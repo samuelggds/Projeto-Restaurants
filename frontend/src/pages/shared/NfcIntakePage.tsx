@@ -195,16 +195,16 @@ export default function NfcIntakePage() {
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
         : <div role="status"><p>Este cartão ainda não possui uma comanda aberta. Cadastre ou vincule o cliente antes de anotar pedidos.</p>{staffCard.status === 'READY' && <button type="button" onClick={() => setStaffTab('registration')}>Cadastrar ou acessar conta existente</button>}</div>)}
       {staffCard && staffTab === 'registration' && (<><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
-      <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
-      <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
+      {staffCard.status === 'ACTIVE' && <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Consultar pedido aguardando confirmação</button>}
+      {staffCard.status === 'ACTIVE' && <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
         <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
-        <p>No caixa, após o pagamento Pix ou Point, o funcionário aproxima o cartão e o cliente digita o CPF completo. Se a comanda estiver quitada no backend, o vínculo será encerrado automaticamente.</p>
+        <p>Após quitar a comanda, o cliente informa o CPF completo. O servidor confere o pagamento e libera este cartão mantendo o mesmo link gravado.</p>
         <label>CPF completo (11 dígitos)
           <input type="password" inputMode="numeric" autoComplete="off" maxLength={11} minLength={11}
             value={returnCpf} onChange={e => setReturnCpf(e.target.value.replace(/\D/g, '').slice(0, 11))} required />
         </label>
         <button type="submit" disabled={busy || returnCpf.length !== 11}>Verificar pagamento e liberar cartão</button>
-      </form>
+      </form>}
       {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>
         <p>O cliente deve digitar os três primeiros números do seu CPF, sem mostrar o número completo ao funcionário. Esta confirmação expira em {new Date(orderChallenge.expiresAt).toLocaleTimeString('pt-BR')}.</p>
         <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy} />
