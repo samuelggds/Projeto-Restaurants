@@ -13,8 +13,15 @@ import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcPaymentPanel } from './NfcPaymentPanel';
 import { NfcStaffComanda } from './NfcStaffComanda';
 
+// React Router reuses page instances when only route params change. Remounting
+// on card/tenant changes prevents a prior card's private form, CPF, comanda or
+// order confirmation state from appearing on the next physical card.
 export default function NfcIntakePage() {
   const { token = '', restaurantSlug: urlSlug = '' } = useParams();
+  return <NfcCardFlow key={`${urlSlug}/${token}`} token={token} urlSlug={urlSlug} />;
+}
+
+function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const location = useLocation();
   const navigate = useNavigate();
   const action = getNfcEntryAction(location.search);
