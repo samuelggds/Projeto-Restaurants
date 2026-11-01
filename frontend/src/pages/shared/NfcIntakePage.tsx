@@ -1,15 +1,22 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { buildNfcEntryPath, getNfcEntryAction, type NfcEntryAction } from './nfcEntryNavigation';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
-import NfcEntryPanel from './NfcEntryPanel';
+import NfcEntryPanel, { type NfcStaffSection } from './NfcEntryPanel';
+import { NfcPrepareOrder } from './NfcPrepareOrder';
+import { NfcPaymentPanel } from './NfcPaymentPanel';
+import { NfcStaffComanda } from './NfcStaffComanda';
 
 export default function NfcIntakePage() {
   const { token = '' } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const action = getNfcEntryAction(location.search);
   const { user, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -24,13 +31,17 @@ export default function NfcIntakePage() {
   const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [helpVisible, setHelpVisible] = useState(false);
   const [result, setResult] = useState('');
   const role = String(user?.role ?? '').toUpperCase();
   const subRole = String(user?.subRole ?? '').toUpperCase();
   const allowed = Number(user?.restaurantId ?? user?.restaurant?.id) > 0 &&
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
-  const [view, setView] = useState<'home' | 'staff'>('home');
+  const view: 'home' | 'staff' = action ? 'staff' : 'home';
+  const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
+  const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
+  const [staffCardError, setStaffCardError] = useState('');
   const [cardContext, setCardContext] = useState<
     { token: string; status: 'ready' | 'error'; slug: string } | null
   >(null);
@@ -53,7 +64,26 @@ export default function NfcIntakePage() {
   }, [token, validToken]);
   const matchingContext = cardContext?.token === token ? cardContext : null;
   const cardReady = validToken && matchingContext?.status === 'ready';
-  const loginPath = cardReady ? '/' + matchingContext.slug + '/team' : '';
+  const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action)) : '';
+  const staffRequested = view === 'staff';
+  useEffect(() => {
+    if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
+    let active = true;
+    void api.post<{ card: { status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
+      '/nfc-registration/cards/attendance-context', { token }, { skipBaseUrlFallback: true },
+    ).then(response => {
+      if (active) { setStaffCard(response.data.card); setStaffCardError(''); }
+    }).catch(() => {
+      if (active) { setStaffCard(null); setStaffCardError('Cartão não pertence ao restaurante autenticado ou está indisponível.'); }
+    });
+    return () => { active = false; };
+  }, [allowed, validToken, cardReady, staffRequested, isLoading, token]);
+
+  const chooseAction = (next: NfcEntryAction) => {
+    setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
+    setStaffTab(next === 'order' ? 'orders' : next === 'payment' ? 'payment' : 'menu');
+    navigate(buildNfcEntryPath(token, next));
+  };
   const lookup = async () => {
     setBusy(true); setMessage('');
     try {
@@ -99,6 +129,8 @@ export default function NfcIntakePage() {
       const returned = await nfcRegistrationService.returnPaidCard(token, returnCpf);
       setReturnCpf('');
       setResult(`Cartão ${returned.displayCode} devolvido, desvinculado e disponível para o próximo cliente. Histórico financeiro preservado.`);
+      setStaffCard({ status: 'READY', displayCode: returned.displayCode, comandaId: null });
+      setStaffTab('registration');
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setMessage(response.response?.data?.error || 'Não foi possível liberar o cartão. Verifique CPF completo e quitação no servidor.');
@@ -127,8 +159,11 @@ export default function NfcIntakePage() {
           }
         }
         setResult(`Cartão ${assignment.displayCode} vinculado e comanda ${comanda.id.slice(0, 8).toUpperCase()} aberta. O garçom ou atendente já pode selecionar produtos no painel NFC.${notice}`);
+        setStaffCard({ status: 'ACTIVE', displayCode: assignment.displayCode, comandaId: comanda.id });
+        setStaffTab('menu');
       } catch {
         setResult(`Cartão ${assignment.displayCode} vinculado. A comanda ainda não foi aberta: procure o cliente na seção "Clientes e cartões NFC" e abra a comanda antes de registrar pedidos.`);
+        setStaffCard({ status: 'ACTIVE', displayCode: assignment.displayCode, comandaId: null });
       }
     } catch (error) {
       const response = error as { response?: { data?: { error?: string } } };
@@ -141,34 +176,50 @@ export default function NfcIntakePage() {
     loadingCard={validToken && matchingContext === null}
     customerPath={`/nfc/cliente/${token}`}
     loginPath={loginPath}
-    onStaff={() => setView('staff')}
+    staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
+    staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
+    staffSection={staffTab}
+    onStaff={() => { setHelpVisible(false); chooseAction('staff'); }}
+    onHelp={() => setHelpVisible(value => !value)}
+    helpVisible={helpVisible}
+    onSelectSection={setStaffTab}
     onBack={() => {
-      setView('home');
+      if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setReturnCpf(''); setMessage(''); setResult(''); return; }
+      navigate(buildNfcEntryPath(token));
       setName(''); setCpf(''); setPhone(''); setTable(''); setLookupCpf('');
       setCustomerId(''); setExistingCustomerName(''); setOrderPrefix('');
-      setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult('');
+      setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult(''); setStaffTab('menu');
     }}
   >
     {view === 'staff' && allowed && validToken && cardReady && !isLoading && (
-      result ? <p className="success" role="status">{result}</p> :
-      <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
-      <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
-      <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
+      <><p role="status">Cartão NFC: {staffCard?.displayCode || 'Verificando acesso ao restaurante...'}</p>
+      {staffCardError && <p className="error" role="alert">{staffCardError}</p>}
+      {result && <p className="success" role="status">{result}</p>}
+      {message && <p className="error" role="alert">{message}</p>}
+
+      {staffCard && staffTab === 'payment' && <NfcPaymentPanel key={token} token={token} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
+      {staffCard && staffTab === 'consult' && <NfcStaffComanda token={token} />}
+      {staffCard && staffTab === 'orders' && (staffCard.status === 'ACTIVE' && staffCard.comandaId
+        ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
+        : <div role="status"><p>Este cartão ainda não possui uma comanda aberta. Cadastre ou vincule o cliente antes de anotar pedidos.</p>{staffCard.status === 'READY' && <button type="button" onClick={() => setStaffTab('registration')}>Cadastrar ou acessar conta existente</button>}</div>)}
+      {staffCard && staffTab === 'registration' && (<><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
+      {staffCard.status === 'ACTIVE' && <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Consultar pedido aguardando confirmação</button>}
+      {staffCard.status === 'ACTIVE' && <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
         <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
-        <p>No caixa, após o pagamento Pix ou Point, o funcionário aproxima o cartão e o cliente digita o CPF completo. Se a comanda estiver quitada no backend, o vínculo será encerrado automaticamente.</p>
+        <p>Após quitar a comanda, o cliente informa o CPF completo. O servidor confere o pagamento e libera este cartão mantendo o mesmo link gravado.</p>
         <label>CPF completo (11 dígitos)
           <input type="password" inputMode="numeric" autoComplete="off" maxLength={11} minLength={11}
             value={returnCpf} onChange={e => setReturnCpf(e.target.value.replace(/\D/g, '').slice(0, 11))} required />
         </label>
         <button type="submit" disabled={busy || returnCpf.length !== 11}>Verificar pagamento e liberar cartão</button>
-      </form>
+      </form>}
       {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>
         <p>O cliente deve digitar os três primeiros números do seu CPF, sem mostrar o número completo ao funcionário. Esta confirmação expira em {new Date(orderChallenge.expiresAt).toLocaleTimeString('pt-BR')}.</p>
         <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy} />
         <button type="submit" disabled={busy || orderPrefix.length !== 3}>Confirmar identidade e cartão</button>
       </form>}
       
-      <form onSubmit={(event) => void handleSubmit(event)} style={{ display: 'grid', gap: 14 }}>
+      {staffCard.status === 'READY' && <form onSubmit={(event) => void handleSubmit(event)} style={{ display: 'grid', gap: 14 }}>
         <label>Nome completo<input value={name} onChange={e => setName(e.target.value)} required={!customerId} disabled={Boolean(customerId)} minLength={2}/></label>
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
         <label>Telefone com DDD<input value={phone} onChange={e => setPhone(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="tel"/></label>
@@ -180,9 +231,9 @@ export default function NfcIntakePage() {
           {existingCustomerName && <p role="status">Cliente encontrado: {existingCustomerName}. Use este cadastro para evitar duplicidade.</p>}
           {customerId && <button type="button" onClick={() => { setCustomerId(''); setExistingCustomerName(''); }}>Cadastrar outro cliente</button>}
         </details>
-        {message && <p className="error" role="alert">{message}</p>}
         <button type="submit" disabled={busy}>{busy ? 'Vinculando...' : 'Confirmar cadastro e vincular cartão'}</button>
-      </form></>
+      </form>}</>)}
+      </>
     )}
   </NfcEntryPanel>;
 }

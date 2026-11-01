@@ -30,6 +30,7 @@ import {
   resolveAuthExperience,
 } from '../../shared/navigation/authNavigation';
 import { getRoleHome } from '../../routes/routeAuthorization';
+import { isNfcStaffReturnPath } from '../shared/nfcEntryNavigation';
 import {
   getRestaurantCategoryLabel,
   getRestaurantLoginVisual,
@@ -239,16 +240,23 @@ export default function Login() {
           navigate(changePasswordPath);
           return;
         }
-
         if (safeNextPath) {
           navigate(safeNextPath);
           return;
         }
       }
-
+      // Staff NFC return paths are card-scoped and require regular authentication.
+      // The NFC route itself checks tenant ownership and role in the backend.
+      if (portal === 'STAFF' && safeNextPath &&
+          isNfcStaffReturnPath(safeNextPath) &&
+          (user?.role === 'ADMIN' || (user?.role === 'FUNCIONARIO' &&
+            ['GARCOM','ATENDENTE'].includes(String(user?.subRole || '').toUpperCase())))) {
+        navigate(safeNextPath, { replace: true });
+        return;
+      }
       navigate(getRoleHome(user));
     },
-    [changePasswordPath, navigate, safeNextPath],
+    [changePasswordPath, navigate, portal, safeNextPath],
   );
   const latestRedirectByRoleRef = useRef(redirectByRole);
   const latestGoogleRestaurantSlugRef = useRef(portalSlug);

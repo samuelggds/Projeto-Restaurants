@@ -83,13 +83,24 @@ router.get('/cards/inventory', async (req, res) => {
       const [cards, total, grouped] = await Promise.all([
         tx.nfcCard.findMany({
           where,
-          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true },
+          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true, activatedAt: true, revokedAt: true },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           skip: (page - 1) * cardInventoryPageSize,
           take: cardInventoryPageSize,
         }),
         tx.nfcCard.count({ where }),
         tx.nfcCard.groupBy({ by: ['status'], where: { restaurantId }, _count: { _all: true } }),
+      ]);
+      // The inventory must not offer deletion for a returned/reused card with
+      // financial or order history, even though customerId was cleared.
+      const visibleCardIds = cards.map(card => card.id);
+      const [usedComandas, usedConfirmations] = visibleCardIds.length ? await Promise.all([
+        tx.nfcComanda.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
+        tx.nfcOrderConfirmation.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
+      ]) : [[], []];
+      const cardsWithHistory = new Set<string>([
+        ...usedComandas.map(item => item.cardId),
+        ...usedConfirmations.map(item => item.cardId),
       ]);
       const customerIds = cards.map(card => card.customerId).filter((id): id is string => !!id);
       const customers = customerIds.length ? await tx.nfcCustomer.findMany({
@@ -119,6 +130,9 @@ router.get('/cards/inventory', async (req, res) => {
           const comanda = accounts.find(account => account.cardId === card.id);
           return {
             id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
+            canDelete: card.customerId === null && card.activatedAt === null && card.revokedAt === null
+              && (card.status === 'READY' || card.status === 'PENDING_WRITE')
+              && !cardsWithHistory.has(card.id),
             blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
             visualStatus: nfcInventoryVisualState(card.status, card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents), comanda),
             customer: customer ? {
@@ -216,7 +230,7 @@ router.post('/cards/:id/revoke', async (req, res) => {
     const restaurantId = Number(req.user.restaurantId);
     const revoked = await prisma.$transaction(async (tx) => {
       await setTenantDbContext(tx, restaurantId);
-      const result = await tx.nfcCard.updateMany({ where: { id: cardId, restaurantId, status: { in: ['PENDING_WRITE', 'ACTIVE'] } }, data: { status: 'REVOKED', revokedByUserId: Number(req.user.id), revokedAt: new Date(), revokeReason: reason } });
+      const result = await tx.nfcCard.updateMany({ where: { id: cardId, restaurantId, status: { in: ['PENDING_WRITE', 'READY', 'ACTIVE'] } }, data: { status: 'REVOKED', revokedByUserId: Number(req.user.id), revokedAt: new Date(), revokeReason: reason } });
       if (result.count !== 1) throw new NfcRegistrationError(409, 'Cartão inexistente, já revogado ou pertencente a outro restaurante.');
       const card = await tx.nfcCard.findFirst({ where: { id: cardId, restaurantId }, select: { id: true, customerId: true, status: true } });
       if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado.');
@@ -591,6 +605,175 @@ router.post('/cards/return', async (req, res) => {
   } catch (error) { return safe(res, error); }
 });
 
+// Resolve card status only inside the authenticated staff tenant.
+// The NFC URL is not authorization and does not grant access to another restaurant.
+// Staff may read the payment balance only after the card's current owner
+// verifies their full CPF. A public NFC URL is never proof of identity.
+// This shares the persisted lockout counters with the card-return endpoint.
+const paymentContextSchema = z.strictObject({
+  token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u),
+  cpf: z.string().regex(/^\d{11}$/u),
+});
+router.post('/cards/payment-context', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  try {
+    const input = paymentContextSchema.parse(req.body);
+    const tokenHash = normalizeTagToken(input.token);
+    const restaurantId = Number(req.user.restaurantId);
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const preview = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: 'ACTIVE', customerId: { not: null } },
+        select: { id: true, customerId: true },
+      });
+      if (!preview?.customerId) throw new NfcRegistrationError(404, 'Não há comanda ativa para este cartão neste restaurante.');
+      const latest = await tx.nfcComanda.findFirst({
+        where: { restaurantId, cardId: preview.id, customerId: preview.customerId,
+          status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+        orderBy: { openedAt: 'desc' }, select: { id: true },
+      });
+      if (!latest) throw new NfcRegistrationError(404, 'Não há comanda vinculada a este cartão.');
+      // Match return/settlement lock order: comanda, then card. Recheck both
+      // after locking to prevent another operator changing the current owner.
+      const lockedComanda = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcComanda" WHERE "restaurantId" = ${restaurantId}
+        AND "id" = ${latest.id}::uuid FOR UPDATE
+      `;
+      const lockedCard = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard" WHERE "restaurantId" = ${restaurantId}
+        AND "id" = ${preview.id}::uuid FOR UPDATE
+      `;
+      if (lockedComanda.length !== 1 || lockedCard.length !== 1) {
+        throw new NfcRegistrationError(409, 'Cartão ou comanda alterados. Atualize o atendimento.');
+      }
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: preview.id, tokenHash, status: 'ACTIVE', customerId: preview.customerId },
+        select: { id: true, displayCode: true, customerId: true, status: true,
+          failedReturnCpfAttempts: true, returnCpfLockedUntil: true },
+      });
+      const comanda = card?.customerId ? await tx.nfcComanda.findFirst({
+        where: { restaurantId, id: latest.id, cardId: card.id, customerId: card.customerId,
+          status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+        select: { id: true, status: true, totalCents: true, paidCents: true },
+      }) : null;
+      if (!card?.customerId || !comanda) throw new NfcRegistrationError(409, 'O vínculo deste cartão mudou. Recomece a verificação.');
+      const now = new Date();
+      if (card.returnCpfLockedUntil && card.returnCpfLockedUntil > now) {
+        return { outcome: 'locked' as const,
+          remainingMinutes: nfcReturnCpfRemainingMinutes(card.returnCpfLockedUntil, now) };
+      }
+      const customer = await tx.nfcCustomer.findFirst({
+        where: { restaurantId, id: card.customerId }, select: { cpfFingerprint: true },
+      });
+      if (!customer) throw new NfcRegistrationError(404, 'Cliente não encontrado neste restaurante.');
+      const matched = nfcCpfFingerprints(restaurantId, input.cpf).some(fingerprint =>
+        crypto.timingSafeEqual(Buffer.from(fingerprint, 'hex'), Buffer.from(customer.cpfFingerprint, 'hex')));
+      if (!matched) {
+        const failure = nextNfcReturnCpfFailure(card.failedReturnCpfAttempts, now);
+        const changed = await tx.nfcCard.updateMany({
+          where: { restaurantId, id: card.id, customerId: card.customerId, status: 'ACTIVE' },
+          data: { failedReturnCpfAttempts: failure.attempts, returnCpfLockedUntil: failure.lockedUntil },
+        });
+        if (changed.count !== 1) throw new NfcRegistrationError(409, 'Cartão alterado durante a verificação.');
+        await tx.nfcRegistrationAudit.create({ data: {
+          restaurantId, actorUserId: Number(req.user.id), customerId: card.customerId,
+          cardId: card.id, action: 'CARD_PAYMENT_CPF_DENIED',
+        } });
+        return { outcome: 'denied' as const, locked: failure.lockedUntil !== null,
+          remainingMinutes: failure.lockedUntil ? nfcReturnCpfRemainingMinutes(failure.lockedUntil, now) : 0 };
+      }
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), customerId: card.customerId,
+        cardId: card.id, action: 'CARD_PAYMENT_CPF_VERIFIED',
+      } });
+      return { outcome: 'verified' as const,
+        card: { status: card.status, displayCode: card.displayCode },
+        comanda: { id: comanda.id, status: comanda.status,
+          totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
+          outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)) },
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    if (result.outcome === 'locked' || (result.outcome === 'denied' && result.locked)) {
+      return res.status(429).json({ error:
+        `Muitas tentativas incorretas. Tente novamente em ${result.remainingMinutes} minuto(s).` });
+    }
+    if (result.outcome === 'denied') {
+      return res.status(403).json({ error: 'CPF não corresponde ao titular vinculado ao cartão.' });
+    }
+    return res.json({ card: result.card, comanda: result.comanda,
+      pixEnabled: false, pointEnabled: false,
+      reason: 'Pix e Point NFC ainda aguardam integração financeira, confirmação do gateway e homologação.' });
+  } catch (error) { return safe(res, error); }
+});
+// Staff-only comanda consultation; cannot be accessed from a public NFC link.
+const staffComandaSchema = z.strictObject({ token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u) });
+router.post('/cards/staff-comanda', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    const { token } = staffComandaSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId), tokenHash = normalizeTagToken(token);
+    const context = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: { in: ['ACTIVE', 'READY'] } },
+        select: { id: true, customerId: true, status: true, displayCode: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const comanda = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcComanda.findFirst({
+          where: { restaurantId, cardId: card.id, customerId: card.customerId,
+            status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
+          orderBy: { openedAt: 'desc' },
+          select: {
+            id: true, status: true, tableNumber: true, totalCents: true, paidCents: true,
+            items: { select: { id: true, description: true, quantity: true, totalCents: true },
+              orderBy: { createdAt: 'asc' } },
+            orders: { select: { id: true, status: true }, orderBy: { createdAt: 'asc' } },
+            payments: { select: { id: true, status: true, amountCents: true },
+              orderBy: { createdAt: 'desc' } },
+          },
+        }) : null;
+      const customer = comanda && card.customerId
+        ? await tx.nfcCustomer.findFirst({
+          where: { restaurantId, id: card.customerId }, select: { id: true, nameEncrypted: true },
+        }) : null;
+      return {
+        card: { displayCode: card.displayCode, status: card.status },
+        customer: customer ? { name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) } : null,
+        comanda: comanda ? {
+          ...comanda, totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
+          outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
+          items: comanda.items.map(item => ({ ...item, totalCents: Number(item.totalCents) })),
+          payments: comanda.payments.map(payment => ({ ...payment, amountCents: Number(payment.amountCents) })),
+        } : null,
+      };
+    });
+    return res.json(context);
+  } catch (error) { return safe(res, error); }
+});
+
+router.post('/cards/attendance-context', async (req, res) => {
+  try {
+    const tokenHash = normalizeTagToken(req.body?.token);
+    const restaurantId = Number(req.user.restaurantId);
+    const result = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash, status: { in: ['READY', 'ACTIVE'] } },
+        select: { id: true, status: true, displayCode: true, customerId: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
+      const comanda = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcComanda.findFirst({
+          where: { restaurantId, cardId: card.id, customerId: card.customerId, status: 'OPEN' },
+          select: { id: true },
+        }) : null;
+      return { status: card.status, displayCode: card.displayCode, comandaId: comanda?.id ?? null };
+    });
+    res.setHeader('Cache-Control', 'no-store, private');
+    return res.json({ card: result });
+  } catch (error) { return safe(res, error); }
+});
 router.post('/cards/resolve', async (req, res) => {
   try {
     const restaurantId = Number(req.user.restaurantId);
