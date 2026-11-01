@@ -107,19 +107,26 @@ router.get('/account',async(req,res)=>{
        where:{id:record.comandaId,restaurantId:card.card.restaurantId,
          cardId:card.card.id,customerId:card.card.customerId!,status:'OPEN'},
        select:{id:true,customerId:true,cardId:true,tableNumber:true,status:true,openedAt:true,
-         totalCents:true,paidCents:true,
-         items:{select:{id:true,kind:true,description:true,quantity:true,totalCents:true,createdAt:true,sourceOrderId:true},orderBy:{createdAt:'asc'}},
-         orders:{select:{id:true,status:true,createdAt:true},orderBy:{createdAt:'asc'}},
+         totalCents:true,paidCents:true,customer:{select:{nameEncrypted:true}},restaurant:{select:{name:true}},
+         items:{select:{id:true,kind:true,description:true,quantity:true,unitPriceCents:true,totalCents:true,createdAt:true,sourceOrderId:true,sourceOrderItemId:true},orderBy:{createdAt:'asc'}},
+         orders:{select:{id:true,status:true,createdAt:true,observation:true,items:{select:{id:true,observation:true}}},orderBy:{createdAt:'asc'}},
+         payments:{where:{status:'CONFIRMED',reversedAt:null},select:{id:true,amountCents:true,confirmedAt:true},orderBy:{confirmedAt:'desc'}},
        },
      });
      if(!comanda?.cardId)return null;
      const activeCard=await tx.nfcCard.findFirst({where:{restaurantId:card.card.restaurantId,id:comanda.cardId,
        customerId:comanda.customerId,status:'ACTIVE'},select:{id:true,displayCode:true}});
      if(!activeCard)return null;
+     const notes=new Map(comanda.orders.flatMap(order=>order.items.map(item=>[item.id,item.observation] as const)));
      return {id:comanda.id,cardCode:activeCard.displayCode,tableNumber:comanda.tableNumber,status:comanda.status,openedAt:comanda.openedAt,
+       customerName:decryptNfcPii(card.card.restaurantId,comanda.customerId,'name',comanda.customer.nameEncrypted),restaurantName:comanda.restaurant.name,
        totalCents:Number(comanda.totalCents),paidCents:Number(comanda.paidCents),
        outstandingCents:Math.max(0,Number(comanda.totalCents-comanda.paidCents)),
-       items:comanda.items.map(item=>({...item,totalCents:Number(item.totalCents)})),orders:comanda.orders};
+       items:comanda.items.map(item=>({id:item.id,kind:item.kind,description:item.description,quantity:item.quantity,
+         unitPriceCents:Number(item.unitPriceCents),totalCents:Number(item.totalCents),createdAt:item.createdAt,
+         sourceOrderId:item.sourceOrderId,observation:item.sourceOrderItemId?notes.get(item.sourceOrderItemId)??null:null})),
+       orders:comanda.orders.map(order=>({id:order.id,status:order.status,createdAt:order.createdAt,observation:order.observation})),
+       payments:comanda.payments.map(payment=>({id:payment.id,amountCents:Number(payment.amountCents),confirmedAt:payment.confirmedAt}))};
    });
    if(!payload)return genericError(res,401);
    noStore(res);
