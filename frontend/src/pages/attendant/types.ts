@@ -32,7 +32,10 @@ export interface AttendantOrder {
 
 export interface AttendantCall {
   id: string;
-  tableNumber: number;
+  tableNumber: number | null;
+  source?: 'NFC';
+  customerName?: string | null;
+  cardCode?: string | null;
   type: AttendantCallType;
   status: AttendantCallStatus;
   assignedToId: number | null;

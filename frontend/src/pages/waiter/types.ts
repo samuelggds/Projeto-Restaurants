@@ -137,7 +137,9 @@ export interface WaiterAccountSession {
 }
 export interface ServiceCall {
   id: string;
-  tableNumber: number;
+  tableNumber: number | null;
+  source?: 'NFC';
+  cardCode?: string;
   type: CallType;
   status: CallStatus;
   elapsed: string;

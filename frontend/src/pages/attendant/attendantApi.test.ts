@@ -23,8 +23,10 @@ describe('contratos de leitura do atendente', () => {
       tables: [],
       cashPayments: [],
     };
-    vi.mocked(api.get).mockResolvedValueOnce({ data });
+    vi.mocked(api.get).mockResolvedValueOnce({ data }).mockResolvedValueOnce({ data: [] });
     await expect(attendantApi.getWorkspace()).resolves.toEqual(data);
+    expect(api.get).toHaveBeenCalledWith('/attendant/workspace');
+    expect(api.get).toHaveBeenCalledWith('/waiter-calls/nfc');
   });
 
   it.each([

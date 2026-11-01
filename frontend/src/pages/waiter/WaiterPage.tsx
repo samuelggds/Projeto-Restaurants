@@ -95,7 +95,7 @@ export default function WaiterPage() {
     const results = await Promise.allSettled([
       ordersService.listRestaurantOrders(),
       tablesService.listTables(),
-      waiterCallsService.listCalls(),
+      Promise.all([waiterCallsService.listCalls(), waiterCallsService.listNfcCalls()]).then(([regular,nfc]) => [...regular,...nfc]),
       tableAccountService.listWaiterSessions(),
     ]);
     if (!mountedRef.current) return;
@@ -347,7 +347,9 @@ export default function WaiterPage() {
         if (status === 'WAITING')
           throw new Error('Não é possível reabrir um chamado por esta tela.');
         stopCallAlarm();
-        await waiterCallsService.updateStatus(callId, status);
+        const currentCall = data.calls.find(call => call.id === callId);
+        if (currentCall?.source === 'NFC') await waiterCallsService.updateNfcCallStatus(callId, status);
+        else await waiterCallsService.updateStatus(callId, status);
         setData((current) => ({
           ...current,
           calls: current.calls.map((call) =>
@@ -364,6 +366,9 @@ export default function WaiterPage() {
         void loadWorkspace(true);
       }}
       onDeleteCall={async (callId) => {
+        if (data.calls.some(call => call.id === callId && call.source === 'NFC')) {
+          throw new Error('Chamados NFC concluídos são preservados para auditoria.');
+        }
         await waiterCallsService.deleteCall(callId);
         setData((current) => ({
           ...current,

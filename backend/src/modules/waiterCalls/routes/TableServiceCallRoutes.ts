@@ -6,6 +6,7 @@ import prisma from '../../../config/prisma.js';
 import { decryptNfcPii } from '../../nfcRegistration/security/nfcCustomerPii.js';
 import { tableServiceCallEvents } from '../realtime/tableServiceCallEvents.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
+import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { optionalTableSessionAuthMiddleware } from '../../../middlewares/optionalAuthMiddleware.js';
 import { sessionMiddleware } from '../../../middlewares/sessionMiddleware.js';
 import { tableParticipantMiddleware } from '../../../middlewares/tableParticipantMiddleware.js';
@@ -21,7 +22,7 @@ const router = Router();
 
 // NFC calls are independent of QR/table sessions; tenant scope derives
 // exclusively from authenticated waiter/admin/attendant identity.
-router.get('/nfc', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware, async(req,res)=>{
+router.get('/nfc', authMiddleware, nfcRegistrationAccessMiddleware, async(req,res)=>{
  try {
   const restaurantId=Number(req.user.restaurantId);
   const calls=await withTenantDbContext(restaurantId,tx=>tx.nfcServiceCall.findMany({
@@ -34,7 +35,7 @@ router.get('/nfc', authMiddleware, waiterMiddleware, premiumTablePlanMiddleware,
   return res.json(calls.map(call=>({id:call.id,source:'NFC',cardCode:call.card.displayCode,tableNumber:call.tableNumber,customerName:decryptNfcPii(restaurantId,call.comanda.customerId,'name',call.comanda.customer.nameEncrypted),type:'WAITER',status:call.status,requestedAt:call.requestedAt,assignedToId:call.assignedToId,assignedTo:call.assignedTo,resolvedAt:call.resolvedAt})));
  }catch{return res.status(503).json({error:'Chamados NFC indisponíveis.'});}
 });
-router.patch('/nfc/:id/status',authMiddleware,waiterMiddleware,premiumTablePlanMiddleware,async(req,res)=>{
+router.patch('/nfc/:id/status',authMiddleware,nfcRegistrationAccessMiddleware,async(req,res)=>{
  try{
   const id=z.uuid().parse(req.params.id),status=z.enum(['IN_PROGRESS','RESOLVED']).parse(req.body?.status);
   const restaurantId=Number(req.user.restaurantId),actor=Number(req.user.id);
