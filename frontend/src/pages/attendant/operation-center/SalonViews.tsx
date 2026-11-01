@@ -97,10 +97,10 @@ export function Calls({
           const mine = call.assignedToId === attendantId;
           return (
             <CallCard key={call.id}>
-              <span className="table">Mesa {String(call.tableNumber).padStart(2, '0')}</span>
+              <span className="table">{call.tableNumber ? `Mesa ${String(call.tableNumber).padStart(2, '0')}` : 'Cartão NFC'}</span>
               <div>
                 <strong>
-                  {call.type === 'BILL' ? 'Fechamento de conta' : 'Atendimento no salão'}
+                  {call.source === 'NFC' ? `Chamado NFC · ${call.customerName || call.cardCode || 'Cliente'}` : call.type === 'BILL' ? 'Fechamento de conta' : 'Atendimento no salão'}
                 </strong>
                 <small>
                   {call.status === 'WAITING'
