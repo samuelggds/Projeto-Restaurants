@@ -30,6 +30,27 @@ test('NFC public card context resolves only the own tenant slug and grants no se
     assert.equal(Object.hasOwn(found.data, 'sessionToken'), false);
     assert.equal(Object.hasOwn(found.data, 'restaurantId'), false);
     assert.equal(Object.hasOwn(found.data, 'customerId'), false);
+    const endpoint = '/nfc-registration/cards/attendance-context';
+    const approved = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(approved.response.status, 200, JSON.stringify(approved.data));
+    assert.deepEqual(approved.data, { card: {
+      status: 'READY', displayCode: 'NFC-TEST-CONTEXT', comandaId: null,
+    } });
+    assert.equal(approved.response.headers.get('cache-control'), 'no-store, private');
+    const foreign = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminB, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(foreign.response.status, 404);
+    const anonymous = await apiRequest(app.baseUrl, endpoint, undefined, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(anonymous.response.status, 401);
+    const customer = await apiRequest(app.baseUrl, endpoint, fixture.tokens.customerA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(customer.response.status, 403);
     const bogus = await apiRequest(app.baseUrl, '/nfc-customer-view/card-context',
       undefined, { method: 'POST', json: { token: randomBytes(32).toString('base64url') } });
     assert.equal(bogus.response.status, 404);
