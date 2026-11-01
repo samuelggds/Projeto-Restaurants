@@ -42,8 +42,9 @@ export default function NfcIntakePage() {
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
+  const [retryContextVersion, setRetryContextVersion] = useState(0);
   const [cardContext, setCardContext] = useState<
-    { token: string; status: 'ready' | 'error'; slug: string } | null
+    { token: string; status: 'ready' | 'invalid' | 'unavailable'; slug: string } | null
   >(null);
   useEffect(() => {
     if (!validToken) return;
@@ -55,16 +56,20 @@ export default function NfcIntakePage() {
       if (typeof slug === 'string' && /^[a-z0-9_-]{1,100}$/u.test(slug)) {
         setCardContext({ token, status: 'ready', slug });
       } else {
-        setCardContext({ token, status: 'error', slug: '' });
+        setCardContext({ token, status: 'unavailable', slug: '' });
       }
-    }).catch(() => {
-      if (active) setCardContext({ token, status: 'error', slug: '' });
+    }).catch((cause: { response?: { status?: number } }) => {
+      if (active) setCardContext({ token, status: cause.response?.status === 404 || cause.response?.status === 422 ? 'invalid' : 'unavailable', slug: '' });
     });
     return () => { active = false; };
-  }, [token, validToken]);
+  }, [token, validToken, retryContextVersion]);
   const matchingContext = cardContext?.token === token ? cardContext : null;
   const cardReady = validToken && matchingContext?.status === 'ready';
+  // Only a verified card context may select the tenant login route. A remembered
+  // browser tenant is not trustworthy enough to authorize another card.
   const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action)) : '';
+  const cardContextError = !validToken || matchingContext?.status === 'invalid' ? 'Cartão NFC inválido, revogado ou não encontrado. Confira o link gravado.' : matchingContext?.status === 'unavailable' ? 'Não foi possível consultar o servidor. Verifique a conexão e tente novamente.' : '';
+  const retryCardContext = () => { setCardContext(null); setRetryContextVersion(value => value + 1); };
   const staffRequested = view === 'staff';
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
@@ -176,6 +181,8 @@ export default function NfcIntakePage() {
     loadingCard={validToken && matchingContext === null}
     customerPath={`/nfc/cliente/${token}`}
     loginPath={loginPath}
+    cardContextError={cardContextError}
+    onRetryCardContext={retryCardContext}
     staffAuthorized={allowed && !isLoading && Boolean(staffCard)}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
     staffSection={staffTab}
