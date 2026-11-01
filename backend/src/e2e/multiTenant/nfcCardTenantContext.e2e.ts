@@ -51,6 +51,28 @@ test('NFC public card context resolves only the own tenant slug and grants no se
       method: 'POST', json: { token: rawToken },
     });
     assert.equal(customer.response.status, 403);
+    const paymentEndpoint = '/nfc-registration/cards/payment-context';
+    const payment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(payment.response.status, 200, JSON.stringify(payment.data));
+    assert.deepEqual(payment.data.card, { status: 'READY', displayCode: 'NFC-TEST-CONTEXT' });
+    assert.equal(payment.data.comanda, null);
+    assert.equal(payment.data.pixEnabled, false);
+    assert.equal(payment.data.pointEnabled, false);
+    assert.equal(payment.response.headers.get('cache-control'), 'no-store, private');
+    const otherRestaurantPayment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminB, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(otherRestaurantPayment.response.status, 404);
+    const anonymousPayment = await apiRequest(app.baseUrl, paymentEndpoint, undefined, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(anonymousPayment.response.status, 401);
+    const customerPayment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.customerA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(customerPayment.response.status, 403);
     const bogus = await apiRequest(app.baseUrl, '/nfc-customer-view/card-context',
       undefined, { method: 'POST', json: { token: randomBytes(32).toString('base64url') } });
     assert.equal(bogus.response.status, 404);
