@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
+import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 
 const Frame = styled.main`
   min-height: 100dvh; display: grid; place-items: center; padding: 20px;
@@ -141,7 +142,7 @@ export default function NfcIntakePage() {
       </form>
       {orderChallenge && <form onSubmit={event => void verifyOrder(event)} style={{display:'grid',gap:12}}>
         <p>O cliente deve digitar os três primeiros números do seu CPF, sem mostrar o número completo ao funcionário. Esta confirmação expira em {new Date(orderChallenge.expiresAt).toLocaleTimeString('pt-BR')}.</p>
-        <label>Três primeiros dígitos do CPF<input autoComplete="off" type="password" inputMode="numeric" pattern="[0-9]{3}" minLength={3} maxLength={3} value={orderPrefix} onChange={event => setOrderPrefix(event.target.value.replace(/\D/g,'').slice(0,3))} required /></label>
+        <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy} />
         <button type="submit" disabled={busy || orderPrefix.length !== 3}>Confirmar identidade e cartão</button>
       </form>}
       
