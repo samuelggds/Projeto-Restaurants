@@ -7,6 +7,7 @@ import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 import NfcEntryPanel from './NfcEntryPanel';
+import { NfcPrepareOrder } from './NfcPrepareOrder';
 
 export default function NfcIntakePage() {
   const { token = '' } = useParams();
@@ -31,6 +32,9 @@ export default function NfcIntakePage() {
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
   const [view, setView] = useState<'home' | 'staff'>('home');
+  const [staffTab, setStaffTab] = useState<'registration' | 'orders'>('registration');
+  const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
+  const [staffCardError, setStaffCardError] = useState('');
   const [cardContext, setCardContext] = useState<
     { token: string; status: 'ready' | 'error'; slug: string } | null
   >(null);
@@ -53,7 +57,21 @@ export default function NfcIntakePage() {
   }, [token, validToken]);
   const matchingContext = cardContext?.token === token ? cardContext : null;
   const cardReady = validToken && matchingContext?.status === 'ready';
-  const loginPath = cardReady ? '/' + matchingContext.slug + '/team' : '';
+  const loginPath = cardReady ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent('/nfc/' + token) : '';
+  const staffRequested = view === 'staff' || (allowed && cardReady);
+  useEffect(() => {
+    if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
+    let active = true;
+    void api.post<{ card: { status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
+      '/nfc-registration/cards/attendance-context', { token }, { skipBaseUrlFallback: true },
+    ).then(response => {
+      if (active) { setStaffCard(response.data.card); setStaffCardError(''); }
+    }).catch(() => {
+      if (active) { setStaffCard(null); setStaffCardError('Cartão não pertence ao restaurante autenticado ou está indisponível.'); }
+    });
+    return () => { active = false; };
+  }, [allowed, validToken, cardReady, staffRequested, isLoading, token]);
+  useEffect(() => { if (allowed && cardReady && !isLoading) setView('staff'); }, [allowed, cardReady, isLoading]);
   const lookup = async () => {
     setBusy(true); setMessage('');
     try {
@@ -150,8 +168,18 @@ export default function NfcIntakePage() {
     }}
   >
     {view === 'staff' && allowed && validToken && cardReady && !isLoading && (
-      result ? <p className="success" role="status">{result}</p> :
-      <><p>Cartão identificado. Cadastre o cliente ou confirme um pedido que o funcionário já preparou.</p>
+      <><p role="status">Cartão NFC: {staffCard?.displayCode || 'Verificando acesso ao restaurante...'}</p>
+      {staffCardError && <p className="error" role="alert">{staffCardError}</p>}
+      {staffCard && <nav aria-label="Atendimento NFC do cartão" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <button type="button" aria-pressed={staffTab === 'registration'} onClick={() => setStaffTab('registration')}>Cadastro e vínculo</button>
+        <button type="button" aria-pressed={staffTab === 'orders'} onClick={() => setStaffTab('orders')}>Pedidos</button>
+      </nav>}
+      {staffCard && staffTab === 'orders' && (staffCard.comandaId
+        ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
+        : <p role="status">É necessário cadastrar ou vincular o cliente e abrir a comanda antes de anotar pedidos.</p>)}
+      {staffCard && staffTab === 'registration' && (result
+        ? <p className="success" role="status">{result}</p>
+        : <><p>{staffCard.status === 'READY' ? 'Cartão disponível. Cadastre o cliente ou utilize uma conta existente.' : 'Cartão já vinculado. Confira a comanda antes de cadastrar outro cliente.'}</p>
       <button type="button" onClick={() => void lookupPendingOrder()} disabled={busy}>Confirmar pedido com este cartão</button>
       <form onSubmit={event => void handleReturn(event)} style={{ display: 'grid', gap: 12, border: '1px solid #d9e3e8', borderRadius: 12, padding: 14 }}>
         <h2 style={{ fontSize: 17, margin: 0 }}>Conferir pagamento e finalizar atendimento</h2>
@@ -168,7 +196,7 @@ export default function NfcIntakePage() {
         <button type="submit" disabled={busy || orderPrefix.length !== 3}>Confirmar identidade e cartão</button>
       </form>}
       
-      <form onSubmit={(event) => void handleSubmit(event)} style={{ display: 'grid', gap: 14 }}>
+      {staffCard.status === 'READY' && <form onSubmit={(event) => void handleSubmit(event)} style={{ display: 'grid', gap: 14 }}>
         <label>Nome completo<input value={name} onChange={e => setName(e.target.value)} required={!customerId} disabled={Boolean(customerId)} minLength={2}/></label>
         <label>CPF<input value={cpf} onChange={e => setCpf(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="numeric"/></label>
         <label>Telefone com DDD<input value={phone} onChange={e => setPhone(e.target.value)} required={!customerId} disabled={Boolean(customerId)} inputMode="tel"/></label>
@@ -182,7 +210,8 @@ export default function NfcIntakePage() {
         </details>
         {message && <p className="error" role="alert">{message}</p>}
         <button type="submit" disabled={busy}>{busy ? 'Vinculando...' : 'Confirmar cadastro e vincular cartão'}</button>
-      </form></>
+      </form>}</>)}
+      </>
     )}
   </NfcEntryPanel>;
 }
