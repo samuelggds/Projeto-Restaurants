@@ -26,6 +26,13 @@ test('NFC public card context resolves only the own tenant slug and grants no se
       undefined, { method: 'POST', json: { token: rawToken } });
     assert.equal(found.response.status, 200, JSON.stringify(found.data));
     assert.deepEqual(found.data, { restaurantSlug: fixture.restaurants.a.slug });
+    const scoped = await apiRequest(app.baseUrl, '/nfc-customer-view/card-context',
+      undefined, { method: 'POST', json: { token: rawToken, restaurantSlug: fixture.restaurants.a.slug } });
+    assert.equal(scoped.response.status, 200);
+    const wrongSlug = await apiRequest(app.baseUrl, '/nfc-customer-view/card-context',
+      undefined, { method: 'POST', json: { token: rawToken, restaurantSlug: fixture.restaurants.b.slug } });
+    assert.equal(wrongSlug.response.status, 404);
+    assert.equal(Object.hasOwn(wrongSlug.data, 'restaurantSlug'), false);
     assert.equal(found.response.headers.get('cache-control'), 'no-store, private');
     assert.equal(Object.hasOwn(found.data, 'sessionToken'), false);
     assert.equal(Object.hasOwn(found.data, 'restaurantId'), false);
