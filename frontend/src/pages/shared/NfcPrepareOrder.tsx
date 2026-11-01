@@ -7,7 +7,7 @@ import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 type Item = { id: number; name: string; price: number; stock: number | null };
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
 
-export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
+export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; cardToken?: string }) {
   const [products, setProducts] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [error, setError] = useState('');
@@ -15,7 +15,7 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
   const [step, setStep] = useState<Step>('DRAFT');
   const [challengeId, setChallengeId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(cardToken || '');
   const [prefix, setPrefix] = useState('');
   const [orderId, setOrderId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
@@ -41,7 +41,7 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
   const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const reset = () => {
     if (busy || step === 'SENDING') return;
-    setQuantities({}); setToken(''); setPrefix(''); setObservation(''); setSearch('');
+    setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch('');
     setChallengeId(''); setExpiresAt(''); setOrderId(null); setError(''); setStep('DRAFT');
   };
   const start = async () => {
@@ -53,6 +53,7 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
         crypto.randomUUID().replace(/-/g, ''), observation.trim() || undefined);
       setChallengeId(challenge.challengeId);
       setExpiresAt(challenge.expiresAt);
+      setToken(cardToken || '');
       setStep('VERIFY');
     } catch { setError('Não foi possível preparar a confirmação. Confira os produtos e a comanda.'); }
     finally { setBusy(false); }
@@ -111,7 +112,8 @@ export function NfcPrepareOrder({ comandaId }: { comandaId: string }) {
       <h4>Confirmar pedido na comanda NFC</h4>
       <p>Pedido preparado para esta comanda. Confira os itens e aproxime o cartão do titular antes de confirmar. Expira às {new Date(expiresAt).toLocaleTimeString('pt-BR')}.</p>
       <div style={{border:'1px solid #dce3e7',borderRadius:12,padding:14,display:'grid',gap:8}}><strong>Resumo do pedido</strong>{selected.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:12}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}{observation.trim()&&<small>Observação geral: {observation.trim()}</small>}<strong>Total estimado: {brl(total)}</strong><small>Comanda: {comandaId.slice(0,8).toUpperCase()}. O servidor valida cartão, vínculo e valores.</small></div>
-      <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>
+      {!cardToken && <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>}
+      {cardToken && <p role="status">Cartão recebido pelo link NFC. Confirme com os três dígitos do CPF do titular.</p>}
       <p>Em iPhones, aproxime o cartão do aparelho e abra o link NFC da GastroNexa para confirmar.</p>
         <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy} />
       <button type="button" disabled={busy || !token || prefix.length !== 3} onClick={() => void confirm()}>
