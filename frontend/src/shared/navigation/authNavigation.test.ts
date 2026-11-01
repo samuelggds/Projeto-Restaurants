@@ -3,6 +3,7 @@ import {
   buildAuthEntryUrl,
   buildAuthEntryUrlForLocation,
   buildLoginUrl,
+  getRestaurantSlugFromLocation,
   buildSessionEntryUrl,
   getCurrentReturnPath,
   getSafeAuthSearchParams,
@@ -89,6 +90,14 @@ describe('authNavigation', () => {
   ])('não preserva área operacional %s como retorno de login', (value) => {
     expect(getSafeNextPath(value)).toBe('');
     expect(buildLoginUrl({ pathname: value })).toBe(TENANT_REQUIRED_PATH);
+  });
+
+  it('usa o slug explícito do cartão NFC para recuperar o login do restaurante', () => {
+    const token = 'a'.repeat(43);
+    expect(getRestaurantSlugFromLocation({ pathname: '/north-pizza/nfc/' + token })).toBe('north-pizza');
+    expect(buildSessionEntryUrl({ pathname: '/north-pizza/nfc/' + token }, 'FUNCIONARIO')).toBe('/north-pizza/team');
+    expect(buildSessionEntryUrl({ pathname: '/nfc/' + token }, 'FUNCIONARIO')).toBe(TENANT_REQUIRED_PATH);
+    expect(getRestaurantSlugFromLocation({ pathname: '/nfc/' + token })).toBe('');
   });
 
   it('mantém o slug e o retorno seguro na URL do login quando o cliente entra pelo restaurante', () => {
