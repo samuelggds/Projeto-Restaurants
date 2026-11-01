@@ -3,12 +3,15 @@ import { buildNfcEntryPath, getNfcEntryAction, isNfcStaffReturnPath } from './nf
 
 const token = 'a'.repeat(43);
 describe('NFC staff entry navigation', () => {
-  it('keeps the public card URL and strictly scoped staff/order intents', () => {
+  it('keeps the public card URL and strictly scoped staff/order/payment intents', () => {
     expect(buildNfcEntryPath(token)).toBe('/nfc/' + token);
     expect(buildNfcEntryPath(token, 'staff')).toBe('/nfc/' + token + '?action=staff');
     expect(buildNfcEntryPath(token, 'order')).toBe('/nfc/' + token + '?action=order');
     expect(getNfcEntryAction('?action=order')).toBe('order');
     expect(getNfcEntryAction('?action=staff')).toBe('staff');
+    expect(buildNfcEntryPath(token, 'payment')).toBe('/nfc/' + token + '?action=payment');
+    expect(getNfcEntryAction('?action=payment')).toBe('payment');
+    expect(isNfcStaffReturnPath(buildNfcEntryPath(token, 'payment'))).toBe(true);
     expect(getNfcEntryAction('')).toBeNull();
     expect(isNfcStaffReturnPath(buildNfcEntryPath(token))).toBe(true);
     expect(isNfcStaffReturnPath(buildNfcEntryPath(token, 'order'))).toBe(true);
@@ -16,7 +19,7 @@ describe('NFC staff entry navigation', () => {
   it.each([
     '?action=order&action=staff',
     '?action=order&redirect=https://evil.example',
-    '?action=payment',
+    '?action=pay',
     '?action=ORDER',
     '?next=/admin',
   ])('rejects ambiguous or unsupported entry mode %s', search => {
@@ -24,7 +27,7 @@ describe('NFC staff entry navigation', () => {
   });
   it.each([
     '/nfc/short?action=order',
-    '/nfc/' + token + '?action=payment',
+    '/nfc/' + token + '?action=payments',
     '/nfc/' + token + '?action=order&next=/admin',
     '/nfc/' + token + '?action=order#foo',
     '//evil.example/nfc/' + token,
