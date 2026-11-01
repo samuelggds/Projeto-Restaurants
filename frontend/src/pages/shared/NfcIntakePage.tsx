@@ -9,6 +9,7 @@ import nfcComandaService from '../../Services/nfcComandaService';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 import NfcEntryPanel from './NfcEntryPanel';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
+import { NfcPaymentPanel } from './NfcPaymentPanel';
 
 export default function NfcIntakePage() {
   const { token = '' } = useParams();
@@ -36,7 +37,7 @@ export default function NfcIntakePage() {
     (role === 'ADMIN' || (role === 'FUNCIONARIO' && ['ATENDENTE', 'GARCOM'].includes(subRole)));
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
   const view: 'home' | 'staff' = action ? 'staff' : 'home';
-  const [staffTab, setStaffTab] = useState<'registration' | 'orders'>(action === 'order' ? 'orders' : 'registration');
+  const [staffTab, setStaffTab] = useState<'registration' | 'orders' | 'payment'>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'registration');
   const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
   const [staffCardError, setStaffCardError] = useState('');
   const [cardContext, setCardContext] = useState<
@@ -75,7 +76,7 @@ export default function NfcIntakePage() {
     });
     return () => { active = false; };
   }, [allowed, validToken, cardReady, staffRequested, isLoading, token]);
-  useEffect(() => { setStaffTab(action === 'order' ? 'orders' : 'registration'); }, [action]);
+  useEffect(() => { setStaffTab(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'registration'); }, [action]);
   const chooseAction = (next: NfcEntryAction) => {
     setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
     navigate(buildNfcEntryPath(token, next));
@@ -172,9 +173,10 @@ export default function NfcIntakePage() {
     loadingCard={validToken && matchingContext === null}
     customerPath={`/nfc/cliente/${token}`}
     loginPath={loginPath}
-    staffMode={action === 'order' ? 'order' : 'staff'}
+    staffMode={action === 'order' ? 'order' : action === 'payment' ? 'payment' : 'staff'}
     onStaff={() => chooseAction('staff')}
     onOrder={() => chooseAction('order')}
+    onPayment={() => chooseAction('payment')}
     onBack={() => {
       navigate(buildNfcEntryPath(token));
       setName(''); setCpf(''); setPhone(''); setTable(''); setLookupCpf('');
@@ -190,7 +192,9 @@ export default function NfcIntakePage() {
       {staffCard && <nav aria-label="Atendimento NFC do cartão" style={{display:'flex',gap:8,flexWrap:'wrap'}}>
         <button type="button" aria-pressed={staffTab === 'registration'} onClick={() => setStaffTab('registration')}>Cadastro e vínculo</button>
         <button type="button" aria-pressed={staffTab === 'orders'} onClick={() => setStaffTab('orders')}>Pedidos</button>
+        <button type="button" aria-pressed={staffTab === 'payment'} onClick={() => setStaffTab('payment')}>Pagamentos</button>
       </nav>}
+      {staffCard && staffTab === 'payment' && <NfcPaymentPanel token={token} status={staffCard.status} displayCode={staffCard.displayCode} onReleased={displayCode => { setStaffCard({ status: 'READY', displayCode, comandaId: null }); setStaffTab('registration'); }} />}
       {staffCard && staffTab === 'orders' && (staffCard.status === 'ACTIVE' && staffCard.comandaId
         ? <NfcPrepareOrder comandaId={staffCard.comandaId} cardToken={token} />
         : <div role="status"><p>Este cartão ainda não possui uma comanda aberta. Cadastre ou vincule o cliente antes de anotar pedidos.</p>{staffCard.status === 'READY' && <button type="button" onClick={() => setStaffTab('registration')}>Cadastrar ou acessar conta existente</button>}</div>)}
