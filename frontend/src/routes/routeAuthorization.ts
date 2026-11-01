@@ -1,5 +1,4 @@
 import { TENANT_REQUIRED_PATH } from '../shared/navigation/authNavigation';
-import { isNfcStaffReturnPath } from '../pages/shared/nfcEntryNavigation';
 
 export type RouteUser = {
   role?: string;
@@ -144,12 +143,6 @@ export function authorizeRoute(
 
   const home = getRoleHome(user);
 
-  // NFC entry remains public as a route; every operational API still enforces
-  // authenticated staff, tenant ownership and card state on the backend.
-  // Avoid redirecting a newly authenticated waiter to /waiter before the
-  // login flow can return them to the scanned card.
-  if (isNfcStaffReturnPath(path)) return { allowed: true };
-
   if (user.mustChangePassword === true) {
     return path === '/change-password'
       ? { allowed: true }
@@ -170,6 +163,7 @@ export function authorizeRoute(
     return role === 'SUPER_ADMIN' ? { allowed: true } : { allowed: false, redirectTo: home };
   }
 
+  if (/^\/(?:[a-z0-9][a-z0-9_-]{0,99}\/)?nfc\/[A-Za-z0-9_-]{32,128}\/?$/u.test(path)) return { allowed: true };
   if (path === TENANT_REQUIRED_PATH) return { allowed: true };
   if (path === '/change-password') return { allowed: true };
   if (isPath(path, '/attendant')) {
