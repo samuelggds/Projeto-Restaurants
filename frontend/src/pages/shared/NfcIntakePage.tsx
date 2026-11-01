@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { buildNfcEntryPath, getNfcEntryAction, type NfcEntryAction } from './nfcEntryNavigation';
 import api from '../../Services/api';
 import { useAuth } from '../../contexts/authContext';
+import { rememberTenantSlug } from '../../shared/navigation/authNavigation';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import nfcComandaService from '../../Services/nfcComandaService';
@@ -63,6 +64,8 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       const slug = response.data?.restaurantSlug;
       if (!active) return;
       if (typeof slug === 'string' && /^[a-z0-9_-]{1,100}$/u.test(slug)) {
+        // Persist only the server-verified restaurant slug for future session recovery.
+        rememberTenantSlug(slug);
         setCardContext({ token, status: 'ready', slug });
       } else {
         setCardContext({ token, status: 'unavailable', slug: '' });
