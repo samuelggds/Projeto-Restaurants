@@ -77,10 +77,11 @@ function normalizeCall(value: unknown): AttendantCall | null {
   const id = text(input?.id);
   const tableNumber = positiveInteger(input?.tableNumber);
   const requestedAt = isoDate(input?.requestedAt);
-  if (!input || !id || !tableNumber || !requestedAt) return null;
+  if (!input || !id || (!tableNumber && input.source !== 'NFC') || !requestedAt) return null;
   return {
     id,
     tableNumber,
+    ...(input.source === 'NFC' ? { source: 'NFC' as const, customerName: nullableText(input.customerName), cardCode: nullableText(input.cardCode) } : {}),
     type: enumValue(input.type, callTypes, 'WAITER'),
     status: enumValue(input.status, callStatuses, 'WAITING'),
     assignedToId: positiveInteger(input.assignedToId),
@@ -176,14 +177,23 @@ async function presentManualDeliveryAccess(payload: unknown) {
 const attendantApi = {
   async getWorkspace() {
     const response = await api.get('/attendant/workspace');
+    const nfcResponse = await api.get('/waiter-calls/nfc');
     const input = record(response.data);
     if (!input || !isoDate(input.generatedAt) || !Array.isArray(input.orders) || !Array.isArray(input.calls) || !Array.isArray(input.tables)) {
       throw new Error('Não foi possível validar os dados da operação.');
     }
-    return normalizeAttendantWorkspace(response.data);
+    const workspace = normalizeAttendantWorkspace(response.data);
+    const nfc = Array.isArray(nfcResponse.data) ? nfcResponse.data.flatMap((item:unknown) => {
+      const call = normalizeCall(item);
+      return call ? [call] : [];
+    }) : [];
+    return { ...workspace, calls: [...workspace.calls, ...nfc] };
   },
   async updateCallStatus(id: string | number, status: 'IN_PROGRESS' | 'RESOLVED') {
-    const response = await api.patch(`/attendant/calls/${id}/status`, { status });
+    const path = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/iu.test(String(id))
+      ? `/waiter-calls/nfc/${encodeURIComponent(String(id))}/status`
+      : `/attendant/calls/${id}/status`;
+    const response = await api.patch(path, { status });
     return response.data;
   },
   async registerCashReceived(paymentPublicId: string) {
