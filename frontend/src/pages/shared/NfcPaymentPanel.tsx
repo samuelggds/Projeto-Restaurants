@@ -64,8 +64,8 @@ export function NfcPaymentPanel({ token, status, displayCode, onReleased }: {
         </div>
         <div style={{ display: 'grid', gap: 9 }}>
           <strong>Formas de pagamento</strong>
-          <button type="button" disabled={!data.pixEnabled}>Pix {data.pixEnabled ? '' : '· Indisponível'}</button>
-          <button type="button" disabled={!data.pointEnabled}>Cartão na maquininha Point {data.pointEnabled ? '' : '· Indisponível'}</button>
+          <button type="button" disabled>Pix {data.pixEnabled ? '' : '· Indisponível'}</button>
+          <button type="button" disabled>Cartão na maquininha Point {data.pointEnabled ? '' : '· Indisponível'}</button>
           <p role="status">{data.reason}</p>
         </div>
         {data.comanda.outstandingCents === 0 && <form onSubmit={event => void finish(event)} style={{ display: 'grid', gap: 10 }}>
