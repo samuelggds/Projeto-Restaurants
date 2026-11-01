@@ -70,6 +70,13 @@ class NfcRegistrationService {
     }
     return result;
   }
+  async removeCustomer(customerId: string) {
+    const response = await api.delete<{ removed: true; archived: boolean }>(
+      `/nfc-registration/customers/${encodeURIComponent(customerId)}`,
+    );
+    if (response.data?.removed !== true) throw new Error('Exclusão não confirmada pelo servidor.');
+    return response.data;
+  }
   async create(payload: { name: string; cpf: string; phone: string }) {
     const response = await api.post<{ customer: NfcCustomerRecord }>('/nfc-registration/customers', payload);
     return response.data.customer;
