@@ -223,6 +223,41 @@ router.delete('/customers/:id', async (req, res) => {
     return res.json(result);
   } catch (error) { return safe(res, error); }
 });
+// The enrollment search is limited to the authenticated restaurant.
+const identitySearchSchema = z.strictObject({ query: z.string().trim().min(10).max(20) });
+router.post('/customers/identity-search', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    const { query } = identitySearchSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId);
+    const digits = query.replace(/\D/g, '');
+    if (digits.length !== 10 && digits.length !== 11) {
+      throw new NfcRegistrationError(422, 'Informe CPF completo ou telefone com DDD.');
+    }
+    const customers = await withTenantDbContext(restaurantId, async tx => {
+      if (digits.length === 11) {
+        const exactCpf = await tx.nfcCustomer.findMany({
+          where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
+          select: customerSelect, take: 10,
+        });
+        if (exactCpf.length) return exactCpf;
+      }
+      // Phone numbers are currently encrypted without a lookup index. A
+      // bounded, tenant-only scan prevents a cross-restaurant disclosure.
+      const maxCandidates = 1000;
+      const candidates = await tx.nfcCustomer.findMany({
+        where: { restaurantId, archivedAt: null }, select: customerSelect, take: maxCandidates + 1,
+      });
+      if (candidates.length > maxCandidates) {
+        throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
+      }
+      return candidates.filter(customer =>
+        decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '') === digits
+      ).slice(0, 10);
+    });
+    return res.json({ customers: customers.map(customer => serialize(restaurantId, customer)) });
+  } catch (error) { return safe(res, error); }
+});
 router.post('/customers/lookup', async (req, res) => {
   try {
     const { cpf: input } = lookupNfcCpfSchema.parse(req.body);
