@@ -439,8 +439,9 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
           customerId: null, status: 'PENDING_WRITE',
           // Unpublished token: previously recorded physical URLs no longer resolve.
           tokenHash: normalizeTagToken(crypto.randomBytes(32).toString('base64url')),
-          activatedAt: null, activatedByUserId: null,
-          revokedAt: null, revokedByUserId: null, revokeReason: null,
+          // Keep activatedAt/revokedAt/revokeReason as historical evidence.
+          // The status and customerId (not timestamps) determine current use.
+          // Clearing those fields would wrongly allow deletion of used cards.
           failedReturnCpfAttempts: 0, returnCpfLockedUntil: null,
           failedGuestViewAttempts: 0, guestViewLockedUntil: null,
           failedOrderConfirmAttempts: 0, orderConfirmationLockedUntil: null,
