@@ -1,7 +1,7 @@
 // An empty NFC visit can be closed administratively without creating a
 // fictitious payment. It is NOT permission to waive an outstanding balance.
 export type NfcEmptyVisitEvidence = {
-  status: 'OPEN' | 'UNPAID' | 'PAID';
+  status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED';
   totalCents: bigint;
   paidCents: bigint;
   itemCount: number;
