@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../Services/api';
 
 type Visit = {
-  id: string; status: 'OPEN' | 'UNPAID' | 'PAID'; tableNumber: number | null;
+  id: string; status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; tableNumber: number | null;
   totalCents: number; paidCents: number; outstandingCents: number;
   items: Array<{ id: string; description: string; quantity: number; totalCents: number }>;
   orders: Array<{ id: number; status: string }>;
