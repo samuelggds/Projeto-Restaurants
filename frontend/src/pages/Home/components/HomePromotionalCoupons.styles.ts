@@ -284,6 +284,15 @@ export const Section = styled.section`
     height: 18px;
   }
 
+  &.coupon-page-view {
+    background: transparent;
+    padding: 0;
+    margin: 16px 0;
+    > header { margin-bottom: 14px; }
+    .coupon-page-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .coupon-card { min-height: 155px; }
+  }
+
   @media (max-width: 650px) {
     margin: 12px 0;
     padding: 11px 0 10px 10px;
@@ -413,6 +422,28 @@ export const Section = styled.section`
       color: #747074;
       font-size: 10px;
       text-align: right;
+    }
+
+    &.coupon-page-view {
+      margin: 14px 0;
+      padding: 0;
+      background: transparent;
+      > header { margin: 0 0 12px; }
+      .coupon-page-list {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        overflow: visible;
+        padding: 0;
+      }
+      .coupon-card { min-height: 120px; padding: 14px; }
+      .coupon-main { gap: 12px; }
+      .coupon-symbol { width: 36px; height: 36px; }
+      .coupon-symbol svg { width: 18px; height: 18px; }
+      .coupon-heading b { font-size: 14px; }
+      .coupon-content strong { font-size: 22px; }
+      .coupon-content p, .coupon-content small { font-size: 12px; }
+      .coupon-actions button { min-height: 36px; font-size: 12px; }
     }
 
     .coupon-backdrop {
