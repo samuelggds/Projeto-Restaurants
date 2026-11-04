@@ -42,7 +42,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
   const view: 'home' | 'staff' = action ? 'staff' : 'home';
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
-  type CardContext = { status: 'PENDING_WRITE' | 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null; cardId?: string; customerId?: string | null; customerName?: string | null; canOpenComanda?: boolean; hasUnsettledComanda?: boolean };
+  type CardContext = { status: 'PENDING_WRITE' | 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null; cardId?: string; customerId?: string | null; customerName?: string | null; canOpenComanda?: boolean; hasUnsettledComanda?: boolean; needsCardReturn?: boolean };
   const [staffCard, setStaffCard] = useState<CardContext | null>(null);
   const [confirmPhysicalWrite, setConfirmPhysicalWrite] = useState(false);
   const [confirmingWrite, setConfirmingWrite] = useState(false);
@@ -274,7 +274,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
           </> : staffCard.canOpenComanda ? <>
             <p role="status">Este cliente já está vinculado, mas ainda não possui comanda aberta.</p>
             <button type="button" disabled={busy} onClick={()=>void recoverComanda()}>{busy?'Abrindo comanda...':'Abrir comanda deste cartão'}</button>
-          </> : <p role="status">{staffCard.hasUnsettledComanda?'Existe outra comanda em aberto ou não quitada. Regularize o atendimento antes de abrir uma nova.':'Confira a situação do cliente antes de prosseguir.'}</p>}
+          </> : <p role="status">{staffCard.hasUnsettledComanda ? 'Existe outra comanda em aberto ou não quitada. Regularize o atendimento antes de abrir uma nova.' : staffCard.needsCardReturn ? 'Esta visita já possui comanda anterior. Confirme quitação e CPF completo para devolver o cartão antes de iniciar outro atendimento.' : 'Confira a situação do cliente antes de prosseguir.'}</p>}
           <button type="button" onClick={()=>void lookupPendingOrder()} disabled={busy}>Consultar confirmação de pedido pendente</button>
           <form onSubmit={event=>void handleReturn(event)} style={{display:'grid',gap:12,border:'1px solid #d9e3e8',borderRadius:12,padding:14}}>
             <h2 style={{fontSize:17}}>Conferir quitação e liberar cartão</h2>
