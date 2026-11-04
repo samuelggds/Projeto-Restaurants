@@ -238,7 +238,7 @@ export default function Home() {
     restaurantId,
   );
   const isLoyaltyCustomer = user?.role === 'CLIENTE';
-  const promotionalCoupons = usePersonalPromotionalCoupons({ restaurantId, mesaMode, user, notify });
+  const promotionalCoupons = usePersonalPromotionalCoupons({ restaurantId, mesaMode, user });
   const [selectedPromoCode, setSelectedPromoCode] = useState(() =>
     typeof navigationState?.promotionalCode === 'string' ? navigationState.promotionalCode : '',
   );

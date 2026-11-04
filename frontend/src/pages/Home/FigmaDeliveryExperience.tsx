@@ -557,8 +557,13 @@ export function FigmaDeliveryExperience({
     scrollToSection(firstSectionId);
   };
 
+  const showCouponNotice = promotionalCoupons.length > 0 && !couponNoticeDismissed && !couponScreenOpen;
+
   return (
-    <S.Page $primary={primary} className={selectedProduct ? 'product-open' : undefined}>
+    <S.Page $primary={primary} className={[selectedProduct ? 'product-open' : '', showCouponNotice ? 'coupon-notice-visible' : ''].filter(Boolean).join(' ')}>
+      {showCouponNotice && (
+        <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
+      )}
       <S.DesktopTopBar>
         <div>
           <span className="location">
@@ -578,10 +583,6 @@ export function FigmaDeliveryExperience({
           </span>
         </div>
       </S.DesktopTopBar>
-
-      {promotionalCoupons.length > 0 && !couponNoticeDismissed && !couponScreenOpen && (
-        <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
-      )}
 
       <S.Header>
         <div className="mobile-location-row">

@@ -13,6 +13,10 @@ export const Page = styled.div<{ $primary: string }>`
   color: var(--delivery-text);
   font-family: 'Inter', system-ui, sans-serif;
 
+  /* While the edge-to-edge coupon bar is sticky at the top, the
+     storefront header sticks immediately underneath, never over it. */
+  &.coupon-notice-visible > header { top: 44px; }
+
   *,
   *::before,
   *::after { box-sizing: border-box; }
