@@ -414,8 +414,7 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
       }
       const now = new Date();
       for (const id of emptyVisits) {
-        // The current ledger has no CANCELLED status. For zero-only visits,
-        // close with zero balance, paidAt=null and explicit cancellation audit.
+        // Zero-value administrative cancellation; never write payment evidence.
         const changed = await tx.nfcComanda.updateMany({
           where: { restaurantId, id, status: { in: ['OPEN','UNPAID'] }, totalCents: 0n, paidCents: 0n },
           data: { status: 'PAID', closedAt: now, paidAt: null, closedByUserId: Number(req.user.id) },
