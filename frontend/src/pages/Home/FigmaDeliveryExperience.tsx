@@ -34,6 +34,7 @@ import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage } from './components/homeImageMarkup';
 import { HomeCouponNotice, HomeCouponsCenter } from './components/HomeCouponCenter';
+import { HomeDeliveryEstimator } from './components/HomeDeliveryEstimator';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
@@ -78,6 +79,7 @@ const money = (value: number) =>
 
 export function FigmaDeliveryExperience({
   data,
+  restaurantId,
   promotionalCoupons = [],
   onApplyPromotionalCoupon,
   cartCount = 0,
@@ -818,6 +820,7 @@ export function FigmaDeliveryExperience({
         <>
           <RestaurantCover brand={data.brand} />
           <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} />
+          <HomeDeliveryEstimator restaurantId={restaurantId ?? null} deliveryFeeMode={data.deliveryFeeMode} fixedFee={data.deliveryFee} enabled={data.acceptsDelivery && activeFulfillmentMethod === 'delivery'} />
         </>
       ) : null}
 
