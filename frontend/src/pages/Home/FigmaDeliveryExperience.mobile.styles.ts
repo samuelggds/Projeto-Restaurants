@@ -640,7 +640,7 @@ export const MobileBottomNav = styled.nav`
     position:fixed;left:0;right:0;bottom:0;z-index:27;
     height:56px;padding-bottom:env(safe-area-inset-bottom);
     border-top:1px solid var(--delivery-line);background:#fff;
-    display:grid;grid-template-columns:repeat(3,1fr);
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
   }
   button{
     border:0;background:transparent;color:var(--delivery-muted);
