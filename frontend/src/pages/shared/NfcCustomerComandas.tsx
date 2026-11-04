@@ -51,7 +51,7 @@ const Overlay = styled.div`
 `;
 const money = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateTime = (value?: string | null) => value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Não registrado';
-const label = (status: NfcComanda['status']) => status === 'PAID' ? 'Paga' : status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento';
+const label = (status: NfcComanda['status']) => status === 'CANCELLED' ? 'Cancelada sem consumo' : status === 'PAID' ? 'Paga' : status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento';
 
 export function NfcCustomerComandas({ customerId, cardId, customerName }: { customerId: string; cardId?: string; customerName?: string }) {
   const [state, setState] = useState<NfcCustomerComandas | null>(null);
