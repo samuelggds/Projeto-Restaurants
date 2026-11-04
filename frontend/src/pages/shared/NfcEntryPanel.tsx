@@ -130,6 +130,7 @@ type Props = {
   helpContent?: ReactNode;
   onSelectSection: (section: Exclude<NfcStaffSection, 'menu'>) => void;
   onBack: () => void;
+  pendingCard?: ReactNode;
   children?: ReactNode;
 };
 const sections = [
@@ -142,7 +143,7 @@ const sections = [
 export default function NfcEntryPanel({
   view, validCard, loadingCard, customerPath, loginPath, cardContextError, onRetryCardContext, staffAuthorized,
   staffLoggedIn, staffChecking, staffError, onRetryStaff,
-  staffRole, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, children,
+  staffRole, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, pendingCard, children,
 }: Props) {
   return <Shell className={view === 'staff' ? 'staff' : undefined}>
     <div className="nfc-frame">
@@ -197,7 +198,12 @@ export default function NfcEntryPanel({
           <h2>{staffChecking ? 'Verificando cartão e restaurante...' : 'Acesso NFC indisponível'}</h2>
           <p>{staffChecking ? 'Sua conta está autenticada. Conferindo o vínculo NFC e as permissões no servidor.' : staffError || 'Não foi possível consultar o cartão. A sessão da equipe permanece ativa.'}</p>
           {!staffChecking && <button type="button" onClick={onRetryStaff}>Verificar novamente</button>}
-        </section> : staffSection === 'menu' ? <>
+        </section> : pendingCard ? <>
+          <span className="nfc-kicker">PREPARAÇÃO DO CARTÃO NFC</span>
+          <h1 className="nfc-staff-title">Confirmar cartão gravado</h1>
+          <p className="nfc-subtitle">A gravação precisa ser confirmada antes de cadastrar clientes, receber pedidos ou consultar pagamentos.</p>
+          <section className="nfc-staff-card">{pendingCard}</section>
+        </> : staffSection === 'menu' ? <>
           <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
           <h1 className="nfc-staff-title">O que vamos fazer?</h1>
           <p className="nfc-subtitle">Escolha uma das opções para continuar.</p>
