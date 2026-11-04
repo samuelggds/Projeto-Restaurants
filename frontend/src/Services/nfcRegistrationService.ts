@@ -81,6 +81,13 @@ class NfcRegistrationService {
     const response = await api.post<{ customer: NfcCustomerRecord }>('/nfc-registration/customers', payload);
     return response.data.customer;
   }
+  async identitySearch(query: string) {
+    const response = await api.post<{ customers: NfcCustomerRecord[] }>(
+      '/nfc-registration/customers/identity-search', { query }, { skipBaseUrlFallback: true },
+    );
+    if (!Array.isArray(response.data?.customers)) throw new Error('Pesquisa de clientes inválida.');
+    return response.data.customers;
+  }
   async lookup(cpf: string) {
     const response = await api.post<{ customer: NfcCustomerRecord | null }>('/nfc-registration/customers/lookup', { cpf });
     return response.data.customer;
