@@ -43,8 +43,11 @@ test('NFC public card context resolves only the own tenant slug and grants no se
     });
     assert.equal(approved.response.status, 200, JSON.stringify(approved.data));
     assert.deepEqual(approved.data, { card: {
-      status: 'READY', displayCode: 'NFC-TEST-CONTEXT', comandaId: null,
+      status: 'READY', displayCode: 'NFC-TEST-CONTEXT', cardId: approved.data.card.cardId,
+      customerId: null, customerName: null, comandaId: null,
+      canOpenComanda: false, hasUnsettledComanda: false,
     } });
+    assert.match(approved.data.card.cardId, /^[0-9a-f-]{36}$/i);
     assert.equal(approved.response.headers.get('cache-control'), 'no-store, private');
     const foreign = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminB, {
       method: 'POST', json: { token: rawToken },
@@ -79,8 +82,11 @@ test('NFC public card context resolves only the own tenant slug and grants no se
     });
     assert.equal(pendingStaff.response.status, 200, JSON.stringify(pendingStaff.data));
     assert.deepEqual(pendingStaff.data.card, {
-      status: 'PENDING_WRITE', displayCode: 'NFC-TEST-PENDING', comandaId: null,
+      status: 'PENDING_WRITE', displayCode: 'NFC-TEST-PENDING',
+      cardId: pendingStaff.data.card.cardId, customerId: null, customerName: null,
+      comandaId: null, canOpenComanda: false, hasUnsettledComanda: false,
     });
+    assert.match(pendingStaff.data.card.cardId, /^[0-9a-f-]{36}$/i);
     const foreignPending = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminB, {
       method: 'POST', json: { token: pendingToken },
     });
