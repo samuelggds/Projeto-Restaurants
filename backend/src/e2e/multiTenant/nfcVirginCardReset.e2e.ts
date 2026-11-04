@@ -120,6 +120,30 @@ test('NFC admin reset cancels only empty visits, invalidates link and preserves 
       fixture.tokens.adminA, { method: 'POST', json: { token, customerId: created.customerId } });
     assert.equal(relink.response.status, 201, JSON.stringify(relink.data));
     assert.equal(relink.data.assignment.customerId, created.customerId);
+
+    // The same administrative reset must also recover a revoked card with
+    // historical client linkage, without erasing that customer's profile.
+    const revoked = await apiRequest(app.baseUrl,
+      '/nfc-registration/cards/' + card.id + '/revoke', fixture.tokens.adminA,
+      { method: 'POST', json: { reason: 'Teste de revogação para reinício' } });
+    assert.equal(revoked.response.status, 200, JSON.stringify(revoked.data));
+    const revokedCard = await prisma.nfcCard.findFirstOrThrow({ where: { id: card.id } });
+    assert.equal(revokedCard.status, 'REVOKED');
+    assert.ok(revokedCard.revokedAt);
+    const resetRevoked = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { confirmCode: card.displayCode, confirmation: 'DEIXAR VIRGEM' },
+    });
+    assert.equal(resetRevoked.response.status, 200, JSON.stringify(resetRevoked.data));
+    assert.equal(resetRevoked.data.card.emptyVisitsClosed, 0);
+    const afterRevoked = await prisma.nfcCard.findFirstOrThrow({ where: { id: card.id } });
+    assert.equal(afterRevoked.status, 'PENDING_WRITE');
+    assert.equal(afterRevoked.customerId, null);
+    assert.ok(afterRevoked.revokedAt); // Historical revocation evidence remains.
+    assert.ok(afterRevoked.activatedAt); // Card may not be deleted as never used.
+    const invalidatedRevokedLink = await apiRequest(app.baseUrl,
+      '/nfc-customer-view/card-context', undefined,
+      { method: 'POST', json: { token } });
+    assert.equal(invalidatedRevokedLink.response.status, 404);
   } finally {
     await app.close();
   }
