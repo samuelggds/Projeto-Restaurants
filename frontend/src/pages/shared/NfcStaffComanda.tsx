@@ -35,8 +35,8 @@ export function NfcStaffComanda({ token }: { token: string }) {
     {error && <p role="alert">{error}</p>}
     {data && <>
       <p><strong>Cartão:</strong> {data.card.displayCode} · {data.card.status === 'ACTIVE' ? 'Vinculado' : 'Disponível'}</p>
-      {!data.comanda ? <p role="status">Não existe comanda atual vinculada a este cartão.</p> : <>
-        {data.customer && <p><strong>Cliente:</strong> {data.customer.name}</p>}
+      {data.customer && <p><strong>Cliente vinculado:</strong> {data.customer.name}</p>}
+      {!data.comanda ? <p role="status">Não existe comanda atual vinculada a este cartão. Abra o cadastro NFC para conferir o vínculo e continuar o atendimento.</p> : <>
         <p><strong>Comanda:</strong> {data.comanda.id.slice(0, 8).toUpperCase()} {data.comanda.tableNumber ? ' · Mesa ' + data.comanda.tableNumber : ''}</p>
         <p><strong>Situação:</strong> {data.comanda.status === 'PAID' ? 'Quitada' : data.comanda.status === 'UNPAID' ? 'Pendente' : 'Em atendimento'}</p>
         <h2>Itens consumidos</h2>

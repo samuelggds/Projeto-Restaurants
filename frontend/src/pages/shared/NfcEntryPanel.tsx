@@ -23,8 +23,8 @@ const Shell = styled.main`
   h1, h2, h3, p { margin: 0; }
   .nfc-frame { width: min(100%, 460px); margin: 0 auto; }
   .nfc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 37px; }
-  .nfc-brand { display: inline-flex; align-items: center; gap: 9px; font-size: 22px; font-weight: 760; letter-spacing: -.045em; }
-  .nfc-brand img { width: 32px; height: 32px; object-fit: contain; }
+  .nfc-brand { display: inline-flex; align-items: center; gap: 0; font-size: 22px; font-weight: 760; letter-spacing: -.045em; }
+  .nfc-brand img { width: 32px; height: 32px; object-fit: contain; margin-right: 9px; }
   .nfc-brand b { color: var(--nfc-orange); }
   .nfc-top-label { color: var(--nfc-muted); font-size: 12px; }
   .nfc-welcome { text-align: center; padding: 25px 0 25px; }

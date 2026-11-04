@@ -223,6 +223,42 @@ router.delete('/customers/:id', async (req, res) => {
     return res.json(result);
   } catch (error) { return safe(res, error); }
 });
+// The enrollment search is limited to the authenticated restaurant.
+const identitySearchSchema = z.strictObject({ query: z.string().trim().min(10).max(20) });
+router.post('/customers/identity-search', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    const { query } = identitySearchSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId);
+    const digits = query.replace(/\D/g, '');
+    if (digits.length !== 10 && digits.length !== 11) {
+      throw new NfcRegistrationError(422, 'Informe CPF completo ou telefone com DDD.');
+    }
+    const customers = await withTenantDbContext(restaurantId, async tx => {
+      if (digits.length === 11) {
+        const exactCpf = await tx.nfcCustomer.findMany({
+          where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
+          select: customerSelect, take: 10,
+        });
+        if (exactCpf.length) return exactCpf;
+      }
+      // Phone numbers are currently encrypted without a lookup index. A
+      // bounded, tenant-only scan prevents a cross-restaurant disclosure.
+      const maxCandidates = 1000;
+      const candidates = await tx.nfcCustomer.findMany({
+        where: { restaurantId, archivedAt: null }, select: customerSelect, take: maxCandidates + 1,
+      });
+      if (candidates.length > maxCandidates) {
+        throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
+      }
+      return candidates.filter(customer => {
+        const number = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '');
+        return number === digits || (number.length === digits.length + 2 && number.startsWith('55') && number.slice(2) === digits);
+      }).slice(0, 10);
+    });
+    return res.json({ customers: customers.map(customer => serialize(restaurantId, customer)) });
+  } catch (error) { return safe(res, error); }
+});
 router.post('/customers/lookup', async (req, res) => {
   try {
     const { cpf: input } = lookupNfcCpfSchema.parse(req.body);
@@ -791,9 +827,10 @@ router.post('/cards/staff-comanda', async (req, res) => {
               orderBy: { createdAt: 'desc' } },
           },
         }) : null;
-      const customer = comanda && card.customerId
+      const customer = card.status === 'ACTIVE' && card.customerId
         ? await tx.nfcCustomer.findFirst({
-          where: { restaurantId, id: card.customerId }, select: { id: true, nameEncrypted: true },
+          where: { restaurantId, id: card.customerId, archivedAt: null },
+          select: { id: true, nameEncrypted: true },
         }) : null;
       return {
         card: { displayCode: card.displayCode, status: card.status },
@@ -817,15 +854,37 @@ router.post('/cards/attendance-context', async (req, res) => {
     const result = await withTenantDbContext(restaurantId, async tx => {
       const card = await tx.nfcCard.findFirst({
         where: { restaurantId, tokenHash, status: { in: ['PENDING_WRITE', 'READY', 'ACTIVE'] } },
-        select: { id: true, status: true, displayCode: true, customerId: true },
+        select: { id: true, status: true, displayCode: true, customerId: true, activatedAt: true },
       });
       if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
-      const comanda = card.status === 'ACTIVE' && card.customerId
-        ? await tx.nfcComanda.findFirst({
-          where: { restaurantId, cardId: card.id, customerId: card.customerId, status: 'OPEN' },
-          select: { id: true },
+      const customer = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcCustomer.findFirst({
+          where: { restaurantId, id: card.customerId, archivedAt: null },
+          select: { id: true, nameEncrypted: true },
         }) : null;
-      return { status: card.status, displayCode: card.displayCode, comandaId: comanda?.id ?? null };
+      if (card.status === 'ACTIVE' && !customer) {
+        throw new NfcRegistrationError(409, 'O vínculo do cartão precisa ser revisado pelo administrador.');
+      }
+      const comanda = customer ? await tx.nfcComanda.findFirst({
+        where: { restaurantId, cardId: card.id, customerId: customer.id, status: 'OPEN' },
+        orderBy: { openedAt: 'desc' }, select: { id: true },
+      }) : null;
+      const [unsettled, previousCardVisits] = customer && !comanda ? await Promise.all([
+        tx.nfcComanda.count({
+          where: { restaurantId, customerId: customer.id, status: { in: ['OPEN', 'UNPAID'] } },
+        }),
+        tx.nfcComanda.count({ where: {
+          restaurantId, cardId: card.id, customerId: customer.id,
+          ...(card.activatedAt ? { openedAt: { gte: card.activatedAt } } : {}),
+        } }),
+      ]) : [0, 0];
+      return { status: card.status, displayCode: card.displayCode, cardId: card.id,
+        customerId: customer?.id ?? null,
+        customerName: customer ? decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) : null,
+        comandaId: comanda?.id ?? null,
+        canOpenComanda: Boolean(customer && !comanda && unsettled === 0 && previousCardVisits === 0),
+        hasUnsettledComanda: unsettled > 0,
+        needsCardReturn: Boolean(customer && !comanda && unsettled === 0 && previousCardVisits > 0) };
     });
     res.setHeader('Cache-Control', 'no-store, private');
     return res.json({ card: result });
@@ -1045,8 +1104,13 @@ router.post('/cards/intake', async (req, res) => {
           restaurantId, actorUserId: Number(req.user.id), customerId, action: 'CUSTOMER_CREATED',
         } });
       }
-      const debt = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } }, select: { totalCents: true, paidCents: true } });
-      if (debt.some(item => item.totalCents > item.paidCents)) throw new NfcRegistrationError(403, 'Cliente com dívida vencida neste restaurante; regularize antes de receber o cartão.');
+      const visits = await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId, status: { in: ['OPEN', 'UNPAID'] } },
+        select: { status: true, totalCents: true, paidCents: true },
+      });
+      if (visits.some(item => item.status === 'OPEN' || item.totalCents > item.paidCents)) {
+        throw new NfcRegistrationError(409, 'Cliente já possui visita aberta ou saldo pendente. Finalize o atendimento anterior antes de vincular outro cartão.');
+      }
       const hasCard = await tx.nfcCard.count({ where: { restaurantId, customerId, status: { in: ['ACTIVE', 'PENDING_WRITE'] } } });
       if (hasCard) throw new NfcRegistrationError(409, 'Cliente já possui cartão ativo ou em preparação.');
       const updated = await tx.nfcCard.updateMany({
