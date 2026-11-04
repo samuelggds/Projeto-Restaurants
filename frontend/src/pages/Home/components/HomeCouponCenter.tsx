@@ -5,12 +5,15 @@ import type { PublicPromotionalCoupon } from '../types';
 import { HomePromotionalCoupons } from './HomePromotionalCoupons';
 
 const Notice = styled.aside`
-  width: min(1120px, calc(100% - 48px));
-  margin: 12px auto 0;
+  position: sticky;
+  top: 0;
+  z-index: 32;
+  width: 100%;
+  margin: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 44px;
   align-items: stretch;
-  border-radius: 11px;
+  border-radius: 0;
   background: #19ba59;
   color: white;
   overflow: hidden;
@@ -54,9 +57,6 @@ const Notice = styled.aside`
   button:focus-visible { outline: 2px solid white; outline-offset: -4px; }
 
   @media (max-width: 760px) {
-    width: calc(100% - 28px);
-    margin: 10px 14px 0;
-    border-radius: 8px;
     .notice-open { font-size: 12px; }
   }
 `;

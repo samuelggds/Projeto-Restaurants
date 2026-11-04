@@ -54,6 +54,15 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   const notice = page.getByRole('complementary', { name: 'Aviso de cupons' });
   await expect(notice).toBeVisible();
   await expect(notice).toContainText('Você tem 3 cupons!');
+  await expect.poll(async () => notice.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return Math.abs(rect.left) < 1 && Math.abs(rect.width - window.innerWidth) < 1;
+  })).toBe(true);
+  await expect(notice).toHaveCSS('position', 'sticky');
+  await page.evaluate(() => window.scrollTo({ top: 400, behavior: 'instant' }));
+  await expect.poll(async () => notice.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(0);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+
   const promos = page.getByRole('region', { name: 'Cupons promocionais disponíveis' });
   await expect(promos).toHaveCount(0);
   await notice.getByRole('button', { name: 'Fechar aviso de cupons' }).click();
