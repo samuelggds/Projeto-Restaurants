@@ -232,6 +232,7 @@ export type PublicPromotionalCoupon = {
 };
 
 export type HomeExperienceProps = {
+  restaurantId?: number | null;
   promotionalCoupons?: PublicPromotionalCoupon[];
   onApplyPromotionalCoupon?: (code: string) => void;
   data: HomeData;
