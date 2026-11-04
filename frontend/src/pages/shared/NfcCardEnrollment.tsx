@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
-import { CheckCircle2, CreditCard, Link2, LoaderCircle, Search, ShieldCheck, UserRound, UserRoundCheck, UserRoundPlus } from 'lucide-react';
+import { CheckCircle2, Link2, LoaderCircle, Search, ShieldCheck, UserRound, UserRoundCheck, UserRoundPlus } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 
 /*
