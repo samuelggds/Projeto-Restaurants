@@ -24,6 +24,7 @@ export function linkedNfcPaymentState(
   comanda: { status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; totalCents: number; paidCents: number } | null,
 ): 'NO_VISIT' | 'WAITING_ORDER' | 'IN_SERVICE' | 'PENDING' | 'PAID' {
   if (!comanda) return 'NO_VISIT';
+  if (comanda.status === 'CANCELLED') return 'NO_VISIT';
   if (comanda.status === 'PAID' && comanda.totalCents === comanda.paidCents) return 'PAID';
   if (comanda.status === 'UNPAID') return 'PENDING';
   if (comanda.status === 'OPEN' && comanda.totalCents === 0) return 'WAITING_ORDER';
