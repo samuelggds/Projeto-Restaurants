@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { CreditCard, X } from 'lucide-react';
+import { CreditCard, X, AlertTriangle, RotateCcw, ClipboardCopy } from 'lucide-react';
+import { useAuth } from '../../contexts/authContext';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
@@ -70,6 +71,24 @@ const UI = styled.section`
   .card-actions button { border-radius: 9px; padding: 10px 14px; font-weight: 750; border: 1px solid #dce3e7; background: white; }
   .card-actions .release { background: #188454; color: white; border-color: #188454; }
   .card-actions .revoke { color: #a8352c; border-color: #f0c8c5; }
+  .card-actions .virgin { color: #9d241b; background: #fff1ef; border: 1px solid #e39b93; }
+  .virgin-panel { display: grid; gap: 12px; border: 2px solid #be392a; background: #fff6f3; border-radius: 13px; padding: 17px; }
+  .virgin-panel h4 { margin: 0; color: #93241d; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .virgin-panel h4 svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .virgin-panel p, .virgin-panel li { margin: 0; font-size: 12px; line-height: 1.5; color: #65362d; }
+  .virgin-panel ul { margin: 0; padding-left: 20px; }
+  .virgin-panel label { display: grid; gap: 7px; font-size: 12px; color: #54231e; font-weight: 750; }
+  .virgin-panel input { width: 100%; min-height: 44px; border-radius: 8px; border: 1px solid #d89d98; padding: 11px; background: white; font: inherit; }
+  .virgin-panel .virgin-confirm { color: #fff; background: #aa2820; border: 0; border-radius: 9px; padding: 12px 15px; font-weight: 750; }
+  .virgin-panel .virgin-confirm:disabled { opacity: .5; cursor: not-allowed; }
+  .virgin-panel .virgin-cancel { color: #643a33; background: #fff; border: 1px solid #e1ccc8; border-radius: 9px; padding: 11px; }
+  .virgin-program { display: grid; gap: 9px; padding: 14px; border: 1px solid #f0d8c8; border-radius: 11px; background: #fff8f2; }
+  .virgin-program label { font-size: 12px; color: #32404a; }
+  .virgin-program input[type=text] { width: 100%; min-width: 0; padding: 11px; border-radius: 8px; border: 1px solid #d3dee6; }
+  .virgin-program .physical-confirm { display: flex; align-items: start; gap: 8px; font-size: 12px; }
+  .virgin-program .physical-confirm input { width: 17px; height: 17px; flex-shrink: 0; }
+  .virgin-program button { border: 1px solid #dce3e7; background: white; padding: 10px 12px; border-radius: 9px; font: inherit; cursor: pointer; }
+  .virgin-program button:disabled { opacity: .5; cursor: not-allowed; }
   .card-actions button:disabled { opacity: .55; cursor: not-allowed; }
   .cpf-field { display: grid; gap: 7px; font-size: 12px; font-weight: 750; }
   .cpf-field input { border: 1px solid #dce3e7; border-radius: 9px; padding: 12px; font: inherit; }
@@ -85,6 +104,8 @@ const UI = styled.section`
 `;
 
 export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Props) {
+  const { user } = useAuth();
+  const isAdmin = String(user?.role || '').toUpperCase() === 'ADMIN';
   const [filter, setFilter] = useState<Filter>('ALL');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<Awaited<ReturnType<typeof nfcRegistrationService.inventory>> | null>(null);
@@ -100,6 +121,10 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   const [paymentAvailability, setPaymentAvailability] = useState<Awaited<ReturnType<typeof nfcRegistrationService.paymentAvailability>> | null>(null);
   const [reuseCpf, setReuseCpf] = useState('');
   const [reuseUrl, setReuseUrl] = useState('');
+  const [virginOpen, setVirginOpen] = useState(false);
+  const [virginCode, setVirginCode] = useState('');
+  const [virginUrl, setVirginUrl] = useState('');
+  const [virginPhysicallyWritten, setVirginPhysicallyWritten] = useState(false);
   const load = useCallback(async () => {
     try {
       const inventory = await nfcRegistrationService.inventory(page, filter);
@@ -151,6 +176,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
   const openCard = (card: NfcInventoryCard) => {
     setSelected(card); setCpf(''); setActionError(''); setActionNotice('');
     setShowOrder(false); setShowAccount(false); setReuseCpf(''); setReuseUrl('');
+    setVirginOpen(false); setVirginCode(''); setVirginUrl(''); setVirginPhysicallyWritten(false);
   };
   const releaseCard = async () => {
     if (!selected || selected.status !== 'ACTIVE' || !selected.comanda ||
@@ -230,6 +256,49 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
       setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'A regravação não foi confirmada.'));
+    } finally { setActionBusy(false); }
+  };
+  const resetToVirgin = async () => {
+    if (!selected || !isAdmin || actionBusy || virginCode !== selected.displayCode) return;
+    const cardCode = selected.displayCode;
+    setActionBusy(true); setActionError('');
+    try {
+      const result = await nfcRegistrationService.resetVirgin(selected.id, virginCode);
+      setActionNotice('Cartão '+cardCode+' desvinculado e com link antigo invalidado. '+result.emptyVisitsClosed+
+        ' comanda(s) vazia(s) encerrada(s). O chip físico ainda precisa ser limpo ou regravado.');
+      setSelected(null); setVirginOpen(false); setVirginCode('');
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível deixar o cartão virgem.'));
+    } finally { setActionBusy(false); }
+  };
+  const reprogramVirgin = async () => {
+    if (!selected || !isAdmin || actionBusy || selected.status !== 'PENDING_WRITE' || selected.customer) return;
+    setActionBusy(true); setActionError('');
+    try {
+      const result = await nfcRegistrationService.reprogramVirgin(selected.id);
+      setVirginUrl(result.ndefUrl); setVirginPhysicallyWritten(false);
+      setActionNotice('Novo link emitido pelo backend. Grave-o fisicamente antes de confirmar.');
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || 'Não foi possível gerar o link novo.');
+    } finally { setActionBusy(false); }
+  };
+  const confirmVirginWrite = async () => {
+    if (!selected || !virginUrl || !isAdmin || !virginPhysicallyWritten || actionBusy) return;
+    const token = extractNfcToken(virginUrl);
+    if (!token) { setActionError('Novo link inválido. Gere outro no servidor.'); return; }
+    setActionBusy(true); setActionError('');
+    try {
+      const result = await nfcRegistrationService.confirmEncodedWrite(token);
+      if (result.status !== 'READY') throw new Error('Servidor não confirmou que o cartão está disponível.');
+      setActionNotice('Gravação confirmada: '+selected.displayCode+' disponível para vincular outro cliente.');
+      setSelected(null); setVirginUrl(''); setVirginPhysicallyWritten(false);
+      await load();
+    } catch (cause) {
+      const response = cause as { response?: { data?: { error?: string } } };
+      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Falha ao confirmar a regravação.'));
     } finally { setActionBusy(false); }
   };
   const counts = data?.counts;
@@ -313,9 +382,31 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
             <p className="warning">Cliente vinculado sem comanda identificada. Abra a ficha do cliente para consultar e regularizar a visita antes de registrar pedidos.</p>}
           {selected.status === 'PENDING_WRITE' &&
             <section className="action-panel"><h4>Cartão aguardando gravação</h4>
-              <p>Finalize a programação pelo cadastro e confira a leitura física antes de usá-lo.</p>
-              <button type="button" className="go" onClick={() => { setSelected(null); onRegister(); }}>Ir para cadastro NFC</button>
-            </section>}
+              <p>Cartão sem vínculo ativo. Gere um novo link individual para este cartão e grave-o no chip físico antes de cadastrar alguém. Um link antigo não deve ser reutilizado.</p>
+              {isAdmin && <div className="virgin-program">
+                {!virginUrl ? <button type="button" disabled={actionBusy} onClick={() => void reprogramVirgin()}>
+                  {actionBusy ? 'Gerando...' : 'Gerar novo link para regravar este cartão'}
+                </button> : <>
+                  <label>Link novo deste cartão NFC (não compartilhe publicamente)
+                    <input type="text" readOnly value={virginUrl} />
+                  </label>
+                  <button type="button" onClick={() => void navigator.clipboard?.writeText(virginUrl)}>
+                    <ClipboardCopy size={16} aria-hidden="true" /> Copiar link para NFC Tools
+                  </button>
+                  <p>No iPhone: use NFC Tools para substituir ou apagar a gravação anterior e escrever este novo link. No Android: pode usar NFC Tools ou navegador compatível.</p>
+                  <label className="physical-confirm">
+                    <input type="checkbox" checked={virginPhysicallyWritten}
+                      onChange={event => setVirginPhysicallyWritten(event.target.checked)} />
+                    Confirmei pessoalmente a gravação do novo link neste cartão físico.
+                  </label>
+                  <button type="button" disabled={!virginPhysicallyWritten || actionBusy}
+                    onClick={() => void confirmVirginWrite()}>
+                    {actionBusy ? 'Conferindo...' : 'Confirmar gravação e disponibilizar'}
+                  </button>
+                  <p>Esta confirmação registra a declaração do funcionário autenticado; não é uma leitura NFC automática do iPhone.</p>
+                </>}
+              </div>}
+            </section>
           {selected.status === 'REVOKED' && selected.customer &&
             <section className="action-panel" aria-label="Recuperação de cartão revogado">
               <h4>Recuperar cartão revogado</h4>
@@ -325,12 +416,37 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
               </label> : <p role="status">Recuperação autorizada. Regrave e confirme a leitura do mesmo cartão.</p>}
               <button type="button" className="go" disabled={actionBusy || (!reuseUrl && reuseCpf.length !== 11)} onClick={() => void (reuseUrl ? finishRevoked() : prepareRevoked())}>{reuseUrl ? 'Gravar e confirmar cartão' : 'Liberar cartão por conferência'}</button>
             </section>}
+          {isAdmin && virginOpen && <section className="virgin-panel" aria-label="Confirmação de reset NFC">
+            <h4><AlertTriangle aria-hidden="true" /> Atenção: deixar cartão virgem</h4>
+            <p><strong>Esta ação é administrativa e irreversível para o link antigo.</strong> O backend verificará as comandas, pagamentos, pedidos e pendências antes de permitir.</p>
+            <ul>
+              <li>O link NFC antigo deixará de funcionar imediatamente.</li>
+              <li>O cliente será desvinculado deste cartão, mas permanecerá cadastrado.</li>
+              <li>Somente comandas realmente vazias serão encerradas, com histórico e auditoria preservados.</li>
+              <li>Você deverá limpar ou regravar o chip físico pelo NFC Tools para reutilizá-lo.</li>
+            </ul>
+            <label>Para confirmar, digite o código exato: {selected.displayCode}
+              <input value={virginCode} onChange={event => setVirginCode(event.target.value)}
+                autoComplete="off" placeholder={selected.displayCode} aria-label="Código para confirmar cartão virgem" />
+            </label>
+            <button type="button" className="virgin-confirm"
+              disabled={actionBusy || virginCode !== selected.displayCode}
+              onClick={() => void resetToVirgin()}>
+              {actionBusy ? 'Verificando pendências...' : 'Confirmar: deixar cartão virgem'}
+            </button>
+            <button type="button" className="virgin-cancel" disabled={actionBusy}
+              onClick={() => { setVirginOpen(false); setVirginCode(''); }}>Cancelar sem alterar</button>
+          </section>}
           {actionError && <p className="warning" role="alert">{actionError}</p>}
           <div className="card-actions">
             {selected.status === 'ACTIVE' && selected.comanda && selected.comanda.outstandingCents === 0 &&
               <button type="button" className="release" disabled={actionBusy || cpf.length !== 11} onClick={() => void releaseCard()}>{actionBusy ? 'Conferindo...' : 'Confirmar CPF e liberar cartão'}</button>}
             {(selected.status === 'ACTIVE' || selected.status === 'READY' || selected.status === 'PENDING_WRITE') &&
               <button type="button" className="revoke" disabled={actionBusy} onClick={() => void revokeCard()}>Revogar cartão</button>}
+            {isAdmin && <button type="button" className="virgin" disabled={actionBusy}
+              onClick={() => { setVirginOpen(true); setVirginCode(''); setActionError(''); }}>
+              <RotateCcw size={16} aria-hidden="true" /> Deixar cartão virgem
+            </button>}
             {selected.canDelete && !selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE') &&
               <button type="button" className="revoke" disabled={actionBusy} onClick={() => void deleteUnusedCard()}>Excluir cartão</button>}
           </div>
