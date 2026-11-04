@@ -11,7 +11,7 @@ const Notice = styled.aside`
   width: 100%;
   margin: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
   align-items: stretch;
   border-radius: 0;
   background: #19ba59;
@@ -27,12 +27,13 @@ const Notice = styled.aside`
   }
 
   .notice-open {
+    grid-column: 2;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 11px;
     padding: 10px 14px;
-    text-align: left;
+    text-align: center;
     font-size: 13px;
     font-weight: 800;
   }
@@ -51,7 +52,7 @@ const Notice = styled.aside`
   @media (prefers-reduced-motion: reduce) {
     .notice-open svg { animation: none; }
   }
-  .notice-dismiss { display: grid; place-items: center; }
+  .notice-dismiss { grid-column: 3; display: grid; place-items: center; }
   .notice-dismiss svg { width: 18px; height: 18px; }
   button:hover { background: #ffffff1a; }
   button:focus-visible { outline: 2px solid white; outline-offset: -4px; }
