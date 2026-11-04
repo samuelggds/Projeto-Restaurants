@@ -406,7 +406,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
                   <p>Esta confirmação registra a declaração do funcionário autenticado; não é uma leitura NFC automática do iPhone.</p>
                 </>}
               </div>}
-            </section>
+            </section>}
           {selected.status === 'REVOKED' && selected.customer &&
             <section className="action-panel" aria-label="Recuperação de cartão revogado">
               <h4>Recuperar cartão revogado</h4>
