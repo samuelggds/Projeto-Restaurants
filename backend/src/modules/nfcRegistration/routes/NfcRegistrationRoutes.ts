@@ -868,14 +868,17 @@ router.post('/cards/attendance-context', async (req, res) => {
         where: { restaurantId, cardId: card.id, customerId: customer.id, status: 'OPEN' },
         orderBy: { openedAt: 'desc' }, select: { id: true },
       }) : null;
-      const unsettled = customer && !comanda ? await tx.nfcComanda.count({
-        where: { restaurantId, customerId: customer.id, status: { in: ['OPEN', 'UNPAID'] } },
-      }) : 0;
+      const [unsettled, previousCardVisits] = customer && !comanda ? await Promise.all([
+        tx.nfcComanda.count({
+          where: { restaurantId, customerId: customer.id, status: { in: ['OPEN', 'UNPAID'] } },
+        }),
+        tx.nfcComanda.count({ where: { restaurantId, cardId: card.id } }),
+      ]) : [0, 0];
       return { status: card.status, displayCode: card.displayCode, cardId: card.id,
         customerId: customer?.id ?? null,
         customerName: customer ? decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) : null,
         comandaId: comanda?.id ?? null,
-        canOpenComanda: Boolean(customer && !comanda && unsettled === 0),
+        canOpenComanda: Boolean(customer && !comanda && unsettled === 0 && previousCardVisits === 0),
         hasUnsettledComanda: unsettled > 0 };
     });
     res.setHeader('Cache-Control', 'no-store, private');
@@ -1096,8 +1099,13 @@ router.post('/cards/intake', async (req, res) => {
           restaurantId, actorUserId: Number(req.user.id), customerId, action: 'CUSTOMER_CREATED',
         } });
       }
-      const debt = await tx.nfcComanda.findMany({ where: { restaurantId, customerId, status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } }, select: { totalCents: true, paidCents: true } });
-      if (debt.some(item => item.totalCents > item.paidCents)) throw new NfcRegistrationError(403, 'Cliente com dívida vencida neste restaurante; regularize antes de receber o cartão.');
+      const visits = await tx.nfcComanda.findMany({
+        where: { restaurantId, customerId, status: { in: ['OPEN', 'UNPAID'] } },
+        select: { status: true, totalCents: true, paidCents: true },
+      });
+      if (visits.some(item => item.status === 'OPEN' || item.totalCents > item.paidCents)) {
+        throw new NfcRegistrationError(409, 'Cliente já possui visita aberta ou saldo pendente. Finalize o atendimento anterior antes de vincular outro cartão.');
+      }
       const hasCard = await tx.nfcCard.count({ where: { restaurantId, customerId, status: { in: ['ACTIVE', 'PENDING_WRITE'] } } });
       if (hasCard) throw new NfcRegistrationError(409, 'Cliente já possui cartão ativo ou em preparação.');
       const updated = await tx.nfcCard.updateMany({
