@@ -21,6 +21,7 @@ import {
   Beef,
   IceCreamBowl,
   Salad,
+  TicketPercent,
 } from 'lucide-react';
 import {
   FacebookIcon,
@@ -33,6 +34,7 @@ import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage } from './components/homeImageMarkup';
 import { HomePromotionalCoupons } from './components/HomePromotionalCoupons';
+import { HomeCouponNotice, HomeCouponsCenter } from './components/HomeCouponCenter';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
@@ -106,6 +108,8 @@ export function FigmaDeliveryExperience({
   const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [couponScreenOpen, setCouponScreenOpen] = useState(false);
+  const [couponNoticeDismissed, setCouponNoticeDismissed] = useState(false);
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
@@ -575,6 +579,10 @@ export function FigmaDeliveryExperience({
           </span>
         </div>
       </S.DesktopTopBar>
+
+      {promotionalCoupons.length > 0 && !couponNoticeDismissed && !couponScreenOpen && (
+        <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
+      )}
 
       <S.Header>
         <div className="mobile-location-row">
@@ -1076,7 +1084,9 @@ export function FigmaDeliveryExperience({
                           <TikTokIcon />
                         </a>
                       ) : null}
-                      {whatsappUrl ? (
+                      {couponScreenOpen && <HomeCouponsCenter coupons={promotionalCoupons} loggedIn={userLoggedIn} onClose={() => setCouponScreenOpen(false)} onOpenWallet={userLoggedIn && onOpenProfileView ? () => { setCouponScreenOpen(false); onOpenProfileView('coupons'); } : undefined} onApply={(code) => { setCouponScreenOpen(false); onApplyPromotionalCoupon?.(code); }} />}
+
+      {whatsappUrl ? (
                         <a
                           href={whatsappUrl}
                           target="_blank"
@@ -1153,6 +1163,10 @@ export function FigmaDeliveryExperience({
         <button type="button" onClick={onOpenOrders}>
           <List aria-hidden="true" />
           <span>Pedidos</span>
+        </button>
+        <button type="button" className={couponScreenOpen ? 'active coupon-nav' : 'coupon-nav'} aria-label="Abrir cupons" aria-current={couponScreenOpen ? 'page' : undefined} onClick={() => setCouponScreenOpen(true)}>
+          <TicketPercent aria-hidden="true" />
+          <span>Cupons</span>
         </button>
         <button type="button" onClick={onOpenProfile}>
           <UserRound aria-hidden="true" />
