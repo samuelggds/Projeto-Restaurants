@@ -345,7 +345,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Prop
             <strong>Comanda de {selected.customer?.name || 'cliente não identificado'}</strong>
             <div className="details">
               <div className="detail"><small>Comanda</small><strong>{selected.comanda.id.slice(0,8).toUpperCase()}</strong></div>
-              <div className="detail"><small>Situação</small><strong>{selected.comanda.status === 'PAID' ? 'Quitada' : selected.comanda.status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento'}</strong></div>
+              <div className="detail"><small>Situação</small><strong>{selected.comanda.status === 'CANCELLED' ? 'Cancelada sem consumo' : selected.comanda.status === 'PAID' ? 'Quitada' : selected.comanda.status === 'UNPAID' ? 'Pagamento pendente' : 'Em andamento'}</strong></div>
               <div className="detail"><small>Consumo total</small><strong>{money(selected.comanda.totalCents)}</strong></div>
               <div className="detail"><small>Pagamentos registrados</small><strong>{money(selected.comanda.paidCents)}</strong></div>
               <div className="detail"><small>Saldo pendente</small><strong>{money(selected.comanda.outstandingCents)}</strong></div>
