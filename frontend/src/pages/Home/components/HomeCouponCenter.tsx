@@ -34,7 +34,20 @@ const Notice = styled.aside`
     font-weight: 800;
   }
 
-  .notice-open svg { width: 19px; height: 19px; flex-shrink: 0; }
+  .notice-open svg {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    animation: coupon-ticket-bob 1900ms ease-in-out infinite;
+    transform-origin: center;
+  }
+  @keyframes coupon-ticket-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .notice-open svg { animation: none; }
+  }
   .notice-dismiss { display: grid; place-items: center; }
   .notice-dismiss svg { width: 18px; height: 18px; }
   button:hover { background: #ffffff1a; }
