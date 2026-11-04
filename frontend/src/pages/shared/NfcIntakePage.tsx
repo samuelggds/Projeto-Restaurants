@@ -225,6 +225,8 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     staffError={staffCardError || (!cardReady ? cardContextError : '')}
     onRetryStaff={() => { setStaffCardError(''); setStaffCard(null); retryCardContext(); setStaffRetry(v => v + 1); }}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
+    cardDisplayCode={staffCard?.displayCode}
+    restaurantName={(matchingContext?.slug || urlSlug || '').split('-').map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '').join(' ')}
     staffSection={staffTab}
     pendingCard={staffCard?.status === 'PENDING_WRITE' ? <div style={{display:'grid',gap:13}}>
       <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. O link já pertence ao restaurante autenticado, mas o cartão ainda não pode receber clientes ou pedidos.</p>
