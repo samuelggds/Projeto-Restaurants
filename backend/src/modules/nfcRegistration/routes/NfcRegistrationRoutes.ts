@@ -11,6 +11,7 @@ import { nfcInventoryVisualState } from '../domain/nfcInventoryVisualState.js';
 import { nfcCustomerDeletionEligibility } from '../services/nfcCustomerDeletionEligibility.js';
 import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
+import { isEmptyNfcVisitForReset } from '../domain/nfcVirginCardResetPolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
@@ -330,6 +331,168 @@ router.post('/cards/:id/revoke', async (req, res) => {
       return card;
     });
     return res.json({ card: revoked });
+  } catch (error) { return safe(res, error); }
+});
+
+// Administrative reset preserves card identity, financial history and audit.
+// The old URL is invalid immediately, but the physical NFC tag needs reprogramming.
+const virginResetSchema = z.strictObject({
+  confirmCode: z.string().trim().min(1).max(32),
+  confirmation: z.literal('DEIXAR VIRGEM'),
+});
+function requireNfcAdmin(req: import('express').Request) {
+  if (String(req.user.role).toUpperCase() !== 'ADMIN') {
+    throw new NfcRegistrationError(403, 'Somente o administrador pode deixar um cartão virgem.');
+  }
+}
+router.post('/cards/:id/reset-virgin', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    requireNfcAdmin(req);
+    const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
+    const input = virginResetSchema.parse(req.body);
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const visits = await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId },
+        select: { id: true }, orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      });
+      // Same lock order as financial settlement: comanda(s), then card.
+      for (const visit of visits) {
+        await tx.$queryRaw`SELECT "id" FROM "NfcComanda"
+          WHERE "restaurantId"=${restaurantId} AND "id"=${visit.id}::uuid FOR UPDATE`;
+      }
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId"=${restaurantId} AND "id"=${cardId}::uuid FOR UPDATE`;
+      if (rows.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: cardId },
+        select: { id: true, displayCode: true, customerId: true, status: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      if (input.confirmCode !== card.displayCode) throw new NfcRegistrationError(422, 'Código do cartão incorreto.');
+      const currentVisits = await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId },
+        select: { id: true, status: true, totalCents: true, paidCents: true, customerId: true },
+        orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      });
+      if (currentVisits.length !== visits.length || currentVisits.some((v,i) => v.id !== visits[i].id)) {
+        throw new NfcRegistrationError(409, 'Histórico de comandas alterado. Atualize a tela.');
+      }
+      if (card.customerId) {
+        const debts = await tx.nfcComanda.findMany({
+          where: { restaurantId, customerId: card.customerId, status: { in: ['OPEN', 'UNPAID'] } },
+          select: { cardId: true, totalCents: true, paidCents: true },
+        });
+        if (debts.some(v => v.totalCents !== v.paidCents)) {
+          throw new NfcRegistrationError(409, 'Cliente possui consumo ou dívida pendente. Regularize primeiro.');
+        }
+        if (debts.some(v => v.cardId !== cardId)) {
+          throw new NfcRegistrationError(409, 'Cliente possui outra comanda aberta. Confira antes de limpar.');
+        }
+      }
+      const emptyVisits: string[] = [];
+      for (const visit of currentVisits) {
+        if (visit.status === 'PAID') continue; // Never rewrite settled historical bills.
+        if (visit.totalCents !== 0n || visit.paidCents !== 0n) {
+          throw new NfcRegistrationError(409, 'A comanda possui consumo ou pagamento registrado.');
+        }
+        const [itemCount, orderCount, ledgerCount, gatewayCount, pendingChallengeCount, unresolvedServiceCallCount] = await Promise.all([
+          tx.nfcComandaItem.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.order.count({ where: { restaurantId, nfcComandaId: visit.id } }),
+          tx.nfcComandaPayment.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.nfcCashlessPayment.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.nfcOrderConfirmation.count({ where: { restaurantId, comandaId: visit.id, consumedAt: null, expiresAt: { gt: new Date() } } }),
+          tx.nfcServiceCall.count({ where: { restaurantId, comandaId: visit.id, status: { not: 'RESOLVED' } } }),
+        ]);
+        if (!isEmptyNfcVisitForReset({ status: visit.status, totalCents: visit.totalCents, paidCents: visit.paidCents,
+          itemCount, orderCount, ledgerCount, gatewayCount, pendingChallengeCount, unresolvedServiceCallCount })) {
+          throw new NfcRegistrationError(409, 'Pedido, cobrança, chamado ou operação pendente impede o reset.');
+        }
+        emptyVisits.push(visit.id);
+      }
+      const now = new Date();
+      for (const id of emptyVisits) {
+        // The current ledger has no CANCELLED status. For zero-only visits,
+        // close with zero balance, paidAt=null and explicit cancellation audit.
+        const changed = await tx.nfcComanda.updateMany({
+          where: { restaurantId, id, status: { in: ['OPEN','UNPAID'] }, totalCents: 0n, paidCents: 0n },
+          data: { status: 'PAID', closedAt: now, paidAt: null, closedByUserId: Number(req.user.id) },
+        });
+        if (changed.count !== 1) throw new NfcRegistrationError(409, 'Comanda alterada durante o reset.');
+      }
+      const visitIds = currentVisits.map(v => v.id);
+      if (visitIds.length) {
+        await tx.nfcComandaAccess.updateMany({
+          where: { restaurantId, comandaId: { in: visitIds }, revokedAt: null },
+          data: { revokedAt: now, sessionHash: null },
+        });
+      }
+      const changedCard = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: cardId, customerId: card.customerId, status: card.status },
+        data: {
+          customerId: null, status: 'PENDING_WRITE',
+          // Unpublished token: previously recorded physical URLs no longer resolve.
+          tokenHash: normalizeTagToken(crypto.randomBytes(32).toString('base64url')),
+          activatedAt: null, activatedByUserId: null,
+          revokedAt: null, revokedByUserId: null, revokeReason: null,
+          failedReturnCpfAttempts: 0, returnCpfLockedUntil: null,
+          failedGuestViewAttempts: 0, guestViewLockedUntil: null,
+          failedOrderConfirmAttempts: 0, orderConfirmationLockedUntil: null,
+        },
+      });
+      if (changedCard.count !== 1) throw new NfcRegistrationError(409, 'Cartão alterado durante o reset.');
+      for (const _id of emptyVisits) {
+        await tx.nfcRegistrationAudit.create({ data: {
+          restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
+          action: 'COMANDA_EMPTY_CLOSED',
+        } });
+      }
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
+        action: 'CARD_RESET_VIRGIN',
+      } });
+      return { id: cardId, displayCode: card.displayCode, status: 'PENDING_WRITE' as const,
+        unlinked: true as const, oldLinkInvalidated: true as const, emptyVisitsClosed: emptyVisits.length };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json({ card: result });
+  } catch (error) { return safe(res, error); }
+});
+
+// Admin generates a NEW URL for the same blank card. Physical NDEF writing
+// and subsequent verification still use the established prepare endpoint.
+router.post('/cards/:id/reprogram-virgin', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    requireNfcAdmin(req);
+    const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
+    const token = crypto.randomBytes(32).toString('base64url');
+    const ndefUrl = await canonicalNfcCardUrl(restaurantId, token);
+    const card = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId"=${restaurantId} AND "id"=${cardId}::uuid FOR UPDATE`;
+      if (locked.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado.');
+      const current = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: cardId },
+        select: { id: true, displayCode: true, status: true, customerId: true },
+      });
+      if (!current || current.status !== 'PENDING_WRITE' || current.customerId) {
+        throw new NfcRegistrationError(409, 'Cartão deve estar livre e aguardando gravação.');
+      }
+      const updated = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: cardId, status: 'PENDING_WRITE', customerId: null },
+        data: { tokenHash: normalizeTagToken(token) },
+      });
+      if (updated.count !== 1) throw new NfcRegistrationError(409, 'Estado do cartão alterado.');
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_VIRGIN_REPROGRAM',
+      } });
+      return { id: cardId, displayCode: current.displayCode, status: 'PENDING_WRITE' as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json({ card, ndefUrl });
   } catch (error) { return safe(res, error); }
 });
 
