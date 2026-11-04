@@ -251,9 +251,10 @@ router.post('/customers/identity-search', async (req, res) => {
       if (candidates.length > maxCandidates) {
         throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
       }
-      return candidates.filter(customer =>
-        decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '') === digits
-      ).slice(0, 10);
+      return candidates.filter(customer => {
+        const number = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '');
+        return number === digits || (number.length === digits.length + 2 && number.startsWith('55') && number.slice(2) === digits);
+      }).slice(0, 10);
     });
     return res.json({ customers: customers.map(customer => serialize(restaurantId, customer)) });
   } catch (error) { return safe(res, error); }
