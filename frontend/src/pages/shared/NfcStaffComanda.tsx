@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../Services/api';
 
 type Visit = {
-  id: string; status: 'OPEN' | 'UNPAID' | 'PAID'; tableNumber: number | null;
+  id: string; status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; tableNumber: number | null;
   totalCents: number; paidCents: number; outstandingCents: number;
   items: Array<{ id: string; description: string; quantity: number; totalCents: number }>;
   orders: Array<{ id: number; status: string }>;
@@ -38,7 +38,7 @@ export function NfcStaffComanda({ token }: { token: string }) {
       {data.customer && <p><strong>Cliente vinculado:</strong> {data.customer.name}</p>}
       {!data.comanda ? <p role="status">Não existe comanda atual vinculada a este cartão. Abra o cadastro NFC para conferir o vínculo e continuar o atendimento.</p> : <>
         <p><strong>Comanda:</strong> {data.comanda.id.slice(0, 8).toUpperCase()} {data.comanda.tableNumber ? ' · Mesa ' + data.comanda.tableNumber : ''}</p>
-        <p><strong>Situação:</strong> {data.comanda.status === 'PAID' ? 'Quitada' : data.comanda.status === 'UNPAID' ? 'Pendente' : 'Em atendimento'}</p>
+        <p><strong>Situação:</strong> {data.comanda.status === 'CANCELLED' ? 'Cancelada sem consumo' : data.comanda.status === 'PAID' ? 'Quitada' : data.comanda.status === 'UNPAID' ? 'Pendente' : 'Em atendimento'}</p>
         <h2>Itens consumidos</h2>
         {data.comanda.items.length ? data.comanda.items.map(item =>
           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>

@@ -16,6 +16,8 @@ describe('NFC: liberar cartão físico revogado para novo cliente', () => {
     assert.equal(canReuseRevokedNfcCard('ACTIVE',customerId,[]),false);
     assert.equal(canReuseRevokedNfcCard('REVOKED',null,[]),false);
     assert.equal(canReuseRevokedNfcCard('REVOKED',customerId,[]),true);
+    assert.equal(canReuseRevokedNfcCard('REVOKED',customerId,[{status:'CANCELLED',totalCents:0n,paidCents:0n}]),true);
+    assert.equal(canReuseRevokedNfcCard('REVOKED',customerId,[{status:'CANCELLED',totalCents:100n,paidCents:0n}]),false);
     assert.equal(canReuseRevokedNfcCard('REVOKED',customerId,[
       {status:'PAID',totalCents:500n,paidCents:500n},
       {status:'PAID',totalCents:400n,paidCents:400n},

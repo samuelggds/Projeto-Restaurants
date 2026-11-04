@@ -1,3 +1,4 @@
+import nfcInventoryRouter from './NfcInventoryRoutes.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -7,10 +8,9 @@ import prisma from '../../../config/prisma.js';
 import restaurantSettingsRepository from '../../restaurantSettings/repositories/RestaurantSettingsRepository.js';
 import { getMercadoPagoAccountReadiness } from '../../restaurantSettings/services/RestaurantPaymentReadinessService.js';
 import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
-import { nfcInventoryVisualState } from '../domain/nfcInventoryVisualState.js';
 import { nfcCustomerDeletionEligibility } from '../services/nfcCustomerDeletionEligibility.js';
-import { linkedNfcCustomerMatches, linkedNfcPaymentState } from '../domain/nfcLinkedCustomersSearch.js';
 import { canReuseRevokedNfcCard } from '../domain/nfcRevokedCardReusePolicy.js';
+import { isEmptyNfcVisitForReset } from '../domain/nfcVirginCardResetPolicy.js';
 import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain/nfcReturnCpfLockout.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
@@ -47,7 +47,7 @@ router.get('/payment-availability', async (req, res) => {
 });
 
 // Settlement and card return remain available to clear existing debts after downgrade.
-router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
+router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/(?:revoke|reset-virgin)$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
 const tokenSchema = ZodToken();
 function ZodToken() { return /^[A-Za-z0-9_-]{32,128}$/u; }
@@ -81,93 +81,8 @@ function serialize(restaurantId: number, customer: { id: string; nameEncrypted: 
   const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
   return { id: customer.id, name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted), cpfMasked: maskNfcCpf(cpf), phoneMasked: maskNfcPhone(phone), createdAt: customer.createdAt, cards: customer.cards };
 }
-// Staff-only inventory. Tenant scoping applies to cards, customers and accounts;
- // never return the NDEF token/hash or unmasked personal data in a listing.
-const cardInventorySchema = z.strictObject({
-  page: z.coerce.number().int().min(1).max(100000).default(1),
-  status: z.enum(['ALL', 'READY', 'ACTIVE', 'REVOKED', 'PENDING_WRITE']).default('ALL'),
-});
-const cardInventoryPageSize = 40;
-router.get('/cards/inventory', async (req, res) => {
-  try {
-    const restaurantId = Number(req.user.restaurantId);
-    const { page, status } = cardInventorySchema.parse(req.query);
-    const result = await withTenantDbContext(restaurantId, async tx => {
-      const where: Prisma.NfcCardWhereInput = { restaurantId, ...(status !== 'ALL' ? { status } : {}) };
-      const [cards, total, grouped] = await Promise.all([
-        tx.nfcCard.findMany({
-          where,
-          select: { id: true, displayCode: true, status: true, customerId: true, createdAt: true, activatedAt: true, revokedAt: true },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-          skip: (page - 1) * cardInventoryPageSize,
-          take: cardInventoryPageSize,
-        }),
-        tx.nfcCard.count({ where }),
-        tx.nfcCard.groupBy({ by: ['status'], where: { restaurantId }, _count: { _all: true } }),
-      ]);
-      // The inventory must not offer deletion for a returned/reused card with
-      // financial or order history, even though customerId was cleared.
-      const visibleCardIds = cards.map(card => card.id);
-      const [usedComandas, usedConfirmations] = visibleCardIds.length ? await Promise.all([
-        tx.nfcComanda.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
-        tx.nfcOrderConfirmation.groupBy({ by: ['cardId'], where: { restaurantId, cardId: { in: visibleCardIds } } }),
-      ]) : [[], []];
-      const cardsWithHistory = new Set<string>([
-        ...usedComandas.map(item => item.cardId),
-        ...usedConfirmations.map(item => item.cardId),
-      ]);
-      const customerIds = cards.map(card => card.customerId).filter((id): id is string => !!id);
-      const customers = customerIds.length ? await tx.nfcCustomer.findMany({
-        where: { restaurantId, id: { in: customerIds } },
-        select: { id: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true },
-      }) : [];
-      const customersById = new Map(customers.map(customer => [customer.id, customer]));
-      // Include paid comandas for the latest visit and historical revoked tags.
-      // Revoked cards remain history; they are not ACTIVE customer links.
-      const assignedCardIds = cards.filter(card => card.customerId !== null).map(card => card.id);
-      const accounts = assignedCardIds.length ? await tx.nfcComanda.findMany({
-        where: { restaurantId, cardId: { in: assignedCardIds }, status: { in: ['OPEN', 'UNPAID', 'PAID'] } },
-        orderBy: { openedAt: 'desc' },
-        select: { id: true, cardId: true, tableNumber: true, totalCents: true, paidCents: true, status: true, dueAt: true },
-      }) : [];
-      const customerDebts = customerIds.length ? await tx.nfcComanda.findMany({
-        where: { restaurantId, customerId: { in: customerIds },
-          status: { in: ['OPEN', 'UNPAID'] }, dueAt: { lte: new Date() } },
-        select: { customerId: true, totalCents: true, paidCents: true },
-      }) : [];
-      const counts = { READY: 0, ACTIVE: 0, REVOKED: 0, PENDING_WRITE: 0 };
-      for (const item of grouped) counts[item.status] = item._count._all;
-      return {
-        page, pageSize: cardInventoryPageSize, total, counts,
-        cards: cards.map(card => {
-          const customer = card.customerId ? customersById.get(card.customerId) : undefined;
-          const comanda = accounts.find(account => account.cardId === card.id);
-          return {
-            id: card.id, displayCode: card.displayCode, status: card.status, createdAt: card.createdAt,
-            canDelete: card.customerId === null && card.activatedAt === null && card.revokedAt === null
-              && (card.status === 'READY' || card.status === 'PENDING_WRITE')
-              && !cardsWithHistory.has(card.id),
-            blockedByDebt: card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents),
-            visualStatus: nfcInventoryVisualState(card.status, card.status === 'ACTIVE' && customerDebts.some(debt => debt.customerId === card.customerId && debt.totalCents > debt.paidCents), comanda),
-            customer: customer ? {
-              id: customer.id,
-              name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted),
-              cpfMasked: maskNfcCpf(decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted)),
-              phoneMasked: maskNfcPhone(decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted)),
-            } : null,
-            comanda: comanda ? {
-              id: comanda.id, tableNumber: comanda.tableNumber, status: comanda.status,
-              totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
-              outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
-            } : null,
-          };
-        }),
-      };
-    });
-    res.setHeader('Cache-Control', 'no-store, private');
-    return res.json(result);
-  } catch (error) { return safe(res, error); }
-});
+// Inventory and linked-customer read endpoints are isolated for maintainability.
+router.use(nfcInventoryRouter);
 
 router.get('/customers', async (req, res) => {
   try {
@@ -330,6 +245,173 @@ router.post('/cards/:id/revoke', async (req, res) => {
       return card;
     });
     return res.json({ card: revoked });
+  } catch (error) { return safe(res, error); }
+});
+
+// Administrative reset preserves card identity, financial history and audit.
+// The old URL is invalid immediately, but the physical NFC tag needs reprogramming.
+const virginResetSchema = z.strictObject({
+  confirmCode: z.string().trim().min(1).max(32),
+  confirmation: z.literal('DEIXAR VIRGEM'),
+});
+function requireNfcAdmin(req: import('express').Request) {
+  if (String(req.user.role).toUpperCase() !== 'ADMIN') {
+    throw new NfcRegistrationError(403, 'Somente o administrador pode deixar um cartão virgem.');
+  }
+}
+router.post('/cards/:id/reset-virgin', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    requireNfcAdmin(req);
+    const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
+    const input = virginResetSchema.parse(req.body);
+    const result = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const visits = await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId },
+        select: { id: true }, orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      });
+      // Same lock order as financial settlement: comanda(s), then card.
+      for (const visit of visits) {
+        await tx.$queryRaw`SELECT "id" FROM "NfcComanda"
+          WHERE "restaurantId"=${restaurantId} AND "id"=${visit.id}::uuid FOR UPDATE`;
+      }
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId"=${restaurantId} AND "id"=${cardId}::uuid FOR UPDATE`;
+      if (rows.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: cardId },
+        select: { id: true, displayCode: true, customerId: true, status: true },
+      });
+      if (!card) throw new NfcRegistrationError(404, 'Cartão não encontrado neste restaurante.');
+      if (input.confirmCode !== card.displayCode) throw new NfcRegistrationError(422, 'Código do cartão incorreto.');
+      const currentVisits = await tx.nfcComanda.findMany({
+        where: { restaurantId, cardId },
+        select: { id: true, status: true, totalCents: true, paidCents: true, customerId: true },
+        orderBy: [{ openedAt: 'asc' }, { id: 'asc' }],
+      });
+      if (currentVisits.length !== visits.length || currentVisits.some((v,i) => v.id !== visits[i].id)) {
+        throw new NfcRegistrationError(409, 'Histórico de comandas alterado. Atualize a tela.');
+      }
+      if (card.customerId) {
+        const debts = await tx.nfcComanda.findMany({
+          where: { restaurantId, customerId: card.customerId, status: { in: ['OPEN', 'UNPAID'] } },
+          select: { cardId: true, totalCents: true, paidCents: true },
+        });
+        if (debts.some(v => v.totalCents !== v.paidCents)) {
+          throw new NfcRegistrationError(409, 'Cliente possui consumo ou dívida pendente. Regularize primeiro.');
+        }
+        if (debts.some(v => v.cardId !== cardId)) {
+          throw new NfcRegistrationError(409, 'Cliente possui outra comanda aberta. Confira antes de limpar.');
+        }
+      }
+      const emptyVisits: string[] = [];
+      for (const visit of currentVisits) {
+        if (visit.status === 'PAID' || visit.status === 'CANCELLED') {
+          if (visit.totalCents !== visit.paidCents) {
+            throw new NfcRegistrationError(409, 'Existe histórico financeiro inconsistente. Solicite revisão.');
+          }
+          continue; // Historical visits are immutable.
+        }
+        if (visit.totalCents !== 0n || visit.paidCents !== 0n) {
+          throw new NfcRegistrationError(409, 'A comanda possui consumo ou pagamento registrado.');
+        }
+        const [itemCount, orderCount, ledgerCount, gatewayCount, pendingChallengeCount, unresolvedServiceCallCount] = await Promise.all([
+          tx.nfcComandaItem.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.order.count({ where: { restaurantId, nfcComandaId: visit.id } }),
+          tx.nfcComandaPayment.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.nfcCashlessPayment.count({ where: { restaurantId, comandaId: visit.id } }),
+          tx.nfcOrderConfirmation.count({ where: { restaurantId, comandaId: visit.id, consumedAt: null, expiresAt: { gt: new Date() } } }),
+          tx.nfcServiceCall.count({ where: { restaurantId, comandaId: visit.id, status: { not: 'RESOLVED' } } }),
+        ]);
+        if (!isEmptyNfcVisitForReset({ status: visit.status, totalCents: visit.totalCents, paidCents: visit.paidCents,
+          itemCount, orderCount, ledgerCount, gatewayCount, pendingChallengeCount, unresolvedServiceCallCount })) {
+          throw new NfcRegistrationError(409, 'Pedido, cobrança, chamado ou operação pendente impede o reset.');
+        }
+        emptyVisits.push(visit.id);
+      }
+      const now = new Date();
+      for (const id of emptyVisits) {
+        // Zero-value administrative cancellation; never write payment evidence.
+        const changed = await tx.nfcComanda.updateMany({
+          where: { restaurantId, id, status: { in: ['OPEN','UNPAID'] }, totalCents: 0n, paidCents: 0n },
+          data: { status: 'CANCELLED', closedAt: now, paidAt: null, closedByUserId: Number(req.user.id) },
+        });
+        if (changed.count !== 1) throw new NfcRegistrationError(409, 'Comanda alterada durante o reset.');
+      }
+      const visitIds = currentVisits.map(v => v.id);
+      if (visitIds.length) {
+        await tx.nfcComandaAccess.updateMany({
+          where: { restaurantId, comandaId: { in: visitIds }, revokedAt: null },
+          data: { revokedAt: now, sessionHash: null },
+        });
+      }
+      const changedCard = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: cardId, customerId: card.customerId, status: card.status },
+        data: {
+          customerId: null, status: 'PENDING_WRITE',
+          // Unpublished token: previously recorded physical URLs no longer resolve.
+          tokenHash: normalizeTagToken(crypto.randomBytes(32).toString('base64url')),
+          // Keep activatedAt/revokedAt/revokeReason as historical evidence.
+          // The status and customerId (not timestamps) determine current use.
+          // Clearing those fields would wrongly allow deletion of used cards.
+          failedReturnCpfAttempts: 0, returnCpfLockedUntil: null,
+          failedGuestViewAttempts: 0, guestViewLockedUntil: null,
+          failedOrderConfirmAttempts: 0, orderConfirmationLockedUntil: null,
+        },
+      });
+      if (changedCard.count !== 1) throw new NfcRegistrationError(409, 'Cartão alterado durante o reset.');
+      if (emptyVisits.length > 0) {
+        await tx.nfcRegistrationAudit.createMany({ data: emptyVisits.map(() => ({
+          restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
+          action: 'COMANDA_EMPTY_CLOSED',
+        })) });
+      }
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
+        action: 'CARD_RESET_VIRGIN',
+      } });
+      return { id: cardId, displayCode: card.displayCode, status: 'PENDING_WRITE' as const,
+        unlinked: true as const, oldLinkInvalidated: true as const, emptyVisitsClosed: emptyVisits.length };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json({ card: result });
+  } catch (error) { return safe(res, error); }
+});
+
+// Admin generates a NEW URL for the same blank card. Physical NDEF writing
+// and subsequent verification still use the established prepare endpoint.
+router.post('/cards/:id/reprogram-virgin', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    requireNfcAdmin(req);
+    const restaurantId = Number(req.user.restaurantId), cardId = ensureId(req.params.id);
+    const token = crypto.randomBytes(32).toString('base64url');
+    const ndefUrl = await canonicalNfcCardUrl(restaurantId, token);
+    const card = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard"
+        WHERE "restaurantId"=${restaurantId} AND "id"=${cardId}::uuid FOR UPDATE`;
+      if (locked.length !== 1) throw new NfcRegistrationError(404, 'Cartão não encontrado.');
+      const current = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: cardId },
+        select: { id: true, displayCode: true, status: true, customerId: true },
+      });
+      if (!current || current.status !== 'PENDING_WRITE' || current.customerId) {
+        throw new NfcRegistrationError(409, 'Cartão deve estar livre e aguardando gravação.');
+      }
+      const updated = await tx.nfcCard.updateMany({
+        where: { restaurantId, id: cardId, status: 'PENDING_WRITE', customerId: null },
+        data: { tokenHash: normalizeTagToken(token) },
+      });
+      if (updated.count !== 1) throw new NfcRegistrationError(409, 'Estado do cartão alterado.');
+      await tx.nfcRegistrationAudit.create({ data: {
+        restaurantId, actorUserId: Number(req.user.id), cardId, action: 'CARD_VIRGIN_REPROGRAM',
+      } });
+      return { id: cardId, displayCode: current.displayCode, status: 'PENDING_WRITE' as const };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json({ card, ndefUrl });
   } catch (error) { return safe(res, error); }
 });
 
@@ -1125,71 +1207,6 @@ router.post('/cards/intake', async (req, res) => {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     res.setHeader('Cache-Control', 'no-store');
     return res.status(201).json({ assignment: result, warning: 'A mesa opcional será confirmada ao abrir a comanda NFC.' });
-  } catch (error) { return safe(res, error); }
-});
-const linkedSearchSchema = z.strictObject({
-  q: z.string().trim().max(80).optional(),
-  page: z.coerce.number().int().min(1).max(100000).default(1),
-});
-router.get('/linked-customers', async (req, res) => {
-  try {
-    const restaurantId = Number(req.user.restaurantId);
-    const { q = '', page } = linkedSearchSchema.parse(req.query);
-    const digits = q.replace(/\D/g, '');
-    // CPF is matched only by the scoped HMAC; raw CPF never leaves this endpoint.
-    const cpfKeys = digits.length === 11 ? nfcCpfFingerprints(restaurantId, digits) : [];
-    const result = await withTenantDbContext(restaurantId, async (tx) => {
-      const activeCards = await tx.nfcCard.findMany({
-        where: { restaurantId, status: 'ACTIVE', customerId: { not: null } },
-        select: { id: true, customerId: true, displayCode: true, activatedAt: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      const linkedIds = activeCards.map(card => card.customerId).filter((value): value is string => !!value);
-      if (!linkedIds.length) return { customers: [], total: 0, totalLinked: 0, page, pageSize };
-      const customers = await tx.nfcCustomer.findMany({
-        where: { restaurantId, id: { in: linkedIds } },
-        select: { id: true, nameEncrypted: true, phoneEncrypted: true, cpfFingerprint: true, cpfEncrypted: true },
-      });
-      const byId = new Map(customers.map(customer => [customer.id, customer]));
-      const matching = activeCards.flatMap(card => {
-        if (!card.customerId) return [];
-        const customer = byId.get(card.customerId);
-        if (!customer) return [];
-        const name = decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted);
-        const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
-        const cpfMatch = cpfKeys.includes(customer.cpfFingerprint);
-        if (!linkedNfcCustomerMatches(q, name, phone, cpfMatch)) return [];
-        return [{ card, customer, name, phone }];
-      });
-      const selected = matching.slice((page - 1) * pageSize, page * pageSize);
-      const ids = selected.map(item => item.customer.id);
-      const accounts = ids.length ? await tx.nfcComanda.findMany({
-        where: { restaurantId, customerId: { in: ids }, status: 'OPEN' },
-        orderBy: { openedAt: 'desc' },
-        select: { id: true, cardId: true, customerId: true, tableNumber: true, status: true,
-          totalCents: true, paidCents: true, openedAt: true },
-      }) : [];
-      return {
-        page, pageSize, total: matching.length, totalLinked: new Set(linkedIds).size,
-        customers: selected.map(({ card, customer, name, phone }) => {
-          const current = accounts.find(a => a.customerId === customer.id && a.cardId === card.id);
-          const amounts = current ? { totalCents: Number(current.totalCents), paidCents: Number(current.paidCents) } : null;
-          return {
-            customerId: customer.id,
-            name,
-            cpfMasked: maskNfcCpf(decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted)),
-            phoneMasked: maskNfcPhone(phone),
-            card: { id: card.id, displayCode: card.displayCode },
-            comanda: current ? { id: current.id, tableNumber: current.tableNumber, openedAt: current.openedAt,
-              status: linkedNfcPaymentState({ status: current.status, ...amounts! }),
-              totalCents: amounts!.totalCents, paidCents: amounts!.paidCents,
-              outstandingCents: Math.max(0, amounts!.totalCents - amounts!.paidCents) } : null,
-          };
-        }),
-      };
-    });
-    res.setHeader('Cache-Control', 'no-store, private');
-    return res.json(result);
   } catch (error) { return safe(res, error); }
 });
 

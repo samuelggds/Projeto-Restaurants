@@ -150,6 +150,34 @@ class NfcRegistrationService {
       `/nfc-registration/cards/${cardId}/reuse-complete`,{token});
     return result.data.card;
   }
+  async resetVirgin(cardId: string, confirmCode: string) {
+    const response = await api.post<{ card: {
+      id: string; displayCode: string; status: 'PENDING_WRITE';
+      unlinked: true; oldLinkInvalidated: true; emptyVisitsClosed: number;
+    } }>(`/nfc-registration/cards/${encodeURIComponent(cardId)}/reset-virgin`,
+      { confirmCode, confirmation: 'DEIXAR VIRGEM' }, { skipBaseUrlFallback: true });
+    if (!response.data.card?.oldLinkInvalidated || !response.data.card?.unlinked) {
+      throw new Error('O backend não confirmou a invalidação do link e do vínculo.');
+    }
+    return response.data.card;
+  }
+  async confirmEncodedWrite(token: string) {
+    const response = await api.post<{ card: { status: 'READY'; displayCode: string } }>(
+      '/nfc-registration/cards/confirm-encoded-write',
+      { token, confirmPhysicalWrite: true }, { skipBaseUrlFallback: true });
+    if (response.data.card?.status !== 'READY') {
+      throw new Error('Gravação não foi confirmada pelo servidor.');
+    }
+    return response.data.card;
+  }
+  async reprogramVirgin(cardId: string) {
+    const response = await api.post<{ card: { id: string; displayCode: string; status: 'PENDING_WRITE' }; ndefUrl: string }>(
+      `/nfc-registration/cards/${encodeURIComponent(cardId)}/reprogram-virgin`, {}, { skipBaseUrlFallback: true });
+    if (!response.data.ndefUrl || !response.data.card?.id) {
+      throw new Error('Novo link não foi confirmado pelo backend.');
+    }
+    return response.data;
+  }
   async deleteUnused(cardId: string) {
     const response = await api.delete<{ deleted: true }>(`/nfc-registration/cards/${encodeURIComponent(cardId)}`);
     if (response.data?.deleted !== true) throw new Error('Exclusão não confirmada pelo servidor.');

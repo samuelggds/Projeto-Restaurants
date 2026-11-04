@@ -2812,6 +2812,7 @@ enum NfcComandaStatus {
   OPEN
   UNPAID
   PAID
+  CANCELLED
 }
 
 enum NfcComandaItemKind {

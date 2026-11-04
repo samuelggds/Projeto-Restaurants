@@ -2,7 +2,7 @@
 // accounts are closed and have an authoritative zero balance. This is a policy
 // calculation; the caller must also check in-flight payments and orders.
 export type NfcReuseAccount = {
-  status: 'OPEN' | 'UNPAID' | 'PAID';
+  status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED';
   totalCents: bigint;
   paidCents: bigint;
 };
@@ -13,5 +13,6 @@ export function canReuseRevokedNfcCard(
 ) {
   if (status !== 'REVOKED' || !customerId) return false;
   return accounts.every(account =>
-    account.status === 'PAID' && account.totalCents === account.paidCents);
+    (account.status === 'PAID' && account.totalCents === account.paidCents)
+      || (account.status === 'CANCELLED' && account.totalCents === 0n && account.paidCents === 0n));
 }

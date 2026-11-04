@@ -10,7 +10,7 @@ export type NfcComandaPayment = {
 };
 export type NfcComanda = {
   id: string; customerId: string; cardId: string | null; tableNumber: number | null;
-  status: 'OPEN' | 'UNPAID' | 'PAID'; totalCents: number; paidCents: number;
+  status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; totalCents: number; paidCents: number;
   outstandingCents: number; openedAt: string; dueAt: string; closedAt: string | null;
   paidAt: string | null; items: NfcComandaItem[]; payments: NfcComandaPayment[];
   orders?: Array<{ id: number; createdAt: string; status: 'PENDENTE' | 'PREPARANDO' | 'PRONTO' | 'SAIU_PARA_ENTREGA' | 'ENTREGUE' | 'CANCELADO' }>;

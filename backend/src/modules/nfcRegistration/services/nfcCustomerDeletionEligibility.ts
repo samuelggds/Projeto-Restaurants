@@ -22,7 +22,7 @@ export async function nfcCustomerDeletionEligibility(
     where: { restaurantId, customerId },
     select: { id: true, status: true, totalCents: true, paidCents: true },
   });
-  if (comandas.some(comanda => comanda.status !== 'PAID' || comanda.paidCents < comanda.totalCents)) {
+  if (comandas.some(comanda => !['PAID', 'CANCELLED'].includes(comanda.status) || comanda.paidCents < comanda.totalCents)) {
     return { eligible: false, reason: 'Há comanda aberta, pendente ou não integralmente quitada para este cliente.' };
   }
 
