@@ -2,7 +2,7 @@
 // accounts are closed and have an authoritative zero balance. This is a policy
 // calculation; the caller must also check in-flight payments and orders.
 export type NfcReuseAccount = {
-  status: 'OPEN' | 'UNPAID' | 'PAID';
+  status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED';
   totalCents: bigint;
   paidCents: bigint;
 };
