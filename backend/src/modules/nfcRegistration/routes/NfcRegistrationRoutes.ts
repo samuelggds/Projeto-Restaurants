@@ -791,9 +791,10 @@ router.post('/cards/staff-comanda', async (req, res) => {
               orderBy: { createdAt: 'desc' } },
           },
         }) : null;
-      const customer = comanda && card.customerId
+      const customer = card.status === 'ACTIVE' && card.customerId
         ? await tx.nfcCustomer.findFirst({
-          where: { restaurantId, id: card.customerId }, select: { id: true, nameEncrypted: true },
+          where: { restaurantId, id: card.customerId, archivedAt: null },
+          select: { id: true, nameEncrypted: true },
         }) : null;
       return {
         card: { displayCode: card.displayCode, status: card.status },
@@ -820,12 +821,27 @@ router.post('/cards/attendance-context', async (req, res) => {
         select: { id: true, status: true, displayCode: true, customerId: true },
       });
       if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
-      const comanda = card.status === 'ACTIVE' && card.customerId
-        ? await tx.nfcComanda.findFirst({
-          where: { restaurantId, cardId: card.id, customerId: card.customerId, status: 'OPEN' },
-          select: { id: true },
+      const customer = card.status === 'ACTIVE' && card.customerId
+        ? await tx.nfcCustomer.findFirst({
+          where: { restaurantId, id: card.customerId, archivedAt: null },
+          select: { id: true, nameEncrypted: true },
         }) : null;
-      return { status: card.status, displayCode: card.displayCode, comandaId: comanda?.id ?? null };
+      if (card.status === 'ACTIVE' && !customer) {
+        throw new NfcRegistrationError(409, 'O vínculo do cartão precisa ser revisado pelo administrador.');
+      }
+      const comanda = customer ? await tx.nfcComanda.findFirst({
+        where: { restaurantId, cardId: card.id, customerId: customer.id, status: 'OPEN' },
+        orderBy: { openedAt: 'desc' }, select: { id: true },
+      }) : null;
+      const unsettled = customer && !comanda ? await tx.nfcComanda.count({
+        where: { restaurantId, customerId: customer.id, status: { in: ['OPEN', 'UNPAID'] } },
+      }) : 0;
+      return { status: card.status, displayCode: card.displayCode, cardId: card.id,
+        customerId: customer?.id ?? null,
+        customerName: customer ? decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) : null,
+        comandaId: comanda?.id ?? null,
+        canOpenComanda: Boolean(customer && !comanda && unsettled === 0),
+        hasUnsettledComanda: unsettled > 0 };
     });
     res.setHeader('Cache-Control', 'no-store, private');
     return res.json({ card: result });
