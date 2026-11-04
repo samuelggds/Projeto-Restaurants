@@ -58,6 +58,67 @@ test('NFC public card context resolves only the own tenant slug and grants no se
       method: 'POST', json: { token: rawToken },
     });
     assert.equal(customer.response.status, 403);
+    // Encoded-but-not-yet-confirmed cards are owned by the same tenant, and
+    // may only be prepared by an authenticated employee explicitly confirming
+    // physical writing. Never accept a foreign tenant or anonymous request.
+    const pendingToken = randomBytes(32).toString('base64url');
+    await prisma.nfcCard.create({
+      data: {
+        restaurantId: fixture.restaurants.a.id,
+        tokenHash: createHash('sha256').update(pendingToken).digest('hex'),
+        displayCode: 'NFC-TEST-PENDING',
+        status: 'PENDING_WRITE',
+        issuedByUserId: fixture.users.adminA.id,
+      },
+    });
+    const pendingPublic = await apiRequest(app.baseUrl, '/nfc-customer-view/card-context',
+      undefined, { method: 'POST', json: { token: pendingToken, restaurantSlug: fixture.restaurants.a.slug } });
+    assert.equal(pendingPublic.response.status, 200);
+    const pendingStaff = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: pendingToken },
+    });
+    assert.equal(pendingStaff.response.status, 200, JSON.stringify(pendingStaff.data));
+    assert.deepEqual(pendingStaff.data.card, {
+      status: 'PENDING_WRITE', displayCode: 'NFC-TEST-PENDING', comandaId: null,
+    });
+    const foreignPending = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminB, {
+      method: 'POST', json: { token: pendingToken },
+    });
+    assert.equal(foreignPending.response.status, 404);
+
+    const confirmEndpoint = '/nfc-registration/cards/confirm-encoded-write';
+    const noConsent = await apiRequest(app.baseUrl, confirmEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: pendingToken },
+    });
+    assert.equal(noConsent.response.status, 422);
+    const foreignConfirm = await apiRequest(app.baseUrl, confirmEndpoint, fixture.tokens.adminB, {
+      method: 'POST', json: { token: pendingToken, confirmPhysicalWrite: true },
+    });
+    assert.equal(foreignConfirm.response.status, 404);
+    const anonymousConfirm = await apiRequest(app.baseUrl, confirmEndpoint, undefined, {
+      method: 'POST', json: { token: pendingToken, confirmPhysicalWrite: true },
+    });
+    assert.equal(anonymousConfirm.response.status, 401);
+    const customerConfirm = await apiRequest(app.baseUrl, confirmEndpoint, fixture.tokens.customerA, {
+      method: 'POST', json: { token: pendingToken, confirmPhysicalWrite: true },
+    });
+    assert.equal(customerConfirm.response.status, 403);
+    const prepared = await apiRequest(app.baseUrl, confirmEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: pendingToken, confirmPhysicalWrite: true },
+    });
+    assert.equal(prepared.response.status, 200, JSON.stringify(prepared.data));
+    assert.deepEqual(prepared.data.card, {
+      status: 'READY', displayCode: 'NFC-TEST-PENDING', comandaId: null,
+    });
+    const repeated = await apiRequest(app.baseUrl, confirmEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: pendingToken, confirmPhysicalWrite: true },
+    });
+    assert.equal(repeated.response.status, 409);
+    const readyStaff = await apiRequest(app.baseUrl, endpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: pendingToken },
+    });
+    assert.equal(readyStaff.response.status, 200);
+    assert.equal(readyStaff.data.card.status, 'READY');
     const paymentEndpoint = '/nfc-registration/cards/payment-context';
     const payment = await apiRequest(app.baseUrl, paymentEndpoint, fixture.tokens.adminA, {
       method: 'POST', json: { token: rawToken },

@@ -49,7 +49,9 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const validToken = /^[A-Za-z0-9_-]{32,128}$/u.test(token);
   const view: 'home' | 'staff' = action ? 'staff' : 'home';
   const [staffTab, setStaffTab] = useState<NfcStaffSection>(action === 'order' ? 'orders' : action === 'payment' ? 'payment' : 'menu');
-  const [staffCard, setStaffCard] = useState<{ status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
+  const [staffCard, setStaffCard] = useState<{ status: 'PENDING_WRITE' | 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } | null>(null);
+  const [confirmPhysicalWrite, setConfirmPhysicalWrite] = useState(false);
+  const [confirmingWrite, setConfirmingWrite] = useState(false);
   const [staffCardError, setStaffCardError] = useState('');
   const [staffRetry, setStaffRetry] = useState(0);
   const [retryContextVersion, setRetryContextVersion] = useState(0);
@@ -86,7 +88,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   useEffect(() => {
     if (!allowed || !validToken || !cardReady || !staffRequested || isLoading) return;
     let active = true;
-    void api.post<{ card: { status: 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
+    void api.post<{ card: { status: 'PENDING_WRITE' | 'READY' | 'ACTIVE'; displayCode: string; comandaId: string | null } }>(
       '/nfc-registration/cards/attendance-context', { token }, { skipBaseUrlFallback: true },
     ).then(response => {
       if (active) { setStaffCard(response.data.card); setStaffCardError(''); }
@@ -103,6 +105,28 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     return () => { active = false; };
   }, [allowed, validToken, cardReady, staffRequested, isLoading, token, staffRetry]);
 
+  const confirmPendingCard = async () => {
+    if (!confirmPhysicalWrite || staffCard?.status !== 'PENDING_WRITE' || confirmingWrite) return;
+    setConfirmingWrite(true);
+    setStaffCardError('');
+    try {
+      const response = await api.post<{ card: { status: 'READY'; displayCode: string; comandaId: null } }>(
+        '/nfc-registration/cards/confirm-encoded-write',
+        { token, confirmPhysicalWrite: true },
+        { skipBaseUrlFallback: true },
+      );
+      if (response.data?.card?.status !== 'READY') throw new Error('Preparação não confirmada no servidor.');
+      setStaffCard(response.data.card);
+      setConfirmPhysicalWrite(false);
+      setStaffTab('registration');
+      setResult('Cartão confirmado no banco e pronto para cadastrar ou vincular um cliente.');
+    } catch (error) {
+      const cause = error as { response?: { data?: { error?: string } } };
+      setStaffCardError(cause.response?.data?.error || 'Não foi possível confirmar a preparação. Confira o cartão e tente novamente.');
+    } finally {
+      setConfirmingWrite(false);
+    }
+  };
   const chooseAction = (next: NfcEntryAction) => {
     setStaffCard(null); setStaffCardError(''); setMessage(''); setResult('');
     setStaffTab(next === 'order' ? 'orders' : next === 'payment' ? 'payment' : 'menu');
@@ -209,6 +233,18 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     onRetryStaff={() => { setStaffCardError(''); setStaffCard(null); retryCardContext(); setStaffRetry(v => v + 1); }}
     staffRole={subRole === 'GARCOM' ? 'Garçom' : subRole === 'ATENDENTE' ? 'Atendente' : 'Administrador'}
     staffSection={staffTab}
+    pendingCard={staffCard?.status === 'PENDING_WRITE' ? <div style={{display:'grid',gap:13}}>
+      <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. O link já pertence ao restaurante autenticado, mas o cartão ainda não pode receber clientes ou pedidos.</p>
+      <label style={{display:'flex',alignItems:'flex-start',gap:10}}>
+        <input type="checkbox" checked={confirmPhysicalWrite} onChange={event => setConfirmPhysicalWrite(event.target.checked)} disabled={confirmingWrite}/>
+        <span>Confirmei que abri este endereço aproximando o cartão físico NFC, e não apenas copiando o link.</span>
+      </label>
+      <button type="button" disabled={!confirmPhysicalWrite || confirmingWrite} onClick={() => void confirmPendingCard()}>
+        {confirmingWrite ? 'Confirmando no servidor...' : 'Confirmar gravação e cadastrar cliente'}
+      </button>
+      {staffCardError && <p role="alert" className="error">{staffCardError}</p>}
+      <small>Esta confirmação é registrada no histórico do restaurante. Nunca confirme um cartão que não tenha sido efetivamente gravado.</small>
+    </div> : null}
     onStaff={() => { setHelpVisible(false); chooseAction('staff'); }}
     onHelp={() => setHelpVisible(value => !value)}
     helpVisible={helpVisible}
