@@ -854,7 +854,7 @@ router.post('/cards/attendance-context', async (req, res) => {
     const result = await withTenantDbContext(restaurantId, async tx => {
       const card = await tx.nfcCard.findFirst({
         where: { restaurantId, tokenHash, status: { in: ['PENDING_WRITE', 'READY', 'ACTIVE'] } },
-        select: { id: true, status: true, displayCode: true, customerId: true },
+        select: { id: true, status: true, displayCode: true, customerId: true, activatedAt: true },
       });
       if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
       const customer = card.status === 'ACTIVE' && card.customerId
@@ -873,14 +873,18 @@ router.post('/cards/attendance-context', async (req, res) => {
         tx.nfcComanda.count({
           where: { restaurantId, customerId: customer.id, status: { in: ['OPEN', 'UNPAID'] } },
         }),
-        tx.nfcComanda.count({ where: { restaurantId, cardId: card.id } }),
+        tx.nfcComanda.count({ where: {
+          restaurantId, cardId: card.id, customerId: customer.id,
+          ...(card.activatedAt ? { openedAt: { gte: card.activatedAt } } : {}),
+        } }),
       ]) : [0, 0];
       return { status: card.status, displayCode: card.displayCode, cardId: card.id,
         customerId: customer?.id ?? null,
         customerName: customer ? decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) : null,
         comandaId: comanda?.id ?? null,
         canOpenComanda: Boolean(customer && !comanda && unsettled === 0 && previousCardVisits === 0),
-        hasUnsettledComanda: unsettled > 0 };
+        hasUnsettledComanda: unsettled > 0,
+        needsCardReturn: Boolean(customer && !comanda && unsettled === 0 && previousCardVisits > 0) };
     });
     res.setHeader('Cache-Control', 'no-store, private');
     return res.json({ card: result });
