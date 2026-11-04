@@ -37,6 +37,7 @@ import GetCurrentTableOrderController from '../controllers/GetCurrentTableOrderC
 import ConfirmOrderDeliveryReceivedController from '../controllers/ConfirmOrderDeliveryReceivedController.js';
 import RateDeliveredOrderController from '../controllers/RateDeliveredOrderController.js';
 import QuoteOrderController from '../controllers/QuoteOrderController.js';
+import QuoteDeliveryFeeController from '../controllers/QuoteDeliveryFeeController.js';
 import GetDeliveryAddressLocationController from '../controllers/GetDeliveryAddressLocationController.js';
 import OrderReportsController from '../controllers/OrderReportsController.js';
 import DeliveryPaymentController from '../../paymentTerminals/controllers/DeliveryPaymentController.js';
@@ -87,6 +88,10 @@ router.post(
     QuoteOrderController.handle(req, res);
   },
 );
+
+router.post('/delivery-fee', orderAccessMiddleware, billingMiddleware, (req, res) => {
+  QuoteDeliveryFeeController.handle(req, res);
+});
 
 router.post('/address-location', orderAccessMiddleware, (req, res) => {
   GetDeliveryAddressLocationController.handle(req, res);
