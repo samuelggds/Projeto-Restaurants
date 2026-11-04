@@ -816,7 +816,7 @@ router.post('/cards/attendance-context', async (req, res) => {
     const restaurantId = Number(req.user.restaurantId);
     const result = await withTenantDbContext(restaurantId, async tx => {
       const card = await tx.nfcCard.findFirst({
-        where: { restaurantId, tokenHash, status: { in: ['READY', 'ACTIVE'] } },
+        where: { restaurantId, tokenHash, status: { in: ['PENDING_WRITE', 'READY', 'ACTIVE'] } },
         select: { id: true, status: true, displayCode: true, customerId: true },
       });
       if (!card) throw new NfcRegistrationError(404, 'Cartão indisponível para este restaurante.');
@@ -829,6 +829,47 @@ router.post('/cards/attendance-context', async (req, res) => {
     });
     res.setHeader('Cache-Control', 'no-store, private');
     return res.json({ card: result });
+  } catch (error) { return safe(res, error); }
+});
+// Staff-only confirmation for links already registered to this restaurant.
+// The employee must have physically opened the NFC link: unlike Android Web
+// NFC, iOS Safari cannot perform a second low-level scan. Confirmation is
+// explicit, auditable and atomic; it never creates cards or bypasses tenancy.
+const confirmEncodedCardSchema = z.strictObject({
+  token: z.string().regex(tokenSchema),
+  confirmPhysicalWrite: z.literal(true),
+});
+router.post('/cards/confirm-encoded-write', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, private');
+  try {
+    const input = confirmEncodedCardSchema.parse(req.body);
+    const restaurantId = Number(req.user.restaurantId);
+    const tokenHash = normalizeTagToken(input.token);
+    const card = await prisma.$transaction(async tx => {
+      await setTenantDbContext(tx, restaurantId);
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "NfcCard" WHERE "restaurantId"=${restaurantId}
+          AND "tokenHash"=${tokenHash} FOR UPDATE
+      `;
+      if (rows.length !== 1) throw new NfcRegistrationError(404, 'Cartão não pertence a este restaurante.');
+      const current = await tx.nfcCard.findFirst({
+        where: { restaurantId, id: rows[0].id, tokenHash },
+        select: { id: true, status: true, customerId: true, displayCode: true },
+      });
+      if (!current || current.status !== 'PENDING_WRITE' || current.customerId) {
+        throw new NfcRegistrationError(409, 'Cartão não está aguardando confirmação da gravação.');
+      }
+      const changed = await tx.nfcCard.updateMany({
+        where: { id: current.id, restaurantId, tokenHash, status: 'PENDING_WRITE', customerId: null },
+        data: { status: 'READY' },
+      });
+      if (changed.count !== 1) throw new NfcRegistrationError(409, 'Estado do cartão alterado. Atualize a tela.');
+      await tx.nfcRegistrationAudit.create({
+        data: { restaurantId, actorUserId: Number(req.user.id), cardId: current.id, action: 'CARD_READY' },
+      });
+      return { displayCode: current.displayCode, status: 'READY' as const, comandaId: null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return res.json({ card });
   } catch (error) { return safe(res, error); }
 });
 router.post('/cards/resolve', async (req, res) => {
