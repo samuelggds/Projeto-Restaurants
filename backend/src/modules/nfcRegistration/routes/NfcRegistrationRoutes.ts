@@ -417,7 +417,7 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
         // Zero-value administrative cancellation; never write payment evidence.
         const changed = await tx.nfcComanda.updateMany({
           where: { restaurantId, id, status: { in: ['OPEN','UNPAID'] }, totalCents: 0n, paidCents: 0n },
-          data: { status: 'PAID', closedAt: now, paidAt: null, closedByUserId: Number(req.user.id) },
+          data: { status: 'CANCELLED', closedAt: now, paidAt: null, closedByUserId: Number(req.user.id) },
         });
         if (changed.count !== 1) throw new NfcRegistrationError(409, 'Comanda alterada durante o reset.');
       }
