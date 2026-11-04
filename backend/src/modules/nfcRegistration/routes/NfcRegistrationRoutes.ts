@@ -394,7 +394,7 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
       }
       const emptyVisits: string[] = [];
       for (const visit of currentVisits) {
-        if (visit.status === 'PAID') continue; // Never rewrite settled historical bills.
+        if (visit.status === 'PAID' || visit.status === 'CANCELLED') continue; // Historical visits are immutable.
         if (visit.totalCents !== 0n || visit.paidCents !== 0n) {
           throw new NfcRegistrationError(409, 'A comanda possui consumo ou pagamento registrado.');
         }
