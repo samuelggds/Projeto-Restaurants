@@ -450,6 +450,11 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
             {selected.canDelete && !selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE') &&
               <button type="button" className="revoke" disabled={actionBusy} onClick={() => void deleteUnusedCard()}>Excluir cartão</button>}
           </div>
+          {isAdmin && !(selected.canDelete && !selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE')) && (
+            <p className="warning" role="note">
+              <strong>Exclusão indisponível.</strong> Este cartão não atende aos critérios de exclusão: só é possível excluir cartões disponíveis ou aguardando gravação que nunca foram ativados ou revogados e não possuem histórico de comandas ou confirmações. Um cartão sem cliente também pode ter histórico preservado. Use <strong>Deixar cartão virgem</strong> para reutilizá-lo, desde que o servidor confirme que não há pendências.
+            </p>
+          )}
           {selected.status === 'ACTIVE' && <p className="warning">A liberação exige cartão identificado, CPF completo e quitação confirmada pelo servidor. No iPhone, aproxime o cartão e use a opção Acessar painel do restaurante na página NFC; não é necessária uma segunda leitura Web NFC.</p>}
           {selected.status === 'REVOKED' && <p className="warning">Cartão revogado: não permite novos atendimentos. A reemissão segue a conferência financeira e a regravação segura.</p>}
           <button type="button" className="close" onClick={() => setSelected(null)}>Fechar</button>
