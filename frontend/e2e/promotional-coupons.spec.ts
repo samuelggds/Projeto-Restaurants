@@ -49,14 +49,27 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   await page.addInitScript(() => localStorage.clear());
   await page.goto('/restaurante-teste');
 
+  // The former in-home coupon cards are replaced by a dismissible top alert
+  // and a dedicated coupon screen, both available to unauthenticated guests.
+  const notice = page.getByRole('complementary', { name: 'Aviso de cupons' });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('Você tem 3 cupons!');
   const promos = page.getByRole('region', { name: 'Cupons promocionais disponíveis' });
-  await expect(promos).toBeVisible();
-  await expect(promos.getByText('Campanha especial')).toBeVisible();
-  await promos.getByRole('button', { name: 'Ver todos' }).click();
-  const all = page.getByRole('dialog', { name: 'Todos os cupons promocionais' });
-  await expect(all.getByText('Desconto na retirada')).toBeVisible();
-  await expect(all.getByText('Desconto na mesa')).toBeVisible();
-  await all.getByRole('button', { name: 'Fechar cupons' }).click();
+  await expect(promos).toHaveCount(0);
+  await notice.getByRole('button', { name: 'Fechar aviso de cupons' }).click();
+  await expect(notice).toHaveCount(0);
+  await page.reload();
+  await expect(notice).toBeVisible();
+  await notice.getByRole('button', { name: /Abrir cupons/ }).click();
+  const screen = page.getByRole('region', { name: 'Tela de cupons' });
+  await expect(screen).toBeVisible();
+  await expect(screen.getByText('Campanha especial')).toBeVisible();
+  await expect(screen.getByText('Desconto na retirada')).toBeVisible();
+  await expect(screen.getByText('Desconto na mesa')).toBeVisible();
+  await expect(screen).toContainText('Cupons do restaurante');
+  await expect(screen).toContainText('Você pode consultar e copiar cupons públicos');
+  await screen.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await expect(screen).toHaveCount(0);
 
   const featured = page.getByRole('region', { name: 'Produtos em destaque' });
   await expect(featured.getByText('Destaque', { exact: true })).toBeVisible();
@@ -64,12 +77,21 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   await expect(featured.locator('.featured-flame').first()).toHaveCSS('animation-name', 'none');
   await featured.getByRole('button', { name: 'Ver detalhes de Prato promocional' }).click();
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
-  await promos.getByRole('button', { name: 'Usar cupom' }).first().click();
+  await page.getByRole('button', { name: 'Abrir cupons' }).click();
+  await screen.getByRole('button', { name: 'Usar cupom PROMO15' }).click();
+  await expect(screen).toHaveCount(0);
   await expect.poll(() => quotes.some((quote) =>
     quote.restaurantId === 9 && quote.couponCode === 'PROMO15' && quote.couponRedemptionId == null,
   )).toBe(true);
   expect(loyaltyRequests).toBe(0);
   await page.setViewportSize({ width: 390, height: 844 });
+  const bottomNav = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(bottomNav.getByRole('button', { name: 'Abrir cupons' })).toBeVisible();
+  await bottomNav.getByRole('button', { name: 'Abrir cupons' }).click();
+  await expect(screen).toBeVisible();
+  await expect(screen.getByText('Campanha especial')).toBeVisible();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await screen.getByRole('button', { name: 'Fechar tela de cupons' }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(391);
 });
