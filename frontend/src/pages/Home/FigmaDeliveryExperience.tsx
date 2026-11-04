@@ -21,7 +21,6 @@ import {
   Beef,
   IceCreamBowl,
   Salad,
-  TicketPercent,
 } from 'lucide-react';
 import {
   FacebookIcon,
@@ -1163,10 +1162,6 @@ export function FigmaDeliveryExperience({
         <button type="button" onClick={onOpenOrders}>
           <List aria-hidden="true" />
           <span>Pedidos</span>
-        </button>
-        <button type="button" className={couponScreenOpen ? 'active coupon-nav' : 'coupon-nav'} aria-label="Abrir cupons" aria-current={couponScreenOpen ? 'page' : undefined} onClick={() => setCouponScreenOpen(true)}>
-          <TicketPercent aria-hidden="true" />
-          <span>Cupons</span>
         </button>
         <button type="button" onClick={onOpenProfile}>
           <UserRound aria-hidden="true" />
