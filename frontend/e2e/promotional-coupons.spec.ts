@@ -84,6 +84,15 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
     quote.restaurantId === 9 && quote.couponCode === 'PROMO15' && quote.couponRedemptionId == null,
   )).toBe(true);
   expect(loyaltyRequests).toBe(0);
+
+  // A real customer cannot tap the storefront navigation through the
+  // "Finalizar pedido" modal. Close checkout using its own control first;
+  // then test the coupon tab as a separate navigation journey.
+  const checkout = page.getByRole('dialog', { name: 'Finalizar pedido' });
+  await expect(checkout).toBeVisible();
+  await checkout.locator('button.brand').click();
+  await expect(checkout).toHaveCount(0);
+
   await page.setViewportSize({ width: 390, height: 844 });
   const bottomNav = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(bottomNav.getByRole('button', { name: 'Abrir cupons' })).toBeVisible();
