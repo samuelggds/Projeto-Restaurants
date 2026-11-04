@@ -48,7 +48,7 @@ router.get('/payment-availability', async (req, res) => {
 });
 
 // Settlement and card return remain available to clear existing debts after downgrade.
-router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/revoke$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
+router.use((req, res, next) => (req.method === 'GET' || (req.method === 'POST' && (req.path === '/cards/return' || /^\/cards\/[^/]+\/(?:revoke|reset-virgin)$/.test(req.path)))) ? next() : premiumNfcPlanMiddleware(req, res, next));
 const pageSize = 20;
 const tokenSchema = ZodToken();
 function ZodToken() { return /^[A-Za-z0-9_-]{32,128}$/u; }
@@ -394,7 +394,12 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
       }
       const emptyVisits: string[] = [];
       for (const visit of currentVisits) {
-        if (visit.status === 'PAID' || visit.status === 'CANCELLED') continue; // Historical visits are immutable.
+        if (visit.status === 'PAID' || visit.status === 'CANCELLED') {
+          if (visit.totalCents !== visit.paidCents) {
+            throw new NfcRegistrationError(409, 'Existe histórico financeiro inconsistente. Solicite revisão.');
+          }
+          continue; // Historical visits are immutable.
+        }
         if (visit.totalCents !== 0n || visit.paidCents !== 0n) {
           throw new NfcRegistrationError(409, 'A comanda possui consumo ou pagamento registrado.');
         }
@@ -442,11 +447,11 @@ router.post('/cards/:id/reset-virgin', async (req, res) => {
         },
       });
       if (changedCard.count !== 1) throw new NfcRegistrationError(409, 'Cartão alterado durante o reset.');
-      for (const _id of emptyVisits) {
-        await tx.nfcRegistrationAudit.create({ data: {
+      if (emptyVisits.length > 0) {
+        await tx.nfcRegistrationAudit.createMany({ data: emptyVisits.map(() => ({
           restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
           action: 'COMANDA_EMPTY_CLOSED',
-        } });
+        })) });
       }
       await tx.nfcRegistrationAudit.create({ data: {
         restaurantId, actorUserId: Number(req.user.id), cardId, customerId: card.customerId,
