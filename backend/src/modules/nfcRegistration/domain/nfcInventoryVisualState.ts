@@ -9,7 +9,7 @@ export type NfcInventoryVisualState =
 export function nfcInventoryVisualState(
   cardStatus: 'READY' | 'ACTIVE' | 'PENDING_WRITE' | 'REVOKED',
   blockedByOverdueDebt: boolean,
-  comanda?: { status: 'OPEN' | 'UNPAID' | 'PAID'; totalCents: bigint; paidCents: bigint } | null,
+  comanda?: { status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; totalCents: bigint; paidCents: bigint } | null,
 ): NfcInventoryVisualState {
   if (cardStatus === 'REVOKED') return 'REVOKED';
   if (cardStatus === 'PENDING_WRITE') return 'PENDING_WRITE';
