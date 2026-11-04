@@ -106,6 +106,130 @@ const Shell = styled.main`
     .nfc-top-label { font-size: 10px; }
     .nfc-brand { font-size: 19px; }
   }
+  /* Same envelope, brand spacing and form frame used in the supplied NFC ZIP. */
+  &.staff {
+    --nfc-orange: light-dark(#b94011, #ff9b6b);
+    --nfc-text: light-dark(#232b35, #f1f4f8);
+    --nfc-muted: light-dark(#64707e, #b3bdca);
+    --nfc-border: light-dark(#e4e8ee, #3c4552);
+    background: light-dark(#f7f8fa, #151a20);
+    color: var(--nfc-text);
+    font: 400 14px/1.5 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    padding: 25px 20px 28px;
+  }
+  &.staff .nfc-frame { width: min(100%, 680px); }
+  &.staff .nfc-back {
+    color: var(--nfc-orange);
+    font-size: 12px;
+    font-weight: 400;
+    min-height: 44px;
+    padding: 7px 0;
+    margin-bottom: 15px;
+  }
+  &.staff .nfc-staff-head {
+    margin: 3px 0 25px;
+    gap: 14px;
+  }
+  &.staff .nfc-brand {
+    font-size: 23px;
+    font-weight: 500;
+    letter-spacing: -.05em;
+    gap: 0;
+    line-height: 1.15;
+  }
+  &.staff .nfc-brand img {
+    width: 39px;
+    height: 35px;
+    object-fit: contain;
+    margin-right: 9px;
+  }
+  &.staff .nfc-staff-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 400;
+    background: light-dark(#edf8f0, #243c30);
+    color: light-dark(#267345, #8ad9a8);
+    border: 0;
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  &.staff .nfc-staff-title {
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -.04em;
+    margin: 9px 0 10px;
+  }
+  &.staff .nfc-subtitle {
+    font-size: 13px;
+    color: var(--nfc-muted);
+    line-height: 1.6;
+  }
+  &.staff .nfc-staff-grid { gap: 14px; margin-top: 24px; }
+  &.staff .nfc-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 154px;
+    padding: 22px 20px;
+    background: light-dark(#fff, #202731);
+    color: var(--nfc-text);
+    border: 1px solid var(--nfc-border);
+    border-radius: 13px;
+    text-align: left;
+  }
+  &.staff .nfc-tile .nfc-tile-icon {
+    width: 41px;
+    height: 41px;
+    border-radius: 10px;
+    background: light-dark(#fff2e8, #3b2b23);
+    color: var(--nfc-orange);
+    margin-bottom: 4px;
+  }
+  &.staff .nfc-tile strong { font-size: 16px; font-weight: 500; line-height: 1.35; }
+  &.staff .nfc-tile small { font-size: 11px; line-height: 1.5; }
+  &.staff .nfc-note { font-size: 11px; color: var(--nfc-muted); margin-top: 20px; }
+
+  &.registration .nfc-frame { width: min(100%, 390px); }
+  &.registration { color-scheme: light; }
+  &.registration .nfc-staff-head { margin-bottom: 22px; }
+  &.registration .nfc-staff-card {
+    display: block;
+    margin: 0;
+    border: 1px solid light-dark(#e5e9ef, #3b4350);
+    border-radius: 15px;
+    padding: 30px;
+    background: light-dark(#fff, #20262f);
+    box-shadow: 0 5px 20px rgba(34,40,50,.03);
+  }
+  &.registration .nfc-staff-card > p[role=status] { display: none; }
+  &.registration .nfc-context {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+    color: var(--nfc-muted);
+    font-size: 12px;
+  }
+  &.registration .nfc-context > span { display: flex; align-items: center; gap: 6px; }
+  &.registration .nfc-context svg { width: 15px; height: 15px; }
+
+  @media (max-width: 550px) {
+    &.staff { padding: 24px 16px 20px; }
+    &.registration .nfc-staff-card { padding: 22px 20px; }
+    &.staff .nfc-tile { min-height: 141px; padding: 18px 15px; }
+    &.staff .nfc-tile strong { font-size: 14px; }
+    &.staff .nfc-staff-grid { gap: 11px; }
+  }
+  @media (max-width: 360px) {
+    &.staff { padding-inline: 12px; }
+    &.registration .nfc-staff-card { padding: 21px 16px; }
+  }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; transition: none!important; } }
 `;
 
@@ -123,6 +247,8 @@ type Props = {
   staffError: string;
   onRetryStaff: () => void;
   staffRole?: string;
+  restaurantName?: string;
+  cardDisplayCode?: string;
   staffSection: NfcStaffSection;
   onStaff: () => void;
   onHelp: () => void;
@@ -143,9 +269,9 @@ const sections = [
 export default function NfcEntryPanel({
   view, validCard, loadingCard, customerPath, loginPath, cardContextError, onRetryCardContext, staffAuthorized,
   staffLoggedIn, staffChecking, staffError, onRetryStaff,
-  staffRole, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, pendingCard, children,
+  staffRole, restaurantName, cardDisplayCode, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, pendingCard, children,
 }: Props) {
-  return <Shell className={view === 'staff' ? 'staff' : undefined}>
+  return <Shell className={view === 'staff' ? ('staff' + (staffSection === 'registration' ? ' registration' : '')) : undefined}>
     <div className="nfc-frame">
       {view === 'home' ? <>
         <div className="nfc-top">
@@ -215,12 +341,17 @@ export default function NfcEntryPanel({
             </button>)}
           </nav>
         </> : <>
-          <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
-          <h1 className="nfc-staff-title">
-            {staffSection === 'registration' ? 'Cadastro NFC' : staffSection === 'orders' ? 'Fazer pedido' :
-              staffSection === 'payment' ? 'Pagamentos da comanda' : 'Comanda do cliente'}
-          </h1>
-          <p className="nfc-subtitle">Cartão e visita identificados no restaurante da equipe autenticada.</p>
+          {staffSection === 'registration' ? <div className="nfc-context">
+            <span>Restaurante: {restaurantName || 'Restaurante autenticado'}</span>
+            <span>Cartão: {cardDisplayCode || 'Verificando...'}</span>
+          </div> : <>
+            <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
+            <h1 className="nfc-staff-title">
+              {staffSection === 'orders' ? 'Fazer pedido' :
+                staffSection === 'payment' ? 'Pagamentos da comanda' : 'Comanda do cliente'}
+            </h1>
+            <p className="nfc-subtitle">Cartão e visita identificados no restaurante da equipe autenticada.</p>
+          </>}
           <section className="nfc-staff-card" aria-label="Atendimento NFC autenticado">{children}</section>
         </>}
       </>}
