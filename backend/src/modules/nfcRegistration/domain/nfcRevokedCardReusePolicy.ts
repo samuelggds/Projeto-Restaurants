@@ -13,5 +13,6 @@ export function canReuseRevokedNfcCard(
 ) {
   if (status !== 'REVOKED' || !customerId) return false;
   return accounts.every(account =>
-    account.status === 'PAID' && account.totalCents === account.paidCents);
+    (account.status === 'PAID' && account.totalCents === account.paidCents)
+      || (account.status === 'CANCELLED' && account.totalCents === 0n && account.paidCents === 0n));
 }
