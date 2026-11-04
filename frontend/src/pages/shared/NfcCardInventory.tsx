@@ -103,7 +103,7 @@ const UI = styled.section`
   @media(max-width:500px) { .modal-body { padding: 17px; } .details { grid-template-columns: 1fr; } .modal-head { padding: 17px; } }
 `;
 
-export function NfcCardInventory({ refreshKey = 0, onPrepare, onRegister }: Props) {
+export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
   const { user } = useAuth();
   const isAdmin = String(user?.role || '').toUpperCase() === 'ADMIN';
   const [filter, setFilter] = useState<Filter>('ALL');
