@@ -181,3 +181,85 @@ test('NFC public card context resolves only the own tenant slug and grants no se
     assert.notEqual(wrongMethod.response.status, 200);
   } finally { await app.close(); }
 });
+
+
+test('NFC enrollment identifies linked customer and recovers the same card visit without cross-tenant leaks', { timeout: 120_000 }, async () => {
+  await resetTenantE2EDatabase();
+  const fixture = await seedTenantE2EFixture();
+  await prisma.restaurantSettings.update({
+    where: { restaurantId: fixture.restaurants.a.id },
+    data: { inPersonServiceMode: 'BOTH' },
+  });
+  const rawToken = randomBytes(32).toString('base64url');
+  await prisma.nfcCard.create({ data: {
+    restaurantId: fixture.restaurants.a.id,
+    tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+    displayCode: 'NFC-TEST-ENROLLMENT',
+    status: 'READY', issuedByUserId: fixture.users.adminA.id,
+  } });
+  const app = await startTenantTestApplication();
+  try {
+    const intake = await apiRequest(app.baseUrl, '/nfc-registration/cards/intake', fixture.tokens.adminA, {
+      method: 'POST',
+      json: { token: rawToken, name: 'Cliente NFC E2E', cpf: '52998224725', phone: '85999999999' },
+    });
+    assert.equal(intake.response.status, 201, JSON.stringify(intake.data));
+    const assignment = intake.data.assignment;
+    assert.equal(assignment.displayCode, 'NFC-TEST-ENROLLMENT');
+
+    const contextEndpoint = '/nfc-registration/cards/attendance-context';
+    const linked = await apiRequest(app.baseUrl, contextEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(linked.response.status, 200, JSON.stringify(linked.data));
+    assert.equal(linked.data.card.status, 'ACTIVE');
+    assert.equal(linked.data.card.customerName, 'Cliente NFC E2E');
+    assert.equal(linked.data.card.customerId, assignment.customerId);
+    assert.equal(linked.data.card.cardId, assignment.cardId);
+    assert.equal(linked.data.card.comandaId, null);
+    assert.equal(linked.data.card.canOpenComanda, true);
+
+    const staff = await apiRequest(app.baseUrl, '/nfc-registration/cards/staff-comanda', fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(staff.response.status, 200, JSON.stringify(staff.data));
+    assert.equal(staff.data.customer?.name, 'Cliente NFC E2E');
+    assert.equal(staff.data.comanda, null);
+
+    const search = await apiRequest(app.baseUrl, '/nfc-registration/customers/identity-search', fixture.tokens.adminA, {
+      method: 'POST', json: { query: '52998224725' },
+    });
+    assert.equal(search.response.status, 200);
+    assert.equal(search.data.customers.length, 1);
+    assert.equal(search.data.customers[0].id, assignment.customerId);
+    assert.equal(Object.hasOwn(search.data.customers[0], 'cpf'), false);
+    const phoneSearch = await apiRequest(app.baseUrl, '/nfc-registration/customers/identity-search', fixture.tokens.adminA, {
+      method: 'POST', json: { query: '85999999999' },
+    });
+    assert.equal(phoneSearch.response.status, 200);
+    assert.equal(phoneSearch.data.customers.length, 1);
+
+    const tenantSearch = await apiRequest(app.baseUrl, '/nfc-registration/customers/identity-search', fixture.tokens.adminB, {
+      method: 'POST', json: { query: '52998224725' },
+    });
+    assert.equal(tenantSearch.response.status, 200);
+    assert.deepEqual(tenantSearch.data.customers, []);
+    const foreignLinked = await apiRequest(app.baseUrl, contextEndpoint, fixture.tokens.adminB, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(foreignLinked.response.status, 404);
+
+    const opened = await apiRequest(app.baseUrl, '/nfc-comandas/open', fixture.tokens.adminA, {
+      method: 'POST', headers: { 'Idempotency-Key': 'nfcRecoveryContextTest001' },
+      json: { customerId: assignment.customerId, cardId: assignment.cardId, tableNumber: null },
+    });
+    assert.equal(opened.response.status, 201, JSON.stringify(opened.data));
+    assert.equal(opened.data.comanda.customerId, assignment.customerId);
+    const refreshed = await apiRequest(app.baseUrl, contextEndpoint, fixture.tokens.adminA, {
+      method: 'POST', json: { token: rawToken },
+    });
+    assert.equal(refreshed.response.status, 200);
+    assert.equal(refreshed.data.card.comandaId, opened.data.comanda.id);
+    assert.equal(refreshed.data.card.canOpenComanda, false);
+  } finally { await app.close(); }
+});
