@@ -35,9 +35,11 @@ function ticketIcon(coupon: PublicPromotionalCoupon) {
 export function HomePromotionalCoupons({
   coupons,
   onApply,
+  pageView = false,
 }: {
   coupons: PublicPromotionalCoupon[];
   onApply?: (code: string) => void;
+  pageView?: boolean;
 }) {
   const [allOpen, setAllOpen] = useState(false);
   const [copied, setCopied] = useState('');
@@ -112,25 +114,25 @@ export function HomePromotionalCoupons({
     ));
 
   return (
-    <S.Section aria-label="Cupons promocionais disponíveis">
+    <S.Section aria-label="Cupons promocionais disponíveis" className={pageView ? 'coupon-page-view' : undefined}>
       <header>
         <span><TicketPercent aria-hidden="true" /><b>Cupons especiais</b></span>
-        {coupons.length > 2 && (
+        {!pageView && coupons.length > 2 && (
           <button type="button" onClick={() => setAllOpen(true)}>
             Ver todos
           </button>
         )}
       </header>
       <div
-        className="coupon-list homepage-coupon-list"
+        className={pageView ? 'coupon-list coupon-page-list' : 'coupon-list homepage-coupon-list'}
         role="region"
-        aria-roledescription="carrossel"
-        aria-label="Cupons disponíveis, deslize horizontalmente para ver os próximos"
-        tabIndex={coupons.length > 1 ? 0 : undefined}
+        aria-roledescription={pageView ? undefined : 'carrossel'}
+        aria-label={pageView ? 'Cupons disponíveis' : 'Cupons disponíveis, deslize horizontalmente para ver os próximos'}
+        tabIndex={!pageView && coupons.length > 1 ? 0 : undefined}
       >
         {cards(coupons)}
       </div>
-      {coupons.length > 1 && (
+      {!pageView && coupons.length > 1 && (
         <p className="coupon-swipe-hint" aria-hidden="true">Deslize para ver mais cupons →</p>
       )}
       {allOpen && (
