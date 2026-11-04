@@ -611,14 +611,14 @@ export const ProductGrid = styled.div`
   }
 
   @media(max-width:760px){
-    gap:8px;
-    margin-right:-12px;
-    padding-right:12px;
-
-    > *{
-      flex-basis:154px;
-      min-width:154px;
-    }
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+    overflow:visible;
+    margin-right:0;
+    padding-right:0;
+    scroll-snap-type:none;
+    > * { min-width:0; width:100%; }
   }
 
   @media(prefers-reduced-motion:reduce){scroll-behavior:auto}
@@ -804,36 +804,36 @@ export const ProductCard = styled.article`
   .add{position:relative;z-index:2}
 
   @media(max-width:760px){
-    width:154px;
-    height:214px;
-    min-height:214px;
+    width:100%;
+    height:285px;
+    min-height:285px;
     border-radius:9px;
 
     &:hover{transform:none;box-shadow:none}
 
     .image{
-      flex-basis:108px;
-      height:108px;
-      min-height:108px;
+      flex-basis:135px;
+      height:135px;
+      min-height:135px;
     }
 
     .copy{
-      min-height:106px;
-      padding:8px;
-      gap:5px;
+      min-height:150px;
+      padding:10px;
+      gap:7px;
     }
 
     .product-copy{gap:2px}
     .product-label{font-size:8px;line-height:10px}
-    h3{font-size:11px;line-height:14px}
-    p{font-size:9px;line-height:12px;-webkit-line-clamp:1}
-    strong{font-size:11px;line-height:14px}
+    h3{font-size:12px;line-height:16px}
+    p{font-size:11px;line-height:15px;-webkit-line-clamp:2}
+    strong{font-size:12px;line-height:16px}
     .price del{font-size:8px}
     .add{
-      min-height:22px;
-      padding:0 7px;
-      border-radius:6px;
-      font-size:8.5px;
+      min-height:32px;
+      padding:0 9px;
+      border-radius:7px;
+      font-size:10px;
     }
   }
 
