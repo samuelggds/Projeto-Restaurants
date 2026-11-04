@@ -161,6 +161,15 @@ class NfcRegistrationService {
     }
     return response.data.card;
   }
+  async confirmEncodedWrite(token: string) {
+    const response = await api.post<{ card: { status: 'READY'; displayCode: string } }>(
+      '/nfc-registration/cards/confirm-encoded-write',
+      { token, confirmPhysicalWrite: true }, { skipBaseUrlFallback: true });
+    if (response.data.card?.status !== 'READY') {
+      throw new Error('Gravação não foi confirmada pelo servidor.');
+    }
+    return response.data.card;
+  }
   async reprogramVirgin(cardId: string) {
     const response = await api.post<{ card: { id: string; displayCode: string; status: 'PENDING_WRITE' }; ndefUrl: string }>(
       `/nfc-registration/cards/${encodeURIComponent(cardId)}/reprogram-virgin`, {}, { skipBaseUrlFallback: true });
