@@ -83,6 +83,50 @@ export const Page = styled.div<{ $primary: string }>`
     .products-section .product-label { color:#ff8585; }
     .home-theme-toggle { color:#f2f5f9; background:#293340; border-color:#485363; }
     .benefit-grid article, .info-item, .social-row { background:#202833; color:#f4f7fa; }
+    /* Informações must not keep the light card shell in dark mode. */
+    > main#cardapio section[aria-label="Informações do restaurante"] {
+      background:#202833;
+      border-color:#394554;
+      color:#f4f7fa;
+    }
+    > main#cardapio section[aria-label="Informações do restaurante"] .info-item {
+      color:#f4f7fa;
+      background:transparent;
+    }
+    > main#cardapio section[aria-label="Informações do restaurante"] .info-icon {
+      background:#352c37;
+      color:#ff949e;
+    }
+    > main#cardapio section[aria-label="Informações do restaurante"] .social-row {
+      background:#28313d;
+      border-color:#394554;
+      color:#f4f7fa;
+    }
+    > main#cardapio section[aria-label="Informações do restaurante"] .social a {
+      background:#343c49;
+      border-color:#4b5564;
+      color:#ff949e;
+    }
+    > main#cardapio section[aria-label="Reservas de mesas"] {
+      background:#202833;
+      border-color:#394554;
+    }
+    > main#cardapio section[aria-label="Reservas de mesas"] .reservation-icon {
+      background:#333d49;
+      color:#ff949e;
+    }
+    > main#cardapio section[aria-label="Reservas de mesas"] .actions a {
+      background:#303a47;
+      border-color:#47515e;
+      color:#f4f7fa;
+    }
+    > main#cardapio section[aria-label="Reservas de mesas"] .actions .whatsapp {
+      color:#ff949e;
+    }
+    > main#cardapio section[aria-label="Reservas de mesas"] .description,
+    > main#cardapio section[aria-label="Reservas de mesas"] .reservation-note {
+      color:#b6c0cc;
+    }
   }
 
   ${homeDesktopVisualStyles}
