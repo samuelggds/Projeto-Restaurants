@@ -31,7 +31,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const { user, isLoading } = useAuth();
   const [orderPrefix, setOrderPrefix] = useState('');
   const [returnCpf, setReturnCpf] = useState('');
-  const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string } | null>(null);
+  const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string; verifiedAt: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [helpVisible, setHelpVisible] = useState(false);
@@ -141,7 +141,11 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     if (!orderChallenge || busy) return;
     setBusy(true); setMessage('');
     try {
-      await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
+      if (!orderChallenge.verifiedAt) {
+        const checked = await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
+        if (checked.verified !== true) throw new Error('Identidade não confirmada pelo servidor.');
+        setOrderChallenge({ ...orderChallenge, verifiedAt: new Date().toISOString() });
+      }
       const order = await nfcOrderChallengeService.finalize(orderChallenge.id);
       setResult(`Pedido #${order.orderId} confirmado e enviado à operação como NÃO PAGO. A cozinha receberá o pedido conforme a capacidade do restaurante.`);
       setOrderChallenge(null); setOrderPrefix('');
@@ -287,9 +291,11 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
             } finally { setBusy(false); }
           }} />)}
       {orderChallenge && <form onSubmit={event=>void verifyOrder(event)} style={{display:'grid',gap:12}}>
-        <p>O cliente digita os três primeiros dígitos do CPF para confirmar o pedido.</p>
-        <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy}/>
-        <button type="submit" disabled={busy||orderPrefix.length!==3}>Confirmar pedido</button>
+        <p>{orderChallenge.verifiedAt ? 'Identidade já validada pelo backend. Retome o mesmo pedido sem informar o CPF novamente.' : 'O cliente digita os três primeiros dígitos do CPF para confirmar o pedido.'}</p>
+        {!orderChallenge.verifiedAt && <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy}/>}
+        <button type="submit" disabled={busy||(!orderChallenge.verifiedAt&&orderPrefix.length!==3)}>
+          {orderChallenge.verifiedAt ? 'Concluir pedido já validado' : 'Confirmar pedido'}
+        </button>
       </form>}
       </>
     )}
