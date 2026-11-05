@@ -18,7 +18,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<Step>('DRAFT');
-  const draftKeyRef = useRef<string | null>(null);
+  const draftKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const [challengeId, setChallengeId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [token, setToken] = useState(cardToken || '');
@@ -63,13 +63,15 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     if (!selected.length || busy) return;
     setError(''); setBusy(true);
     try {
-      // Keep the same idempotency key if the network fails after the server
-      // has already persisted this draft's challenge.
-      const key = draftKeyRef.current || crypto.randomUUID().replace(/-/g, '');
-      draftKeyRef.current = key;
-      const challenge = await nfcOrderChallengeService.create(comandaId,
-        selected.map(p => ({ productId: p.id, quantity: quantities[p.id] })),
-        key, observation.trim() || undefined);
+      // A network retry must keep its key only while the submitted payload
+      // is identical. Changing an item, quantity or note is a NEW draft.
+      const items = selected.map(p => ({ productId: p.id, quantity: quantities[p.id] }));
+      const note = observation.trim() || undefined;
+      const fingerprint = JSON.stringify({ comandaId, items, ...(note ? { observation: note } : {}) });
+      const previous = draftKeyRef.current;
+      const key = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID().replace(/-/g, '');
+      draftKeyRef.current = { fingerprint, key };
+      const challenge = await nfcOrderChallengeService.create(comandaId, items, key, note);
       setChallengeId(challenge.challengeId);
       setExpiresAt(challenge.expiresAt);
       setToken(cardToken || '');
