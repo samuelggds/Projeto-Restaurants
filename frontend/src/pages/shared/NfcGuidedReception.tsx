@@ -98,7 +98,6 @@ export function NfcGuidedReception({ onCompleted }: Props) {
       if (!found) throw new Error('Cadastro não encontrado. Confira o CPF ou cadastre um novo cliente.');
       setCustomer(found); setStep(2);
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
       setError(nfcFriendlyError(cause, 'Não foi possível identificar o cliente. Confira os dados e tente novamente.'));
     } finally { locked.current = false; setBusy(false); }
   };
