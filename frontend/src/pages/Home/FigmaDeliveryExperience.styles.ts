@@ -131,6 +131,27 @@ export const Page = styled.div<{ $primary: string }>`
     > header > .actions { display:none; }
     > [aria-label^="Capa de "] { order:1; }
     > section[aria-label^="Informações de "] { display:contents; }
+    > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status {
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:5px;
+      margin-top:5px;
+      font-size:10px;
+      line-height:15px;
+      color:var(--delivery-muted);
+    }
+    > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status i {
+      display:block;
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      flex:0 0 7px;
+      background:#d44747;
+    }
+    > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status i.open { background:#2fb665; }
+    > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status strong { color:var(--delivery-text); }
+    > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status small { font-size:10px; color:var(--delivery-muted); }
     > section[aria-label^="Informações de "] > .storefront-identity {
       order:2;
       width:calc(100% - 24px);
@@ -140,13 +161,13 @@ export const Page = styled.div<{ $primary: string }>`
     > header > .mobile-location-row {
       order:3;
       display:grid;
-      grid-template-columns:minmax(0,1fr);
+      grid-template-columns:minmax(0,1fr) 38px;
       width:calc(100% - 24px);
       margin:7px 12px 0;
       padding:0;
       min-height:0;
     }
-    > header > .mobile-location-row > .mobile-profile-trigger { display:none; }
+    > header > .mobile-location-row > .mobile-profile-trigger { display:grid; }
     > header > .mobile-location-row > .mobile-address-trigger {
       width:100%;
       min-height:48px;
@@ -384,6 +405,8 @@ export const RestaurantCover = styled.div`
 `;
 
 export const StorefrontIntro = styled.section`
+  .storefront-mobile-status { display:none; }
+
   width:min(1120px,calc(100% - 48px));
   margin:16px auto 34px;
   padding:0 12px 0 112px;
@@ -828,7 +851,7 @@ export const ProductCard = styled.article`
 
   .copy{
     position:relative;
-    z-index:2;
+    z-index:auto;
     flex:1 1 auto;
     min-height:137px;
     padding:13px 14px;
