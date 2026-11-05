@@ -67,17 +67,30 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     catch { setError('Não foi possível ler o cartão neste aparelho. No iPhone, aproxime o cartão e abra a página NFC no navegador.'); }
     finally { setBusy(false); }
   };
+  const serverError = (cause: unknown, fallback: string) => {
+    const response = cause as { response?: { data?: { error?: string } } };
+    return response.response?.data?.error || fallback;
+  };
   const confirm = async () => {
     if (!token || !/^[0-9]{3}$/.test(prefix) || !challengeId || busy) return;
     setError(''); setBusy(true);
     try {
-      await nfcOrderChallengeService.verify(challengeId, token, prefix);
-      setStep('SENDING');
-      const created = await nfcOrderChallengeService.finalize(challengeId);
-      setOrderId(created.orderId); setPrefix(''); setStep('SUCCESS');
-    } catch {
+      const checked = await nfcOrderChallengeService.verify(challengeId, token, prefix);
+      if (checked.verified !== true) throw new Error('Confirmação não recebida do backend.');
+    } catch (cause) {
       setPrefix('');
-      setError('Confirmação não concluída. Confira o cartão e os três dígitos. Se a identidade já foi validada, confira o status do pedido antes de tentar novamente.');
+      setError(serverError(cause, 'O servidor não confirmou o cartão e os dígitos do CPF. Confira o vínculo e tente novamente.'));
+      setBusy(false);
+      return;
+    }
+    // Once verified, never re-send CPF: the existing idempotent challenge
+    // is the only allowed route for finalizing this exact order.
+    setPrefix(''); setStep('SENDING');
+    try {
+      const created = await nfcOrderChallengeService.finalize(challengeId);
+      setOrderId(created.orderId); setStep('SUCCESS');
+    } catch (cause) {
+      setError(serverError(cause, 'Identidade confirmada, mas o pedido não foi registrado. Confira o resultado antes de tentar novamente.'));
     } finally { setBusy(false); }
   };
   const retrySend = async () => {
@@ -86,8 +99,9 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     try {
       const created = await nfcOrderChallengeService.finalize(challengeId);
       setOrderId(created.orderId); setStep('SUCCESS');
-    } catch { setError('Ainda não foi possível registrar o pedido. Nenhum segundo pedido será criado com esta confirmação.'); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      setError(serverError(cause, 'Não foi possível concluir este pedido. Nenhuma nova confirmação será criada.'));
+    } finally { setBusy(false); }
   };
   return <section aria-label="Pedido por comanda NFC" style={{ display: 'grid', gap: 12 }}>
     <h4>Cardápio do restaurante · Pedido NFC</h4>
@@ -124,7 +138,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       <button type="button" disabled={busy} onClick={reset}>Cancelar e refazer sacola</button>
     </div>}
     {step === 'SENDING' && <div role="status">
-      <p>Identidade confirmada. Registrando pedido e enviando à cozinha...</p>
+      <p>Identidade confirmada pelo servidor. {busy ? 'Registrando pedido...' : 'Confira o estado abaixo e conclua usando a mesma confirmação.'}</p>
       <button type="button" disabled={busy} onClick={() => void retrySend()}>Verificar / reenviar com segurança</button>
     </div>}
     {step === 'SUCCESS' && <div role="status" style={{display:'grid',gap:12}}><p><strong>Pedido #{orderId} registrado — NÃO PAGO.</strong> Vinculado à comanda e encaminhado à operação conforme o backend.</p><button type="button" onClick={reset}>Novo pedido para esta comanda</button></div>}
