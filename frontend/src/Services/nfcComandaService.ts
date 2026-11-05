@@ -1,7 +1,7 @@
 import api from './api';
 export type NfcComandaItem = {
   id: string; kind: 'COVER' | 'ORDER'; description: string; quantity: number;
-  unitPriceCents: number; totalCents: number; createdAt: string; sourceOrderId: number | null;
+  unitPriceCents: number; totalCents: number; createdAt: string; sourceOrderId: number | null; image?: string | null;
 };
 export type NfcComandaPayment = {
   id: string; method: 'DINHEIRO' | 'PIX' | 'CARTAO';
