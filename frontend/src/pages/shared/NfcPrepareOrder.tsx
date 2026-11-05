@@ -4,8 +4,9 @@ import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 import { NfcProductThumbnail } from './NfcProductThumbnail';
+import { CheckCircle2, Clock3, ChefHat, Minus, Plus, RotateCcw, Search, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-type Item = { id: number; name: string; price: number; stock: number | null; image: string | null };
+type Item = { id: number; name: string; price: number; stock: number | null; image: string | null; description: string; category: string };
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
 
 export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; cardToken?: string }) {
@@ -20,6 +21,8 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const [prefix, setPrefix] = useState('');
   const [orderId, setOrderId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('Todos');
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [observation, setObservation] = useState('');
   useEffect(() => {
     let active = true;
@@ -32,18 +35,20 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
           id: Number(product.id), name: String(product.name || ''), price: Number(product.price) || 0,
           stock: product.stock == null ? null : Number(product.stock),
           image: typeof product.image === 'string' ? product.image : null,
+          description: String(product.description || ''), category: String((product.category as {name?:string}|null)?.name || 'Outros'),
         }] : [];
       }));
-    }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); });
+    }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); }).finally(() => { if (active) setLoadingProducts(false); });
     return () => { active = false; };
   }, []);
   const selected = products.filter(p => (quantities[p.id] || 0) > 0);
-  const filtered = products.filter(p => p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const categories = ['Todos', ...new Set(products.map(p => p.category))];
+  const filtered = products.filter(p => (category === 'Todos' || p.category === category) && p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const total = selected.reduce((sum, p) => sum + Math.round(p.price * 100) * quantities[p.id], 0);
   const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const reset = () => {
     if (busy || step === 'SENDING') return;
-    setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch('');
+    setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch(''); setCategory('Todos');
     setChallengeId(''); setExpiresAt(''); setOrderId(null); setError(''); setStep('DRAFT');
   };
   const start = async () => {
