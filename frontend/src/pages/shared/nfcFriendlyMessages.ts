@@ -38,7 +38,7 @@ export function nfcFriendlyError(
 
   if (code === 401) return 'Sua sessão terminou. Entre novamente para continuar.';
   if (code === 429) return 'Muitas tentativas seguidas. Aguarde um pouco antes de tentar novamente.';
-  if (code === 403) return 'Não foi possível autorizar esta ação. Confira os dados ou peça ajuda ao responsável.';
+  if (code === 403) return 'Esta ação está disponível somente para pessoas autorizadas. Se precisar, peça ajuda ao responsável.';
   if (code === 404) return 'Não encontramos este registro no restaurante. Atualize a página e tente novamente.';
   if (code === 422 || code === 400) return 'Confira as informações preenchidas e tente novamente.';
   if (code === 409) return 'As informações mudaram durante o atendimento. Atualize e tente novamente.';
