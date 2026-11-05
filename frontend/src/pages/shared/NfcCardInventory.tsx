@@ -234,7 +234,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     try {
       const result = await nfcRegistrationService.prepareRevokedCardReuse(selected.id, reuseCpf);
       setReuseUrl(result.ndefUrl);
-      setActionNotice('Regravação autorizada. Grave o novo identificador no cartão físico e confirme a leitura.');
+      setActionNotice('Cartão pronto para regravação. Grave o novo acesso e aproxime o cartão novamente.');
     } catch (cause) {
       setActionError(nfcFriendlyError(cause, 'Não foi possível recuperar o cartão. Confira o CPF e a comanda.'));
     } finally { setActionBusy(false); }
@@ -396,7 +396,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
                     onClick={() => void confirmVirginWrite()}>
                     {actionBusy ? 'Conferindo...' : 'Confirmar gravação e disponibilizar'}
                   </button>
-                  <p>Esta confirmação registra a declaração do funcionário autenticado; não é uma leitura NFC automática do iPhone.</p>
+                  <p>Confirme somente depois de gravar o cartão fisicamente e conferir o novo acesso.</p>
                 </>}
               </div>}
             </section>}
