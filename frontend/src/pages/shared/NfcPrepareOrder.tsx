@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import productsService from '../../Services/productsService';
+import { useAuth } from '../../contexts/authContext';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
@@ -10,6 +11,8 @@ type Item = { id: number; name: string; price: number; stock: number | null; ima
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
 
 export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; cardToken?: string }) {
+  const { user } = useAuth();
+  const tenantId = Number(user?.restaurantId ?? user?.restaurant?.id ?? 0);
   const [products, setProducts] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [error, setError] = useState('');
@@ -26,7 +29,12 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const [observation, setObservation] = useState('');
   useEffect(() => {
     let active = true;
-    void productsService.listProducts().then((data: unknown) => {
+    if (!Number.isSafeInteger(tenantId) || tenantId <= 0) {
+      setError('Restaurante da sessão não identificado. Entre novamente com a equipe.');
+      setLoadingProducts(false);
+      return () => { active = false; };
+    }
+    void productsService.listProducts(tenantId).then((data: unknown) => {
       if (!active) return;
       setProducts((Array.isArray(data) ? data : []).flatMap((item: unknown) => {
         if (!item || typeof item !== 'object') return [];
@@ -40,7 +48,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       }));
     }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); }).finally(() => { if (active) setLoadingProducts(false); });
     return () => { active = false; };
-  }, []);
+  }, [tenantId]);
   const selected = products.filter(p => (quantities[p.id] || 0) > 0);
   const categories = ['Todos', ...new Set(products.map(p => p.category))];
   const filtered = products.filter(p => (category === 'Todos' || p.category === category) && p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
