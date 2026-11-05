@@ -200,7 +200,7 @@ export const Page = styled.div<{ $primary: string }>`
       order:2;
       width:calc(100% - 24px);
       margin:0 12px;
-      padding:5px 4px 5px;
+      padding:9px 4px 5px;
     }
     > header > .mobile-location-row {
       order:3;
@@ -442,9 +442,11 @@ export const RestaurantCover = styled.div`
     /* The fixed restaurant cover spans the viewport; promotions remain inset. */
     width:100%;
     height:clamp(112px,35vw,165px);
-    margin:4px 0 18px;
+    /* Remove the empty white strip: keep the avatar over the photograph,
+       rather than reserving a separate row below the cover for it. */
+    margin:0;
     border-radius:0;
-    .cover-logo{width:57px;height:57px;left:16px;bottom:-17px;border-width:3px;font-size:18px}
+    .cover-logo{width:57px;height:57px;left:16px;bottom:10px;border-width:3px;font-size:18px}
   }
 `;
 
