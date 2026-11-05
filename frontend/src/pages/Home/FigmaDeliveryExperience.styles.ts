@@ -215,6 +215,11 @@ export const Page = styled.div<{ $primary: string }>`
       margin:0 12px;
       padding:9px 4px 5px;
     }
+    /* Give the overhanging brand avatar room in the body, while keeping
+       the cover itself fully flush with the top and both viewport edges. */
+    > section[aria-label^="Informações de "].has-cover > .storefront-identity {
+      padding-top:34px;
+    }
     > header > .mobile-location-row {
       order:3;
       display:grid;
@@ -459,7 +464,7 @@ export const RestaurantCover = styled.div`
        rather than reserving a separate row below the cover for it. */
     margin:0;
     border-radius:0;
-    .cover-logo{width:57px;height:57px;left:16px;bottom:10px;border-width:3px;font-size:18px}
+    .cover-logo{width:57px;height:57px;left:16px;bottom:-28px;z-index:2;border-width:3px;font-size:18px}
   }
 `;
 
