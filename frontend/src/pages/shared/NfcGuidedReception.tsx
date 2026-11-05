@@ -135,10 +135,9 @@ export function NfcGuidedReception({ onCompleted }: Props) {
       setStep(3);
       onCompleted?.();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || (assignment
-        ? 'O cartão foi vinculado, mas a comanda não abriu. Tente novamente sem aproximar outro cartão.'
-        : 'Não foi possível vincular este cartão. Verifique se está disponível e pertence ao restaurante.'));
+      setError(nfcFriendlyError(cause, assignment
+        ? 'O cartão foi vinculado, mas não conseguimos abrir a comanda. Tente novamente sem trocar de cartão.'
+        : 'Não foi possível vincular este cartão. Confira se ele está disponível.'));
     } finally { locked.current = false; setBusy(false); }
   };
 
