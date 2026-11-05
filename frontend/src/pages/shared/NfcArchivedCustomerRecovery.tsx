@@ -60,7 +60,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
 
   const changeCpf = (raw: string) => {
     revision.current += 1;
-    setCpf(raw.replace(/\\D/g, '').slice(0, 11));
+    setCpf(raw.replace(/\D/g, '').slice(0, 11));
     setCheckedCpf('');
     setLookup('idle');
     setConfirmed(false);
