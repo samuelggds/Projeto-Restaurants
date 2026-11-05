@@ -4,6 +4,7 @@ import { Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
 import nfcComandaService, { type NfcComanda, type NfcCustomerComandas } from '../../Services/nfcComandaService';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcProductThumbnail } from './NfcProductThumbnail';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import { scanNfcCard } from './nfcWebReader';
 
@@ -87,11 +88,10 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
     try {
       const released = await nfcRegistrationService.returnPaidCard(returnToken, returnCpf, selected.id);
       setReturnCpf(''); setReturnToken(''); setSelectedId(null);
-      setVisitNotice(`Pagamento conferido no backend. Cartão ${released.displayCode} desvinculado e disponível para o próximo cliente.`);
+      setVisitNotice(`Pagamento concluído! O cartão ${released.displayCode} já está disponível para o próximo cliente.`);
       await reload();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || 'Pagamento ainda não confirmado ou cartão/CPF inválidos. Não foi possível liberar o cartão.');
+      setError(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira o CPF e os pagamentos pendentes.'));
       setReturnCpf('');
     } finally { setBusy(false); }
   }
@@ -159,7 +159,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
           <input type="checkbox" checked={whatsappConsent} onChange={event => setWhatsappConsent(event.target.checked)} />
           Cliente autorizou receber o código temporário desta visita no WhatsApp cadastrado.
         </label>
-        <p className="info">O envio automático exige uma mesa informada e integração WhatsApp ativa.</p>
+        <p className="info">Para receber a mensagem, informe a mesa e verifique se o WhatsApp está disponível no restaurante.</p>
       </div>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => { setSelectedId(comanda.id); setReturnToken(''); setReturnCpf(''); }}>
@@ -199,7 +199,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
           </section>
           {selected.cardId && <section className="divider" style={{ display: 'grid', gap: 10 }}>
             <h4><CreditCard size={18} /> Conferir pagamento e liberar cartão NFC</h4>
-            <p className="info">Após o Pix ou Point ser confirmado no servidor, aproxime o cartão e peça ao cliente o CPF completo. A mesma operação valida a quitação e libera o cartão para novo cadastro.</p>
+            <p className="info">Após a confirmação do pagamento, aproxime o cartão e peça o CPF completo do cliente. A mesma operação valida a quitação e libera o cartão para novo cadastro.</p>
             <button type="button" disabled={busy} onClick={() => void readReturnCard()} style={{ padding: 12, borderRadius: 9, border: '1px solid #d65b14', background: '#fff', color: '#a64211', fontWeight: 750 }}>
               {returnToken ? 'Cartão identificado — ler novamente' : '1. Aproximar cartão NFC'}
             </button>
@@ -215,7 +215,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
             </button>
             {error && <p role="alert" className="warning">{error}</p>}
           </section>}
-          <p className="info">Os valores e estados são calculados no servidor. A confirmação financeira exige autorização e não é feita automaticamente ao abrir esta tela.</p>
+          <p className="info">Consulte aqui os pagamentos atualizados. O cartão será liberado somente após a quitação completa.</p>
         </div>
       </div>
     </Overlay>}

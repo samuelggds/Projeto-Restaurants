@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 const Layout = styled.section`
   color-scheme: light dark; --r-bg: light-dark(#f6f7f9,#15191f); --r-surface:light-dark(#fff,#20262f);
@@ -71,10 +72,7 @@ const Layout = styled.section`
 
 type Props = { onCompleted?: () => void; onBackToPanel?: () => void };
 const digits = (value: string) => value.replace(/\D/g, '');
-const errorText = (error: unknown) => {
-  const response = error as { response?: { data?: { error?: string } } };
-  return response.response?.data?.error || (error instanceof Error ? error.message : 'Não foi possível concluir a operação.');
-};
+const errorText = (error: unknown) => nfcFriendlyError(error, 'Não foi possível concluir o atendimento. Confira os dados e tente novamente.');
 export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
   const { user } = useAuth();
   const [mode, setMode] = useState<'new'|'existing'>('new');
@@ -146,7 +144,7 @@ export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
           catch { detail = ' O envio opcional por WhatsApp não foi concluído.'; }
         }
       } catch { detail = ' A abertura da comanda deve ser conferida no painel.'; }
-      setSuccess('Cartão '+assignment.displayCode+' vinculado com sucesso no servidor.'+detail);
+      setSuccess('Cartão '+assignment.displayCode+' vinculado com sucesso.'+detail);
       onCompleted?.();
     });
   };
@@ -159,7 +157,7 @@ export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
         <h1>Tudo certo para atender.</h1><p className="lead" role="status">{success}</p>
         <button type="button" className="primary full" onClick={() => onBackToPanel?.()}>Continuar para o painel</button>
       </> : <>
-        <div className="ready"><ShieldCheck size={17}/> {token ? 'Cartão identificado e disponível' : 'Verificação segura pelo servidor'}</div>
+        <div className="ready"><ShieldCheck size={17}/> {token ? 'Cartão identificado e disponível' : 'Preparando identificação do cartão'}</div>
         <h1>Quem vai usar este cartão?</h1>
         <p className="lead">Cadastre o cliente ou encontre seu cadastro neste restaurante.</p>
         {!token && <button type="button" className="primary full" disabled={busy} onClick={() => void readCard()}>{busy ? 'Verificando...' : 'Aproximar e verificar cartão NFC'}</button>}
@@ -181,13 +179,13 @@ export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
             {(mode==='new'||customer) && <>
               <label>Mesa (opcional)<input type="number" min="1" max="100000" value={table} onChange={e=>setTable(e.target.value)}/></label>
               <label className="checkbox"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> Cliente autoriza envio opcional do código da visita por WhatsApp quando houver mesa.</label>
-              <button className="primary full" type="submit" disabled={busy}><Link2 size={16}/> {busy?'Confirmando no servidor...':mode==='new'&&!customer?'Cadastrar e vincular':'Vincular cadastro existente'}</button>
+              <button className="primary full" type="submit" disabled={busy}><Link2 size={16}/> {busy?'Confirmando cadastro...':mode==='new'&&!customer?'Cadastrar e vincular':'Vincular cadastro existente'}</button>
             </>}
           </form>
         </>}
         {error && <p className="error" role="alert">{error}</p>}
       </>}
     </section>
-    <p className="hint"><ShieldCheck size={14}/> CPF, vínculo e permissões são verificados no backend do restaurante autenticado.</p>
+    <p className="hint"><ShieldCheck size={14}/> Seu cadastro e as informações do cartão são protegidos durante todo o atendimento.</p>
   </Layout>;
 }

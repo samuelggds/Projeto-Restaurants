@@ -6,6 +6,7 @@ import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/n
 import nfcComandaService from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 type RegistrationMode = 'new' | 'existing';
 type LinkedCard = { customerId: string; cardId: string; displayCode: string; tableNumber: number | null };
@@ -97,8 +98,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
       if (!found) throw new Error('Cadastro não encontrado. Confira o CPF ou cadastre um novo cliente.');
       setCustomer(found); setStep(2);
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível identificar o cliente.'));
+      setError(nfcFriendlyError(cause, 'Não foi possível identificar o cliente. Confira os dados e tente novamente.'));
     } finally { locked.current = false; setBusy(false); }
   };
 
@@ -106,7 +106,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
     if (locked.current || busy || assignment) return;
     locked.current = true; setBusy(true); setError(''); setToken('');
     try { setToken(await scanNfcCard()); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível ler o cartão NFC.'); }
+    catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível ler o cartão. Aproxime-o novamente e tente outra vez.')); }
     finally { locked.current = false; setBusy(false); }
   };
 
@@ -134,10 +134,9 @@ export function NfcGuidedReception({ onCompleted }: Props) {
       setStep(3);
       onCompleted?.();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || (assignment
-        ? 'O cartão foi vinculado, mas a comanda não abriu. Tente novamente sem aproximar outro cartão.'
-        : 'Não foi possível vincular este cartão. Verifique se está disponível e pertence ao restaurante.'));
+      setError(nfcFriendlyError(cause, assignment
+        ? 'O cartão foi vinculado, mas não conseguimos abrir a comanda. Tente novamente sem trocar de cartão.'
+        : 'Não foi possível vincular este cartão. Confira se ele está disponível.'));
     } finally { locked.current = false; setBusy(false); }
   };
 
@@ -168,7 +167,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
             <label className="wide break">Mesa (opcional)<input type="number" min={1} max={100000} placeholder="Ex.: 08" value={table} onChange={event => setTable(event.target.value)} /></label>
             <button className="primary wide" type="submit" disabled={busy}>{busy ? 'Identificando...' : 'Continuar para o cartão'} <ArrowRight aria-hidden="true" /></button>
           </form>
-          <p className="hint">Os dados pessoais ficam protegidos no servidor. O cartão armazena apenas um endereço individual.</p>
+          <p className="hint">Seus dados pessoais ficam protegidos. O cartão permite identificar o atendimento com segurança.</p>
         </>}
         {step === 2 && <>
           <h2>Vincular cartão NFC</h2>
@@ -184,7 +183,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
         {step === 3 && <>
           <CheckCircle2 size={37} color="#188555" aria-hidden="true" />
           <h2>Cartão vinculado com sucesso!</h2>
-          <p className="subline">A comanda individual está aberta no servidor e pronta para os pedidos.</p>
+          <p className="subline">Comanda aberta! Você já pode registrar os pedidos.</p>
           <div className="state"><strong>{assignment?.displayCode}</strong> · Comanda {comandaId.slice(0, 8).toUpperCase()}</div>
           {notice && <p className="hint" role="status">{notice}</p>}
           <div className="actions"><button className="secondary" type="button" onClick={() => setShowComandas(value => !value)}>{showComandas ? 'Ocultar comandas' : 'Ver comanda'}</button>

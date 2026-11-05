@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import api from '../../Services/api';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import { CheckCircle2, CreditCard, LockKeyhole, RotateCcw, ShieldCheck, Wallet } from 'lucide-react';
 
 type PaymentContext = {
@@ -37,8 +38,7 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
     setLoading(true); setError(''); setMessage('');
     try { await load(cpf); setCpf(''); }
     catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || 'Não foi possível validar o CPF do titular.');
+      setError(nfcFriendlyError(cause, 'Não foi possível conferir o CPF. Confira os números e tente novamente.'));
       setCpf(''); setVerifiedCpf(''); setData(null);
     } finally { setLoading(false); }
   };
@@ -49,12 +49,11 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
     try {
       const returned = await nfcRegistrationService.returnPaidCard(token, cpf, data.comanda.id);
       setCpf(''); setVerifiedCpf('');
-      setMessage('Comanda quitada no servidor. Cartão liberado, mantendo o link gravado.');
+      setMessage('Pagamento conferido! Cartão liberado e pronto para um novo atendimento.');
       onReleased(returned.displayCode);
       setData(null);
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || 'Liberação não autorizada. Confira o CPF completo e a quitação no servidor.');
+      setError(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira o CPF e os pagamentos pendentes.'));
       setCpf('');
     } finally { setBusy(false); }
   };
@@ -62,7 +61,7 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
     {!data ? <section className="gx-panel">
       <div className="gx-status-hero">
         <span className="gx-status-symbol"><LockKeyhole aria-hidden="true"/></span>
-        <h2>Pagamento da comanda NFC</h2>
+        <h2>Pagamento da comanda</h2>
         <p>Cartão {displayCode}. O titular deve informar seu CPF completo para consultar saldo e pagamentos. Nenhuma nova leitura é necessária no Safari.</p>
       </div>
       <form onSubmit={event=>void verify(event)} className="gx-actions">
@@ -75,7 +74,7 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
         </button>
       </form>
       {error && <p className="gx-error" role="alert">{error}</p>}
-      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Somente o backend valida CPF, vínculo e comanda.</p>
+      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Seus dados são conferidos com segurança.</p>
     </section> : <>
       <div className="gx-inline-context"><span className="gx-avatar"><CreditCard aria-hidden="true"/></span>
         <div><strong>Cartão {data.card.displayCode}</strong><small>Identidade verificada no restaurante autenticado</small></div>
@@ -92,14 +91,14 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
         </div>
         <section className="gx-panel">
           <h2>Formas de pagamento</h2>
-          <p className="gx-help">Somente pagamentos confirmados pelo provedor são considerados quitados.</p>
-          <button type="button" className="gx-button" disabled><Wallet aria-hidden="true"/> Pix {data.pixEnabled ? '· Aguardando integração de cobrança' : '· Indisponível'}</button>
-          <button type="button" className="gx-button" disabled><CreditCard aria-hidden="true"/> Maquininha Point {data.pointEnabled ? '· Aguardando integração de cobrança' : '· Indisponível'}</button>
-          <p className="gx-line-note">{data.reason}</p>
+          <p className="gx-help">O pagamento aparecerá como concluído após a confirmação.</p>
+          <button type="button" className="gx-button" disabled><Wallet aria-hidden="true"/> Pix {data.pixEnabled ? '· Temporariamente indisponível' : '· Indisponível'}</button>
+          <button type="button" className="gx-button" disabled><CreditCard aria-hidden="true"/> Maquininha Point {data.pointEnabled ? '· Temporariamente indisponível' : '· Indisponível'}</button>
+          <p className="gx-line-note">{nfcFriendlyError({ response: { data: { error: data.reason } } }, 'Consulte a equipe para saber quais formas de pagamento estão disponíveis.')}</p>
         </section>
         {data.comanda.outstandingCents===0 && <section className="gx-panel">
           <h2>Conferir quitação e liberar cartão</h2>
-          <p className="gx-help">O servidor verifica todas as pendências. A consulta do CPF não libera o cartão automaticamente.</p>
+          <p className="gx-help">Antes da devolução, será necessário conferir se todos os valores foram pagos.</p>
           <form className="gx-actions" onSubmit={event=>void finish(event)}>
             <label className="gx-field">Confirmar CPF completo para devolução
               <input type="password" inputMode="numeric" autoComplete="off" value={cpf} minLength={11} maxLength={11}
@@ -113,10 +112,10 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
       </>}
       <button type="button" className="gx-button" disabled={loading || busy} onClick={()=>{
         setLoading(true);void load(verifiedCpf).catch(()=>{setData(null);setVerifiedCpf('');setError('Falha na verificação. Informe o CPF novamente.');}).finally(()=>setLoading(false));
-      }}><RotateCcw aria-hidden="true"/>{loading ? 'Atualizando...' : 'Atualizar saldo no servidor'}</button>
+      }}><RotateCcw aria-hidden="true"/>{loading ? 'Atualizando...' : 'Atualizar saldo'}</button>
       {message && <p role="status" className="gx-pill">{message}</p>}
       {error && <p role="alert" className="gx-error">{error}</p>}
     </>}
-    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Informações financeiras verificadas pelo servidor, sem cobrança simulada.</p>
+    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Consulte aqui as informações atualizadas dos seus pagamentos.</p>
   </section>;
 }

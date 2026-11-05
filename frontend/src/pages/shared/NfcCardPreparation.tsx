@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { ArrowLeft, Check, ClipboardCopy, CreditCard, Smartphone, ShieldCheck } from 'lucide-react';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Frame = styled.section`
@@ -55,8 +56,8 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
     try {
       const data = await nfcRegistrationService.provision();
       setCardId(data.card.id); setCardCode(data.card.displayCode);
-      setUrl(data.ndefUrl); setStage(1); setMessage('Identificador exclusivo recebido do servidor. O cartão ainda não está disponível.');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível gerar o cartão.'); }
+      setUrl(data.ndefUrl); setStage(1); setMessage('Novo cartão criado. Agora grave-o para começar a utilizar.');
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível preparar um novo cartão. Tente novamente.')); }
     finally { setBusy(false); }
   };
   const write = async () => {
@@ -66,7 +67,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       await writeNfcCard(url);
       setWritten(true); setStage(3);
       setMessage('Gravação realizada. Aproxime o mesmo cartão novamente para confirmar a leitura.');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível gravar o cartão.'); }
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível gravar o cartão. Aproxime-o novamente e tente outra vez.')); }
     finally { setBusy(false); }
   };
   const verify = async () => {
@@ -76,10 +77,10 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       const token = await scanNfcCard();
       if (token !== extractNfcToken(url)) throw new Error('O identificador lido não corresponde ao cartão preparado.');
       const card = await nfcRegistrationService.prepare(cardId, token);
-      if (card.status !== 'READY') throw new Error('O servidor não confirmou a disponibilidade do cartão.');
+      if (card.status !== 'READY') throw new Error('Não foi possível confirmar a gravação do cartão.');
       setStage(4); setMessage('Cartão '+cardCode+' gravado, conferido e disponível para cadastro.');
       onPrepared();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível confirmar o cartão.'); }
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível conferir a gravação. Aproxime o cartão e tente novamente.')); }
     finally { setBusy(false); }
   };
   return <Frame aria-label="Preparar cartão NFC virgem">
@@ -92,8 +93,8 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
         </div>)}
     </div>
     <div className="body">
-      <p className="description">Grave o cartão NFC e confirme a leitura física. Somente depois da confirmação do backend ele entra no estoque como disponível.</p>
-      {!url && <button type="button" className="primary" disabled={busy} onClick={() => void create()}>{busy ? 'Gerando...' : 'Gerar identificador individual do cartão'}</button>}
+      <p className="description">Grave o cartão e aproxime-o novamente para confirmar que está pronto para uso.</p>
+      {!url && <button type="button" className="primary" disabled={busy} onClick={() => void create()}>{busy ? 'Gerando...' : 'Preparar novo cartão'}</button>}
       {url && <>
         <label className="link-label" htmlFor="nfc-ndef-url">Link individual do cartão {cardCode}</label>
         <div className="link-row"><input id="nfc-ndef-url" readOnly value={url} />

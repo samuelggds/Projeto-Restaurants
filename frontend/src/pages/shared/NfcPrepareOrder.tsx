@@ -5,6 +5,7 @@ import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
 import { NfcProductThumbnail } from './NfcProductThumbnail';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import { CheckCircle2, Clock3, ChefHat, Minus, Plus, RotateCcw, Search, ShoppingBag, ShieldCheck } from 'lucide-react';
 
 type Item = { id: number; name: string; price: number; stock: number | null; image: string | null; description: string; category: string };
@@ -86,19 +87,16 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     catch { setError('Não foi possível ler o cartão neste aparelho. No iPhone, aproxime o cartão e abra a página NFC no navegador.'); }
     finally { setBusy(false); }
   };
-  const serverError = (cause: unknown, fallback: string) => {
-    const response = cause as { response?: { data?: { error?: string } } };
-    return response.response?.data?.error || fallback;
-  };
+  const serverError = nfcFriendlyError;
   const confirm = async () => {
     if (!token || !/^[0-9]{3}$/.test(prefix) || !challengeId || busy) return;
     setError(''); setBusy(true);
     try {
       const checked = await nfcOrderChallengeService.verify(challengeId, token, prefix);
-      if (checked.verified !== true) throw new Error('Confirmação não recebida do backend.');
+      if (checked.verified !== true) throw new Error('Não foi possível confirmar sua identidade.');
     } catch (cause) {
       setPrefix('');
-      setError(serverError(cause, 'O servidor não confirmou o cartão e os dígitos do CPF. Confira o vínculo e tente novamente.'));
+      setError(serverError(cause, 'Não foi possível confirmar seus dados. Confira o cartão e o CPF e tente novamente.'));
       setBusy(false);
       return;
     }
@@ -109,7 +107,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       const created = await nfcOrderChallengeService.finalize(challengeId);
       setOrderId(created.orderId); setStep('SUCCESS');
     } catch (cause) {
-      setError(serverError(cause, 'Identidade confirmada, mas o pedido não foi registrado. Confira o resultado antes de tentar novamente.'));
+      setError(serverError(cause, 'A confirmação foi feita, mas o pedido ainda não foi concluído. Toque em “Verificar pedido” para continuar.'));
     } finally { setBusy(false); }
   };
   const retrySend = async () => {
@@ -119,19 +117,19 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       const created = await nfcOrderChallengeService.finalize(challengeId);
       setOrderId(created.orderId); setStep('SUCCESS');
     } catch (cause) {
-      setError(serverError(cause, 'Não foi possível concluir este pedido. Nenhuma nova confirmação será criada.'));
+      setError(serverError(cause, 'Não foi possível concluir seu pedido. Você pode tentar novamente com segurança.'));
     } finally { setBusy(false); }
   };
   return <section aria-label="Pedido por comanda NFC" style={{ display: 'grid', gap: 12 }}>
     <h4>Cardápio do restaurante · Pedido NFC</h4>
     {step === 'DRAFT' && <>
-      <div className="gx-inline-context"><span className="gx-avatar"><ShoppingBag aria-hidden="true"/></span><div><strong>Comanda identificada</strong><small>#{comandaId.slice(0,8).toUpperCase()} · restaurante autenticado</small></div><CheckCircle2 aria-hidden="true"/></div>
+      <div className="gx-inline-context"><span className="gx-avatar"><ShoppingBag aria-hidden="true"/></span><div><strong>Comanda identificada</strong><small>#{comandaId.slice(0,8).toUpperCase()} · Atendimento do restaurante</small></div><CheckCircle2 aria-hidden="true"/></div>
       <label className="gx-search" aria-label="Buscar produtos"><Search aria-hidden="true"/><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar no cardápio..."/></label>
       <div className="gx-categories" aria-label="Categorias do cardápio">
         {categories.map(name=><button type="button" key={name} aria-pressed={category===name} onClick={()=>setCategory(name)}>{name}</button>)}
       </div>
       <div className="gx-list-meta"><span>{filtered.length} produtos</span><span>Cardápio do restaurante</span></div>
-      {(!Number.isSafeInteger(tenantId) || tenantId <= 0) && <p role="alert" className="gx-error">Restaurante da sessão não identificado. Entre novamente como funcionário.</p>}
+      {(!Number.isSafeInteger(tenantId) || tenantId <= 0) && <p role="alert" className="gx-error">Não foi possível identificar o restaurante. Entre novamente para continuar.</p>}
       {loadingProducts && tenantId > 0 && <p role="status">Carregando produtos...</p>}
       {!loadingProducts && filtered.length===0 && <div className="gx-empty"><span><Search aria-hidden="true"/></span><h3>Nenhum produto encontrado</h3><p>Pesquise novamente ou escolha outra categoria.</p></div>}
       <div className="gx-products">{filtered.map(item=><article className="gx-product" key={item.id}>
@@ -152,7 +150,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         <label className="gx-field gx-note-field">Observação geral do pedido (opcional)<textarea value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato"/></label>
         <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
         <button type="button" className="gx-button gx-primary" disabled={busy||!selected.length} onClick={()=>void start()}>Revisar pedido</button>
-        <p className="gx-mini-caption">Valor definitivo validado pelo backend. Nenhum pagamento é realizado nesta tela.</p>
+        <p className="gx-mini-caption">O total será confirmado ao registrar o pedido. O pagamento será feito separadamente.</p>
       </section>
     </>}
     {step === 'VERIFY' && <section className="gx-panel" aria-label="Revisar e confirmar pedido">
@@ -162,7 +160,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
       {observation.trim() && <p className="gx-help">Observação: {observation.trim()}</p>}
       {!cardToken && <button type="button" className="gx-button" disabled={busy} onClick={()=>void readCard()}>{token ? 'Ler cartão novamente' : 'Aproximar cartão NFC (Android)'}</button>}
-      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado pelo link NFC' : 'necessário para confirmar'}. O servidor confere o titular.</p>
+      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado com sucesso' : 'necessário para confirmar'}. Confira os dados do cliente.</p>
       <div className="gx-order-cpf-confirmation">
         <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
       </div>
@@ -171,18 +169,18 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     </section>}
     {step === 'SENDING' && <section className="gx-panel" role="status" aria-label="Confirmação do pedido">
       <div className="gx-status-hero"><span className="gx-status-symbol"><Clock3 aria-hidden="true"/></span>
-        <h2>{busy ? 'Registrando seu pedido' : 'Confirmação pendente'}</h2><p>A identidade foi validada, mas o pedido só é considerado registrado depois de resposta do servidor.</p></div>
+        <h2>{busy ? 'Registrando seu pedido' : 'Confirmação pendente'}</h2><p>Sua identidade foi confirmada. Estamos finalizando seu pedido.</p></div>
       <ul className="gx-steps">
-        <li><span className="gx-step-icon"><CheckCircle2 aria-hidden="true"/></span><div><strong>Identidade confirmada</strong><small>O backend validou o cartão e os dígitos.</small></div></li>
-        <li><span className="gx-step-icon gx-wait"><RotateCcw aria-hidden="true"/></span><div><strong>Registro {busy ? 'em andamento' : 'a confirmar'}</strong><small>Retomar a mesma tentativa, sem duplicação.</small></div></li>
-        <li><span className="gx-step-icon gx-wait"><ChefHat aria-hidden="true"/></span><div><strong>Cozinha</strong><small>Aguardando registro confirmado.</small></div></li>
+        <li><span className="gx-step-icon"><CheckCircle2 aria-hidden="true"/></span><div><strong>Identidade confirmada</strong><small>Cartão e CPF conferidos com sucesso.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><RotateCcw aria-hidden="true"/></span><div><strong>Registro {busy ? 'em andamento' : 'a confirmar'}</strong><small>Você pode continuar de onde parou.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><ChefHat aria-hidden="true"/></span><div><strong>Cozinha</strong><small>Aguardando a confirmação do pedido.</small></div></li>
       </ul>
-      <button type="button" className="gx-button gx-primary" disabled={busy} onClick={()=>void retrySend()}><RotateCcw aria-hidden="true"/> Verificar / reenviar com segurança</button>
-      <p className="gx-mini-caption">Confirmação do pedido não significa pagamento efetuado.</p>
+      <button type="button" className="gx-button gx-primary" disabled={busy} onClick={()=>void retrySend()}><RotateCcw aria-hidden="true"/> Verificar pedido</button>
+      <p className="gx-mini-caption">O pagamento será realizado separadamente, conforme as opções disponíveis.</p>
     </section>}
     {step === 'SUCCESS' && <section className="gx-panel" role="status"><div className="gx-status-hero gx-success">
       <span className="gx-status-symbol"><CheckCircle2 aria-hidden="true"/></span><h2>Pedido registrado</h2>
-      <p>Pedido #{orderId} confirmado pelo backend e encaminhado ao restaurante como NÃO PAGO.</p></div>
+      <p>Pedido #{orderId} recebido com sucesso! A equipe já pode iniciar o preparo. O pagamento continua pendente.</p></div>
       <button type="button" className="gx-button gx-primary" onClick={reset}>Fazer novo pedido</button>
     </section>}
     {error && <p role="alert" style={{ color: '#9e2626' }}>{error}</p>}

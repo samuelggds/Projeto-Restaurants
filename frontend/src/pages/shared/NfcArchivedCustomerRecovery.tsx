@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { CheckCircle2, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 const Panel = styled.section`
   display: grid; gap: 14px; min-width: 0; padding: clamp(16px, 2.4vw, 22px);
@@ -81,8 +82,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
       setLookup(result.archivedMatch ? 'archived' : result.customers.length ? 'active' : 'missing');
     } catch (cause) {
       if (version !== revision.current) return;
-      const failure = cause as { response?: { data?: { error?: string } } };
-      setError(failure.response?.data?.error || 'Não foi possível consultar este CPF. Tente novamente.');
+      setError(nfcFriendlyError(cause, 'Não foi possível consultar este CPF. Confira os números e tente novamente.'));
     } finally { if (version === revision.current) setSearching(false); }
   };
 
@@ -98,8 +98,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
       onRecovered();
     } catch (cause) {
       if (version !== revision.current) return;
-      const failure = cause as { response?: { data?: { error?: string } } };
-      setError(failure.response?.data?.error || 'Não foi possível recuperar o cadastro. Verifique possíveis pendências.');
+      setError(nfcFriendlyError(cause, 'Não foi possível recuperar este cadastro. Confira se existem pendências.'));
       setConfirmed(false);
     } finally { if (version === revision.current) setReactivating(false); }
   };
@@ -122,7 +121,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
     {lookup === 'active' && <div className="result" role="status"><strong>Cadastro já ativo</strong><p>Localize o cliente na lista de cadastros ou no atendimento NFC. Não é necessário recuperar.</p></div>}
     {lookup === 'archived' && <div className="result" role="group" aria-label="Confirmar recuperação do cadastro">
       <strong>Cadastro arquivado encontrado neste restaurante</strong>
-      <p>A reativação exige confirmação do administrador. O servidor verificará cartões vinculados, comandas e pagamentos pendentes.</p>
+      <p>Para recuperar este cadastro, confirme a operação. Cartões vinculados e pagamentos pendentes serão conferidos antes da recuperação.</p>
       <label className="confirm">
         <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} disabled={busy} />
         <span>Confirmo que desejo recuperar este cadastro e preservar sua identidade e seu histórico financeiro.</span>
@@ -133,6 +132,6 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
     </div>}
     {error && <div role="alert" className="error">{error}</div>}
     {success && <div role="status" className="notice"><CheckCircle2 aria-hidden="true" />{success}</div>}
-    <p className="note"><ShieldCheck aria-hidden="true" />Operação exclusiva do administrador, auditada e restrita ao restaurante. Nenhum cartão é vinculado automaticamente.</p>
+    <p className="note"><ShieldCheck aria-hidden="true" />Recuperação disponível somente para administradores. Os dados e o histórico do cliente são preservados.</p>
   </Panel>;
 }

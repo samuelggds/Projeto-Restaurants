@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { CheckCircle2, Link2, LoaderCircle, Search, ShieldCheck, UserRound, UserRoundCheck, UserRoundPlus } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import { useAuth } from '../../contexts/authContext';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 /*
  * Visuals reproduced from the user's GastroNexa-Cadastro-Vinculo-NFC ZIP:
@@ -356,8 +357,7 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
       setArchivedMatch(result.archivedMatch);
       setSearchCompleted(true);
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
-      setError(err.response?.data?.error || 'Não foi possível consultar os cadastros. Tente novamente.');
+      setError(nfcFriendlyError(cause, 'Não foi possível buscar o cliente. Confira os dados e tente novamente.'));
     } finally {
       setBusy(false);
     }
@@ -378,8 +378,7 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
         ? 'Cadastro reativado. Selecione o cliente e confirme o vínculo ao cartão.'
         : 'Cadastro reativado. Consulte novamente antes de vincular.');
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
-      setError(err.response?.data?.error || 'Não foi possível reativar o cadastro. Consulte o administrador.');
+      setError(nfcFriendlyError(cause, 'Não foi possível recuperar o cadastro. Peça ajuda ao administrador.'));
     } finally {
       setBusy(false);
     }
@@ -423,8 +422,7 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
         whatsappConsent: consent,
       });
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
-      setError(err.response?.data?.error || 'Não foi possível vincular este cartão. Confira os dados.');
+      setError(nfcFriendlyError(cause, 'Não foi possível vincular o cartão. Confira os dados e tente novamente.'));
     } finally {
       setBusy(false);
     }
@@ -536,18 +534,18 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
           <small>Cliente autoriza comunicações pelo WhatsApp (opcional)</small>
         </label>
         {busy && <p className="gx-r-operation-status" role="status">
-          <LoaderCircle aria-hidden="true" /> Verificando e vinculando no servidor...
+          <LoaderCircle aria-hidden="true" /> Preparando o cartão para este cliente...
         </p>}
         {error && <p className="gx-r-error" role="alert">{error}</p>}
         <button className="gx-r-button gx-r-button-primary gx-r-wide" type="submit" disabled={busy}>
-          <Link2 aria-hidden="true" /> {busy ? 'Confirmando no servidor...' : mode === 'new' ? 'Cadastrar e vincular' : 'Vincular cadastro existente'}
+          <Link2 aria-hidden="true" /> {busy ? 'Confirmando cadastro...' : mode === 'new' ? 'Cadastrar e vincular' : 'Vincular cadastro existente'}
         </button>
       </>}
       {error && mode === 'existing' && !selected && <p className="gx-r-error" role="alert">{error}</p>}
     </form>
     <p className="gx-r-hint" style={{ textAlign: 'center', marginTop: 19 }}>
       <ShieldCheck aria-hidden="true" size={13} style={{ verticalAlign: 'middle', marginRight: 5 }} />
-      Confirmação segura pelo restaurante autenticado.
+      Seus dados são protegidos durante o cadastro.
     </p>
   </Panel>;
 }

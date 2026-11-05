@@ -27,7 +27,7 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
     void api.post<CardDetails>('/nfc-registration/cards/staff-comanda', { token },
       { skipBaseUrlFallback:true }).then(response => {
       if (active) { setDetails(response.data); setLoadError(''); }
-    }).catch(() => { if (active) setLoadError('Não foi possível consultar os dados atualizados desta comanda.'); })
+    }).catch(() => { if (active) setLoadError('Não conseguimos carregar a comanda agora. Tente novamente.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [token, comandaId]);
@@ -54,7 +54,7 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         <div><dt>Mesa</dt><dd>{current?.tableNumber ? String(current.tableNumber).padStart(2,'0') : 'Não informada'}</dd></div>
         <div><dt>Situação</dt><dd>{current ? current.status === 'PAID' ? 'Quitada' : current.status === 'UNPAID' ? 'Pagamento pendente' : 'Em atendimento' : 'Aguardando abertura'}</dd></div>
       </dl>
-      {loading && <p className="gx-line-note" role="status">Consultando dados da comanda...</p>}
+      {loading && <p className="gx-line-note" role="status">Carregando informações da comanda...</p>}
       {loadError && <p role="alert" className="gx-error">{loadError}</p>}
     </div>
     <h3 className="gx-action-title">ATENDIMENTO</h3>
@@ -66,18 +66,18 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         <ClipboardList aria-hidden="true"/><span>Consultar comanda<small>Pedidos, consumo e pagamentos</small></span><ArrowRight aria-hidden="true"/>
       </button>
       {canOpenComanda && <button className="gx-button gx-action-row" type="button" onClick={onOpenComanda} disabled={busy}>
-        <CreditCard aria-hidden="true"/><span>Abrir comanda deste cartão<small>Operação autorizada pelo servidor</small></span><ArrowRight aria-hidden="true"/>
+        <CreditCard aria-hidden="true"/><span>Abrir comanda deste cartão<small>Pronto para iniciar o atendimento</small></span><ArrowRight aria-hidden="true"/>
       </button>}
       <button type="button" className="gx-button gx-action-row" onClick={onPendingOrder} disabled={busy}>
-        <RotateCcw aria-hidden="true"/><span>Consultar confirmação pendente<small>Retomar a mesma tentativa sem duplicar pedidos</small></span><ArrowRight aria-hidden="true"/>
+        <RotateCcw aria-hidden="true"/><span>Consultar confirmação pendente<small>Continuar a confirmação do pedido</small></span><ArrowRight aria-hidden="true"/>
       </button>
     </div>
     {needsCardReturn || hasUnsettledComanda ? <p className="gx-alert" role="status">Existe pendência de comanda ou devolução. Consulte o saldo antes de liberar o cartão.</p> : null}
-    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Todas as ações são validadas no restaurante autenticado.</p>
+    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Seus dados são protegidos durante todo o atendimento.</p>
     <details className="gx-release">
       <summary><LockKeyhole aria-hidden="true"/><span>Devolver e liberar cartão</span><ChevronDown aria-hidden="true"/></summary>
       <form className="gx-release-content" onSubmit={event => void release(event)}>
-        <p>A liberação exige CPF completo, comanda totalmente quitada e confirmação do servidor. Consultar o CPF não libera o cartão.</p>
+        <p>Para devolver o cartão, informe o CPF completo. A liberação só será realizada quando não houver pagamentos pendentes.</p>
         <label className="gx-field">CPF completo do titular
           <input type="password" inputMode="numeric" autoComplete="off" maxLength={11}
             value={cpf} onChange={event=>setCpf(event.target.value.replace(/\D/gu,'').slice(0,11))}
@@ -85,14 +85,14 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         </label>
         <label className="gx-line-note"><input type="checkbox" checked={confirmed}
           onChange={event=>setConfirmed(event.target.checked)}/>
-          Confirmo a devolução física e solicito a conferência da quitação no servidor.
+          Confirmo a devolução do cartão e solicito a conferência dos pagamentos.
         </label>
         <button type="submit" className="gx-button gx-primary" disabled={busy || submitting || cpf.length!==11 || !confirmed}>
-          {submitting ? 'Conferindo no servidor...' : 'Verificar quitação e liberar cartão'}
+          {submitting ? 'Conferindo pagamentos...' : 'Verificar quitação e liberar cartão'}
         </button>
         {error && <p className="gx-error" role="alert">{error}</p>}
       </form>
     </details>
-    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> O cartão permanece vinculado até a confirmação completa no backend.</p>
+    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> O cartão permanecerá vinculado até a quitação da comanda.</p>
   </section>;
 }

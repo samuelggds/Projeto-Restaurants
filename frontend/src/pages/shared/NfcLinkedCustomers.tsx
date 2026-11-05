@@ -138,7 +138,7 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
     if (!id) return;
     void nfcComandaService.customerComandas(customer.customerId).then(data => {
       if (active) { const found = data.comandas.find(item => item.id === id && item.cardId === customer.card.id); setComanda(found ?? null); if (!found) setError('A comanda foi alterada ou não está disponível para consulta. Atualize a lista de clientes.'); setLoading(false); }
-    }).catch(() => { if (active) { setError('Não foi possível consultar a comanda no servidor.'); setLoading(false); } });
+    }).catch(() => { if (active) { setError('Não foi possível carregar a comanda. Tente novamente.'); setLoading(false); } });
     return () => { active = false; };
   }, [customer]);
   const status = currentStatus(customer);
@@ -196,7 +196,7 @@ function LinkedCustomerModal({ customer, onClose }: { customer: LinkedNfcCustome
           </div>)}
           {!comanda.payments.length && <p style={{fontSize:13,color:'#728077'}}>Nenhum pagamento registrado.</p>}
         </section>}
-        <small>Os dados e o status de pagamento são consultados no backend. A visualização não confirma pagamentos nem libera o cartão.</small>
+        <small>Consulte os pedidos e pagamentos da comanda. O cartão continua vinculado até a quitação.</small>
       </div>
       <footer className="footer"><button type="button" onClick={onClose}>Voltar aos clientes</button></footer>
     </div>
@@ -246,7 +246,7 @@ export function NfcLinkedCustomers() {
         <button type="button" onClick={() => { setBusy(true); setQuery(''); setApplied(''); setPage(1); setRevision(i => i + 1); }}><RefreshCw size={15} aria-hidden="true"/> Limpar</button>
       </form>
       <div className="columns"><span>Cliente</span><span>Cartão NFC</span><span>Mesa</span><span>Comanda</span><span style={{textAlign:'right'}}>Em aberto</span><span/></div>
-      {busy && <p className="note" role="status">Consultando clientes no servidor...</p>}
+      {busy && <p className="note" role="status">Buscando clientes...</p>}
       {error && <p className="note error" role="alert">{error}</p>}
       {!busy && !error && !records.length && <p className="note">Nenhum cliente com cartão ativo corresponde à busca.</p>}
       {!busy && !error && records.map(row => <div className="row" key={row.card.id}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import nfcComandaService, { type NfcComanda } from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
 
@@ -39,7 +40,7 @@ export function NfcLostCardRecovery({ onBack }: { onBack: () => void }) {
       const data=await nfcComandaService.customerComandas(person.id);
       setCustomer(person);
       setComandas(data.comandas.filter(item=>(item.status==='OPEN'||item.status==='UNPAID')&&item.cardId!==null));
-    }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível consultar o cliente.');}
+    }catch(cause){setError(nfcFriendlyError(cause, 'Não foi possível localizar o cliente. Confira o CPF e tente novamente.'));}
     finally{setBusy(false);}
   };
   const recover = async () => {
@@ -54,14 +55,13 @@ export function NfcLostCardRecovery({ onBack }: { onBack: () => void }) {
       setNotice('Cartão '+recovered.displayCode+' vinculado à comanda existente. A dívida e os pagamentos foram preservados.');
       setComandaId('');setCpf('');setPhone('');setDocumentChecked(false);setRevocationConfirmed(false);
     }catch(cause){
-      const response=cause as {response?:{data?:{error?:string}}};
-      setError(response.response?.data?.error||(cause instanceof Error?cause.message:'Não foi possível recuperar o cartão.'));
+      setError(nfcFriendlyError(cause, 'Não foi possível recuperar o cartão. Confira os dados e tente novamente.'));
     }finally{setBusy(false);}
   };
   return <Section aria-label="Recuperação segura de cartão perdido">
     <div className="actions"><button type="button" onClick={onBack}>Voltar aos clientes</button></div>
     <h2>Recuperar cartão perdido</h2>
-    <p>Use um cartão previamente gravado e disponível. O backend revoga o anterior e transfere a mesma comanda, sem alterar consumo, saldo ou pagamentos.</p>
+    <p>Use um cartão previamente gravado e disponível. O cartão anterior será desativado e a comanda será transferida para o novo cartão, preservando pedidos e pagamentos.</p>
     <label>CPF do cliente cadastrado<input type="text" inputMode="numeric" autoComplete="off" value={lookupCpf} onChange={e=>setLookupCpf(e.target.value)} placeholder="CPF completo"/></label>
     <button type="button" disabled={busy||lookupCpf.replace(/[^0-9]/g,'').length!==11} onClick={()=>void lookup()}>Localizar cliente e comandas</button>
     {customer && <>

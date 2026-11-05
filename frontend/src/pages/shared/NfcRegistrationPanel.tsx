@@ -196,12 +196,12 @@ function NfcRegistrationWorkspace({ roleLabel = 'equipe' }: Props) {
   const [inventoryRefresh, setInventoryRefresh] = useState(0);
   return <Wrap aria-label="Clientes e cartões NFC" data-nfc-ui="unified">
     <header className="nfc-hero">
-      <div className="nfc-hero-top"><span className="nfc-eyebrow">GastroNexa · Cashless NFC</span>
+      <div className="nfc-hero-top"><span className="nfc-eyebrow">GastroNexa · Cartões NFC</span>
         <span className="nfc-trust"><ShieldCheck aria-hidden="true" /> Dados protegidos</span>
       </div>
       <div className="nfc-hero-content">
         <div><h2>Clientes e cartões NFC</h2>
-          <p>Cadastre clientes, vincule cartões e acompanhe comandas. Área de {roleLabel} com acesso restrito ao restaurante autenticado.</p></div>
+          <p>Cadastre clientes, vincule cartões e acompanhe comandas. Área de {roleLabel} para administrar os atendimentos deste restaurante.</p></div>
         <span className="nfc-hero-icon"><ContactRound aria-hidden="true" /></span>
       </div>
     </header>

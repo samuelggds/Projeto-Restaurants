@@ -15,6 +15,7 @@ import { NfcPaymentPanel } from './NfcPaymentPanel';
 import { NfcStaffComanda } from './NfcStaffComanda';
 import { NfcCardEnrollment, type NfcEnrollmentChoice } from './NfcCardEnrollment';
 import { NfcLinkedCardHome } from './NfcLinkedCardHome';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 // React Router reuses page instances when only route params change. Remounting
 // on card/tenant changes prevents a prior card's private form, CPF, comanda or
@@ -76,7 +77,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   // Only a verified card context may select the tenant login route. A remembered
   // browser tenant is not trustworthy enough to authorize another card.
   const loginPath = cardReady && action ? '/' + matchingContext.slug + '/team?next=' + encodeURIComponent(buildNfcEntryPath(token, action, matchingContext.slug)) : '';
-  const cardContextError = !validToken || matchingContext?.status === 'invalid' ? 'Cartão NFC inválido, revogado ou não encontrado. Confira o link gravado.' : matchingContext?.status === 'unavailable' ? 'Não foi possível consultar o servidor. Verifique a conexão e tente novamente.' : '';
+  const cardContextError = !validToken || matchingContext?.status === 'invalid' ? 'Não foi possível identificar o cartão. Aproxime-o novamente ou peça ajuda à equipe.' : matchingContext?.status === 'unavailable' ? 'Não conseguimos consultar o cartão agora. Confira a conexão e tente novamente.' : '';
   const retryCardContext = () => { setCardContext(null); setRetryContextVersion(value => value + 1); };
   const staffRequested = view === 'staff';
   useEffect(() => {
@@ -90,10 +91,10 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       if (active) {
         setStaffCard(null);
         const status = error.response?.status;
-        setStaffCardError(status === 404 ? 'Cartão não disponível para este restaurante ou ainda não preparado.' :
-          status === 403 ? error.response?.data?.error || 'Seu restaurante não possui acesso à operação NFC.' :
+        setStaffCardError(status === 404 ? 'Este cartão não está disponível. Peça ajuda ao responsável.' :
+          status === 403 ? nfcFriendlyError(error, 'O atendimento com cartão ainda não está disponível neste restaurante.') :
           status === 401 ? 'Sua sessão expirou. Entre novamente na mesma aba para continuar.' :
-          'Não foi possível verificar o cartão no servidor. Tente novamente.');
+          'Não conseguimos consultar o cartão agora. Tente novamente.');
       }
     });
     return () => { active = false; };
@@ -109,14 +110,14 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         { token, confirmPhysicalWrite: true },
         { skipBaseUrlFallback: true },
       );
-      if (response.data?.card?.status !== 'READY') throw new Error('Preparação não confirmada no servidor.');
+      if (response.data?.card?.status !== 'READY') throw new Error('Não foi possível confirmar a preparação do cartão.');
       setStaffCard(response.data.card);
       setConfirmPhysicalWrite(false);
       setStaffTab('registration');
-      setResult('Cartão confirmado no banco e pronto para cadastrar ou vincular um cliente.');
+      setResult('Cartão preparado com sucesso! Já pode ser utilizado por um cliente.');
     } catch (error) {
       const cause = error as { response?: { data?: { error?: string } } };
-      setStaffCardError(cause.response?.data?.error || 'Não foi possível confirmar a preparação. Confira o cartão e tente novamente.');
+      setStaffCardError(nfcFriendlyError(cause, 'Não foi possível preparar este cartão. Tente novamente.'));
     } finally {
       setConfirmingWrite(false);
     }
@@ -142,15 +143,14 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     try {
       if (!orderChallenge.verifiedAt) {
         const checked = await nfcOrderChallengeService.verify(orderChallenge.id, token, orderPrefix);
-        if (checked.verified !== true) throw new Error('Identidade não confirmada pelo servidor.');
+        if (checked.verified !== true) throw new Error('Não foi possível confirmar a identidade. Confira os dados e tente novamente.');
         setOrderChallenge({ ...orderChallenge, verifiedAt: new Date().toISOString() });
       }
       const order = await nfcOrderChallengeService.finalize(orderChallenge.id);
-      setResult(`Pedido #${order.orderId} confirmado e enviado à operação como NÃO PAGO. A cozinha receberá o pedido conforme a capacidade do restaurante.`);
+      setResult(`Pedido #${order.orderId} registrado com sucesso! A equipe já pode iniciar o preparo. O pagamento continua pendente.`);
       setOrderChallenge(null); setOrderPrefix('');
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setMessage(response.response?.data?.error || 'Cartão ou dígitos do CPF não confirmados.');
+      setMessage(nfcFriendlyError(cause, 'Não foi possível confirmar os dados. Confira o cartão e o CPF.'));
       setOrderPrefix('');
     } finally { setBusy(false); }
   };
@@ -179,9 +179,8 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         setResult('Cartão vinculado e comanda aberta. Atendimento pronto.' + notice);
         setStaffTab('menu');
       } catch (cause) {
-        const err = cause as {response?:{data?:{error?:string}}};
         setStaffCard({status:'ACTIVE',displayCode:assignment.displayCode,cardId:assignment.cardId,customerId:assignment.customerId,comandaId:null,canOpenComanda:true});
-        setMessage(err.response?.data?.error || 'Cliente vinculado, mas não foi possível abrir a comanda. Confira as permissões e tente abrir a comanda deste cartão.');
+        setMessage(nfcFriendlyError(cause, 'O cartão foi vinculado, mas a comanda ainda não está aberta. Tente novamente.'));
       }
       return assignment;
     } finally {setBusy(false);}
@@ -195,8 +194,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       setResult('Comanda aberta com sucesso para o cliente já vinculado.');
       setStaffTab('menu');
     } catch (cause) {
-      const err = cause as {response?:{data?:{error?:string}}};
-      setMessage(err.response?.data?.error||'Não foi possível abrir a comanda. Verifique se existe visita ou pendência financeira.');
+      setMessage(nfcFriendlyError(cause, 'Não foi possível abrir a comanda. Confira se existem pagamentos pendentes.'));
     } finally {setBusy(false);}
   };
   return <NfcEntryPanel
@@ -217,13 +215,13 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     restaurantName={(matchingContext?.slug || urlSlug || '').split('-').map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '').join(' ')}
     staffSection={staffTab}
     pendingCard={staffCard?.status === 'PENDING_WRITE' ? <div style={{display:'grid',gap:13}}>
-      <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. O link já pertence ao restaurante autenticado, mas o cartão ainda não pode receber clientes ou pedidos.</p>
+      <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. Este cartão ainda precisa ser gravado e confirmado antes de ser utilizado.</p>
       <label style={{display:'flex',alignItems:'flex-start',gap:10}}>
         <input type="checkbox" checked={confirmPhysicalWrite} onChange={event => setConfirmPhysicalWrite(event.target.checked)} disabled={confirmingWrite}/>
         <span>Confirmei que abri este endereço aproximando o cartão físico NFC, e não apenas copiando o link.</span>
       </label>
       <button type="button" disabled={!confirmPhysicalWrite || confirmingWrite} onClick={() => void confirmPendingCard()}>
-        {confirmingWrite ? 'Confirmando no servidor...' : 'Confirmar gravação e cadastrar cliente'}
+        {confirmingWrite ? 'Confirmando gravação...' : 'Confirmar gravação e cadastrar cliente'}
       </button>
       {staffCardError && <p role="alert" className="error">{staffCardError}</p>}
       <small>Esta confirmação é registrada no histórico do restaurante. Nunca confirme um cartão que não tenha sido efetivamente gravado.</small>
@@ -267,14 +265,13 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
               const returned = await nfcRegistrationService.returnPaidCard(token, cpf);
               setStaffCard({status:'READY',displayCode:returned.displayCode,comandaId:null});
               setStaffTab('registration');
-              setResult('Cartão liberado após confirmação de quitação pelo servidor.');
+              setResult('Pagamento conferido! O cartão já está disponível para outro cliente.');
             } catch (cause) {
-              const err = cause as {response?:{data?:{error?:string}}};
-              setMessage(err.response?.data?.error || 'Liberação não autorizada. Consulte o pagamento.');
+              setMessage(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira os pagamentos pendentes.'));
             } finally { setBusy(false); }
           }} />)}
       {orderChallenge && <form onSubmit={event=>void verifyOrder(event)} style={{display:'grid',gap:12}}>
-        <p>{orderChallenge.verifiedAt ? 'Identidade já validada pelo backend. Retome o mesmo pedido sem informar o CPF novamente.' : 'O cliente digita os três primeiros dígitos do CPF para confirmar o pedido.'}</p>
+        <p>{orderChallenge.verifiedAt ? 'Identidade confirmada! Você pode continuar sem informar o CPF novamente.' : 'O cliente digita os três primeiros dígitos do CPF para confirmar o pedido.'}</p>
         {!orderChallenge.verifiedAt && <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy}/>}
         <button type="submit" disabled={busy||(!orderChallenge.verifiedAt&&orderPrefix.length!==3)}>
           {orderChallenge.verifiedAt ? 'Concluir pedido já validado' : 'Confirmar pedido'}
