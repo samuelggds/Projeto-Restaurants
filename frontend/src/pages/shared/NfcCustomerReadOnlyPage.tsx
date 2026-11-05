@@ -175,7 +175,7 @@ export default function NfcCustomerReadOnlyPage() {
       <span className="nfc-mark"><CreditCard /></span>
       <h1>Consulte sua comanda.</h1>
       <p className="small">Após aproximar o cartão, abra o link NFC e confirme sua identidade.</p>
-      {!validToken ? <p role="alert" className="error">Identificador inválido. Aproxime novamente o cartão NFC.</p> :
+      {!validToken ? <p role="alert" className="error">Não foi possível reconhecer o cartão. Aproxime-o novamente.</p> :
         <form onSubmit={e => void verify(e)}>
           <div className="access-fields">
             <NfcCpfThreeDigits value={cpf} onChange={setCpf} disabled={busy} label="3 primeiros dígitos do seu CPF" />
@@ -236,7 +236,7 @@ export default function NfcCustomerReadOnlyPage() {
         <div className="payment-body">{visit.payments.map(payment => <div key={payment.id}>
           <div className="between"><span className="muted">Pagamento confirmado {payment.confirmedAt ? time(payment.confirmedAt) : ''}</span>
             <strong>{money(payment.amountCents)}</strong></div></div>)}
-          <p>Somente pagamentos confirmados são apresentados. O saldo é calculado pelo servidor.</p></div>
+          <p>Somente pagamentos confirmados são apresentados. O saldo está sempre atualizado conforme os pagamentos confirmados.</p></div>
       </details>}
       {visit.payments.length === 0 && visit.paidCents > 0 && <div className="card payment">
         <div className="between"><span className="row"><CheckCircle2 size={16} className="green" /> Valor já pago</span>
