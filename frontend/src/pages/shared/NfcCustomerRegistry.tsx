@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { RefreshCw, Trash2, Users } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import { NfcArchivedCustomerRecovery } from './NfcArchivedCustomerRecovery';
+import { useAuth } from '../../contexts/authContext';
 
 const Surface = styled.section`
   background: #fff; border: 1px solid #e4e9ed; border-radius: 18px; padding: clamp(16px, 3vw, 26px);
@@ -32,6 +33,8 @@ const Surface = styled.section`
 `;
 
 export function NfcCustomerRegistry() {
+  const { user } = useAuth();
+  const canRecover = String(user?.role || '').toUpperCase() === 'ADMIN';
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [customers, setCustomers] = useState<NfcCustomerRecord[]>([]);
@@ -77,11 +80,11 @@ export function NfcCustomerRegistry() {
     <header>
       <div><h3>Cadastro de clientes</h3><p>Registros preservados mesmo após a devolução do cartão NFC.</p></div>
       <div className="registry-actions">
-        <button type="button" onClick={() => setShowRecovery(value => !value)} aria-expanded={showRecovery}><RefreshCw size={15} aria-hidden="true" /> Recuperar cliente arquivado</button>
+        {canRecover && <button type="button" onClick={() => setShowRecovery(value => !value)} aria-expanded={showRecovery}><RefreshCw size={15} aria-hidden="true" /> Recuperar cliente arquivado</button>}
         <button type="button" onClick={() => { setLoading(true); setRevision(v => v + 1); }}><RefreshCw size={15} aria-hidden="true" /> Atualizar</button>
       </div>
     </header>
-    {showRecovery && <NfcArchivedCustomerRecovery onRecovered={() => { setLoading(true); setRevision(v => v + 1); }} />}
+    {showRecovery && canRecover && <NfcArchivedCustomerRecovery onRecovered={() => { setLoading(true); setRevision(v => v + 1); }} />}
     <p><Users size={15} aria-hidden="true" /> {total} clientes cadastrados neste restaurante</p>
     {loading && <p role="status">Consultando cadastro...</p>}
     {error && <p role="alert">{error}</p>}
