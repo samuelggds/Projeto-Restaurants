@@ -82,7 +82,7 @@ export function NfcReceptionAnimation({ decorative = false }: { decorative?: boo
     </div>
     <div className="safety">
       <strong>Uma visita. Uma comanda.</strong>
-      <p>O cartão identifica a visita; o consumo e os pagamentos são controlados pelo servidor.</p>
+      <p>Com o cartão, você acompanha sua comanda e seus pagamentos com segurança.</p>
     </div>
   </Illustration>;
 }
