@@ -90,7 +90,7 @@ export function HomeCouponsCenter({
   onOpenOrders, onOpenProfile, onOpenWallet, brandName = 'Restaurante',
   selectedCode = '', selectedConfirmed = false, selectedPending = false,
   quoteError = null, quoteSubtotal = 0, hasCartItems = false, orderType = 'delivery',
-  darkMode = false,
+  deliveryAddressReady = false, darkMode = false,
 }: {
   coupons: PublicPromotionalCoupon[];
   loggedIn: boolean;
@@ -108,6 +108,7 @@ export function HomeCouponsCenter({
   quoteError?: string | null;
   quoteSubtotal?: number;
   hasCartItems?: boolean;
+  deliveryAddressReady?: boolean;
   orderType?: 'delivery' | 'pickup';
   darkMode?: boolean;
 }) {
@@ -135,6 +136,11 @@ export function HomeCouponsCenter({
   const selectCoupon = (coupon: PublicPromotionalCoupon) => {
     if (coupon.discountType === 'FREE_SHIPPING' && orderType !== 'delivery') {
       setFeedback('Este cupom é exclusivo para Delivery. Selecione Entrega para utilizá-lo.');
+      return;
+    }
+    if ((orderType === 'delivery' && !coupon.allowDelivery) ||
+        (orderType === 'pickup' && !coupon.allowPickup)) {
+      setFeedback('Este cupom não está disponível na modalidade de pedido selecionada.');
       return;
     }
     if (coupon.audience && coupon.audience !== 'ALL' && !loggedIn) {
@@ -203,6 +209,8 @@ export function HomeCouponsCenter({
     ? 'Escolha produtos para conferir as regras e o desconto no pedido.'
     : insufficientSubtotal
       ? 'Faltam ' + currency(Math.max(0, Number(activeCoupon!.minimumSubtotal) - quoteSubtotal)) + ' para atingir o mínimo desta oferta.'
+      : isShippingCoupon && !deliveryAddressReady
+        ? 'Informe um endereço de entrega atendido para confirmar o benefício.'
       : isShippingCoupon && orderType === 'pickup'
         ? 'Frete grátis só é válido para Delivery.'
         : selectedPending
