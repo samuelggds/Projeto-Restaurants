@@ -72,10 +72,7 @@ const Layout = styled.section`
 
 type Props = { onCompleted?: () => void; onBackToPanel?: () => void };
 const digits = (value: string) => value.replace(/\D/g, '');
-const errorText = (error: unknown) => {
-  const response = error as { response?: { data?: { error?: string } } };
-  return response.response?.data?.error || (error instanceof Error ? error.message : 'Não foi possível concluir a operação.');
-};
+const errorText = (error: unknown) => nfcFriendlyError(error, 'Não foi possível concluir o atendimento. Confira os dados e tente novamente.');
 export function NfcBackendRegistration({ onCompleted, onBackToPanel }: Props) {
   const { user } = useAuth();
   const [mode, setMode] = useState<'new'|'existing'>('new');
