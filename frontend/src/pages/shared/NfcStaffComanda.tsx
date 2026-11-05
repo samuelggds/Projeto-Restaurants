@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../../Services/api';
+import { NfcProductThumbnail } from './NfcProductThumbnail';
 
 type Visit = {
   id: string; status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; tableNumber: number | null;
   totalCents: number; paidCents: number; outstandingCents: number;
-  items: Array<{ id: string; description: string; quantity: number; totalCents: number }>;
+  items: Array<{ id: string; description: string; quantity: number; totalCents: number; image?: string | null }>;
   orders: Array<{ id: number; status: string }>;
   payments: Array<{ id: string; status: string; amountCents: number }>;
 };
@@ -41,8 +42,10 @@ export function NfcStaffComanda({ token }: { token: string }) {
         <p><strong>Situação:</strong> {data.comanda.status === 'CANCELLED' ? 'Cancelada sem consumo' : data.comanda.status === 'PAID' ? 'Quitada' : data.comanda.status === 'UNPAID' ? 'Pendente' : 'Em atendimento'}</p>
         <h2>Itens consumidos</h2>
         {data.comanda.items.length ? data.comanda.items.map(item =>
-          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <span>{item.quantity}× {item.description}</span><strong>{money(item.totalCents)}</strong>
+          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+              <NfcProductThumbnail source={item.image} /><span>{item.quantity}× {item.description}</span>
+            </span><strong style={{ whiteSpace: 'nowrap' }}>{money(item.totalCents)}</strong>
           </div>) : <p>Nenhum item registrado.</p>}
         <h2>Pedidos</h2>
         {data.comanda.orders.length ? data.comanda.orders.map(order =>
