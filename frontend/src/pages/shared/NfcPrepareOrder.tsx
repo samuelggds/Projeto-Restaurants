@@ -140,24 +140,34 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         <p className="gx-mini-caption">Valor definitivo validado pelo backend. Nenhum pagamento é realizado nesta tela.</p>
       </section>
     </>}
-    {step === 'VERIFY' && <div style={{ display: 'grid', gap: 12 }}>
-      <h4>Confirmar pedido na comanda NFC</h4>
-      <p>Pedido preparado para esta comanda. Confira os itens e confirme a identidade do titular antes de enviar. Expira às {new Date(expiresAt).toLocaleTimeString('pt-BR')}.</p>
-      <div style={{border:'1px solid #dce3e7',borderRadius:12,padding:14,display:'grid',gap:8}}><strong>Resumo do pedido</strong>{selected.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:12}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}{observation.trim()&&<small>Observação geral: {observation.trim()}</small>}<strong>Total estimado: {brl(total)}</strong><small>Comanda: {comandaId.slice(0,8).toUpperCase()}. O servidor valida cartão, vínculo e valores.</small></div>
-      {!cardToken && <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>}
-      {cardToken && <p role="status">Cartão recebido pelo link NFC. Confirme com os três dígitos do CPF do titular.</p>}
-      {!cardToken && <p>Em iPhones, use o link gravado no cartão NFC para abrir o atendimento.</p>}
-        <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy} />
-      <button type="button" disabled={busy || !token || prefix.length !== 3} onClick={() => void confirm()}>
-        Confirmar identidade e enviar à cozinha como não pago
-      </button>
-      <button type="button" disabled={busy} onClick={reset}>Cancelar e refazer sacola</button>
-    </div>}
-    {step === 'SENDING' && <div role="status">
-      <p>Identidade confirmada pelo servidor. {busy ? 'Registrando pedido...' : 'Confira o estado abaixo e conclua usando a mesma confirmação.'}</p>
-      <button type="button" disabled={busy} onClick={() => void retrySend()}>Verificar / reenviar com segurança</button>
-    </div>}
-    {step === 'SUCCESS' && <div role="status" style={{display:'grid',gap:12}}><p><strong>Pedido #{orderId} registrado — NÃO PAGO.</strong> Vinculado à comanda e encaminhado à operação conforme o backend.</p><button type="button" onClick={reset}>Novo pedido para esta comanda</button></div>}
+    {step === 'VERIFY' && <section className="gx-panel" aria-label="Revisar e confirmar pedido">
+      <div className="gx-status-hero"><span className="gx-status-symbol"><ShieldCheck aria-hidden="true"/></span><h2>Confirmar pedido do cliente</h2>
+        <p>Confira os itens. O titular confirma com os três primeiros dígitos do CPF. Expira às {new Date(expiresAt).toLocaleTimeString('pt-BR')}.</p></div>
+      {selected.map(p=><div className="gx-mini-line" key={p.id}><NfcProductThumbnail source={p.image}/><span>{quantities[p.id]}× {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
+      <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
+      {observation.trim() && <p className="gx-help">Observação: {observation.trim()}</p>}
+      {!cardToken && <button type="button" className="gx-button" disabled={busy} onClick={()=>void readCard()}>{token ? 'Ler cartão novamente' : 'Aproximar cartão NFC (Android)'}</button>}
+      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado pelo link NFC' : 'necessário para confirmar'}. O servidor confere o titular.</p>
+      <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      <button type="button" className="gx-button gx-primary" disabled={busy||!token||prefix.length!==3} onClick={()=>void confirm()}>Confirmar identidade e enviar à cozinha</button>
+      <button type="button" className="gx-button" disabled={busy} onClick={reset}>Editar a sacola</button>
+    </section>}
+    {step === 'SENDING' && <section className="gx-panel" role="status" aria-label="Confirmação do pedido">
+      <div className="gx-status-hero"><span className="gx-status-symbol"><Clock3 aria-hidden="true"/></span>
+        <h2>{busy ? 'Registrando seu pedido' : 'Confirmação pendente'}</h2><p>A identidade foi validada, mas o pedido só é considerado registrado depois de resposta do servidor.</p></div>
+      <ul className="gx-steps">
+        <li><span className="gx-step-icon"><CheckCircle2 aria-hidden="true"/></span><div><strong>Identidade confirmada</strong><small>O backend validou o cartão e os dígitos.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><RotateCcw aria-hidden="true"/></span><div><strong>Registro {busy ? 'em andamento' : 'a confirmar'}</strong><small>Retomar a mesma tentativa, sem duplicação.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><ChefHat aria-hidden="true"/></span><div><strong>Cozinha</strong><small>Aguardando registro confirmado.</small></div></li>
+      </ul>
+      <button type="button" className="gx-button gx-primary" disabled={busy} onClick={()=>void retrySend()}><RotateCcw aria-hidden="true"/> Verificar / reenviar com segurança</button>
+      <p className="gx-mini-caption">Confirmação do pedido não significa pagamento efetuado.</p>
+    </section>}
+    {step === 'SUCCESS' && <section className="gx-panel" role="status"><div className="gx-status-hero gx-success">
+      <span className="gx-status-symbol"><CheckCircle2 aria-hidden="true"/></span><h2>Pedido registrado</h2>
+      <p>Pedido #{orderId} confirmado pelo backend e encaminhado ao restaurante como NÃO PAGO.</p></div>
+      <button type="button" className="gx-button gx-primary" onClick={reset}>Fazer novo pedido</button>
+    </section>}
     {error && <p role="alert" style={{ color: '#9e2626' }}>{error}</p>}
   </section>;
 }
