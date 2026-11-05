@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { homeDesktopVisualStyles } from './HomeDesktopVisualStyles';
 
 export const Page = styled.div<{ $primary: string }>`
   --delivery-primary: ${({ $primary }) => $primary || '#FF4B4B'};
@@ -83,6 +84,8 @@ export const Page = styled.div<{ $primary: string }>`
     .home-theme-toggle { color:#f2f5f9; background:#293340; border-color:#485363; }
     .benefit-grid article, .info-item, .social-row { background:#202833; color:#f4f7fa; }
   }
+
+  ${homeDesktopVisualStyles}
 
   @media(max-width:760px){
     display:flex;
