@@ -14,7 +14,8 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
   token: string; displayCode: string; onReleased: (code: string) => void;
 }) {
   const [data, setData] = useState<PaymentContext | null>(null);
-  const [loading, setLoading] = useState(true);
+  // No request runs on mount: enable the first CPF validation immediately.
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cpf, setCpf] = useState('');
   const [verifiedCpf, setVerifiedCpf] = useState('');
