@@ -237,6 +237,14 @@ export type HomeExperienceProps = {
   deliveryAddressPreview?: { address: string; number: string; district: string } | null;
   promotionalCoupons?: PublicPromotionalCoupon[];
   onApplyPromotionalCoupon?: (code: string) => void;
+  onSelectPromotionalCoupon?: (code: string) => void;
+  onRemovePromotionalCoupon?: () => void;
+  selectedPromotionalCode?: string;
+  confirmedPromotionalCode?: string;
+  promotionalCouponPending?: boolean;
+  promotionalCouponError?: string | null;
+  couponSubtotal?: number;
+
   data: HomeData;
   cartCount?: number;
   cart?: CartItem[];
