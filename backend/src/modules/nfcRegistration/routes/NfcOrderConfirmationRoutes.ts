@@ -8,7 +8,7 @@ import prisma from '../../../config/prisma.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
-import { setTenantDbContext } from '../../../database/tenantDbContext.js';
+import { setTenantDbContext, withTenantDbContext } from '../../../database/tenantDbContext.js';
 import { decryptNfcPii } from '../security/nfcCustomerPii.js';
 
 const router = Router();
@@ -114,15 +114,17 @@ router.post('/challenges/pending', async (req, res) => {
   try {
     const restaurantId = tenant(req), userId = actor(req);
     const token = z.string().regex(tokenPattern).parse(req.body?.token);
-    const card = await prisma.nfcCard.findFirst({
-      where: { restaurantId, tokenHash: hash(token), status: 'ACTIVE' }, select: { id: true },
-    });
-    if (!card) throw new VerificationError(404, 'Cartão NFC não identificado neste restaurante.');
-    const challenge = await prisma.nfcOrderConfirmation.findFirst({
-      where: { restaurantId, cardId: card.id, createdByUserId: userId,
-        verifiedAt: null, consumedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, expiresAt: true, draftItems: true },
+    const challenge = await withTenantDbContext(restaurantId, async tx => {
+      const card = await tx.nfcCard.findFirst({
+        where: { restaurantId, tokenHash: hash(token), status: 'ACTIVE' }, select: { id: true },
+      });
+      if (!card) throw new VerificationError(404, 'Cartão NFC não identificado neste restaurante.');
+      return tx.nfcOrderConfirmation.findFirst({
+        where: { restaurantId, cardId: card.id, createdByUserId: userId,
+          verifiedAt: null, consumedAt: null, expiresAt: { gt: new Date() } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, expiresAt: true, draftItems: true },
+      });
     });
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ challenge });
@@ -188,10 +190,12 @@ router.post('/challenges/:id/verify', async (req, res) => {
 router.post('/challenges/:id/finalize', async (req, res) => {
   try {
     const restaurantId = tenant(req), userId = actor(req), challengeId = uuid.parse(req.params.id);
-    const found = await prisma.nfcOrderConfirmation.findFirst({
+    // The check must run under the same tenant DB context as verify.
+    // Otherwise RLS can hide a correctly verified challenge.
+    const found = await withTenantDbContext(restaurantId, tx => tx.nfcOrderConfirmation.findFirst({
       where: { restaurantId, id: challengeId, createdByUserId: userId },
       select: { id: true, orderId: true, verifiedAt: true, expiresAt: true, draftItems: true, observation: true, comandaId: true },
-    });
+    }));
     if (!found || !found.verifiedAt) throw new VerificationError(403, 'Confirmação de cliente necessária.');
     if (found.orderId) return res.json({ orderId: found.orderId, paid: false, replayed: true });
     if (found.expiresAt <= new Date()) throw new VerificationError(409, 'Confirmação expirada. Inicie outra.');
