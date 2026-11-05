@@ -14,6 +14,7 @@ import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcPaymentPanel } from './NfcPaymentPanel';
 import { NfcStaffComanda } from './NfcStaffComanda';
 import { NfcCardEnrollment, type NfcEnrollmentChoice } from './NfcCardEnrollment';
+import { NfcLinkedCardHome } from './NfcLinkedCardHome';
 
 // React Router reuses page instances when only route params change. Remounting
 // on card/tenant changes prevents a prior card's private form, CPF, comanda or
@@ -265,29 +266,26 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         : <div role="status"><p>Este cartão ainda não possui uma comanda aberta. Identifique o cliente para continuar.</p><button type="button" onClick={()=>setStaffTab('registration')}>Ir para Cadastro NFC</button></div>)}
       {staffCard && staffTab === 'registration' && (staffCard.status === 'READY'
         ? <NfcCardEnrollment key={token} cardCode={staffCard.displayCode} restaurantName={urlSlug || matchingContext?.slug || 'Restaurante autenticado'} onEnroll={handleSubmit}/>
-        : <section style={{display:'grid',gap:13}}>
-          <h2>Cliente vinculado ao cartão</h2>
-          <p><strong>{staffCard.customerName || 'Cliente cadastrado'}</strong></p>
-          <p>O cartão {staffCard.displayCode} já possui vínculo. Não é permitido cadastrar outro cliente sem a devolução e liberação do cartão.</p>
-          {staffCard.comandaId ? <>
-            <p role="status">A comanda deste cartão está aberta para atendimento.</p>
-            <button type="button" onClick={()=>setStaffTab('consult')}>Consultar comanda</button>
-            <button type="button" onClick={()=>setStaffTab('orders')}>Fazer pedido</button>
-          </> : staffCard.canOpenComanda ? <>
-            <p role="status">Este cliente já está vinculado, mas ainda não possui comanda aberta.</p>
-            <button type="button" disabled={busy} onClick={()=>void recoverComanda()}>{busy?'Abrindo comanda...':'Abrir comanda deste cartão'}</button>
-          </> : <p role="status">{staffCard.hasUnsettledComanda ? 'Existe outra comanda em aberto ou não quitada. Regularize o atendimento antes de abrir uma nova.' : staffCard.needsCardReturn ? 'Esta visita já possui comanda anterior. Confirme quitação e CPF completo para devolver o cartão antes de iniciar outro atendimento.' : 'Confira a situação do cliente antes de prosseguir.'}</p>}
-          <button type="button" onClick={()=>void lookupPendingOrder()} disabled={busy}>Consultar confirmação de pedido pendente</button>
-          <form onSubmit={event=>void handleReturn(event)} style={{display:'grid',gap:12,border:'1px solid #d9e3e8',borderRadius:12,padding:14}}>
-            <h2 style={{fontSize:17}}>Conferir quitação e liberar cartão</h2>
-            <p>O cliente digita o CPF completo. Somente o backend pode liberar o cartão após verificar todas as pendências e pagamentos.</p>
-            <label>CPF completo (11 dígitos)
-              <input type="password" inputMode="numeric" autoComplete="off" maxLength={11} minLength={11}
-                value={returnCpf} onChange={e=>setReturnCpf(e.target.value.replace(/\D/g,'').slice(0,11))} required/>
-            </label>
-            <button type="submit" disabled={busy||returnCpf.length!==11}>Verificar pagamento e liberar cartão</button>
-          </form>
-        </section>)}
+        : <NfcLinkedCardHome token={token} code={staffCard.displayCode}
+          customerName={staffCard.customerName} comandaId={staffCard.comandaId}
+          canOpenComanda={staffCard.canOpenComanda} hasUnsettledComanda={staffCard.hasUnsettledComanda}
+          needsCardReturn={staffCard.needsCardReturn} busy={busy} error={message}
+          onOpenComanda={() => void recoverComanda()}
+          onOrder={() => setStaffTab('orders')} onConsult={() => setStaffTab('consult')}
+          onPendingOrder={() => void lookupPendingOrder()}
+          onReturn={async cpf => {
+            if (busy || !allowed || !validToken) return;
+            setBusy(true); setMessage(''); setResult('');
+            try {
+              const returned = await nfcRegistrationService.returnPaidCard(token, cpf);
+              setStaffCard({status:'READY',displayCode:returned.displayCode,comandaId:null});
+              setStaffTab('registration');
+              setResult('Cartão liberado após confirmação de quitação pelo servidor.');
+            } catch (cause) {
+              const err = cause as {response?:{data?:{error?:string}}};
+              setMessage(err.response?.data?.error || 'Liberação não autorizada. Consulte o pagamento.');
+            } finally { setBusy(false); }
+          }} />)}
       {orderChallenge && <form onSubmit={event=>void verifyOrder(event)} style={{display:'grid',gap:12}}>
         <p>O cliente digita os três primeiros dígitos do CPF para confirmar o pedido.</p>
         <NfcCpfThreeDigits value={orderPrefix} onChange={setOrderPrefix} disabled={busy}/>
