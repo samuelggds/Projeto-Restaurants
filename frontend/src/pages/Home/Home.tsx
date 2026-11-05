@@ -921,11 +921,9 @@ export default function Home() {
         onApplyDeliveryAddress={setDeliveryAddress} deliveryAddressPreview={deliveryAddress}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => { applyCheckoutCouponCode(code); openHomeCart(); }}
-        onSelectPromotionalCoupon={applyCheckoutCouponCode}
-        onRemovePromotionalCoupon={() => { setSelectedPromoCode(''); setSelectedRedemptionId(null); }}
+        onSelectPromotionalCoupon={applyCheckoutCouponCode} onRemovePromotionalCoupon={() => { setSelectedPromoCode(''); setSelectedRedemptionId(null); }}
         selectedPromotionalCode={selectedPromoCode} confirmedPromotionalCode={couponState.confirmedCode}
-        promotionalCouponPending={couponState.pending} promotionalCouponError={couponState.error}
-        couponSubtotal={checkoutSubtotal}
+        promotionalCouponPending={couponState.pending} promotionalCouponError={couponState.error} couponSubtotal={checkoutSubtotal}
         cartCount={tableClosingRequested ? 0 : cartCount} cart={tableClosingRequested ? [] : cart}
         cartTotal={tableClosingRequested ? 0 : cartTotal}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
