@@ -86,7 +86,7 @@ const currency = (amount: number) => amount.toLocaleString('pt-BR', { style: 'cu
 const normalizedCode = (code: string) => code.replace(/\s+/gu, '').toLocaleUpperCase('pt-BR');
 
 export function HomeCouponsCenter({
-  coupons, loggedIn, onClose, onApply, onSelect, onRemove, onOpenCart,
+  coupons, loggedIn, onClose, onSelect, onRemove, onOpenCart,
   onOpenOrders, onOpenProfile, onOpenWallet, brandName = 'Restaurante',
   selectedCode = '', selectedConfirmed = false, selectedPending = false,
   quoteError = null, quoteSubtotal = 0, hasCartItems = false, orderType = 'delivery',
@@ -95,7 +95,6 @@ export function HomeCouponsCenter({
   coupons: PublicPromotionalCoupon[];
   loggedIn: boolean;
   onClose: () => void;
-  onApply?: (code: string) => void;
   onSelect?: (code: string) => void;
   onRemove?: () => void;
   onOpenCart?: () => void;
