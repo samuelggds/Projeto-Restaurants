@@ -18,6 +18,7 @@ import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistr
 import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
 import { encryptNfcPii, decryptNfcPii, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
 import { customerSelect, serializeNfcCustomer as serialize } from '../services/nfcCustomerReadModel.js';
+import { findNfcCustomersByIdentity } from '../services/findNfcCustomersByIdentity.js';
 import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcIdSchema, nfcPageSchema, normalizeNfcCpf, normalizeNfcPhone, NfcRegistrationError } from '../domain/nfcRegistrationRules.js';
 
 const router = Router();
@@ -141,44 +142,7 @@ router.post('/customers/identity-search', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, private');
   try {
     const { query } = identitySearchSchema.parse(req.body);
-    const restaurantId = Number(req.user.restaurantId);
-    const digits = query.replace(/\D/g, '');
-    if (digits.length !== 10 && digits.length !== 11) {
-      throw new NfcRegistrationError(422, 'Informe CPF completo ou telefone com DDD.');
-    }
-    const result = await withTenantDbContext(restaurantId, async tx => {
-      if (digits.length === 11) {
-        // An archived CPF is still unique. Report the operational state, not
-        // the archived person's encrypted details, to authenticated staff.
-        const exactCpf = await tx.nfcCustomer.findFirst({
-          where: { restaurantId, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
-          select: { id: true, archivedAt: true },
-        });
-        if (exactCpf?.archivedAt) return { customers: [], archivedMatch: true };
-        if (exactCpf) {
-          const customer = await tx.nfcCustomer.findFirst({
-            where: { restaurantId, id: exactCpf.id, archivedAt: null },
-            select: customerSelect,
-          });
-          if (customer) return { customers: [customer], archivedMatch: false };
-        }
-      }
-      // Phone numbers are encrypted without a lookup index. The bounded,
-      // tenant-only scan deliberately excludes archived profiles.
-      const maxCandidates = 1000;
-      const candidates = await tx.nfcCustomer.findMany({
-        where: { restaurantId, archivedAt: null }, select: customerSelect, take: maxCandidates + 1,
-      });
-      if (candidates.length > maxCandidates) {
-        throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
-      }
-      const customers = candidates.filter(customer => {
-        const number = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '');
-        return number === digits || (number.length === digits.length + 2 && number.startsWith('55') && number.slice(2) === digits);
-      }).slice(0, 10);
-      return { customers, archivedMatch: false };
-    });
-    return res.json({ customers: result.customers.map(customer => serialize(restaurantId, customer)), archivedMatch: result.archivedMatch });
+    return res.json(await findNfcCustomersByIdentity(Number(req.user.restaurantId), query));
   } catch (error) { return safe(res, error); }
 });
 router.post('/customers/lookup', async (req, res) => {
