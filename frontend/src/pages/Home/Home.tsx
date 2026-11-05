@@ -919,6 +919,7 @@ export default function Home() {
       <FigmaDeliveryExperience
         restaurantId={restaurantId}
         onApplyDeliveryAddress={(address) => setDeliveryAddress(address)}
+        deliveryAddressPreview={deliveryAddress}
         data={homeData}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => {
