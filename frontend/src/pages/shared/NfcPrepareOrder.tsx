@@ -120,7 +120,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       {loadingProducts && <p role="status">Carregando produtos...</p>}
       {!loadingProducts && filtered.length===0 && <div className="gx-empty"><span><Search aria-hidden="true"/></span><h3>Nenhum produto encontrado</h3><p>Pesquise novamente ou escolha outra categoria.</p></div>}
       <div className="gx-products">{filtered.map(item=><article className="gx-product" key={item.id}>
-        <NfcProductThumbnail source={item.image}/>
+        <NfcProductThumbnail className="gx-photo" source={item.image}/>
         <div className="gx-product-body"><h3>{item.name}</h3><p>{item.description}</p>
           <div className="gx-product-bottom"><strong className="gx-price">{brl(Math.round(item.price*100))}</strong>
             <div className="gx-quantity">
