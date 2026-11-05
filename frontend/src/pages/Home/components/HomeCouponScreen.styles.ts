@@ -270,8 +270,10 @@ export const CouponScreen = styled.section`
   }
   .cp-bottom-nav button[aria-current='page'] { color: var(--cp-red); background: var(--cp-soft-red); }
   .cp-bottom-nav svg { width: 17px; height: 17px; }
-  .cp-footer { padding: 7px 0 2px; text-align: center; color: var(--cp-muted); font-size: 11px; }
-  .cp-footer strong { color: var(--cp-text); margin-left: 6px; font-weight: 700; }
+  .cp-footer { padding: 7px 0 2px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px; text-align: center; color: var(--cp-muted); font-size: 11px; }
+  .cp-brand { display: inline-flex; align-items: center; gap: 5px; }
+  .cp-brand img { width: 18px; height: 18px; display: block; object-fit: contain; }
+  .cp-footer strong { color: var(--cp-text); font-weight: 700; }
 
   &.is-dark {
     --cp-bg: #252c35;
