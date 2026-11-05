@@ -111,23 +111,34 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   return <section aria-label="Pedido por comanda NFC" style={{ display: 'grid', gap: 12 }}>
     <h4>Cardápio do restaurante · Pedido NFC</h4>
     {step === 'DRAFT' && <>
-      <p>O garçom ou atendente seleciona o pedido. O cliente confirma com os três primeiros dígitos do CPF; quando o cartão já abriu esta página, não é necessária outra aproximação.</p>
-      <label>Buscar no cardápio<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto" autoComplete="off" /></label>
-      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-        {filtered.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #e9eef1' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><NfcProductThumbnail source={p.image} /><span>{p.name} · {p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></span>
-          <input type="number" aria-label={`Quantidade de ${p.name}`} min="0" max="100" style={{ width: 68 }} value={quantities[p.id] || 0}
-            onChange={e => setQuantities(current => ({ ...current, [p.id]: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))} />
-        </div>)}
+      <div className="gx-inline-context"><span className="gx-avatar"><ShoppingBag aria-hidden="true"/></span><div><strong>Comanda identificada</strong><small>#{comandaId.slice(0,8).toUpperCase()} · restaurante autenticado</small></div><CheckCircle2 aria-hidden="true"/></div>
+      <label className="gx-search" aria-label="Buscar produtos"><Search aria-hidden="true"/><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar no cardápio..."/></label>
+      <div className="gx-categories" aria-label="Categorias do cardápio">
+        {categories.map(name=><button type="button" key={name} aria-pressed={category===name} onClick={()=>setCategory(name)}>{name}</button>)}
       </div>
-      <section aria-label="Sacola do cliente" style={{display:'grid',gap:9,border:'1px solid #dce3e7',borderRadius:12,padding:15}}>
-        <strong>Sacola · {selected.reduce((a,p)=>a+quantities[p.id],0)} itens</strong>
-        {selected.length===0 ? <p>Selecione os produtos do cliente.</p> : selected.map(p => <div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:10}}><span style={{display:'flex',alignItems:'center',gap:8}}><NfcProductThumbnail source={p.image}/>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
-        <label>Observação geral do pedido (opcional)<input value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato" /></label>
-        <strong>Total deste pedido: {brl(total)}</strong>
-        <small>O valor definitivo é calculado novamente no backend. Observações individuais e adicionais por produto exigem suporte específico da API.</small>
+      <div className="gx-list-meta"><span>{filtered.length} produtos</span><span>Cardápio do restaurante</span></div>
+      {loadingProducts && <p role="status">Carregando produtos...</p>}
+      {!loadingProducts && filtered.length===0 && <div className="gx-empty"><span><Search aria-hidden="true"/></span><h3>Nenhum produto encontrado</h3><p>Pesquise novamente ou escolha outra categoria.</p></div>}
+      <div className="gx-products">{filtered.map(item=><article className="gx-product" key={item.id}>
+        <NfcProductThumbnail source={item.image}/>
+        <div className="gx-product-body"><h3>{item.name}</h3><p>{item.description}</p>
+          <div className="gx-product-bottom"><strong className="gx-price">{brl(Math.round(item.price*100))}</strong>
+            <div className="gx-quantity">
+              <button type="button" aria-label={`Diminuir quantidade de ${item.name}`} disabled={(quantities[item.id]||0)===0} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.max(0,(q[item.id]||0)-1)}))}><Minus aria-hidden="true"/></button>
+              <output aria-label={`Quantidade de ${item.name}`}>{quantities[item.id]||0}</output>
+              <button type="button" aria-label={`Aumentar quantidade de ${item.name}`} disabled={(quantities[item.id]||0)>=100||(item.stock!==null&&(quantities[item.id]||0)>=item.stock)} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.min(100,(q[item.id]||0)+1)}))}><Plus aria-hidden="true"/></button>
+            </div>
+          </div>
+        </div>
+      </article>)}</div>
+      <section className="gx-panel gx-cart" aria-label="Sacola do cliente">
+        <div className="gx-section-heading"><h2>Sacola do cliente</h2><span className="gx-count">{selected.reduce((a,p)=>a+quantities[p.id],0)} itens</span></div>
+        {selected.length===0 ? <div className="gx-cart-empty"><ShoppingBag aria-hidden="true"/> Selecione os produtos do cliente.</div> : selected.map(p=><div className="gx-mini-line" key={p.id}><NfcProductThumbnail source={p.image}/><span>{quantities[p.id]}× {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
+        <label className="gx-field gx-note-field">Observação geral do pedido (opcional)<textarea value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato"/></label>
+        <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
+        <button type="button" className="gx-button gx-primary" disabled={busy||!selected.length} onClick={()=>void start()}>Revisar pedido</button>
+        <p className="gx-mini-caption">Valor definitivo validado pelo backend. Nenhum pagamento é realizado nesta tela.</p>
       </section>
-      <button type="button" disabled={busy || !selected.length} onClick={() => void start()}>Revisar e confirmar pedido NFC</button>
     </>}
     {step === 'VERIFY' && <div style={{ display: 'grid', gap: 12 }}>
       <h4>Confirmar pedido na comanda NFC</h4>
