@@ -16,7 +16,8 @@ import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
-import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
+import { encryptNfcPii, decryptNfcPii, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
+import { customerSelect, serializeNfcCustomer as serialize } from '../services/nfcCustomerReadModel.js';
 import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcIdSchema, nfcPageSchema, normalizeNfcCpf, normalizeNfcPhone, NfcRegistrationError } from '../domain/nfcRegistrationRules.js';
 
 const router = Router();
@@ -57,7 +58,6 @@ function normalizeTagToken(value: unknown) {
   if (!tokenSchema.test(token)) throw new NfcRegistrationError(422, 'Identificador NFC inválido.');
   return crypto.createHash('sha256').update(token).digest('hex');
 }
-const customerSelect = { id: true, restaurantId: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true, createdAt: true, cards: { select: { id: true, displayCode: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' as const } } };
 const ensureId = (value: unknown) => nfcIdSchema.parse(value);
 // The slug comes exclusively from the authenticated tenant's database record.
 // It is routing context, never authorization or proof that someone owns a card.
@@ -76,11 +76,6 @@ function safe(res: import('express').Response, error: unknown) {
   const status = error instanceof ZodError ? 422 : error instanceof NfcRegistrationError ? error.statusCode : error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002' ? 409 : 500;
   const message = error instanceof ZodError ? error.issues[0]?.message : error instanceof NfcRegistrationError ? error.message : status === 409 ? 'Já existe um cadastro ou cartão ativo para este cliente.' : 'Não foi possível concluir a operação NFC.';
   return res.status(status).json({ error: message });
-}
-function serialize(restaurantId: number, customer: { id: string; nameEncrypted: string; cpfEncrypted: string; phoneEncrypted: string; createdAt: Date; cards: Array<{ id: string; displayCode: string; status: string; createdAt: Date }> }) {
-  const cpf = decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted);
-  const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
-  return { id: customer.id, name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted), cpfMasked: maskNfcCpf(cpf), phoneMasked: maskNfcPhone(phone), createdAt: customer.createdAt, cards: customer.cards };
 }
 // Inventory and linked-customer read endpoints are isolated for maintainability.
 router.use(nfcInventoryRouter);
