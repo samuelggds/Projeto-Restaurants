@@ -1,4 +1,5 @@
 import nfcInventoryRouter from './NfcInventoryRoutes.js';
+import nfcArchivedCustomerRouter from './NfcArchivedCustomerRoutes.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -83,6 +84,7 @@ function serialize(restaurantId: number, customer: { id: string; nameEncrypted: 
 }
 // Inventory and linked-customer read endpoints are isolated for maintainability.
 router.use(nfcInventoryRouter);
+router.use(nfcArchivedCustomerRouter);
 
 router.get('/customers', async (req, res) => {
   try {
@@ -149,16 +151,25 @@ router.post('/customers/identity-search', async (req, res) => {
     if (digits.length !== 10 && digits.length !== 11) {
       throw new NfcRegistrationError(422, 'Informe CPF completo ou telefone com DDD.');
     }
-    const customers = await withTenantDbContext(restaurantId, async tx => {
+    const result = await withTenantDbContext(restaurantId, async tx => {
       if (digits.length === 11) {
-        const exactCpf = await tx.nfcCustomer.findMany({
-          where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
-          select: customerSelect, take: 10,
+        // An archived CPF is still unique. Report the operational state, not
+        // the archived person's encrypted details, to authenticated staff.
+        const exactCpf = await tx.nfcCustomer.findFirst({
+          where: { restaurantId, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
+          select: { id: true, archivedAt: true },
         });
-        if (exactCpf.length) return exactCpf;
+        if (exactCpf?.archivedAt) return { customers: [], archivedMatch: true };
+        if (exactCpf) {
+          const customer = await tx.nfcCustomer.findFirst({
+            where: { restaurantId, id: exactCpf.id, archivedAt: null },
+            select: customerSelect,
+          });
+          if (customer) return { customers: [customer], archivedMatch: false };
+        }
       }
-      // Phone numbers are currently encrypted without a lookup index. A
-      // bounded, tenant-only scan prevents a cross-restaurant disclosure.
+      // Phone numbers are encrypted without a lookup index. The bounded,
+      // tenant-only scan deliberately excludes archived profiles.
       const maxCandidates = 1000;
       const candidates = await tx.nfcCustomer.findMany({
         where: { restaurantId, archivedAt: null }, select: customerSelect, take: maxCandidates + 1,
@@ -166,12 +177,13 @@ router.post('/customers/identity-search', async (req, res) => {
       if (candidates.length > maxCandidates) {
         throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
       }
-      return candidates.filter(customer => {
+      const customers = candidates.filter(customer => {
         const number = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '');
         return number === digits || (number.length === digits.length + 2 && number.startsWith('55') && number.slice(2) === digits);
       }).slice(0, 10);
+      return { customers, archivedMatch: false };
     });
-    return res.json({ customers: customers.map(customer => serialize(restaurantId, customer)) });
+    return res.json({ customers: result.customers.map(customer => serialize(restaurantId, customer)), archivedMatch: result.archivedMatch });
   } catch (error) { return safe(res, error); }
 });
 router.post('/customers/lookup', async (req, res) => {
@@ -179,7 +191,7 @@ router.post('/customers/lookup', async (req, res) => {
     const { cpf: input } = lookupNfcCpfSchema.parse(req.body);
     const restaurantId = Number(req.user.restaurantId);
     const cpf = normalizeNfcCpf(input);
-    const customer = await prisma.nfcCustomer.findFirst({ where: { restaurantId, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, cpf) } }, select: customerSelect });
+    const customer = await prisma.nfcCustomer.findFirst({ where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, cpf) } }, select: customerSelect });
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ customer: customer ? serialize(restaurantId, customer) : null });
   } catch (error) { return safe(res, error); }
@@ -1167,7 +1179,7 @@ router.post('/cards/intake', async (req, res) => {
       }
       let customerId: string;
       if (input.customerId) {
-        const found = await tx.nfcCustomer.findFirst({ where: { id: input.customerId, restaurantId }, select: { id: true } });
+        const found = await tx.nfcCustomer.findFirst({ where: { id: input.customerId, restaurantId, archivedAt: null }, select: { id: true } });
         if (!found) throw new NfcRegistrationError(404, 'Cliente não encontrado neste restaurante.');
         customerId = found.id;
       } else {
@@ -1175,7 +1187,7 @@ router.post('/cards/intake', async (req, res) => {
         const cpf = normalizeNfcCpf(input.cpf), phone = normalizeNfcPhone(input.phone);
         const fingerprints = nfcCpfFingerprints(restaurantId, cpf);
         const found = await tx.nfcCustomer.findFirst({ where: { restaurantId, cpfFingerprint: { in: fingerprints } }, select: { id: true } });
-        if (found) throw new NfcRegistrationError(409, 'Cliente já cadastrado. Localize pelo CPF antes de vincular.');
+        if (found) throw new NfcRegistrationError(409, 'Este CPF já possui cadastro neste restaurante. Consulte pelo CPF para verificar se está ativo ou arquivado.');
         customerId = crypto.randomUUID();
         await tx.nfcCustomer.create({ data: {
           id: customerId, restaurantId, nameEncrypted: encryptNfcPii(restaurantId, customerId, 'name', input.name),
