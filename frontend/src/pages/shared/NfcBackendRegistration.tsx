@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
 import nfcComandaService from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 const Layout = styled.section`
   color-scheme: light dark; --r-bg: light-dark(#f6f7f9,#15191f); --r-surface:light-dark(#fff,#20262f);
