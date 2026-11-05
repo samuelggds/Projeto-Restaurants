@@ -161,7 +161,9 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       {observation.trim() && <p className="gx-help">Observação: {observation.trim()}</p>}
       {!cardToken && <button type="button" className="gx-button" disabled={busy} onClick={()=>void readCard()}>{token ? 'Ler cartão novamente' : 'Aproximar cartão NFC (Android)'}</button>}
       <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado pelo link NFC' : 'necessário para confirmar'}. O servidor confere o titular.</p>
-      <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      <div className="gx-order-cpf-confirmation">
+        <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      </div>
       <button type="button" className="gx-button gx-primary" disabled={busy||!token||prefix.length!==3} onClick={()=>void confirm()}>Confirmar identidade e enviar à cozinha</button>
       <button type="button" className="gx-button" disabled={busy} onClick={reset}>Editar a sacola</button>
     </section>}
