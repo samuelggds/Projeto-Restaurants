@@ -30,6 +30,60 @@ export const Page = styled.div<{ $primary: string }>`
     overflow:visible;
   }
 
+
+  .home-theme-toggle { display:none; }
+
+  &.storefront-dark {
+    --delivery-bg:#161b23;
+    --delivery-surface:#202833;
+    --delivery-text:#f4f5f8;
+    --delivery-muted:#b6beca;
+    --delivery-line:#35404c;
+    background:#161b23;
+    color:var(--delivery-text);
+    .home-promotion-heading h2, .home-promotion-heading span { color:var(--delivery-text); }
+    .storefront-identity h1, .storefront-identity .storefront-category { color:var(--delivery-text); }
+    .storefront-facts > span { background:#202833; border-color:#35404c; }
+    .storefront-facts strong { color:#f5f7fa; }
+    .home-delivery-estimator { color:var(--delivery-text); }
+    .home-delivery-estimator .trigger,
+    .home-delivery-estimator .body,
+    .home-delivery-estimator input {
+      color:#f4f7fa;
+      background:#202833;
+      border-color:#394554;
+    }
+    .home-delivery-estimator h3,
+    .home-delivery-estimator label { color:#f4f7fa; }
+    .home-delivery-estimator .result { background:#1c352b; border-color:#315e49; }
+    .home-delivery-estimator .result strong { color:#f4f7fa; }
+    .home-delivery-estimator .result strong.price { color:#51d98b; }
+    .home-delivery-estimator .success { color:#51d98b; }
+    .home-delivery-estimator p,
+    .home-delivery-estimator .columns span { color:#bac6c0; }
+    .home-delivery-estimator .lookup { color:#ff9b9b; background:#36252c; border-color:#54363c; }
+    .home-delivery-estimator .alert { color:#ffc7ad; background:#3b2825; }
+    .home-delivery-estimator .saved-addresses { color:#ff9292; }
+    .home-delivery-estimator .use-address { background:#ff4b4b; }
+    .home-inline-search { color:#e4e8ee; background:#202833; border-color:#35404c; }
+    .home-inline-search input { color:#f2f5f8; }
+    .home-inline-search .mobile-search-placeholder { color:#c0c6d0; }
+    .home-promotion-carousel { color:#f4f7fa; }
+    .products-section article,
+    .products-section article .copy,
+    .products-section .open { background:#202833; border-color:#35404c; }
+    .products-section .open { background:transparent; }
+    .products-section .image { background:#293341; color:#d1d6df; }
+    .products-section h2, .products-section h3,
+    .products-section .product-copy h3,
+    .products-section .copy strong { color:#f4f7fa; }
+    .products-section .product-copy p { color:#b6beca; }
+    .products-section .add { background:#b52d42; }
+    .products-section .product-label { color:#ff8585; }
+    .home-theme-toggle { color:#f2f5f9; background:#293340; border-color:#485363; }
+    .benefit-grid article, .info-item, .social-row { background:#202833; color:#f4f7fa; }
+  }
+
   @media(max-width:760px){
     display:flex;
     flex-direction:column;
@@ -37,6 +91,36 @@ export const Page = styled.div<{ $primary: string }>`
 
     /* Keep the existing React event handlers and cart animation targets, but
        arrange the storefront in the same mobile order as the approved reference. */
+    position:relative;
+    .home-theme-toggle {
+      display:grid;
+      place-items:center;
+      position:absolute;
+      right:12px;
+      z-index:21;
+      order:1;
+      width:39px;
+      height:39px;
+      border:1px solid #e6e8ea;
+      border-radius:50%;
+      background:#fff;
+      color:#353c44;
+      box-shadow:0 3px 12px #00000024;
+    }
+    .home-theme-toggle svg { width:18px; height:18px; }
+    &.storefront-dark > header > .mobile-location-row > .mobile-address-trigger {
+      color:#f4f7fa;
+      background:#202833;
+      border-color:#35404c;
+    }
+    &.storefront-dark > header > .mobile-location-row > .mobile-address-trigger strong { color:#f4f7fa; }
+    &.storefront-dark > header > .mobile-fulfillment { background:#28313e; }
+    &.storefront-dark > header > .mobile-fulfillment button:not(.active) { color:#d7dce4; }
+    &.storefront-dark > nav[aria-label="Navegação principal"] { background:#202833; color:#f4f7fa; border-color:#394554; }
+    &.storefront-dark > main#cardapio { color:#f4f7fa; }
+    &.storefront-dark > main#cardapio .benefit-grid article { background:#202833; border-color:#394554; }
+    &.storefront-dark > main#cardapio .social a { background:#202833; border-color:#394554; }
+    &.storefront-dark > main#cardapio .mobile-separated { color:#f4f7fa; }
     > * { order:50; }
     > aside[aria-label="Aviso de cupons"] { order:0; }
     > header { display:contents; }
