@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import nfcComandaService, { type NfcComanda } from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
 
@@ -39,7 +40,7 @@ export function NfcLostCardRecovery({ onBack }: { onBack: () => void }) {
       const data=await nfcComandaService.customerComandas(person.id);
       setCustomer(person);
       setComandas(data.comandas.filter(item=>(item.status==='OPEN'||item.status==='UNPAID')&&item.cardId!==null));
-    }catch(cause){setError(cause instanceof Error?cause.message:'Não foi possível consultar o cliente.');}
+    }catch(cause){setError(nfcFriendlyError(cause, 'Não foi possível localizar o cliente. Confira o CPF e tente novamente.'));}
     finally{setBusy(false);}
   };
   const recover = async () => {
