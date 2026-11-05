@@ -94,7 +94,7 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
           <p className="gx-help">O pagamento aparecerá como concluído após a confirmação.</p>
           <button type="button" className="gx-button" disabled><Wallet aria-hidden="true"/> Pix {data.pixEnabled ? '· Temporariamente indisponível' : '· Indisponível'}</button>
           <button type="button" className="gx-button" disabled><CreditCard aria-hidden="true"/> Maquininha Point {data.pointEnabled ? '· Temporariamente indisponível' : '· Indisponível'}</button>
-          <p className="gx-line-note">{data.reason}</p>
+          <p className="gx-line-note">{nfcFriendlyError({ response: { data: { error: data.reason } } }, 'Consulte a equipe para saber quais formas de pagamento estão disponíveis.')}</p>
         </section>
         {data.comanda.outstandingCents===0 && <section className="gx-panel">
           <h2>Conferir quitação e liberar cartão</h2>
@@ -112,7 +112,7 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
       </>}
       <button type="button" className="gx-button" disabled={loading || busy} onClick={()=>{
         setLoading(true);void load(verifiedCpf).catch(()=>{setData(null);setVerifiedCpf('');setError('Falha na verificação. Informe o CPF novamente.');}).finally(()=>setLoading(false));
-      }}><RotateCcw aria-hidden="true"/>{loading ? 'Atualizando...' : 'Atualizar saldo no servidor'}</button>
+      }}><RotateCcw aria-hidden="true"/>{loading ? 'Atualizando...' : 'Atualizar saldo'}</button>
       {message && <p role="status" className="gx-pill">{message}</p>}
       {error && <p role="alert" className="gx-error">{error}</p>}
     </>}
