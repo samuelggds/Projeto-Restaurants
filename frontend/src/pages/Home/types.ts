@@ -234,7 +234,7 @@ export type PublicPromotionalCoupon = {
 export type HomeExperienceProps = {
   restaurantId?: number | null;
   onApplyDeliveryAddress?: (address: { zipCode: string; address: string; number: string; district: string; city: string; state: string; complement: string }) => void;
-  deliveryAddressPreview?: { address: string; number: string; district: string } | null;
+  deliveryAddressPreview?: { zipCode: string; address: string; number: string; district: string; city: string; state: string } | null;
   promotionalCoupons?: PublicPromotionalCoupon[];
   onApplyPromotionalCoupon?: (code: string) => void;
   onSelectPromotionalCoupon?: (code: string) => void;
