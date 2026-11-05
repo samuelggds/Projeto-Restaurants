@@ -135,6 +135,9 @@ export const Page = styled.div<{ $primary: string }>`
     display:flex;
     flex-direction:column;
     align-items:stretch;
+    width:100%;
+    margin:0;
+    padding:0;
 
     /* Keep the existing React event handlers and cart animation targets, but
        arrange the storefront in the same mobile order as the approved reference. */
@@ -173,7 +176,17 @@ export const Page = styled.div<{ $primary: string }>`
     > header { display:contents; }
     > header > .header-left,
     > header > .actions { display:none; }
-    > [aria-label^="Capa de "] { order:1; }
+    /* Full-bleed cover: the image starts directly at the top of the
+       storefront (or directly beneath the coupon notice, when shown). */
+    > [aria-label^="Capa de "] {
+      order:1;
+      display:block;
+      width:100%;
+      max-width:none;
+      margin:0;
+      padding:0;
+      border-radius:0;
+    }
     > section[aria-label^="Informações de "] { display:contents; }
     > section[aria-label^="Informações de "] > .storefront-identity .storefront-mobile-status {
       display:flex;
