@@ -22,6 +22,8 @@ import {
   IceCreamBowl,
   Salad,
   TicketPercent,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import {
   FacebookIcon,
@@ -113,6 +115,7 @@ export function FigmaDeliveryExperience({
   const [searchQuery, setSearchQuery] = useState('');
   const [couponScreenOpen, setCouponScreenOpen] = useState(false);
   const [couponNoticeDismissed, setCouponNoticeDismissed] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [deliveryPanelOpen, setDeliveryPanelOpen] = useState(false);
@@ -567,10 +570,11 @@ export function FigmaDeliveryExperience({
   const showCouponNotice = promotionalCoupons.length > 0 && !couponNoticeDismissed && !couponScreenOpen;
 
   return (
-    <S.Page $primary={primary} className={[selectedProduct ? 'product-open' : '', showCouponNotice ? 'coupon-notice-visible' : ''].filter(Boolean).join(' ')}>
+    <S.Page $primary={primary} className={[selectedProduct ? 'product-open' : '', showCouponNotice ? 'coupon-notice-visible' : '', darkMode ? 'storefront-dark' : ''].filter(Boolean).join(' ')}>
       {showCouponNotice && (
         <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
       )}
+      {!selectedProduct && <button className="home-theme-toggle" type="button" aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={darkMode} onClick={() => setDarkMode(value => !value)} style={{ top: showCouponNotice ? 62 : 18 }}>{darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>}
       <S.DesktopTopBar>
         <div>
           <span className="location">
