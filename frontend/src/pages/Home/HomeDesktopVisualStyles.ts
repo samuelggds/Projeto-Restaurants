@@ -245,13 +245,13 @@ export const homeDesktopVisualStyles = css`
       color: var(--delivery-text);
     }
     > main#cardapio section[aria-label="Reservas de mesas"] {
-      background: var(--delivery-surface);
-      border-color: var(--delivery-line);
+      background: #f6f7f9;
+      border-color: #e6e9ee;
       color: var(--delivery-text);
     }
     > main#cardapio section[aria-label="Reservas de mesas"] .whatsapp {
-      background: #d72b39;
-      color: #fff;
+      background: #fff;
+      color: #d82739;
     }
 
     &.storefront-dark {
@@ -322,6 +322,12 @@ export const homeDesktopVisualStyles = css`
       border-color: #414b5a;
       color: #eff2f7;
     }
+    &.storefront-dark > main#cardapio section[aria-label="Reservas de mesas"] .actions a {
+      background: #2c3541;
+      border-color: #46515e;
+      color: #f2f4f8;
+    }
+    &.storefront-dark > main#cardapio section[aria-label="Reservas de mesas"] .actions .whatsapp { color: #ff949c; }
     &.storefront-dark > main#cardapio section[aria-label="Reservas de mesas"] p { color: #b6c0cc; }
     &.storefront-dark > main#cardapio section[aria-label="Reservas de mesas"] .phone {
       background: #28323e;

@@ -13,7 +13,6 @@ import { productImage } from './components/homeImageMarkup';
 import { HomeCouponNotice, HomeCouponsCenter } from './components/HomeCouponCenter';
 import { HomeDeliveryEstimator } from './components/HomeDeliveryEstimator';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
-import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
@@ -26,6 +25,14 @@ import { AddressPickerOverlay, ProfileQuickMenuOverlay } from './components/Home
 import { formatCustomerLocationLabel, formatDeliveryTime, getUserInitials, normalizeSearchText } from './domain/homePresentation';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import * as S from './FigmaDeliveryExperience.styles';
+
+// The reservations card is below the catalogue; load its styles on demand instead
+// of charging them to the initial Home bundle.
+const ReservationContactCard = lazy(() =>
+  import('./components/ReservationContactCard').then((module) => ({
+    default: module.ReservationContactCard,
+  })),
+);
 
 const ProductConfigurator = lazy(() =>
   import('./components/ProductConfigurator').then((module) => ({
@@ -1085,7 +1092,7 @@ export function FigmaDeliveryExperience({
                 </S.RestaurantInfo>
               </>
             ) : null}
-            <ReservationContactCard brand={data.brand} />
+            <Suspense fallback={null}><ReservationContactCard brand={data.brand} /></Suspense>
           </S.Main>
 
       <S.MobileCartFab

@@ -286,7 +286,7 @@ export function HomeCouponsCenter({
         <button type="button" aria-current="page"><TicketPercent aria-hidden="true"/>Cupons</button>
         <button type="button" onClick={onOpenProfile || onClose}><UserRound aria-hidden="true"/>Conta</button>
       </nav>
-      <footer className="cp-footer">Tecnologia <strong>GastroNexa</strong></footer>
+      <footer className="cp-footer">Tecnologia <span className="cp-brand"><img src="/gastronexa-logo.svg" alt="" aria-hidden="true" /><strong>GastroNexa</strong></span></footer>
     </div>
   </CouponScreen>;
 }
