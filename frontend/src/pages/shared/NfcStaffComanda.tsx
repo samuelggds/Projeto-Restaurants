@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../../Services/api';
 import { NfcProductThumbnail } from './NfcProductThumbnail';
+import { nfcFriendlyOrderStatus } from './nfcFriendlyMessages';
 import { CheckCircle2, ClipboardList, CreditCard, RefreshCw, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 
 type Visit = {
@@ -35,7 +36,7 @@ export function NfcStaffComanda({ token }: { token: string }) {
   }, [token]);
   const visit = data?.comanda;
   return <section aria-label="Consulta de comanda do cliente">
-    {loading && <p role="status" className="gx-line-note">Consultando comanda no servidor...</p>}
+    {loading && <p role="status" className="gx-line-note">Carregando comanda...</p>}
     {error && <p role="alert" className="gx-error">{error}</p>}
     {data && <>
       <div className="gx-inline-context"><span className="gx-avatar"><CreditCard aria-hidden="true"/></span>
@@ -54,10 +55,10 @@ export function NfcStaffComanda({ token }: { token: string }) {
         </div>
         {tab==='orders' ? <section className="gx-panel" aria-label="Pedidos e itens consumidos">
           {visit.orders.length===0 && visit.items.length===0 ? <div className="gx-empty">
-            <span><UtensilsCrossed aria-hidden="true"/></span><h2>Nenhum pedido registrado</h2><p>Os pedidos enviados pelo garçom ou atendente aparecerão aqui após confirmação do servidor.</p>
+            <span><UtensilsCrossed aria-hidden="true"/></span><h2>Nenhum pedido registrado</h2><p>Os pedidos feitos durante o atendimento aparecerão aqui.</p>
           </div> : <>
             {visit.orders.map(order=><div className="gx-order-card" key={order.id}>
-              <div className="gx-order-top"><strong>Pedido #{order.id}</strong><span className="gx-pill">{order.status}</span></div>
+              <div className="gx-order-top"><strong>Pedido #{order.id}</strong><span className="gx-pill">{nfcFriendlyOrderStatus(order.status)}</span></div>
             </div>)}
             {visit.items.map(item=><div className="gx-mini-line" key={item.id}>
               <NfcProductThumbnail source={item.image}/><span>{item.quantity}× {item.description}</span><strong>{money(item.totalCents)}</strong>
@@ -65,7 +66,7 @@ export function NfcStaffComanda({ token }: { token: string }) {
           </>}
         </section> : <section className="gx-panel" aria-label="Histórico de pagamentos">
           {visit.payments.length===0 ? <div className="gx-empty"><span><CreditCard aria-hidden="true"/></span>
-            <h2>Nenhum pagamento registrado</h2><p>Os pagamentos confirmados pelo backend aparecerão aqui.</p></div> :
+            <h2>Nenhum pagamento registrado</h2><p>Os pagamentos realizados aparecerão aqui após a confirmação.</p></div> :
             visit.payments.map(payment=><div className="gx-order-card" key={payment.id}>
               <div className="gx-order-top"><strong>{money(payment.amountCents)}</strong>
                 <span className="gx-pill">{payment.status==='CONFIRMED' ? 'Confirmado' : payment.status==='REVERSED' ? 'Estornado' : 'Pendente'}</span>
@@ -73,12 +74,12 @@ export function NfcStaffComanda({ token }: { token: string }) {
             </div>)}
         </section>}
       </>}
-      <div className="gx-refresh-row"><span>Dados atualizados pelo servidor</span>
+      <div className="gx-refresh-row"><span>Informações da comanda</span>
         <button type="button" className="gx-button" disabled={loading} onClick={()=>{
           setLoading(true); void load().catch(()=>setError('Não foi possível atualizar a comanda.')).finally(()=>setLoading(false));
         }}><RefreshCw aria-hidden="true"/> Atualizar</button>
       </div>
     </>}
-    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Consulta somente leitura. Nenhuma cobrança ou edição é feita nesta tela.</p>
+    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Aqui você pode acompanhar pedidos e pagamentos sem alterar a comanda.</p>
   </section>;
 }
