@@ -21,7 +21,7 @@ export function nfcFriendlyError(
     return 'Os itens deste pedido foram alterados. Confira a sacola e faça uma nova confirmação.';
   if (/muitas tentativas|temporariamente bloquead|bloquead[oa].*tentativa/i.test(raw))
     return 'Por segurança, a confirmação está temporariamente indisponível. Aguarde alguns minutos e tente novamente.';
-  if (/confirmac[aã]o.*expirad|confirmação já utilizada|prazo.*encerrad/i.test(raw))
+  if (/confirma(?:ç|c)[aã]o.*expirad|confirma(?:ç|c)[aã]o j[aá] utilizada|prazo.*encerrad/i.test(raw))
     return 'O prazo para confirmar terminou. Revise o pedido e confirme novamente.';
   if (/cpf.*(incorret|inv[aá]lid|n[aã]o confirmad)|c[oó]digo n[aã]o confirmad/i.test(raw))
     return 'Não foi possível confirmar os dados. Confira o CPF e tente novamente.';
