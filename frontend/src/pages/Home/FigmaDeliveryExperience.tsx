@@ -799,7 +799,7 @@ export function FigmaDeliveryExperience({
       {!selectedProduct ? (
         <>
           <RestaurantCover brand={data.brand} />
-          <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} />
+          <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} availability={storefrontAvailability} />
           <HomeDeliveryEstimator
             restaurantId={restaurantId ?? null}
             deliveryFeeMode={data.deliveryFeeMode}
