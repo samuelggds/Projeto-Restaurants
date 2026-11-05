@@ -94,7 +94,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
     </div>
     <div className="body">
       <p className="description">Grave o cartão e aproxime-o novamente para confirmar que está pronto para uso.</p>
-      {!url && <button type="button" className="primary" disabled={busy} onClick={() => void create()}>{busy ? 'Gerando...' : 'Gerar identificador individual do cartão'}</button>}
+      {!url && <button type="button" className="primary" disabled={busy} onClick={() => void create()}>{busy ? 'Gerando...' : 'Preparar novo cartão'}</button>}
       {url && <>
         <label className="link-label" htmlFor="nfc-ndef-url">Link individual do cartão {cardCode}</label>
         <div className="link-row"><input id="nfc-ndef-url" readOnly value={url} />
