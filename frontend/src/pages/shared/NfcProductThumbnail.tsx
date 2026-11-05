@@ -17,10 +17,10 @@ export function NfcProductThumbnail({ source }: { source?: string | null }) {
   const resolved = resolvePublicMediaSource(source, api.defaults.baseURL || '');
   const url = isPersistentImageSource(resolved) ? String(resolved).trim() : null;
   return <Thumbnail aria-hidden="true">{url
-    ? <img alt="" src={url} loading="lazy" decoding="async" onError={event => {
+    ? <><img alt="" src={url} loading="lazy" decoding="async" onError={event => {
       event.currentTarget.style.display = 'none';
       const placeholder = event.currentTarget.nextElementSibling;
       if (placeholder instanceof SVGElement) placeholder.style.display = '';
-    }} /><UtensilsCrossed style={{ display: 'none' }} />
+    }} /><UtensilsCrossed style={{ display: 'none' }} /></>
     : <UtensilsCrossed />}</Thumbnail>;
 }
