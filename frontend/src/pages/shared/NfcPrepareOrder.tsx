@@ -150,7 +150,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         <label className="gx-field gx-note-field">Observação geral do pedido (opcional)<textarea value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato"/></label>
         <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
         <button type="button" className="gx-button gx-primary" disabled={busy||!selected.length} onClick={()=>void start()}>Revisar pedido</button>
-        <p className="gx-mini-caption">Valor definitivo validado pelo backend. Nenhum pagamento é realizado nesta tela.</p>
+        <p className="gx-mini-caption">O total será confirmado ao registrar o pedido. O pagamento será feito separadamente.</p>
       </section>
     </>}
     {step === 'VERIFY' && <section className="gx-panel" aria-label="Revisar e confirmar pedido">
