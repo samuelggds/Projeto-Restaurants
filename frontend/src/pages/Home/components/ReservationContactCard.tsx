@@ -92,7 +92,7 @@ export function ReservationContactCard({ brand }: { brand: HomeBrand }) {
     <ContactPanel aria-label="Reservas de mesas">
       <span className="reservation-icon"><UtensilsCrossed aria-hidden="true" /></span>
       <h2>Quer reservar uma mesa?</h2>
-      <p className="description">Solicite pelo WhatsApp e aguarde a confirmação do restaurante.</p>
+      <p className="description">{whatsapp ? 'Solicite pelo WhatsApp e aguarde a confirmação do restaurante.' : 'Ligue para consultar a disponibilidade e aguarde a confirmação do restaurante.'}</p>
       <div className="actions">
         {whatsapp && (
           <a className="whatsapp" href={whatsapp} target="_blank" rel="noopener noreferrer">
