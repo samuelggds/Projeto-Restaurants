@@ -1,4 +1,5 @@
 import nfcInventoryRouter from './NfcInventoryRoutes.js';
+import nfcArchivedCustomerRouter from './NfcArchivedCustomerRoutes.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -15,7 +16,9 @@ import { nextNfcReturnCpfFailure, nfcReturnCpfRemainingMinutes } from '../domain
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
-import { encryptNfcPii, decryptNfcPii, maskNfcCpf, maskNfcPhone, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
+import { encryptNfcPii, decryptNfcPii, nfcCpfFingerprints } from '../security/nfcCustomerPii.js';
+import { customerSelect, serializeNfcCustomer as serialize } from '../services/nfcCustomerReadModel.js';
+import { findNfcCustomersByIdentity } from '../services/findNfcCustomersByIdentity.js';
 import { createNfcCustomerSchema, lookupNfcCpfSchema, revokeNfcCardSchema, nfcIdSchema, nfcPageSchema, normalizeNfcCpf, normalizeNfcPhone, NfcRegistrationError } from '../domain/nfcRegistrationRules.js';
 
 const router = Router();
@@ -56,7 +59,6 @@ function normalizeTagToken(value: unknown) {
   if (!tokenSchema.test(token)) throw new NfcRegistrationError(422, 'Identificador NFC inválido.');
   return crypto.createHash('sha256').update(token).digest('hex');
 }
-const customerSelect = { id: true, restaurantId: true, nameEncrypted: true, cpfEncrypted: true, phoneEncrypted: true, createdAt: true, cards: { select: { id: true, displayCode: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' as const } } };
 const ensureId = (value: unknown) => nfcIdSchema.parse(value);
 // The slug comes exclusively from the authenticated tenant's database record.
 // It is routing context, never authorization or proof that someone owns a card.
@@ -76,13 +78,9 @@ function safe(res: import('express').Response, error: unknown) {
   const message = error instanceof ZodError ? error.issues[0]?.message : error instanceof NfcRegistrationError ? error.message : status === 409 ? 'Já existe um cadastro ou cartão ativo para este cliente.' : 'Não foi possível concluir a operação NFC.';
   return res.status(status).json({ error: message });
 }
-function serialize(restaurantId: number, customer: { id: string; nameEncrypted: string; cpfEncrypted: string; phoneEncrypted: string; createdAt: Date; cards: Array<{ id: string; displayCode: string; status: string; createdAt: Date }> }) {
-  const cpf = decryptNfcPii(restaurantId, customer.id, 'cpf', customer.cpfEncrypted);
-  const phone = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted);
-  return { id: customer.id, name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted), cpfMasked: maskNfcCpf(cpf), phoneMasked: maskNfcPhone(phone), createdAt: customer.createdAt, cards: customer.cards };
-}
 // Inventory and linked-customer read endpoints are isolated for maintainability.
 router.use(nfcInventoryRouter);
+router.use(nfcArchivedCustomerRouter);
 
 router.get('/customers', async (req, res) => {
   try {
@@ -144,34 +142,7 @@ router.post('/customers/identity-search', async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, private');
   try {
     const { query } = identitySearchSchema.parse(req.body);
-    const restaurantId = Number(req.user.restaurantId);
-    const digits = query.replace(/\D/g, '');
-    if (digits.length !== 10 && digits.length !== 11) {
-      throw new NfcRegistrationError(422, 'Informe CPF completo ou telefone com DDD.');
-    }
-    const customers = await withTenantDbContext(restaurantId, async tx => {
-      if (digits.length === 11) {
-        const exactCpf = await tx.nfcCustomer.findMany({
-          where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, digits) } },
-          select: customerSelect, take: 10,
-        });
-        if (exactCpf.length) return exactCpf;
-      }
-      // Phone numbers are currently encrypted without a lookup index. A
-      // bounded, tenant-only scan prevents a cross-restaurant disclosure.
-      const maxCandidates = 1000;
-      const candidates = await tx.nfcCustomer.findMany({
-        where: { restaurantId, archivedAt: null }, select: customerSelect, take: maxCandidates + 1,
-      });
-      if (candidates.length > maxCandidates) {
-        throw new NfcRegistrationError(409, 'Pesquisa por telefone indisponível para este volume de cadastros. Consulte pelo CPF.');
-      }
-      return candidates.filter(customer => {
-        const number = decryptNfcPii(restaurantId, customer.id, 'phone', customer.phoneEncrypted).replace(/\D/g, '');
-        return number === digits || (number.length === digits.length + 2 && number.startsWith('55') && number.slice(2) === digits);
-      }).slice(0, 10);
-    });
-    return res.json({ customers: customers.map(customer => serialize(restaurantId, customer)) });
+    return res.json(await findNfcCustomersByIdentity(Number(req.user.restaurantId), query));
   } catch (error) { return safe(res, error); }
 });
 router.post('/customers/lookup', async (req, res) => {
@@ -179,7 +150,7 @@ router.post('/customers/lookup', async (req, res) => {
     const { cpf: input } = lookupNfcCpfSchema.parse(req.body);
     const restaurantId = Number(req.user.restaurantId);
     const cpf = normalizeNfcCpf(input);
-    const customer = await prisma.nfcCustomer.findFirst({ where: { restaurantId, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, cpf) } }, select: customerSelect });
+    const customer = await prisma.nfcCustomer.findFirst({ where: { restaurantId, archivedAt: null, cpfFingerprint: { in: nfcCpfFingerprints(restaurantId, cpf) } }, select: customerSelect });
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ customer: customer ? serialize(restaurantId, customer) : null });
   } catch (error) { return safe(res, error); }
@@ -1167,7 +1138,7 @@ router.post('/cards/intake', async (req, res) => {
       }
       let customerId: string;
       if (input.customerId) {
-        const found = await tx.nfcCustomer.findFirst({ where: { id: input.customerId, restaurantId }, select: { id: true } });
+        const found = await tx.nfcCustomer.findFirst({ where: { id: input.customerId, restaurantId, archivedAt: null }, select: { id: true } });
         if (!found) throw new NfcRegistrationError(404, 'Cliente não encontrado neste restaurante.');
         customerId = found.id;
       } else {
@@ -1175,7 +1146,7 @@ router.post('/cards/intake', async (req, res) => {
         const cpf = normalizeNfcCpf(input.cpf), phone = normalizeNfcPhone(input.phone);
         const fingerprints = nfcCpfFingerprints(restaurantId, cpf);
         const found = await tx.nfcCustomer.findFirst({ where: { restaurantId, cpfFingerprint: { in: fingerprints } }, select: { id: true } });
-        if (found) throw new NfcRegistrationError(409, 'Cliente já cadastrado. Localize pelo CPF antes de vincular.');
+        if (found) throw new NfcRegistrationError(409, 'Este CPF já possui cadastro neste restaurante. Consulte pelo CPF para verificar se está ativo ou arquivado.');
         customerId = crypto.randomUUID();
         await tx.nfcCustomer.create({ data: {
           id: customerId, restaurantId, nameEncrypted: encryptNfcPii(restaurantId, customerId, 'name', input.name),

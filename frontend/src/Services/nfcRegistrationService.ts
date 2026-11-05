@@ -81,12 +81,23 @@ class NfcRegistrationService {
     const response = await api.post<{ customer: NfcCustomerRecord }>('/nfc-registration/customers', payload);
     return response.data.customer;
   }
-  async identitySearch(query: string) {
-    const response = await api.post<{ customers: NfcCustomerRecord[] }>(
+  async identitySearchDetails(query: string) {
+    const response = await api.post<{ customers: NfcCustomerRecord[]; archivedMatch?: boolean }>(
       '/nfc-registration/customers/identity-search', { query }, { skipBaseUrlFallback: true },
     );
     if (!Array.isArray(response.data?.customers)) throw new Error('Pesquisa de clientes inválida.');
-    return response.data.customers;
+    return { customers: response.data.customers, archivedMatch: response.data.archivedMatch === true };
+  }
+  async identitySearch(query: string) {
+    return (await this.identitySearchDetails(query)).customers;
+  }
+  async reactivateArchived(cpf: string) {
+    const response = await api.post<{ reactivated: true; customerId: string }>(
+      '/nfc-registration/customers/reactivate',
+      { cpf, confirmation: 'REATIVAR CADASTRO' }, { skipBaseUrlFallback: true },
+    );
+    if (response.data?.reactivated !== true) throw new Error('Reativação não confirmada pelo servidor.');
+    return response.data.customerId;
   }
   async lookup(cpf: string) {
     const response = await api.post<{ customer: NfcCustomerRecord | null }>('/nfc-registration/customers/lookup', { cpf });

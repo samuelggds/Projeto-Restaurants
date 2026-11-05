@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { CheckCircle2, Link2, LoaderCircle, Search, ShieldCheck, UserRound, UserRoundCheck, UserRoundPlus } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
+import { useAuth } from '../../contexts/authContext';
 
 /*
  * Visuals reproduced from the user's GastroNexa-Cadastro-Vinculo-NFC ZIP:
@@ -303,6 +304,8 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
   restaurantName: string;
   onEnroll: (payload: NfcEnrollmentChoice) => Promise<Assignment>;
 }) {
+  const { user } = useAuth();
+  const canReactivate = String(user?.role || '').toUpperCase() === 'ADMIN';
   const [mode, setMode] = useState<'new' | 'existing'>('new');
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -313,6 +316,8 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
   const [found, setFound] = useState<NfcCustomerRecord[]>([]);
   const [selected, setSelected] = useState<NfcCustomerRecord | null>(null);
   const [searchCompleted, setSearchCompleted] = useState(false);
+  const [archivedMatch, setArchivedMatch] = useState(false);
+  const [reactivationConfirmed, setReactivationConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -325,6 +330,8 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
     setQuery('');
     setFound([]);
     setSearchCompleted(false);
+    setArchivedMatch(false);
+    setReactivationConfirmed(false);
     setError('');
     if (next === 'existing') { setName(''); setCpf(''); setPhone(''); }
   };
@@ -341,12 +348,38 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
     setFound([]);
     setError('');
     setSearchCompleted(false);
+    setArchivedMatch(false);
+    setReactivationConfirmed(false);
     try {
-      setFound(await nfcRegistrationService.identitySearch(digits));
+      const result = await nfcRegistrationService.identitySearchDetails(digits);
+      setFound(result.customers);
+      setArchivedMatch(result.archivedMatch);
       setSearchCompleted(true);
     } catch (cause) {
       const err = cause as { response?: { data?: { error?: string } } };
       setError(err.response?.data?.error || 'Não foi possível consultar os cadastros. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reactivate = async () => {
+    if (busy || !canReactivate || !archivedMatch || !reactivationConfirmed || query.replace(/\D/g, '').length !== 11) return;
+    setBusy(true);
+    setError('');
+    try {
+      await nfcRegistrationService.reactivateArchived(query.replace(/\D/g, ''));
+      const result = await nfcRegistrationService.identitySearchDetails(query);
+      setFound(result.customers);
+      setArchivedMatch(result.archivedMatch);
+      setReactivationConfirmed(false);
+      setSearchCompleted(true);
+      setError(result.customers.length
+        ? 'Cadastro reativado. Selecione o cliente e confirme o vínculo ao cartão.'
+        : 'Cadastro reativado. Consulte novamente antes de vincular.');
+    } catch (cause) {
+      const err = cause as { response?: { data?: { error?: string } } };
+      setError(err.response?.data?.error || 'Não foi possível reativar o cadastro. Consulte o administrador.');
     } finally {
       setBusy(false);
     }
@@ -368,13 +401,17 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
     setError('');
     try {
       if (mode === 'new') {
-        const matches = await nfcRegistrationService.identitySearch(cpf);
-        if (matches.length) {
+        const result = await nfcRegistrationService.identitySearchDetails(cpf);
+        if (result.customers.length || result.archivedMatch) {
           setMode('existing');
           setQuery(cpf);
-          setFound(matches);
+          setFound(result.customers);
+          setArchivedMatch(result.archivedMatch);
+          setReactivationConfirmed(false);
           setSearchCompleted(true);
-          setError('CPF já cadastrado neste restaurante. Selecione o cadastro existente.');
+          setError(result.archivedMatch
+            ? 'Este CPF possui cadastro arquivado. O administrador precisa reativá-lo antes do vínculo.'
+            : 'CPF já cadastrado neste restaurante. Selecione o cadastro existente.');
           return;
         }
       }
@@ -427,7 +464,7 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
       </> : <>
         <label className="gx-r-field">CPF ou telefone do cliente
           <input inputMode="numeric" autoComplete="off" value={query}
-            onChange={e => { setQuery(e.target.value.replace(/\D/g, '').slice(0, 11)); setFound([]); setSelected(null); setSearchCompleted(false); }}
+            onChange={e => { setQuery(e.target.value.replace(/\D/g, '').slice(0, 11)); setFound([]); setSelected(null); setSearchCompleted(false); setArchivedMatch(false); setReactivationConfirmed(false); }}
             placeholder="Com ou sem pontuação" disabled={busy} />
         </label>
         <button className="gx-r-button gx-r-wide" type="button" onClick={() => void search()}
@@ -436,7 +473,19 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
         </button>
         <p className="gx-r-hint">A busca consulta somente os clientes de {restaurantName || 'seu restaurante'}.</p>
 
-        {searchCompleted && !found.length && <section className="gx-r-not-found" role="status">
+        {searchCompleted && archivedMatch && <section className="gx-r-not-found" role="status">
+          <h2>Cadastro arquivado neste restaurante</h2>
+          <p>O CPF já existe no histórico e não pode ser cadastrado novamente. A reativação preserva o mesmo cadastro e as comandas anteriores.</p>
+          {canReactivate ? <>
+            <label className="gx-r-check"><input type="checkbox" checked={reactivationConfirmed}
+              onChange={e => setReactivationConfirmed(e.target.checked)} disabled={busy} />
+              <small>Confirmo a reativação deste CPF para atendimento neste restaurante.</small>
+            </label>
+            <button type="button" className="gx-r-button gx-r-wide" disabled={busy || !reactivationConfirmed}
+              onClick={() => void reactivate()}>{busy ? 'Reativando...' : 'Reativar cadastro existente'}</button>
+          </> : <p>Solicite ao administrador a reativação do cadastro. Não crie um segundo CPF.</p>}
+        </section>}
+        {searchCompleted && !found.length && !archivedMatch && <section className="gx-r-not-found" role="status">
           <h2>Nenhum cadastro encontrado</h2>
           <p>Não encontramos este CPF ou telefone no restaurante autenticado.</p>
           <button type="button" className="gx-r-button gx-r-wide" onClick={() => {
