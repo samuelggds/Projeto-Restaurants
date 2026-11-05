@@ -917,16 +917,13 @@ export default function Home() {
   return (
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <FigmaDeliveryExperience
-        restaurantId={restaurantId}
-        onApplyDeliveryAddress={(address) => setDeliveryAddress(address)}
-        deliveryAddressPreview={deliveryAddress}
-        data={homeData}
+        restaurantId={restaurantId} data={homeData}
+        onApplyDeliveryAddress={setDeliveryAddress} deliveryAddressPreview={deliveryAddress}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => {
           setSelectedPromoCode(code); setSelectedRedemptionId(null); openHomeCart();
         }}
-        cartCount={tableClosingRequested ? 0 : cartCount}
-        cart={tableClosingRequested ? [] : cart}
+        cartCount={tableClosingRequested ? 0 : cartCount} cart={tableClosingRequested ? [] : cart}
         cartTotal={tableClosingRequested ? 0 : cartTotal}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
@@ -937,8 +934,7 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        savedAddresses={savedAddresses}
-        selectedAddressId={selectedAddressId}
+        savedAddresses={savedAddresses} selectedAddressId={selectedAddressId}
         fulfillmentMethod={availableOrderType}
         onFulfillmentMethodChange={setOrderType}
         onSelectAddress={selectDeliveryAddress}
