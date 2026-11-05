@@ -357,7 +357,6 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
       setArchivedMatch(result.archivedMatch);
       setSearchCompleted(true);
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
       setError(nfcFriendlyError(cause, 'Não foi possível buscar o cliente. Confira os dados e tente novamente.'));
     } finally {
       setBusy(false);
@@ -423,7 +422,6 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
         whatsappConsent: consent,
       });
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
       setError(nfcFriendlyError(cause, 'Não foi possível vincular o cartão. Confira os dados e tente novamente.'));
     } finally {
       setBusy(false);
