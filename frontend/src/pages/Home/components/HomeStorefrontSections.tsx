@@ -9,10 +9,12 @@ export function StorefrontIntro({
   data,
   deliveryTimeLabel,
   hasCover,
+  availability,
 }: {
   data: HomeData;
   deliveryTimeLabel: string;
   hasCover: boolean;
+  availability: { label: string; detail: string; isOpen: boolean };
 }) {
   return (
     <S.StorefrontIntro
@@ -34,6 +36,12 @@ export function StorefrontIntro({
           ) : null}
           {data.brand.category ? <span className="storefront-category">{data.brand.category}</span> : null}
         </div>
+        <span className="storefront-mobile-status" role="status"
+          aria-label={`${availability.label}. ${availability.detail}`}>
+          <i className={availability.isOpen ? 'open' : ''} aria-hidden="true" />
+          <strong>{availability.label}</strong>
+          {availability.detail ? <small>{availability.detail}</small> : null}
+        </span>
       </div>
       {data.acceptsDelivery ? (
         <div className="storefront-facts" aria-label="Condições de entrega do restaurante">
