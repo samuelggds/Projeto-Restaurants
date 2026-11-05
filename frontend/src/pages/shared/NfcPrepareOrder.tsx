@@ -31,8 +31,6 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   useEffect(() => {
     let active = true;
     if (!Number.isSafeInteger(tenantId) || tenantId <= 0) {
-      setError('Restaurante da sessão não identificado. Entre novamente com a equipe.');
-      setLoadingProducts(false);
       return () => { active = false; };
     }
     void productsService.listProducts(tenantId).then((data: unknown) => {
@@ -131,7 +129,8 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         {categories.map(name=><button type="button" key={name} aria-pressed={category===name} onClick={()=>setCategory(name)}>{name}</button>)}
       </div>
       <div className="gx-list-meta"><span>{filtered.length} produtos</span><span>Cardápio do restaurante</span></div>
-      {loadingProducts && <p role="status">Carregando produtos...</p>}
+      {(!Number.isSafeInteger(tenantId) || tenantId <= 0) && <p role="alert" className="gx-error">Restaurante da sessão não identificado. Entre novamente como funcionário.</p>}
+      {loadingProducts && tenantId > 0 && <p role="status">Carregando produtos...</p>}
       {!loadingProducts && filtered.length===0 && <div className="gx-empty"><span><Search aria-hidden="true"/></span><h3>Nenhum produto encontrado</h3><p>Pesquise novamente ou escolha outra categoria.</p></div>}
       <div className="gx-products">{filtered.map(item=><article className="gx-product" key={item.id}>
         <NfcProductThumbnail className="gx-photo" source={item.image}/>
