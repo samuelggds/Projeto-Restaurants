@@ -12,11 +12,11 @@ const Thumbnail = styled.span`
   svg { width: 19px; height: 19px; }
 `;
 
-export function NfcProductThumbnail({ source }: { source?: string | null }) {
+export function NfcProductThumbnail({ source, className }: { source?: string | null; className?: string }) {
   // Only URLs/images delivered by the current restaurant's backend are shown.
   const resolved = resolvePublicMediaSource(source, api.defaults.baseURL || '');
   const url = isPersistentImageSource(resolved) ? String(resolved).trim() : null;
-  return <Thumbnail aria-hidden="true">{url
+  return <Thumbnail className={className} aria-hidden="true">{url
     ? <><img alt="" src={url} loading="lazy" decoding="async" onError={event => {
       event.currentTarget.style.display = 'none';
       const placeholder = event.currentTarget.nextElementSibling;
