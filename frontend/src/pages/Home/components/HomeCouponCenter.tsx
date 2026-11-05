@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
-import { ChevronLeft, TicketPercent, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Check, CircleCheck, Copy, Home, List, TicketPercent, Truck, UserRound, ChevronDown, Gift, Pizza } from 'lucide-react';
 import styled from 'styled-components';
 import type { PublicPromotionalCoupon } from '../types';
-import { HomePromotionalCoupons } from './HomePromotionalCoupons';
+import { CouponScreen } from './HomeCouponScreen.styles';
 
 const Notice = styled.aside`
   position: sticky;
@@ -62,95 +62,6 @@ const Notice = styled.aside`
   }
 `;
 
-const Screen = styled.section`
-  position: fixed;
-  inset: 0;
-  z-index: 94;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: #f7f8fa;
-  color: #202631;
-
-  .coupon-screen-inner {
-    width: min(760px, calc(100% - 32px));
-    margin: 0 auto;
-    padding: 24px 0 80px;
-  }
-
-  .coupon-screen-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .coupon-screen-top button {
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: #b34824;
-    min-height: 42px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0 10px;
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  .coupon-screen-top button svg { width: 18px; height: 18px; }
-  .coupon-screen-top button:focus-visible,
-  .wallet-link:focus-visible { outline: 2px solid #c94f30; outline-offset: 2px; }
-
-  .coupon-screen-hero {
-    margin-top: 14px;
-    padding: 24px 22px;
-    background: #fff;
-    border: 1px solid #e8e8ed;
-    border-radius: 18px;
-  }
-
-  .coupon-screen-symbol {
-    display: grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    color: #c95a27;
-    border-radius: 14px;
-    background: #fff0e6;
-    margin-bottom: 12px;
-  }
-  .coupon-screen-symbol svg { width: 23px; height: 23px; }
-  h1 { margin: 0; font-size: clamp(23px, 4vw, 30px); line-height: 1.16; letter-spacing: -.045em; }
-  .coupon-screen-hero p { margin: 9px 0 0; color: #637080; line-height: 1.5; font-size: 14px; }
-
-  .coupon-screen-note {
-    margin: 16px 0;
-    padding: 14px;
-    border: 1px solid #e6e8ef;
-    border-radius: 12px;
-    background: #fff;
-    color: #627087;
-    line-height: 1.5;
-    font-size: 12px;
-  }
-
-  .wallet-link {
-    margin-top: 10px;
-    padding: 9px 13px;
-    border: 1px solid #e8b8a3;
-    border-radius: 9px;
-    background: #fff7f2;
-    color: #a84622;
-    font-size: 13px;
-    font-weight: 750;
-  }
-
-  @media (max-width: 760px) {
-    bottom: 56px;
-    .coupon-screen-inner { padding: 12px 0 32px; }
-    .coupon-screen-hero { margin-top: 6px; padding: 20px 16px; }
-  }
-`;
 
 export function HomeCouponNotice({ count, onOpen, onDismiss }: {
   count: number;
@@ -165,51 +76,206 @@ export function HomeCouponNotice({ count, onOpen, onDismiss }: {
       <span>{label}</span>
     </button>
     <button type="button" className="notice-dismiss" aria-label="Fechar aviso de cupons" onClick={onDismiss}>
-      <X aria-hidden="true" />
+      <span aria-hidden="true">×</span>
     </button>
   </Notice>;
 }
 
+
+const currency = (amount: number) => amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const normalizedCode = (code: string) => code.replace(/\s+/gu, '').toLocaleUpperCase('pt-BR');
+
 export function HomeCouponsCenter({
-  coupons, loggedIn, onClose, onApply, onOpenWallet,
+  coupons, loggedIn, onClose, onApply, onSelect, onRemove, onOpenCart,
+  onOpenOrders, onOpenProfile, onOpenWallet, brandName = 'Restaurante',
+  selectedCode = '', selectedConfirmed = false, selectedPending = false,
+  quoteError = null, quoteSubtotal = 0, hasCartItems = false, orderType = 'delivery',
+  darkMode = false,
 }: {
   coupons: PublicPromotionalCoupon[];
   loggedIn: boolean;
   onClose: () => void;
   onApply?: (code: string) => void;
+  onSelect?: (code: string) => void;
+  onRemove?: () => void;
+  onOpenCart?: () => void;
+  onOpenOrders?: () => void;
+  onOpenProfile?: () => void;
   onOpenWallet?: () => void;
+  brandName?: string;
+  selectedCode?: string;
+  selectedConfirmed?: boolean;
+  selectedPending?: boolean;
+  quoteError?: string | null;
+  quoteSubtotal?: number;
+  hasCartItems?: boolean;
+  orderType?: 'delivery' | 'pickup';
+  darkMode?: boolean;
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const activeRef = useRef(true);
+  const [typedCode, setTypedCode] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [copiedCode, setCopiedCode] = useState('');
+  const activeCode = normalizedCode(selectedCode);
+  const activeCoupon = coupons.find(coupon => normalizedCode(coupon.code) === activeCode);
+  const isShippingCoupon = activeCoupon?.discountType === 'FREE_SHIPPING';
+  const insufficientSubtotal = activeCoupon && Number(activeCoupon.minimumSubtotal) > quoteSubtotal;
 
-  useEffect(() => { titleRef.current?.focus(); }, []);
   useEffect(() => {
+    activeRef.current = true;
+    titleRef.current?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      activeRef.current = false;
+      window.removeEventListener('keydown', onKey);
+    };
   }, [onClose]);
 
-  return <Screen role="region" aria-label="Tela de cupons">
-    <div className="coupon-screen-inner">
-      <div className="coupon-screen-top">
-        <button type="button" onClick={onClose}><ChevronLeft aria-hidden="true" /> Voltar ao cardápio</button>
-        <button type="button" aria-label="Fechar tela de cupons" onClick={onClose}><X aria-hidden="true" /></button>
-      </div>
-      <div className="coupon-screen-hero">
-        <span className="coupon-screen-symbol"><TicketPercent aria-hidden="true" /></span>
-        <h1 tabIndex={-1} ref={titleRef}>Cupons do restaurante</h1>
-        <p>{coupons.length === 0
-          ? 'Nenhum cupom público disponível neste momento.'
-          : `${coupons.length} ${coupons.length === 1 ? 'cupom disponível' : 'cupons disponíveis'} para você conhecer e aproveitar.`}</p>
-      </div>
-      <HomePromotionalCoupons coupons={coupons} onApply={onApply} pageView />
-      <div className="coupon-screen-note">
-        {loggedIn
-          ? 'Os descontos são validados ao finalizar o pedido, de acordo com as regras de cada campanha.'
-          : 'Você pode consultar e copiar cupons públicos como visitante. Cupons exclusivos e recompensas exigem uma conta de cliente.'}
-        {loggedIn && onOpenWallet && <div>
-          <button type="button" className="wallet-link" onClick={onOpenWallet}>Ver minha carteira de cupons e recompensas</button>
-        </div>}
-      </div>
+  const selectCoupon = (coupon: PublicPromotionalCoupon) => {
+    if (coupon.discountType === 'FREE_SHIPPING' && orderType !== 'delivery') {
+      setFeedback('Este cupom é exclusivo para Delivery. Selecione Entrega para utilizá-lo.');
+      return;
+    }
+    if (coupon.audience && coupon.audience !== 'ALL' && !loggedIn) {
+      setFeedback('Esta oferta exige uma conta de cliente. Entre para conferir sua elegibilidade.');
+      return;
+    }
+    setFeedback('');
+    onSelect?.(coupon.code);
+  };
+
+  const useTypedCode = () => {
+    const code = normalizedCode(typedCode);
+    if (!code) { setFeedback('Digite um código para consultar.'); return; }
+    const match = coupons.find(coupon => normalizedCode(coupon.code) === code);
+    if (!match) {
+      setFeedback('Código não encontrado entre os cupons disponíveis deste restaurante.');
+      return;
+    }
+    selectCoupon(match);
+    setTypedCode('');
+  };
+
+  const copyCode = async (code: string) => {
+    const normalized = normalizedCode(code);
+    setCopiedCode('');
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(normalized);
+      if (activeRef.current) { setCopiedCode(normalized); setFeedback('Código copiado.'); }
+    } catch {
+      if (activeRef.current) setFeedback('Não foi possível copiar automaticamente. Selecione o código do cartão e copie manualmente.');
+    }
+  };
+
+  const rulesFor = (coupon: PublicPromotionalCoupon) => {
+    const rules: string[] = [];
+    if (coupon.discountType === 'FREE_SHIPPING') rules.push('Válido somente para Delivery em endereço atendido.');
+    else {
+      const options = [
+        coupon.allowDelivery ? 'Delivery' : '',
+        coupon.allowPickup ? 'Retirada' : '',
+        coupon.allowTable ? 'Mesa' : '',
+      ].filter(Boolean);
+      if (options.length) rules.push('Modalidades permitidas: ' + options.join(', ') + '.');
+    }
+    if (coupon.minimumSubtotal > 0) rules.push('Pedido mínimo: ' + currency(coupon.minimumSubtotal) + '.');
+    if (coupon.audience === 'NEW_CUSTOMERS') rules.push('Exclusivo para clientes em primeira compra.');
+    if (coupon.audience === 'RETURNING_CUSTOMERS') rules.push('Exclusivo para clientes que já compraram.');
+    if (coupon.description.trim()) rules.push(coupon.description.trim());
+    rules.push('Não acumula com outros cupons. Benefício e elegibilidade confirmados no checkout.');
+    return rules;
+  };
+
+  const benefitTitle = (coupon: PublicPromotionalCoupon) => coupon.discountType === 'FREE_SHIPPING'
+    ? 'Frete grátis'
+    : coupon.discountType === 'PERCENTAGE'
+      ? coupon.discount + '% de desconto'
+      : currency(coupon.discount) + ' de desconto';
+  const subtitle = (coupon: PublicPromotionalCoupon) => {
+    const minimum = coupon.minimumSubtotal > 0 ? ' · mínimo ' + currency(coupon.minimumSubtotal) : '';
+    if (coupon.discountType === 'FREE_SHIPPING') return 'Delivery' + minimum;
+    return (coupon.description || coupon.title || 'Cupom promocional') + minimum;
+  };
+
+  const selectedMessage = !hasCartItems
+    ? 'Escolha produtos para conferir as regras e o desconto no pedido.'
+    : insufficientSubtotal
+      ? 'Faltam ' + currency(Math.max(0, Number(activeCoupon!.minimumSubtotal) - quoteSubtotal)) + ' para atingir o mínimo desta oferta.'
+      : isShippingCoupon && orderType === 'pickup'
+        ? 'Frete grátis só é válido para Delivery.'
+        : selectedPending
+          ? 'Aguardando validação do desconto pelo servidor.'
+          : quoteError
+            ? quoteError
+            : selectedConfirmed
+              ? 'Benefício validado no pedido atual. O valor será conferido novamente antes da compra.'
+              : 'Cupom selecionado. Confira as condições no carrinho e finalize somente após a validação.';
+
+  return <CouponScreen className={darkMode ? 'is-dark' : undefined} aria-label="Tela de cupons" role="region">
+    <div className="cp-inner">
+      <main className="cp-content">
+        <div className="cp-top"><button type="button" className="cp-back" onClick={onClose}><ArrowLeft aria-hidden="true" /> Voltar ao cardápio</button></div>
+        <div className="cp-heading"><h1 tabIndex={-1} ref={titleRef}>Cupons da {brandName}</h1><p>Escolha um benefício para o seu próximo pedido.</p></div>
+        <div className="cp-manual">
+          <label htmlFor="home-coupon-manual">Tem um código?</label>
+          <div className="cp-manual-row">
+            <input id="home-coupon-manual" value={typedCode} onChange={event => setTypedCode(event.target.value)}
+              type="text" maxLength={40} autoCapitalize="characters" autoComplete="off" placeholder="Digite o código"
+              onKeyDown={event => { if (event.key === 'Enter') useTypedCode(); }} />
+            <button type="button" onClick={useTypedCode}>Adicionar</button>
+          </div>
+        </div>
+        <p className="cp-list-label">{coupons.length} {coupons.length === 1 ? 'cupom disponível' : 'cupons disponíveis'}</p>
+        <div className="cp-list" aria-label="Cupons disponíveis">
+          {coupons.map(coupon => {
+            const code = normalizedCode(coupon.code);
+            const selected = Boolean(code && activeCode === code);
+            const shipping = coupon.discountType === 'FREE_SHIPPING';
+            return <article key={coupon.id} className="cp-ticket">
+              <div className="cp-ticket-main">
+                <span className={'cp-icon' + (shipping ? ' cp-shipping' : '')}>
+                  {shipping ? <Truck aria-hidden="true"/> : coupon.discountType === 'PERCENTAGE' ? <Pizza aria-hidden="true" /> : <Gift aria-hidden="true" />}
+                </span>
+                <div className="cp-ticket-copy"><h2>{benefitTitle(coupon)}</h2><p>{subtitle(coupon)}</p></div>
+                <button type="button" className={'cp-use' + (selected ? ' is-selected' : '')}
+                  aria-label={(selected ? 'Cupom selecionado: ' : 'Usar cupom ') + code}
+                  aria-pressed={selected} onClick={() => selectCoupon(coupon)}>{selected ? 'Selecionado' : 'Usar'}</button>
+              </div>
+              <div className="cp-ticket-footer">
+                <div className="cp-code-row"><strong>{code}</strong><button className="cp-copy" type="button"
+                  title={copiedCode === code ? 'Copiado' : 'Copiar código'} aria-label={'Copiar código ' + code}
+                  onClick={() => void copyCode(code)}>{copiedCode === code ? <Check aria-hidden="true"/> : <Copy aria-hidden="true"/>}</button></div>
+                <details className="cp-rules"><summary>Regras <ChevronDown aria-hidden="true"/></summary>
+                  <ul>{rulesFor(coupon).map((rule,index) => <li key={index}>{rule}</li>)}</ul>
+                </details>
+              </div>
+            </article>;
+          })}
+        </div>
+        {feedback && <p className="cp-status" role="status" aria-live="polite">{feedback}</p>}
+        {activeCoupon && <section className="cp-selected" aria-label="Cupom selecionado">
+          <div className="cp-selected-heading"><CircleCheck aria-hidden="true"/><strong>{activeCode} selecionado</strong></div>
+          <p>{selectedMessage}</p>
+          <div className="cp-selected-actions">
+            <button type="button" onClick={() => { onOpenCart?.(); onClose(); }}>Ver meu pedido</button>
+            <button type="button" onClick={onClose}>Escolher produtos</button>
+            <button type="button" onClick={() => { onRemove?.(); setFeedback('Cupom removido da seleção.'); }}>Remover</button>
+          </div>
+        </section>}
+        <aside className="cp-guest-note"><UserRound aria-hidden="true"/><p>Cupons públicos podem ser consultados sem entrar. Ofertas exclusivas e recompensas dependem da sua conta.</p></aside>
+        {loggedIn && onOpenWallet && <button type="button" className="cp-wallet" onClick={onOpenWallet}>Ver meus cupons e recompensas</button>}
+        <div className="cp-divider" />
+      </main>
+      <nav className="cp-bottom-nav" aria-label="Navegação de cupons">
+        <button type="button" onClick={onClose}><Home aria-hidden="true"/>Início</button>
+        <button type="button" onClick={onOpenOrders || onClose}><List aria-hidden="true"/>Pedidos</button>
+        <button type="button" aria-current="page"><TicketPercent aria-hidden="true"/>Cupons</button>
+        <button type="button" onClick={onOpenProfile || onClose}><UserRound aria-hidden="true"/>Conta</button>
+      </nav>
+      <footer className="cp-footer">Tecnologia <strong>GastroNexa</strong></footer>
     </div>
-  </Screen>;
+  </CouponScreen>;
 }
