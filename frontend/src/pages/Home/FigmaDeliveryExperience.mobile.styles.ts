@@ -83,7 +83,7 @@ export const MobileCartFab = styled.button`
   svg{width:24px;height:24px}
   span{
     position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;padding:0 5px;
-    border-radius:10px;background:var(--delivery-text);color:#fff;
+    border-radius:10px;background:#232323;color:#fff;
     display:grid;place-items:center;font-size:11px;font-weight:800;
   }
 `;
