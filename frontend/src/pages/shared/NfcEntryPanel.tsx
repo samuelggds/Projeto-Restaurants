@@ -326,7 +326,7 @@ export default function NfcEntryPanel({
           </section>
         </> : !staffAuthorized ? <section className="nfc-login" aria-live="polite">
           <h2>{staffChecking ? 'Verificando cartão e restaurante...' : 'Acesso NFC indisponível'}</h2>
-          <p>{staffChecking ? 'Sua conta está autenticada. Conferindo o vínculo NFC e as permissões no servidor.' : staffError || 'Não foi possível consultar o cartão. A sessão da equipe permanece ativa.'}</p>
+          <p>{staffChecking ? 'Estamos verificando se o cartão está pronto para atendimento.' : staffError || 'Não foi possível consultar o cartão. A sessão da equipe permanece ativa.'}</p>
           {!staffChecking && <button type="button" onClick={onRetryStaff}>Verificar novamente</button>}
         </section> : pendingCard ? <>
           <span className="nfc-kicker">PREPARAÇÃO DO CARTÃO NFC</span>
