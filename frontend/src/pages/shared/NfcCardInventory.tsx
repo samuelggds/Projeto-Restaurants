@@ -6,6 +6,7 @@ import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
 import nfcRegistrationService, { type NfcInventoryCard, type NfcInventoryStatus } from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 type Filter = 'ALL' | NfcInventoryStatus;
 type Props = { refreshKey?: number; onPrepare: () => void; onRegister: () => void };
@@ -193,12 +194,11 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       if (result.cardId !== selected.id) {
         throw new Error('O retorno não corresponde ao cartão selecionado. Atualize o estoque.');
       }
-      setActionNotice('Pagamento conferido no servidor: cartão verde, desvinculado e disponível para novo cadastro.');
+      setActionNotice('Pagamento conferido! O cartão foi liberado e está disponível para outro cliente.');
       setSelected(null); setCpf('');
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível liberar o cartão.'));
+      setActionError(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira os pagamentos pendentes.'));
     } finally { setActionBusy(false); }
   };
   const revokeCard = async () => {
@@ -212,8 +212,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setSelected(null);
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || 'Não foi possível revogar o cartão.');
+      setActionError(nfcFriendlyError(cause, 'Não foi possível desativar este cartão. Tente novamente.'));
     } finally { setActionBusy(false); }
   };
   const deleteUnusedCard = async () => {
@@ -226,8 +225,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setActionNotice('Cartão excluído do estoque.');
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || 'Cartão com histórico não pode ser excluído.');
+      setActionError(nfcFriendlyError(cause, 'Não foi possível excluir o cartão. Verifique se ele ainda possui histórico ou pendências.'));
     } finally { setActionBusy(false); }
   };
   const prepareRevoked = async () => {
@@ -238,8 +236,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setReuseUrl(result.ndefUrl);
       setActionNotice('Regravação autorizada. Grave o novo identificador no cartão físico e confirme a leitura.');
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || 'Não foi possível autorizar a recuperação. Confira a quitação e o CPF completo.');
+      setActionError(nfcFriendlyError(cause, 'Não foi possível recuperar o cartão. Confira o CPF e a comanda.'));
     } finally { setActionBusy(false); }
   };
   const finishRevoked = async () => {
@@ -254,8 +251,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setActionNotice('Cartão recuperado e disponível para novo cliente.');
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'A regravação não foi confirmada.'));
+      setActionError(nfcFriendlyError(cause, 'Não foi possível confirmar a gravação. Aproxime o cartão e tente novamente.'));
     } finally { setActionBusy(false); }
   };
   const resetToVirgin = async () => {
@@ -269,8 +265,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
       setSelected(null); setVirginOpen(false); setVirginCode('');
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível deixar o cartão virgem.'));
+      setActionError(nfcFriendlyError(cause, 'Não foi possível liberar este cartão para uma nova utilização.'));
     } finally { setActionBusy(false); }
   };
   const reprogramVirgin = async () => {
@@ -279,26 +274,24 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
     try {
       const result = await nfcRegistrationService.reprogramVirgin(selected.id);
       setVirginUrl(result.ndefUrl); setVirginPhysicallyWritten(false);
-      setActionNotice('Novo link emitido pelo backend. Grave-o fisicamente antes de confirmar.');
+      setActionNotice('Novo acesso criado! Grave-o no cartão antes de continuar.');
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || 'Não foi possível gerar o link novo.');
+      setActionError(nfcFriendlyError(cause, 'Não foi possível preparar um novo acesso para este cartão.'));
     } finally { setActionBusy(false); }
   };
   const confirmVirginWrite = async () => {
     if (!selected || !virginUrl || !isAdmin || !virginPhysicallyWritten || actionBusy) return;
     const token = extractNfcToken(virginUrl);
-    if (!token) { setActionError('Novo link inválido. Gere outro no servidor.'); return; }
+    if (!token) { setActionError('Não foi possível identificar o novo acesso. Prepare o cartão novamente.'); return; }
     setActionBusy(true); setActionError('');
     try {
       const result = await nfcRegistrationService.confirmEncodedWrite(token);
-      if (result.status !== 'READY') throw new Error('Servidor não confirmou que o cartão está disponível.');
+      if (result.status !== 'READY') throw new Error('Não foi possível confirmar a disponibilidade do cartão.');
       setActionNotice('Gravação confirmada: '+selected.displayCode+' disponível para vincular outro cliente.');
       setSelected(null); setVirginUrl(''); setVirginPhysicallyWritten(false);
       await load();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setActionError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Falha ao confirmar a regravação.'));
+      setActionError(nfcFriendlyError(cause, 'Não foi possível confirmar a gravação. Aproxime o cartão e tente novamente.'));
     } finally { setActionBusy(false); }
   };
   const counts = data?.counts;
@@ -354,11 +347,11 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
           {selected.customer && (selected.status === 'ACTIVE' || selected.status === 'REVOKED') &&
             <section className="action-panel" aria-label="Consultar comanda e opções de pagamento">
               <h4>Comanda de {selected.customer.name}</h4>
-              <p>Consulte os pedidos, o saldo e o histórico financeiro diretamente no atendimento. A cobrança PIX/Point NFC depende de integração homologada.</p>
+              <p>Consulte os pedidos e pagamentos deste cliente. As formas de pagamento disponíveis são exibidas no atendimento.</p>
               <button type="button" className="go" onClick={() => setShowAccount(value => !value)}>{showAccount ? 'Ocultar comanda' : 'Ver comanda e pagamento'}</button>
               {showAccount && <NfcCustomerComandas customerId={selected.customer.id} cardId={selected.status === 'ACTIVE' ? selected.id : undefined} customerName={selected.customer.name} />}
             </section>}
-          {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Nenhuma comanda atual foi identificada. Não é possível liberar o cartão sem conferência financeira no servidor.</p>}
+          {selected.status === 'ACTIVE' && !selected.comanda && <p className="warning">Este cartão não possui uma comanda atual. Confira o histórico de pagamentos antes de liberá-lo.</p>}
           {selected.status === 'ACTIVE' && selected.comanda?.outstandingCents === 0 &&
             <label className="cpf-field">CPF completo para finalizar a visita
               <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={cpf} onChange={e => setCpf(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))} placeholder="11 dígitos do CPF" />
@@ -366,17 +359,17 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
           {selected.status === 'ACTIVE' && !selected.blockedByDebt && selected.comanda?.status === 'OPEN' &&
             <section className="action-panel" aria-label="Ações da comanda ativa">
               <h4>Atendimento e pedidos</h4>
-              <p>Cardápio, carrinho e confirmação NFC utilizam os serviços de produtos e pedidos do restaurante. O backend confere cartão, CPF, itens e permissões.</p>
+              <p>Selecione os produtos e confirme o pedido com os três primeiros dígitos do CPF do cliente.</p>
               <button type="button" className="go" onClick={() => setShowOrder(value => !value)}>{showOrder ? 'Ocultar cardápio' : 'Abrir cardápio e adicionar pedido'}</button>
               {showOrder && <NfcPrepareOrder comandaId={selected.comanda.id} />}
-              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'PIX · Aguardando homologação NFC' : 'PIX · Mercado Pago não configurado'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Point · Aguardando homologação NFC' : 'Point · Mercado Pago não configurado'}</button></div>
+              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'Pix · Indisponível no momento' : 'Pix · Indisponível'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Cartão · Indisponível no momento' : 'Cartão · Indisponível'}</button></div>
             </section>}
           {selected.status === 'ACTIVE' && selected.blockedByDebt &&
             <section className="action-panel" aria-label="Pagamento de comanda bloqueada">
               <h4>Cliente bloqueado por pendência financeira</h4>
-              <p>Novos pedidos indisponíveis. Regularize a dívida no servidor antes de permitir outra compra.</p>
-              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'Quitar por PIX · Aguardando homologação NFC' : 'PIX · Mercado Pago não configurado'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Quitar na Point · Aguardando homologação NFC' : 'Point · Mercado Pago não configurado'}</button></div>
-              <p>Não há confirmação manual de pagamento NFC. As cobranças só serão habilitadas após a integração real com o gateway.</p>
+              <p>Existem valores pendentes nesta comanda. Regularize o pagamento antes de fazer novos pedidos.</p>
+              <div className="payment-methods"><button type="button" disabled>{paymentAvailability?.pixConfigured ? 'Quitar por Pix · Indisponível no momento' : 'Pix · Indisponível'}</button><button type="button" disabled>{paymentAvailability?.pointConfigured ? 'Quitar na Cartão · Indisponível no momento' : 'Cartão · Indisponível'}</button></div>
+              <p>Os pagamentos ficam disponíveis conforme as opções habilitadas no restaurante.</p>
             </section>}
           {selected.status === 'ACTIVE' && !selected.blockedByDebt && !selected.comanda &&
             <p className="warning">Cliente vinculado sem comanda identificada. Abra a ficha do cliente para consultar e regularizar a visita antes de registrar pedidos.</p>}
@@ -410,7 +403,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
           {selected.status === 'REVOKED' && selected.customer &&
             <section className="action-panel" aria-label="Recuperação de cartão revogado">
               <h4>Recuperar cartão revogado</h4>
-              <p>Somente após conferência do CPF completo e quitação de todas as comandas no servidor. O cartão físico precisa receber um novo identificador.</p>
+              <p>A recuperação requer CPF completo, todas as comandas quitadas e a regravação do cartão.</p>
               {!reuseUrl ? <label className="cpf-field">CPF completo do titular anterior
                 <input type="password" autoComplete="off" inputMode="numeric" maxLength={11} value={reuseCpf} onChange={e => setReuseCpf(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))} placeholder="11 dígitos do CPF" />
               </label> : <p role="status">Recuperação autorizada. Regrave e confirme a leitura do mesmo cartão.</p>}
@@ -418,7 +411,7 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
             </section>}
           {isAdmin && virginOpen && <section className="virgin-panel" aria-label="Confirmação de reset NFC">
             <h4><AlertTriangle aria-hidden="true" /> Atenção: deixar cartão virgem</h4>
-            <p><strong>Esta ação é administrativa e irreversível para o link antigo.</strong> O backend verificará as comandas, pagamentos, pedidos e pendências antes de permitir.</p>
+            <p><strong>Esta ação é administrativa e irreversível para o link antigo.</strong> Os pedidos e pagamentos serão conferidos antes de continuar.</p>
             <ul>
               <li>O link NFC antigo deixará de funcionar imediatamente.</li>
               <li>O cliente será desvinculado deste cartão, mas permanecerá cadastrado.</li>
@@ -452,10 +445,10 @@ export function NfcCardInventory({ refreshKey = 0, onPrepare }: Props) {
           </div>
           {isAdmin && !(selected.canDelete && !selected.customer && (selected.status === 'READY' || selected.status === 'PENDING_WRITE')) && (
             <p className="warning" role="note">
-              <strong>Exclusão indisponível.</strong> Este cartão não atende aos critérios de exclusão: só é possível excluir cartões disponíveis ou aguardando gravação que nunca foram ativados ou revogados e não possuem histórico de comandas ou confirmações. Um cartão sem cliente também pode ter histórico preservado. Use <strong>Deixar cartão virgem</strong> para reutilizá-lo, desde que o servidor confirme que não há pendências.
+              <strong>Exclusão indisponível.</strong> Este cartão não atende aos critérios de exclusão: só é possível excluir cartões disponíveis ou aguardando gravação que nunca foram ativados ou revogados e não possuem histórico de comandas ou confirmações. Um cartão sem cliente também pode ter histórico preservado. Use <strong>Deixar cartão virgem</strong> para reutilizá-lo, desde que não existam pendências.
             </p>
           )}
-          {selected.status === 'ACTIVE' && <p className="warning">A liberação exige cartão identificado, CPF completo e quitação confirmada pelo servidor. No iPhone, aproxime o cartão e use a opção Acessar painel do restaurante na página NFC; não é necessária uma segunda leitura Web NFC.</p>}
+          {selected.status === 'ACTIVE' && <p className="warning">A liberação exige cartão identificado, CPF completo e pagamento integral da comanda. No iPhone, aproxime o cartão e use a opção Acessar painel do restaurante na página NFC; não é necessário aproximar o cartão novamente.</p>}
           {selected.status === 'REVOKED' && <p className="warning">Cartão revogado: não permite novos atendimentos. A reemissão segue a conferência financeira e a regravação segura.</p>}
           <button type="button" className="close" onClick={() => setSelected(null)}>Fechar</button>
         </div>
