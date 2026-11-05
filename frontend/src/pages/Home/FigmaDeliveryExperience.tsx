@@ -1,20 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bike,
-  ChevronDown,
-  Clock3,
-  CreditCard,
-  MapPin,
-  Phone,
-  Home,
-  List,
-  Search,
-  ShoppingBag,
-  Star,
-  Store,
-  UserRound,
-  UtensilsCrossed,
-  Pizza, Sandwich, Coffee, CupSoda, Beef,
+  Bike, ChevronDown, Clock3, CreditCard, MapPin, Phone, Home, List, Search, ShoppingBag,
+  Star, Store, UserRound, UtensilsCrossed, Pizza, Sandwich, Coffee, CupSoda, Beef,
   IceCreamBowl, Salad, TicketPercent, Moon, Sun,
 } from 'lucide-react';
 import {
@@ -1200,7 +1187,7 @@ export function FigmaDeliveryExperience({
           selectedConfirmed={Boolean(selectedPromotionalCode && selectedPromotionalCode === confirmedPromotionalCode)}
           selectedPending={promotionalCouponPending}
           quoteError={promotionalCouponError}
-          onSelect={onSelectPromotionalCoupon}
+          onSelect={onSelectPromotionalCoupon ?? onApplyPromotionalCoupon}
           onRemove={onRemovePromotionalCoupon}
           onOpenCart={onOpenCart}
           onOpenOrders={onOpenOrders}
