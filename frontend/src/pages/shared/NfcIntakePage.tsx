@@ -94,7 +94,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         setStaffCardError(status === 404 ? 'Este cartão não está disponível. Peça ajuda ao responsável.' :
           status === 403 ? nfcFriendlyError(error, 'O atendimento com cartão ainda não está disponível neste restaurante.') :
           status === 401 ? 'Sua sessão expirou. Entre novamente na mesma aba para continuar.' :
-          'Não foi possível verificar o cartão no servidor. Tente novamente.');
+          'Não conseguimos consultar o cartão agora. Tente novamente.');
       }
     });
     return () => { active = false; };
@@ -224,7 +224,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         <span>Confirmei que abri este endereço aproximando o cartão físico NFC, e não apenas copiando o link.</span>
       </label>
       <button type="button" disabled={!confirmPhysicalWrite || confirmingWrite} onClick={() => void confirmPendingCard()}>
-        {confirmingWrite ? 'Confirmando no servidor...' : 'Confirmar gravação e cadastrar cliente'}
+        {confirmingWrite ? 'Confirmando gravação...' : 'Confirmar gravação e cadastrar cliente'}
       </button>
       {staffCardError && <p role="alert" className="error">{staffCardError}</p>}
       <small>Esta confirmação é registrada no histórico do restaurante. Nunca confirme um cartão que não tenha sido efetivamente gravado.</small>
@@ -270,8 +270,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
               setStaffTab('registration');
               setResult('Pagamento conferido! O cartão já está disponível para outro cliente.');
             } catch (cause) {
-              const err = cause as {response?:{data?:{error?:string}}};
-              setMessage(err.response?.data?.error || 'Não foi possível liberar o cartão. Confira se todos os pagamentos foram concluídos.');
+              setMessage(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira os pagamentos pendentes.'));
             } finally { setBusy(false); }
           }} />)}
       {orderChallenge && <form onSubmit={event=>void verifyOrder(event)} style={{display:'grid',gap:12}}>
