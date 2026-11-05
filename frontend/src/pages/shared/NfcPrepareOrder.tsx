@@ -3,8 +3,9 @@ import productsService from '../../Services/productsService';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
+import { NfcProductThumbnail } from './NfcProductThumbnail';
 
-type Item = { id: number; name: string; price: number; stock: number | null };
+type Item = { id: number; name: string; price: number; stock: number | null; image: string | null };
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
 
 export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; cardToken?: string }) {
@@ -30,6 +31,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         return Number.isSafeInteger(product.id) && product.active !== false ? [{
           id: Number(product.id), name: String(product.name || ''), price: Number(product.price) || 0,
           stock: product.stock == null ? null : Number(product.stock),
+          image: typeof product.image === 'string' ? product.image : null,
         }] : [];
       }));
     }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); });
@@ -94,14 +96,14 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       <label>Buscar no cardápio<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto" autoComplete="off" /></label>
       <div style={{ maxHeight: 380, overflowY: 'auto' }}>
         {filtered.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #e9eef1' }}>
-          <span>{p.name} · {p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><NfcProductThumbnail source={p.image} /><span>{p.name} · {p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></span>
           <input type="number" aria-label={`Quantidade de ${p.name}`} min="0" max="100" style={{ width: 68 }} value={quantities[p.id] || 0}
             onChange={e => setQuantities(current => ({ ...current, [p.id]: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))} />
         </div>)}
       </div>
       <section aria-label="Sacola do cliente" style={{display:'grid',gap:9,border:'1px solid #dce3e7',borderRadius:12,padding:15}}>
         <strong>Sacola · {selected.reduce((a,p)=>a+quantities[p.id],0)} itens</strong>
-        {selected.length===0 ? <p>Selecione os produtos do cliente.</p> : selected.map(p => <div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:10}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
+        {selected.length===0 ? <p>Selecione os produtos do cliente.</p> : selected.map(p => <div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:10}}><span style={{display:'flex',alignItems:'center',gap:8}}><NfcProductThumbnail source={p.image}/>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
         <label>Observação geral do pedido (opcional)<input value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato" /></label>
         <strong>Total deste pedido: {brl(total)}</strong>
         <small>O valor definitivo é calculado novamente no backend. Observações individuais e adicionais por produto exigem suporte específico da API.</small>
