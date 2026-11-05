@@ -81,6 +81,7 @@ export function FigmaDeliveryExperience({
   data,
   restaurantId,
   onApplyDeliveryAddress,
+  deliveryAddressPreview,
   promotionalCoupons = [],
   onApplyPromotionalCoupon,
   cartCount = 0,
@@ -250,12 +251,14 @@ export function FigmaDeliveryExperience({
   );
   const customerLocationLabel = useMemo(
     () =>
-      formatCustomerLocationLabel(
+      deliveryAddressPreview?.address?.trim()
+        ? [deliveryAddressPreview.address, deliveryAddressPreview.number].filter(Boolean).join(', ') + (deliveryAddressPreview.district ? ` - ${deliveryAddressPreview.district}` : '')
+        : formatCustomerLocationLabel(
         activeFulfillmentMethod,
         data.brand.address,
         selectedSavedAddress,
       ),
-    [activeFulfillmentMethod, data.brand.address, selectedSavedAddress],
+    [activeFulfillmentMethod, data.brand.address, selectedSavedAddress, deliveryAddressPreview],
   );
   const paymentMethodLabels = [
     data.acceptsPix ? 'PIX' : '',
