@@ -8,6 +8,7 @@ import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { calculateNfcComandaDueAt } from '../domain/nfcComandaDeadline.js';
 import { nfcRegistrationAccessMiddleware } from '../../../middlewares/nfcRegistrationAccessMiddleware.js';
 import { premiumNfcPlanMiddleware } from '../../../middlewares/premiumNfcPlanMiddleware.js';
+import { nfcComandaItemImageMap } from '../services/nfcComandaItemImages.js';
 
 const router = Router();
 router.use(authMiddleware, nfcRegistrationAccessMiddleware);
@@ -39,16 +40,16 @@ const accountSelect = {
   id: true, customerId: true, cardId: true, tableNumber: true,
   status: true, totalCents: true, paidCents: true, openedAt: true, dueAt: true,
   closedAt: true, paidAt: true,
-  items: { select: { id: true, kind: true, sourceOrderId: true, description: true, quantity: true, unitPriceCents: true, totalCents: true, createdAt: true }, orderBy: { createdAt: 'asc' as const } },
+  items: { select: { id: true, kind: true, sourceOrderId: true, sourceOrderItemId: true, description: true, quantity: true, unitPriceCents: true, totalCents: true, createdAt: true }, orderBy: { createdAt: 'asc' as const } },
   // Only real orders linked to this tenant-bound comanda. Never synthesize order status on the client.
   orders: { select: { id: true, createdAt: true, status: true }, orderBy: { createdAt: 'asc' as const } },
   payments: { select: { id: true, method: true, amountCents: true, status: true, createdAt: true, confirmedAt: true, reversedAt: true }, orderBy: { createdAt: 'desc' as const } },
 };
 const money = (value: bigint) => Number(value);
-function project<T extends { totalCents: bigint; paidCents: bigint; items?: Array<{ unitPriceCents: bigint; totalCents: bigint }>; payments?: Array<{ amountCents: bigint }> }>(record: T) {
+function project<T extends { totalCents: bigint; paidCents: bigint; items?: Array<{ unitPriceCents: bigint; totalCents: bigint; sourceOrderItemId?: number | null }>; payments?: Array<{ amountCents: bigint }> }>(record: T, images: Map<number, string | null> = new Map()) {
   return { ...record, totalCents: money(record.totalCents), paidCents: money(record.paidCents),
     outstandingCents: money(record.totalCents - record.paidCents),
-    items: record.items?.map((x) => ({ ...x, unitPriceCents: money(x.unitPriceCents), totalCents: money(x.totalCents) })),
+    items: record.items?.map((x) => ({ ...x, image: x.sourceOrderItemId ? images.get(x.sourceOrderItemId) ?? null : null, unitPriceCents: money(x.unitPriceCents), totalCents: money(x.totalCents) })),
     payments: record.payments?.map((x) => ({ ...x, amountCents: money(x.amountCents) })) };
 }
 async function lockCustomer(tx: Prisma.TransactionClient, restaurantId: number, customerId: string) {
@@ -101,8 +102,9 @@ router.get('/customers/:customerId', async (req, res) => {
         customerDebt(tx, restaurantId, customerId),
         tx.nfcComanda.count({ where: { restaurantId, customerId, status: NfcComandaStatus.OPEN } }),
       ]);
+      const images = await nfcComandaItemImageMap(tx, restaurantId, comandas.flatMap(row => row.items));
       return { customerId, blocked: outstandingCents > 0n, outstandingCents: Number(outstandingCents), hasOpenComanda: active > 0,
-        comandas: comandas.map(project) };
+        comandas: comandas.map(row => project(row, images)) };
     });
     res.setHeader('Cache-Control', 'no-store');
     return res.json(result);
