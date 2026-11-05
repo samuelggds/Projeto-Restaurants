@@ -1,5 +1,6 @@
 import nfcInventoryRouter from './NfcInventoryRoutes.js';
 import nfcArchivedCustomerRouter from './NfcArchivedCustomerRoutes.js';
+import { nfcComandaItemImageMap } from '../services/nfcComandaItemImages.js';
 import crypto from 'node:crypto';
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
@@ -873,7 +874,7 @@ router.post('/cards/staff-comanda', async (req, res) => {
           orderBy: { openedAt: 'desc' },
           select: {
             id: true, status: true, tableNumber: true, totalCents: true, paidCents: true,
-            items: { select: { id: true, description: true, quantity: true, totalCents: true },
+            items: { select: { id: true, sourceOrderItemId: true, description: true, quantity: true, totalCents: true },
               orderBy: { createdAt: 'asc' } },
             orders: { select: { id: true, status: true }, orderBy: { createdAt: 'asc' } },
             payments: { select: { id: true, status: true, amountCents: true },
@@ -885,13 +886,14 @@ router.post('/cards/staff-comanda', async (req, res) => {
           where: { restaurantId, id: card.customerId, archivedAt: null },
           select: { id: true, nameEncrypted: true },
         }) : null;
+      const images = comanda ? await nfcComandaItemImageMap(tx, restaurantId, comanda.items) : new Map<number, string | null>();
       return {
         card: { displayCode: card.displayCode, status: card.status },
         customer: customer ? { name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) } : null,
         comanda: comanda ? {
           ...comanda, totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
           outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
-          items: comanda.items.map(item => ({ ...item, totalCents: Number(item.totalCents) })),
+          items: comanda.items.map(item => ({ ...item, image: item.sourceOrderItemId ? images.get(item.sourceOrderItemId) ?? null : null, totalCents: Number(item.totalCents) })),
           payments: comanda.payments.map(payment => ({ ...payment, amountCents: Number(payment.amountCents) })),
         } : null,
       };
