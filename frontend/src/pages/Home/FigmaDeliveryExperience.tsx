@@ -1165,6 +1165,7 @@ export function FigmaDeliveryExperience({
           brandName={data.brand.name}
           darkMode={darkMode}
           orderType={activeFulfillmentMethod}
+          deliveryAddressReady={Boolean(deliveryAddressPreview?.address.trim() && deliveryAddressPreview?.number.trim() && deliveryAddressPreview?.zipCode.replace(/\D/g, '').length === 8 && deliveryAddressPreview?.city.trim() && deliveryAddressPreview?.state.trim())}
           hasCartItems={cartCount > 0}
           quoteSubtotal={couponSubtotal}
           selectedCode={selectedPromotionalCode}
