@@ -156,7 +156,11 @@ export function HomeCouponsCenter({
     if (!code) { setFeedback('Digite um código para consultar.'); return; }
     const match = coupons.find(coupon => normalizedCode(coupon.code) === code);
     if (!match) {
-      setFeedback('Código não encontrado entre os cupons disponíveis deste restaurante.');
+      // Existing checkout validation also accepts eligible customer-wallet codes.
+      // Keep the current selection untouched when the checkout rejects the code.
+      onSelect?.(code);
+      setFeedback('Se este código estiver disponível para sua conta, ele será validado no pedido. Confira a mensagem de confirmação.');
+      setTypedCode('');
       return;
     }
     selectCoupon(match);
@@ -207,12 +211,12 @@ export function HomeCouponsCenter({
 
   const selectedMessage = !hasCartItems
     ? 'Escolha produtos para conferir as regras e o desconto no pedido.'
-    : insufficientSubtotal
-      ? 'Faltam ' + currency(Math.max(0, Number(activeCoupon!.minimumSubtotal) - quoteSubtotal)) + ' para atingir o mínimo desta oferta.'
-      : isShippingCoupon && !deliveryAddressReady
-        ? 'Informe um endereço de entrega atendido para confirmar o benefício.'
-      : isShippingCoupon && orderType === 'pickup'
-        ? 'Frete grátis só é válido para Delivery.'
+    : isShippingCoupon && orderType === 'pickup'
+      ? 'Frete grátis só é válido para Delivery.'
+      : insufficientSubtotal
+        ? 'Faltam ' + currency(Math.max(0, Number(activeCoupon!.minimumSubtotal) - quoteSubtotal)) + ' para atingir o mínimo desta oferta.'
+        : isShippingCoupon && !deliveryAddressReady
+          ? 'Informe um endereço de entrega atendido para confirmar o benefício.'
         : selectedPending
           ? 'Aguardando validação do desconto pelo servidor.'
           : quoteError
