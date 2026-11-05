@@ -150,7 +150,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       setResult(`Pedido #${order.orderId} registrado com sucesso! A equipe já pode iniciar o preparo. O pagamento continua pendente.`);
       setOrderChallenge(null); setOrderPrefix('');
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
       setMessage(nfcFriendlyError(cause, 'Não foi possível confirmar os dados. Confira o cartão e o CPF.'));
       setOrderPrefix('');
     } finally { setBusy(false); }
@@ -180,7 +179,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
         setResult('Cartão vinculado e comanda aberta. Atendimento pronto.' + notice);
         setStaffTab('menu');
       } catch (cause) {
-        const err = cause as {response?:{data?:{error?:string}}};
         setStaffCard({status:'ACTIVE',displayCode:assignment.displayCode,cardId:assignment.cardId,customerId:assignment.customerId,comandaId:null,canOpenComanda:true});
         setMessage(nfcFriendlyError(cause, 'O cartão foi vinculado, mas a comanda ainda não está aberta. Tente novamente.'));
       }
@@ -196,7 +194,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       setResult('Comanda aberta com sucesso para o cliente já vinculado.');
       setStaffTab('menu');
     } catch (cause) {
-      const err = cause as {response?:{data?:{error?:string}}};
       setMessage(nfcFriendlyError(cause, 'Não foi possível abrir a comanda. Confira se existem pagamentos pendentes.'));
     } finally {setBusy(false);}
   };
