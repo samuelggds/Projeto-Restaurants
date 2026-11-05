@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
+# Report which isolated failure drill broke, without exposing credentials
+# or changing any assertion / error status. Fixtures contain synthetic data.
+CURRENT_CASE=''
+CURRENT_FIXTURE=''
+report_drill_failure() {
+  local code=$?
+  trap - ERR
+  printf 'Deploy controller drill failed: %s (exit=%s)\\n' "${CURRENT_CASE:-unknown}" "$code" >&2
+  if [[ -n "$CURRENT_FIXTURE" && -d "$CURRENT_FIXTURE" ]]; then
+    if [[ -f "$CURRENT_FIXTURE/output.log" ]]; then
+      echo '--- Simulated deploy output (last 45 lines) ---' >&2
+      tail -n 45 "$CURRENT_FIXTURE/output.log" >&2
+    fi
+    if [[ -f "$CURRENT_FIXTURE/docker.log" ]]; then
+      echo '--- Simulated Docker commands (last 25 lines) ---' >&2
+      tail -n 25 "$CURRENT_FIXTURE/docker.log" >&2
+    fi
+  fi
+  exit "$code"
+}
+trap report_drill_failure ERR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_SHA='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
@@ -74,6 +96,9 @@ run_case() {
   local mode="$1"
   local dir
   dir="$(mktemp -d)"
+  CURRENT_CASE="$mode"
+  CURRENT_FIXTURE="$dir"
+  echo "Running deploy failure drill: $mode"
   trap 'rm -rf "$dir"' RETURN
   make_fixture "$dir"
   export FAKE_DOCKER_LOG="$dir/docker.log"
