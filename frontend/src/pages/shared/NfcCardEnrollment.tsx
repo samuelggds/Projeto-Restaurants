@@ -379,8 +379,7 @@ export function NfcCardEnrollment({ cardCode, restaurantName, onEnroll }: {
         ? 'Cadastro reativado. Selecione o cliente e confirme o vínculo ao cartão.'
         : 'Cadastro reativado. Consulte novamente antes de vincular.');
     } catch (cause) {
-      const err = cause as { response?: { data?: { error?: string } } };
-      setError(err.response?.data?.error || 'Não foi possível reativar o cadastro. Consulte o administrador.');
+      setError(nfcFriendlyError(cause, 'Não foi possível recuperar o cadastro. Peça ajuda ao administrador.'));
     } finally {
       setBusy(false);
     }
