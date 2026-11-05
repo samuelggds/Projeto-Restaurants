@@ -917,13 +917,14 @@ export default function Home() {
   return (
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <FigmaDeliveryExperience
-        data={homeData}
+        restaurantId={restaurantId} data={homeData}
+        onApplyDeliveryAddress={setDeliveryAddress} deliveryAddressPreview={deliveryAddress}
         promotionalCoupons={promotionalCoupons}
-        onApplyPromotionalCoupon={(code) => {
-          setSelectedPromoCode(code); setSelectedRedemptionId(null); openHomeCart();
-        }}
-        cartCount={tableClosingRequested ? 0 : cartCount}
-        cart={tableClosingRequested ? [] : cart}
+        onApplyPromotionalCoupon={(code) => { applyCheckoutCouponCode(code); openHomeCart(); }}
+        onSelectPromotionalCoupon={applyCheckoutCouponCode} onRemovePromotionalCoupon={() => { setSelectedPromoCode(''); setSelectedRedemptionId(null); }}
+        selectedPromotionalCode={selectedPromoCode} confirmedPromotionalCode={couponState.confirmedCode}
+        promotionalCouponPending={couponState.pending} promotionalCouponError={couponState.error} couponSubtotal={checkoutSubtotal}
+        cartCount={tableClosingRequested ? 0 : cartCount} cart={tableClosingRequested ? [] : cart}
         cartTotal={tableClosingRequested ? 0 : cartTotal}
         initialSearchOpen={Boolean(navigationState?.openSearch)}
         userName={user ? String((user as Record<string, unknown>).name || '') : undefined}
@@ -934,8 +935,7 @@ export default function Home() {
         isTableMenu={mesaMode}
         orderingLocked={tableClosingRequested}
         tableLabel={mesaMode ? mesaLabel : undefined}
-        savedAddresses={savedAddresses}
-        selectedAddressId={selectedAddressId}
+        savedAddresses={savedAddresses} selectedAddressId={selectedAddressId}
         fulfillmentMethod={availableOrderType}
         onFulfillmentMethodChange={setOrderType}
         onSelectAddress={selectDeliveryAddress}

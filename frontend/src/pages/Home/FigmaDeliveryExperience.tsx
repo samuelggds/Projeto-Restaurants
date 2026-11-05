@@ -1,63 +1,29 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bike,
-  ChevronDown,
-  Clock3,
-  CreditCard,
-  MapPin,
-  Phone,
-  Home,
-  List,
-  Search,
-  ShoppingBag,
-  Star,
-  Store,
-  UserRound,
-  UtensilsCrossed,
-  Pizza,
-  Sandwich,
-  Coffee,
-  CupSoda,
-  Beef,
-  IceCreamBowl,
-  Salad,
-  TicketPercent,
+  Bike, ChevronDown, Clock3, CreditCard, MapPin, Phone, Home, List, Search, ShoppingBag,
+  Star, Store, UserRound, UtensilsCrossed, Pizza, Sandwich, Coffee, CupSoda, Beef,
+  IceCreamBowl, Salad, TicketPercent, Moon, Sun,
 } from 'lucide-react';
-import {
-  FacebookIcon,
-  InstagramIcon,
-  TikTokIcon,
-} from './components/SocialBrandIcons';
+import { FacebookIcon, InstagramIcon, TikTokIcon } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { ComboCategoryIcon } from './components/ComboCategoryIcon';
 import { RestaurantCover } from './components/RestaurantCover';
 import { LegacyHeroMetrics, StorefrontIntro } from './components/HomeStorefrontSections';
 import { productImage } from './components/homeImageMarkup';
 import { HomeCouponNotice, HomeCouponsCenter } from './components/HomeCouponCenter';
+import { HomeDeliveryEstimator } from './components/HomeDeliveryEstimator';
 import { CustomerDesktopFooter } from './components/CustomerDesktopFooter';
 import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
-import {
-  buildSocialProfileUrl,
-  formatBusinessHoursSummary,
-} from './domain/publicSettings';
+import { buildSocialProfileUrl, formatBusinessHoursSummary } from './domain/publicSettings';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
-import {
-  captureCartFlyOrigin,
-  scheduleProductToCartAnimation,
-  type CartFlyOrigin,
-} from './cartFlyAnimation';
+import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import { HomeProductCarouselSection as ProductCarouselSection } from './components/HomeProductCarouselSection';
 import { AddressPickerOverlay, ProfileQuickMenuOverlay } from './components/HomeMobileOverlays';
-import {
-  formatCustomerLocationLabel,
-  formatDeliveryTime,
-  getUserInitials,
-  normalizeSearchText,
-} from './domain/homePresentation';
+import { formatCustomerLocationLabel, formatDeliveryTime, getUserInitials, normalizeSearchText } from './domain/homePresentation';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import * as S from './FigmaDeliveryExperience.styles';
 
@@ -78,8 +44,18 @@ const money = (value: number) =>
 
 export function FigmaDeliveryExperience({
   data,
+  restaurantId,
+  onApplyDeliveryAddress,
+  deliveryAddressPreview,
   promotionalCoupons = [],
   onApplyPromotionalCoupon,
+  onSelectPromotionalCoupon,
+  onRemovePromotionalCoupon,
+  selectedPromotionalCode,
+  confirmedPromotionalCode,
+  promotionalCouponPending,
+  promotionalCouponError,
+  couponSubtotal,
   cartCount = 0,
   initialSearchOpen = false,
   userName,
@@ -109,8 +85,10 @@ export function FigmaDeliveryExperience({
   const [searchQuery, setSearchQuery] = useState('');
   const [couponScreenOpen, setCouponScreenOpen] = useState(false);
   const [couponNoticeDismissed, setCouponNoticeDismissed] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+  const [deliveryPanelOpen, setDeliveryPanelOpen] = useState(false);
   const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
   const [profileQuickMenuClosing, setProfileQuickMenuClosing] = useState(false);
   const [failedAvatarSource, setFailedAvatarSource] = useState<string | null>(null);
@@ -246,12 +224,14 @@ export function FigmaDeliveryExperience({
   );
   const customerLocationLabel = useMemo(
     () =>
-      formatCustomerLocationLabel(
+      deliveryAddressPreview?.address?.trim()
+        ? [deliveryAddressPreview.address, deliveryAddressPreview.number].filter(Boolean).join(', ') + (deliveryAddressPreview.district ? ` - ${deliveryAddressPreview.district}` : '')
+        : formatCustomerLocationLabel(
         activeFulfillmentMethod,
         data.brand.address,
         selectedSavedAddress,
       ),
-    [activeFulfillmentMethod, data.brand.address, selectedSavedAddress],
+    [activeFulfillmentMethod, data.brand.address, selectedSavedAddress, deliveryAddressPreview],
   );
   const paymentMethodLabels = [
     data.acceptsPix ? 'PIX' : '',
@@ -560,11 +540,12 @@ export function FigmaDeliveryExperience({
   const showCouponNotice = promotionalCoupons.length > 0 && !couponNoticeDismissed && !couponScreenOpen;
 
   return (
-    <S.Page $primary={primary} className={[selectedProduct ? 'product-open' : '', showCouponNotice ? 'coupon-notice-visible' : ''].filter(Boolean).join(' ')}>
+    <S.Page $primary={primary} className={[selectedProduct ? 'product-open' : '', showCouponNotice ? 'coupon-notice-visible' : '', darkMode ? 'storefront-dark' : ''].filter(Boolean).join(' ')}>
       {showCouponNotice && (
         <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
       )}
-      <S.DesktopTopBar>
+      {!selectedProduct && <button className="home-theme-toggle" type="button" aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={darkMode} onClick={() => setDarkMode(value => !value)} style={{ top: showCouponNotice ? 62 : 18 }}>{darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>}
+      <S.DesktopTopBar className="home-topbar">
         <div>
           <span className="location">
             <MapPin aria-hidden="true" />
@@ -584,7 +565,7 @@ export function FigmaDeliveryExperience({
         </div>
       </S.DesktopTopBar>
 
-      <S.Header>
+      <S.Header className="home-header">
         <div className="mobile-location-row">
           <button
             className="mobile-address-trigger"
@@ -592,7 +573,7 @@ export function FigmaDeliveryExperience({
             disabled={
               activeFulfillmentMethod === 'pickup' || (!onManageAddresses && !onSelectAddress)
             }
-            onClick={activeFulfillmentMethod === 'delivery' ? openAddressPicker : undefined}
+            onClick={activeFulfillmentMethod === 'delivery' ? (data.deliveryFeeMode === 'DISTANCE' ? () => setDeliveryPanelOpen(v => !v) : openAddressPicker) : undefined}
             aria-label={
               activeFulfillmentMethod === 'delivery'
                 ? `Endereço de entrega: ${customerLocationLabel}`
@@ -710,6 +691,7 @@ export function FigmaDeliveryExperience({
 
 
         <S.InlineSearch
+          className="home-inline-search"
           ref={searchContainerRef}
           onFocus={() => setSearchFocused(true)}
           onBlur={(event) => {
@@ -817,7 +799,17 @@ export function FigmaDeliveryExperience({
       {!selectedProduct ? (
         <>
           <RestaurantCover brand={data.brand} />
-          <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} />
+          <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} availability={storefrontAvailability} />
+          <HomeDeliveryEstimator
+            restaurantId={restaurantId ?? null}
+            deliveryFeeMode={data.deliveryFeeMode}
+            fixedFee={data.deliveryFee}
+            enabled={data.acceptsDelivery && activeFulfillmentMethod === 'delivery'}
+            mobileOpen={deliveryPanelOpen}
+            onMobileOpenChange={setDeliveryPanelOpen}
+            onUseAddress={onApplyDeliveryAddress}
+            onChooseSavedAddress={onManageAddresses ? openAddressPicker : undefined}
+          />
         </>
       ) : null}
 
@@ -851,12 +843,12 @@ export function FigmaDeliveryExperience({
           {promotionBanners.length ? (
             <>
               {hasRestaurantCover ? (
-                <S.PromotionHeading>
+                <S.PromotionHeading className="home-promotion-heading">
                   <span>Ofertas e novidades</span>
                   <h2>Promoções do restaurante</h2>
                 </S.PromotionHeading>
               ) : null}
-            <S.HeroCarousel className={hasRestaurantCover ? 'after-cover' : undefined}>
+            <S.HeroCarousel className={hasRestaurantCover ? 'after-cover home-promotion-carousel' : 'home-promotion-carousel'}>
               <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
               {!hasRestaurantCover && (data.brand.address ||
                 deliveryTimeLabel ||
@@ -1170,12 +1162,26 @@ export function FigmaDeliveryExperience({
       {couponScreenOpen && (
         <HomeCouponsCenter
           coupons={promotionalCoupons}
+          brandName={data.brand.name}
+          darkMode={darkMode}
+          orderType={activeFulfillmentMethod}
+          deliveryAddressReady={Boolean(deliveryAddressPreview?.address.trim() && deliveryAddressPreview?.number.trim() && deliveryAddressPreview?.zipCode.replace(/\D/g, '').length === 8 && deliveryAddressPreview?.city.trim() && deliveryAddressPreview?.state.trim())}
+          hasCartItems={cartCount > 0}
+          quoteSubtotal={couponSubtotal}
+          selectedCode={selectedPromotionalCode}
+          selectedConfirmed={Boolean(selectedPromotionalCode && selectedPromotionalCode === confirmedPromotionalCode)}
+          selectedPending={promotionalCouponPending}
+          quoteError={promotionalCouponError}
+          onSelect={onSelectPromotionalCoupon ?? onApplyPromotionalCoupon}
+          onRemove={onRemovePromotionalCoupon}
+          onOpenCart={onOpenCart}
+          onOpenOrders={onOpenOrders}
+          onOpenProfile={onOpenProfile}
           loggedIn={userLoggedIn}
           onClose={() => setCouponScreenOpen(false)}
           onOpenWallet={userLoggedIn && onOpenProfileView
             ? () => { setCouponScreenOpen(false); onOpenProfileView('coupons'); }
             : undefined}
-          onApply={(code) => { setCouponScreenOpen(false); onApplyPromotionalCoupon?.(code); }}
         />
       )}
 

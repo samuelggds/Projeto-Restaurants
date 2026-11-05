@@ -75,8 +75,8 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   await expect(screen.getByText('Campanha especial')).toBeVisible();
   await expect(screen.getByText('Desconto na retirada')).toBeVisible();
   await expect(screen.getByText('Desconto na mesa')).toBeVisible();
-  await expect(screen).toContainText('Cupons do restaurante');
-  await expect(screen).toContainText('Você pode consultar e copiar cupons públicos');
+  await expect(screen).toContainText('Cupons da Restaurante Teste');
+  await expect(screen).toContainText('Cupons públicos podem ser consultados sem entrar');
   await screen.getByRole('button', { name: 'Voltar ao cardápio' }).click();
   await expect(screen).toHaveCount(0);
 
@@ -88,11 +88,15 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   await page.getByRole('button', { name: 'Adicionar à sacola' }).click();
   await page.getByRole('button', { name: 'Abrir cupons' }).click();
   await screen.getByRole('button', { name: 'Usar cupom PROMO15' }).click();
-  await expect(screen).toHaveCount(0);
+  await expect(screen).toBeVisible();
+  await expect(screen.getByRole('button', { name: 'Cupom selecionado: PROMO15' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(screen.getByRole('region', { name: 'Cupom selecionado' })).toContainText('PROMO15 selecionado');
   await expect.poll(() => quotes.some((quote) =>
     quote.restaurantId === 9 && quote.couponCode === 'PROMO15' && quote.couponRedemptionId == null,
   )).toBe(true);
   expect(loyaltyRequests).toBe(0);
+  await screen.getByRole('button', { name: 'Ver meu pedido' }).click();
+  await expect(screen).toHaveCount(0);
 
   // A real customer cannot tap the storefront navigation through the
   // "Finalizar pedido" modal. Close checkout using its own control first;
@@ -109,7 +113,7 @@ test('visitante encontra cupons públicos, abre lista e aplica promoção na cot
   await expect(screen).toBeVisible();
   await expect(screen.getByText('Campanha especial')).toBeVisible();
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await screen.getByRole('button', { name: 'Fechar tela de cupons' }).click();
+  await screen.getByRole('button', { name: 'Voltar ao cardápio' }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(391);
 });
