@@ -34,6 +34,10 @@ test('archived NFC CPF is not silently duplicated and can be reactivated by own 
     assert.equal(hidden.response.status, 200, JSON.stringify(hidden.data));
     assert.deepEqual(hidden.data.customers, []);
     assert.equal(hidden.data.archivedMatch, true);
+    const hiddenLookup = await apiRequest(app.baseUrl, '/nfc-registration/customers/lookup',
+      fixture.tokens.adminA, { method: 'POST', json: { cpf } });
+    assert.equal(hiddenLookup.response.status, 200);
+    assert.equal(hiddenLookup.data.customer, null);
     assert.equal(Object.hasOwn(hidden.data, 'name'), false);
     assert.equal(Object.hasOwn(hidden.data, 'cpf'), false);
     const foreign = await apiRequest(app.baseUrl, searchEndpoint, fixture.tokens.adminB, {
@@ -43,6 +47,15 @@ test('archived NFC CPF is not silently duplicated and can be reactivated by own 
     assert.deepEqual(foreign.data.customers, []);
     assert.equal(foreign.data.archivedMatch, false);
 
+    const linkedToken = randomBytes(32).toString('base64url');
+    const unavailableCard = await prisma.nfcCard.create({ data: {
+      restaurantId, status: 'READY', issuedByUserId: fixture.users.adminA.id,
+      tokenHash: createHash('sha256').update(linkedToken).digest('hex'), displayCode: 'NFC-ARCHIVED-TEST',
+    } });
+    const archivedIntake = await apiRequest(app.baseUrl, '/nfc-registration/cards/intake',
+      fixture.tokens.adminA, { method: 'POST', json: { token: linkedToken, customerId } });
+    assert.equal(archivedIntake.response.status, 404);
+    assert.equal((await prisma.nfcCard.findUniqueOrThrow({ where: { id: unavailableCard.id } })).customerId, null);
     const duplicate = await apiRequest(app.baseUrl, '/nfc-registration/customers',
       fixture.tokens.adminA, {
         method: 'POST', json: { name: 'Cadastro Duplicado', cpf, phone: '85988888888' },
