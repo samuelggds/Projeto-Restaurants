@@ -78,6 +78,13 @@ export function FigmaDeliveryExperience({
   deliveryAddressPreview,
   promotionalCoupons = [],
   onApplyPromotionalCoupon,
+  onSelectPromotionalCoupon,
+  onRemovePromotionalCoupon,
+  selectedPromotionalCode,
+  confirmedPromotionalCode,
+  promotionalCouponPending,
+  promotionalCouponError,
+  couponSubtotal,
   cartCount = 0,
   initialSearchOpen = false,
   userName,
@@ -1184,12 +1191,25 @@ export function FigmaDeliveryExperience({
       {couponScreenOpen && (
         <HomeCouponsCenter
           coupons={promotionalCoupons}
+          brandName={data.brand.name}
+          darkMode={darkMode}
+          orderType={activeFulfillmentMethod}
+          hasCartItems={cartCount > 0}
+          quoteSubtotal={couponSubtotal}
+          selectedCode={selectedPromotionalCode}
+          selectedConfirmed={Boolean(selectedPromotionalCode && selectedPromotionalCode === confirmedPromotionalCode)}
+          selectedPending={promotionalCouponPending}
+          quoteError={promotionalCouponError}
+          onSelect={onSelectPromotionalCoupon}
+          onRemove={onRemovePromotionalCoupon}
+          onOpenCart={onOpenCart}
+          onOpenOrders={onOpenOrders}
+          onOpenProfile={onOpenProfile}
           loggedIn={userLoggedIn}
           onClose={() => setCouponScreenOpen(false)}
           onOpenWallet={userLoggedIn && onOpenProfileView
             ? () => { setCouponScreenOpen(false); onOpenProfileView('coupons'); }
             : undefined}
-          onApply={(code) => { setCouponScreenOpen(false); onApplyPromotionalCoupon?.(code); }}
         />
       )}
 
