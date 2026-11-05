@@ -14,16 +14,8 @@ import {
   Store,
   UserRound,
   UtensilsCrossed,
-  Pizza,
-  Sandwich,
-  Coffee,
-  CupSoda,
-  Beef,
-  IceCreamBowl,
-  Salad,
-  TicketPercent,
-  Moon,
-  Sun,
+  Pizza, Sandwich, Coffee, CupSoda, Beef,
+  IceCreamBowl, Salad, TicketPercent, Moon, Sun,
 } from 'lucide-react';
 import {
   FacebookIcon,
