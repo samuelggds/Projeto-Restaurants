@@ -463,8 +463,11 @@ for (const width of [320, 390, 440]) {
     expect(Math.abs(coverBox!.width - width)).toBeLessThanOrEqual(1);
     const coverLogoBox = await cover.locator('.cover-logo').boundingBox();
     expect(coverLogoBox).not.toBeNull();
-    expect(coverLogoBox!.y).toBeGreaterThanOrEqual(coverBox!.y);
-    expect(coverLogoBox!.y + coverLogoBox!.height).toBeLessThanOrEqual(coverBox!.y + coverBox!.height + 1);
+    // The restaurant avatar intentionally straddles the cover/body boundary.
+    expect(coverLogoBox!.y).toBeLessThan(coverBox!.y + coverBox!.height);
+    expect(coverLogoBox!.y + coverLogoBox!.height).toBeGreaterThan(coverBox!.y + coverBox!.height);
+    const overlap = coverBox!.y + coverBox!.height - coverLogoBox!.y;
+    expect(Math.abs(overlap - coverLogoBox!.height / 2)).toBeLessThanOrEqual(3);
     expect(promoBox!.x).toBeGreaterThanOrEqual(10);
     expect(promoBox!.width).toBeLessThanOrEqual(width - 20);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
