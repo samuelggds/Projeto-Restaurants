@@ -567,7 +567,7 @@ export function FigmaDeliveryExperience({
         <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
       )}
       {!selectedProduct && <button className="home-theme-toggle" type="button" aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={darkMode} onClick={() => setDarkMode(value => !value)} style={{ top: showCouponNotice ? 62 : 18 }}>{darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>}
-      <S.DesktopTopBar>
+      <S.DesktopTopBar className="home-topbar">
         <div>
           <span className="location">
             <MapPin aria-hidden="true" />
@@ -587,7 +587,7 @@ export function FigmaDeliveryExperience({
         </div>
       </S.DesktopTopBar>
 
-      <S.Header>
+      <S.Header className="home-header">
         <div className="mobile-location-row">
           <button
             className="mobile-address-trigger"
