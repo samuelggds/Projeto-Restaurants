@@ -345,9 +345,10 @@ export default function NfcEntryPanel({
             </button>)}
           </nav>
         </> : <>
-          {false && staffSection === 'registration' ? <div className="nfc-context">
-            <span>Restaurante: {restaurantName || 'Restaurante autenticado'}</span>
-            <span>Cartão: {cardDisplayCode || 'Verificando...'}</span>
+          {staffSection === 'registration' ? <div className="gx-screen-header">
+            <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
+            <h1 className="nfc-staff-title">Cliente vinculado</h1>
+            <p className="nfc-subtitle">Cartão {cardDisplayCode || 'em consulta'} · Cadastro e atendimento NFC do restaurante.</p>
           </div> : <>
             <div className="gx-screen-header"><span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
             <h1 className="nfc-staff-title">
