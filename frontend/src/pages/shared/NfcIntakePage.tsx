@@ -218,7 +218,7 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     restaurantName={(matchingContext?.slug || urlSlug || '').split('-').map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : '').join(' ')}
     staffSection={staffTab}
     pendingCard={staffCard?.status === 'PENDING_WRITE' ? <div style={{display:'grid',gap:13}}>
-      <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. O link já pertence ao restaurante autenticado, mas o cartão ainda não pode receber clientes ou pedidos.</p>
+      <p><strong>{staffCard.displayCode}</strong> está aguardando confirmação da gravação. Este cartão ainda precisa ser gravado e confirmado antes de ser utilizado.</p>
       <label style={{display:'flex',alignItems:'flex-start',gap:10}}>
         <input type="checkbox" checked={confirmPhysicalWrite} onChange={event => setConfirmPhysicalWrite(event.target.checked)} disabled={confirmingWrite}/>
         <span>Confirmei que abri este endereço aproximando o cartão físico NFC, e não apenas copiando o link.</span>
