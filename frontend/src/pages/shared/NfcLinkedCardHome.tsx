@@ -85,10 +85,10 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         </label>
         <label className="gx-line-note"><input type="checkbox" checked={confirmed}
           onChange={event=>setConfirmed(event.target.checked)}/>
-          Confirmo a devolução física e solicito a conferência da quitação no servidor.
+          Confirmo a devolução do cartão e solicito a conferência dos pagamentos.
         </label>
         <button type="submit" className="gx-button gx-primary" disabled={busy || submitting || cpf.length!==11 || !confirmed}>
-          {submitting ? 'Conferindo no servidor...' : 'Verificar quitação e liberar cartão'}
+          {submitting ? 'Conferindo pagamentos...' : 'Verificar quitação e liberar cartão'}
         </button>
         {error && <p className="gx-error" role="alert">{error}</p>}
       </form>
