@@ -55,7 +55,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
     try {
       const data = await nfcRegistrationService.provision();
       setCardId(data.card.id); setCardCode(data.card.displayCode);
-      setUrl(data.ndefUrl); setStage(1); setMessage('Identificador exclusivo recebido do servidor. O cartão ainda não está disponível.');
+      setUrl(data.ndefUrl); setStage(1); setMessage('Novo cartão criado. Agora grave-o para começar a utilizar.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível gerar o cartão.'); }
     finally { setBusy(false); }
   };
@@ -76,7 +76,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       const token = await scanNfcCard();
       if (token !== extractNfcToken(url)) throw new Error('O identificador lido não corresponde ao cartão preparado.');
       const card = await nfcRegistrationService.prepare(cardId, token);
-      if (card.status !== 'READY') throw new Error('O servidor não confirmou a disponibilidade do cartão.');
+      if (card.status !== 'READY') throw new Error('Não foi possível confirmar a gravação do cartão.');
       setStage(4); setMessage('Cartão '+cardCode+' gravado, conferido e disponível para cadastro.');
       onPrepared();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível confirmar o cartão.'); }
@@ -92,7 +92,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
         </div>)}
     </div>
     <div className="body">
-      <p className="description">Grave o cartão NFC e confirme a leitura física. Somente depois da confirmação do backend ele entra no estoque como disponível.</p>
+      <p className="description">Grave o cartão e aproxime-o novamente para confirmar que está pronto para uso.</p>
       {!url && <button type="button" className="primary" disabled={busy} onClick={() => void create()}>{busy ? 'Gerando...' : 'Gerar identificador individual do cartão'}</button>}
       {url && <>
         <label className="link-label" htmlFor="nfc-ndef-url">Link individual do cartão {cardCode}</label>
