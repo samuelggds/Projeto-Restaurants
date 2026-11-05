@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { CheckCircle2, RotateCcw, Search, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../contexts/authContext';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 const Panel = styled.section`
   display: grid; gap: 14px; min-width: 0; padding: clamp(16px, 2.4vw, 22px);
@@ -81,8 +82,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
       setLookup(result.archivedMatch ? 'archived' : result.customers.length ? 'active' : 'missing');
     } catch (cause) {
       if (version !== revision.current) return;
-      const failure = cause as { response?: { data?: { error?: string } } };
-      setError(failure.response?.data?.error || 'Não foi possível consultar este CPF. Tente novamente.');
+      setError(nfcFriendlyError(cause, 'Não foi possível consultar este CPF. Confira os números e tente novamente.'));
     } finally { if (version === revision.current) setSearching(false); }
   };
 
@@ -98,8 +98,7 @@ export function NfcArchivedCustomerRecovery({ onRecovered }: { onRecovered: () =
       onRecovered();
     } catch (cause) {
       if (version !== revision.current) return;
-      const failure = cause as { response?: { data?: { error?: string } } };
-      setError(failure.response?.data?.error || 'Não foi possível recuperar o cadastro. Verifique possíveis pendências.');
+      setError(nfcFriendlyError(cause, 'Não foi possível recuperar este cadastro. Confira se existem pendências.'));
       setConfirmed(false);
     } finally { if (version === revision.current) setReactivating(false); }
   };
