@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { ArrowLeft, Check, ClipboardCopy, CreditCard, Smartphone, ShieldCheck } from 'lucide-react';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 import { extractNfcToken, scanNfcCard, writeNfcCard } from './nfcWebReader';
 
 const Frame = styled.section`
@@ -56,7 +57,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       const data = await nfcRegistrationService.provision();
       setCardId(data.card.id); setCardCode(data.card.displayCode);
       setUrl(data.ndefUrl); setStage(1); setMessage('Novo cartão criado. Agora grave-o para começar a utilizar.');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível gerar o cartão.'); }
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível preparar um novo cartão. Tente novamente.')); }
     finally { setBusy(false); }
   };
   const write = async () => {
@@ -66,7 +67,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       await writeNfcCard(url);
       setWritten(true); setStage(3);
       setMessage('Gravação realizada. Aproxime o mesmo cartão novamente para confirmar a leitura.');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível gravar o cartão.'); }
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível gravar o cartão. Aproxime-o novamente e tente outra vez.')); }
     finally { setBusy(false); }
   };
   const verify = async () => {
@@ -79,7 +80,7 @@ export function NfcCardPreparation({ onBack, onPrepared }: Props) {
       if (card.status !== 'READY') throw new Error('Não foi possível confirmar a gravação do cartão.');
       setStage(4); setMessage('Cartão '+cardCode+' gravado, conferido e disponível para cadastro.');
       onPrepared();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível confirmar o cartão.'); }
+    } catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível conferir a gravação. Aproxime o cartão e tente novamente.')); }
     finally { setBusy(false); }
   };
   return <Frame aria-label="Preparar cartão NFC virgem">
