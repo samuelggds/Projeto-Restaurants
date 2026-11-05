@@ -55,7 +55,6 @@ export function NfcLostCardRecovery({ onBack }: { onBack: () => void }) {
       setNotice('Cartão '+recovered.displayCode+' vinculado à comanda existente. A dívida e os pagamentos foram preservados.');
       setComandaId('');setCpf('');setPhone('');setDocumentChecked(false);setRevocationConfirmed(false);
     }catch(cause){
-      const response=cause as {response?:{data?:{error?:string}}};
       setError(nfcFriendlyError(cause, 'Não foi possível recuperar o cartão. Confira os dados e tente novamente.'));
     }finally{setBusy(false);}
   };
