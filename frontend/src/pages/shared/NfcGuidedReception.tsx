@@ -168,7 +168,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
             <label className="wide break">Mesa (opcional)<input type="number" min={1} max={100000} placeholder="Ex.: 08" value={table} onChange={event => setTable(event.target.value)} /></label>
             <button className="primary wide" type="submit" disabled={busy}>{busy ? 'Identificando...' : 'Continuar para o cartão'} <ArrowRight aria-hidden="true" /></button>
           </form>
-          <p className="hint">Os dados pessoais ficam protegidos no servidor. O cartão armazena apenas um endereço individual.</p>
+          <p className="hint">Seus dados pessoais ficam protegidos. O cartão permite identificar o atendimento com segurança.</p>
         </>}
         {step === 2 && <>
           <h2>Vincular cartão NFC</h2>
@@ -184,7 +184,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
         {step === 3 && <>
           <CheckCircle2 size={37} color="#188555" aria-hidden="true" />
           <h2>Cartão vinculado com sucesso!</h2>
-          <p className="subline">A comanda individual está aberta no servidor e pronta para os pedidos.</p>
+          <p className="subline">Comanda aberta! Você já pode registrar os pedidos.</p>
           <div className="state"><strong>{assignment?.displayCode}</strong> · Comanda {comandaId.slice(0, 8).toUpperCase()}</div>
           {notice && <p className="hint" role="status">{notice}</p>}
           <div className="actions"><button className="secondary" type="button" onClick={() => setShowComandas(value => !value)}>{showComandas ? 'Ocultar comandas' : 'Ver comanda'}</button>
