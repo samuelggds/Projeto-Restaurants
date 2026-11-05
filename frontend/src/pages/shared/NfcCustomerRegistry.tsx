@@ -99,7 +99,7 @@ export function NfcCustomerRegistry() {
             {active ? 'Ativo · cartão vinculado' : 'Inativo · sem cartão vinculado'}
           </span>
           <button className="remove" type="button" disabled={active || deleting || loading}
-            title={active ? 'Libere o cartão antes de excluir' : 'O servidor validará a quitação antes da exclusão'}
+            title={active ? 'Libere o cartão antes de excluir' : 'Disponível após a quitação da comanda'}
             onClick={() => { setError(''); setSuccess(''); setPendingCustomer(customer); }}>
             <Trash2 size={15} aria-hidden="true" /> Excluir
           </button>
@@ -108,7 +108,7 @@ export function NfcCustomerRegistry() {
     </div>}
     {pendingCustomer && <div role="dialog" aria-modal="true" aria-label="Confirmar exclusão de cliente" className="confirm">
       <strong>Excluir cadastro de {pendingCustomer.name}?</strong>
-      <p>O servidor só permite excluir após a devolução e liberação do cartão, com todas as comandas quitadas e sem operações pendentes. O histórico financeiro será preservado.</p>
+      <p>Você pode excluir o cadastro após a devolução do cartão e a quitação de todas as comandas. O histórico financeiro será preservado.</p>
       <div className="confirm-actions">
         <button type="button" disabled={deleting} onClick={() => setPendingCustomer(null)}>Cancelar</button>
         <button className="danger" type="button" disabled={deleting} onClick={() => void remove()}>
