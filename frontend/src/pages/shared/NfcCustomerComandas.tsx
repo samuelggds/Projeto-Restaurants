@@ -91,7 +91,6 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
       setVisitNotice(`Pagamento concluído! O cartão ${released.displayCode} já está disponível para o próximo cliente.`);
       await reload();
     } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
       setError(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira o CPF e os pagamentos pendentes.'));
       setReturnCpf('');
     } finally { setBusy(false); }
