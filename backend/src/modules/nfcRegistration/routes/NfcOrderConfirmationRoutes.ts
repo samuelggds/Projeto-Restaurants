@@ -121,9 +121,9 @@ router.post('/challenges/pending', async (req, res) => {
       if (!card) throw new VerificationError(404, 'Cartão NFC não identificado neste restaurante.');
       return tx.nfcOrderConfirmation.findFirst({
         where: { restaurantId, cardId: card.id, createdByUserId: userId,
-          verifiedAt: null, consumedAt: null, expiresAt: { gt: new Date() } },
+          consumedAt: null, expiresAt: { gt: new Date() } },
         orderBy: { createdAt: 'desc' },
-        select: { id: true, expiresAt: true, draftItems: true },
+        select: { id: true, expiresAt: true, draftItems: true, verifiedAt: true },
       });
     });
     res.setHeader('Cache-Control', 'no-store');
