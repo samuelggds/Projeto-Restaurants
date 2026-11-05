@@ -918,6 +918,7 @@ export default function Home() {
     <S.HomeExperience $fontFamily={homeData.fontFamily} $primary={primary} $tableMenu={mesaMode}>
       <FigmaDeliveryExperience
         restaurantId={restaurantId}
+        onApplyDeliveryAddress={(address) => setDeliveryAddress(address)}
         data={homeData}
         promotionalCoupons={promotionalCoupons}
         onApplyPromotionalCoupon={(code) => {
