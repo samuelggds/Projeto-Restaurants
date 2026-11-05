@@ -240,6 +240,28 @@ export const nfcStaffReferenceStyles = css`
   &.staff.visual .gx-order-top small { display:block; margin-top:3px; color:var(--gx-muted); font-size:11px; }
   &.staff.visual .gx-refresh-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:16px; color:var(--gx-muted); font-size:11px; }
   &.staff.visual .gx-refresh-row button { width:auto; padding:8px 12px; min-height:42px; font-size:11px; }
+  /* Keep the three CPF boxes centered and visually separate from the CTA.
+     Scoped to order confirmation: other NFC CPF forms retain their layout. */
+  &.staff.visual .gx-order-cpf-confirmation {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    margin: 14px 0 22px;
+  }
+  &.staff.visual .gx-order-cpf-confirmation > label {
+    width: min(100%, 252px);
+    justify-items: center;
+    text-align: center;
+  }
+  &.staff.visual .gx-order-cpf-confirmation .digits {
+    margin-inline: auto;
+    max-width: 100%;
+  }
+  &.staff.visual .gx-order-cpf-confirmation .digit {
+    width: clamp(52px, 16vw, 66px);
+    height: clamp(62px, 18vw, 72px);
+  }
   &.staff.visual .gx-payment { display:grid; gap:13px; }
   &.staff.visual .gx-payment .gx-panel { display:grid; gap:13px; }
   &.staff.visual button:focus-visible, &.staff.visual a:focus-visible,

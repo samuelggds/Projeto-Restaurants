@@ -68,6 +68,7 @@ import crypto from 'node:crypto';
 import { generateStrongRandomPassword } from '../../auth/security/passwordPolicy.js';
 import kitchenPrintingService from '../../kitchenPrinting/services/KitchenPrintingService.js';
 import { withoutOrderCreationMetadata } from '../utils/orderPublicData.js';
+import { sameNfcConfirmedItems } from '../utils/nfcConfirmedItems.js';
 import { assertNoActiveOnlinePayment } from './ActiveOnlinePaymentGuard.js';
 
 type OrderItemInput = z.infer<typeof createOrderSchema>['items'][number];
@@ -521,7 +522,7 @@ class CreateOrderService {
               const comanda = await tx.nfcComanda.findFirst({ where: { id: challenge.comandaId, restaurantId: resolvedRestaurantId }, select: { status: true, dueAt: true, cardId: true, customerId: true, totalCents: true, paidCents: true } });
               const card = await tx.nfcCard.findFirst({ where: { id: challenge.cardId, restaurantId: resolvedRestaurantId, status: 'ACTIVE' }, select: { customerId: true } });
               if (!comanda || comanda.status !== 'OPEN' || comanda.dueAt <= new Date() || comanda.cardId !== challenge.cardId || comanda.customerId !== challenge.customerId || card?.customerId !== challenge.customerId) throw new OrderRequestError('Comanda NFC, cartão ou prazo inválidos.');
-              if (JSON.stringify(challenge.draftItems) !== JSON.stringify(items)) throw new OrderRequestError('Itens diferentes dos confirmados pelo cliente.');
+              if (!sameNfcConfirmedItems(challenge.draftItems, items)) throw new OrderRequestError('Itens diferentes dos confirmados pelo cliente.');
               nfcContext = { comandaId: challenge.comandaId, customerId: challenge.customerId, cardId: challenge.cardId };
             }
             let tableParticipant: {

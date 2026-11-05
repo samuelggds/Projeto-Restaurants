@@ -18,7 +18,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<Step>('DRAFT');
-  const draftKeyRef = useRef<string | null>(null);
+  const draftKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const [challengeId, setChallengeId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [token, setToken] = useState(cardToken || '');
@@ -63,13 +63,15 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     if (!selected.length || busy) return;
     setError(''); setBusy(true);
     try {
-      // Keep the same idempotency key if the network fails after the server
-      // has already persisted this draft's challenge.
-      const key = draftKeyRef.current || crypto.randomUUID().replace(/-/g, '');
-      draftKeyRef.current = key;
-      const challenge = await nfcOrderChallengeService.create(comandaId,
-        selected.map(p => ({ productId: p.id, quantity: quantities[p.id] })),
-        key, observation.trim() || undefined);
+      // A network retry must keep its key only while the submitted payload
+      // is identical. Changing an item, quantity or note is a NEW draft.
+      const items = selected.map(p => ({ productId: p.id, quantity: quantities[p.id] }));
+      const note = observation.trim() || undefined;
+      const fingerprint = JSON.stringify({ comandaId, items, ...(note ? { observation: note } : {}) });
+      const previous = draftKeyRef.current;
+      const key = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID().replace(/-/g, '');
+      draftKeyRef.current = { fingerprint, key };
+      const challenge = await nfcOrderChallengeService.create(comandaId, items, key, note);
       setChallengeId(challenge.challengeId);
       setExpiresAt(challenge.expiresAt);
       setToken(cardToken || '');
@@ -161,7 +163,9 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
       {observation.trim() && <p className="gx-help">Observação: {observation.trim()}</p>}
       {!cardToken && <button type="button" className="gx-button" disabled={busy} onClick={()=>void readCard()}>{token ? 'Ler cartão novamente' : 'Aproximar cartão NFC (Android)'}</button>}
       <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado pelo link NFC' : 'necessário para confirmar'}. O servidor confere o titular.</p>
-      <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      <div className="gx-order-cpf-confirmation">
+        <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      </div>
       <button type="button" className="gx-button gx-primary" disabled={busy||!token||prefix.length!==3} onClick={()=>void confirm()}>Confirmar identidade e enviar à cozinha</button>
       <button type="button" className="gx-button" disabled={busy} onClick={reset}>Editar a sacola</button>
     </section>}
