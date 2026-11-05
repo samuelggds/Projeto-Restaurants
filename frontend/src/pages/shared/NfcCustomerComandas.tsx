@@ -159,7 +159,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
           <input type="checkbox" checked={whatsappConsent} onChange={event => setWhatsappConsent(event.target.checked)} />
           Cliente autorizou receber o código temporário desta visita no WhatsApp cadastrado.
         </label>
-        <p className="info">O envio automático exige uma mesa informada e integração WhatsApp ativa.</p>
+        <p className="info">Para receber a mensagem, informe a mesa e verifique se o WhatsApp está disponível no restaurante.</p>
       </div>}
       <div className="entries">
         {state.comandas.map(comanda => <button type="button" className="entry" key={comanda.id} onClick={() => { setSelectedId(comanda.id); setReturnToken(''); setReturnCpf(''); }}>
