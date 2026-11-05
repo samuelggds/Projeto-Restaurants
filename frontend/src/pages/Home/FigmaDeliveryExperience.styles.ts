@@ -31,9 +31,79 @@ export const Page = styled.div<{ $primary: string }>`
   }
 
   @media(max-width:760px){
-    &.product-open > header{
-      display:none;
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+
+    /* Keep the existing React event handlers and cart animation targets, but
+       arrange the storefront in the same mobile order as the approved reference. */
+    > * { order:50; }
+    > aside[aria-label="Aviso de cupons"] { order:0; }
+    > header { display:contents; }
+    > header > .header-left,
+    > header > .actions { display:none; }
+    > [aria-label^="Capa de "] { order:1; }
+    > section[aria-label^="Informações de "] { display:contents; }
+    > section[aria-label^="Informações de "] > .storefront-identity {
+      order:2;
+      width:calc(100% - 24px);
+      margin:0 12px;
+      padding:10px 4px 5px;
     }
+    > header > .mobile-location-row {
+      order:3;
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      width:calc(100% - 24px);
+      margin:7px 12px 0;
+      padding:0;
+      min-height:0;
+    }
+    > header > .mobile-location-row > .mobile-profile-trigger { display:none; }
+    > header > .mobile-location-row > .mobile-address-trigger {
+      width:100%;
+      min-height:48px;
+      padding:9px 12px;
+      border:1px solid var(--delivery-line);
+      border-radius:12px;
+      background:var(--delivery-surface);
+      grid-template-columns:18px minmax(0,1fr) 18px;
+      gap:9px;
+      box-shadow:0 2px 7px #00000008;
+    }
+    > header > .mobile-location-row > .mobile-address-trigger > svg { width:16px; height:16px; }
+    > header > .mobile-location-row > .mobile-address-trigger small { font-size:11px; line-height:14px; }
+    > header > .mobile-location-row > .mobile-address-trigger strong { font-size:12px; line-height:17px; }
+    > .home-delivery-estimator { order:4; }
+    > header > .mobile-fulfillment {
+      order:5;
+      width:calc(100% - 24px);
+      margin:4px 12px 0;
+      min-height:42px;
+    }
+    > section[aria-label^="Informações de "] > .storefront-facts {
+      order:6;
+      width:calc(100% - 24px);
+      margin:9px 12px 10px;
+    }
+    > .home-promotion-heading { order:7; }
+    > .home-promotion-carousel { order:8; }
+    > header > .home-inline-search {
+      order:9;
+      width:calc(100% - 24px);
+      margin:12px 12px 2px;
+      min-height:44px;
+      background:var(--delivery-surface);
+      border:1px solid var(--delivery-line);
+    }
+    > header > .home-inline-search input { min-height:44px; height:44px; font-size:16px; }
+    > header > .home-inline-search .mobile-search-placeholder { font-size:12px; }
+    > main#cardapio { order:10; }
+    > button[data-cart-fly-target] { order:60; }
+    > nav[aria-label="Navegação principal"] { order:61; }
+    > footer { order:70; }
+
+    &.product-open > header { display:none; }
   }
 `;
 
