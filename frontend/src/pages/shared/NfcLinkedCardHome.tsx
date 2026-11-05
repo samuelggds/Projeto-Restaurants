@@ -6,7 +6,6 @@ type CardDetails = { card: { displayCode: string; status: string };
   customer: { name: string } | null;
   comanda: { id: string; status: string; tableNumber: number | null;
     totalCents: number; paidCents: number; outstandingCents: number } | null };
-const money = (value: number) => (value / 100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 
 export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpenComanda,
   hasUnsettledComanda, needsCardReturn, busy, error, onOpenComanda, onOrder, onConsult,
@@ -25,7 +24,6 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
   const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     let active = true;
-    setLoading(true);
     void api.post<CardDetails>('/nfc-registration/cards/staff-comanda', { token },
       { skipBaseUrlFallback:true }).then(response => {
       if (active) { setDetails(response.data); setLoadError(''); }
