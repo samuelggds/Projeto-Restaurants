@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import productsService from '../../Services/productsService';
 import { useAuth } from '../../contexts/authContext';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
@@ -18,6 +18,7 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<Step>('DRAFT');
+  const draftKeyRef = useRef<string | null>(null);
   const [challengeId, setChallengeId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [token, setToken] = useState(cardToken || '');
@@ -57,15 +58,20 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
   const reset = () => {
     if (busy || step === 'SENDING') return;
     setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch(''); setCategory('Todos');
+    draftKeyRef.current = null;
     setChallengeId(''); setExpiresAt(''); setOrderId(null); setError(''); setStep('DRAFT');
   };
   const start = async () => {
     if (!selected.length || busy) return;
     setError(''); setBusy(true);
     try {
+      // Keep the same idempotency key if the network fails after the server
+      // has already persisted this draft's challenge.
+      const key = draftKeyRef.current || crypto.randomUUID().replace(/-/g, '');
+      draftKeyRef.current = key;
       const challenge = await nfcOrderChallengeService.create(comandaId,
         selected.map(p => ({ productId: p.id, quantity: quantities[p.id] })),
-        crypto.randomUUID().replace(/-/g, ''), observation.trim() || undefined);
+        key, observation.trim() || undefined);
       setChallengeId(challenge.challengeId);
       setExpiresAt(challenge.expiresAt);
       setToken(cardToken || '');
