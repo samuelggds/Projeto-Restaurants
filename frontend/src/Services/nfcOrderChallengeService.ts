@@ -8,7 +8,7 @@ class NfcOrderChallengeService {
     return response.data;
   }
   async pending(token: string) {
-    const response = await api.post<{ challenge: { id: string; expiresAt: string; draftItems: NfcDraftItem[] } | null }>(
+    const response = await api.post<{ challenge: { id: string; expiresAt: string; draftItems: NfcDraftItem[]; verifiedAt: string | null } | null }>(
       '/nfc-orders/challenges/pending', { token });
     return response.data.challenge;
   }
