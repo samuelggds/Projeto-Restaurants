@@ -6,6 +6,7 @@ import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/n
 import nfcComandaService from '../../Services/nfcComandaService';
 import { scanNfcCard } from './nfcWebReader';
 import { NfcCustomerComandas } from './NfcCustomerComandas';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 type RegistrationMode = 'new' | 'existing';
 type LinkedCard = { customerId: string; cardId: string; displayCode: string; tableNumber: number | null };
@@ -98,7 +99,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
       setCustomer(found); setStep(2);
     } catch (cause) {
       const response = cause as { response?: { data?: { error?: string } } };
-      setError(response.response?.data?.error || (cause instanceof Error ? cause.message : 'Não foi possível identificar o cliente.'));
+      setError(nfcFriendlyError(cause, 'Não foi possível identificar o cliente. Confira os dados e tente novamente.'));
     } finally { locked.current = false; setBusy(false); }
   };
 
@@ -106,7 +107,7 @@ export function NfcGuidedReception({ onCompleted }: Props) {
     if (locked.current || busy || assignment) return;
     locked.current = true; setBusy(true); setError(''); setToken('');
     try { setToken(await scanNfcCard()); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível ler o cartão NFC.'); }
+    catch (cause) { setError(nfcFriendlyError(cause, 'Não foi possível ler o cartão. Aproxime-o novamente e tente outra vez.')); }
     finally { locked.current = false; setBusy(false); }
   };
 
