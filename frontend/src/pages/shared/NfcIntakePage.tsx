@@ -30,7 +30,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
   const action = getNfcEntryAction(location.search);
   const { user, isLoading } = useAuth();
   const [orderPrefix, setOrderPrefix] = useState('');
-  const [returnCpf, setReturnCpf] = useState('');
   const [orderChallenge, setOrderChallenge] = useState<{ id: string; expiresAt: string; verifiedAt: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -155,22 +154,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
       setOrderPrefix('');
     } finally { setBusy(false); }
   };
-  const handleReturn = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!allowed || !validToken || busy || returnCpf.length !== 11) return;
-    setBusy(true); setMessage('');
-    try {
-      const returned = await nfcRegistrationService.returnPaidCard(token, returnCpf);
-      setReturnCpf('');
-      setResult(`Cartão ${returned.displayCode} devolvido, desvinculado e disponível para o próximo cliente. Histórico financeiro preservado.`);
-      setStaffCard({ status: 'READY', displayCode: returned.displayCode, comandaId: null });
-      setStaffTab('registration');
-    } catch (cause) {
-      const response = cause as { response?: { data?: { error?: string } } };
-      setMessage(response.response?.data?.error || 'Não foi possível liberar o cartão. Verifique CPF completo e quitação no servidor.');
-      setReturnCpf('');
-    } finally { setBusy(false); }
-  };
   const handleSubmit = async (payload: NfcEnrollmentChoice) => {
     if (!allowed || !validToken || busy || staffCard?.status !== 'READY') throw new Error('Cartão NFC indisponível para cadastro.');
     setBusy(true);setMessage('');setResult('');
@@ -251,10 +234,10 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
     helpContent={helpVisible ? <NfcAssistanceRequest key={token} token={token} /> : null}
     onSelectSection={setStaffTab}
     onBack={() => {
-      if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setReturnCpf(''); setMessage(''); setResult(''); return; }
+      if (staffTab !== 'menu') { setStaffTab('menu'); setOrderPrefix(''); setOrderChallenge(null); setMessage(''); setResult(''); return; }
       navigate(buildNfcEntryPath(token, undefined, urlSlug || matchingContext?.slug));
       setOrderPrefix('');
-      setReturnCpf(''); setOrderChallenge(null); setMessage(''); setResult(''); setStaffTab('menu');
+      setOrderChallenge(null); setMessage(''); setResult(''); setStaffTab('menu');
     }}
   >
     {view === 'staff' && allowed && validToken && cardReady && !isLoading && (
