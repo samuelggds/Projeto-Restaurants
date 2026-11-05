@@ -33,16 +33,23 @@ const Surface = styled.section`
   .columns strong { color: #1e2d25; font-size: 19px; }
   .columns .price { color: #07883c; }
   .alert { padding: 10px; background: #fff4f1; color: #ad422a; border-radius: 8px; font-size: 12px; }
-  @media (max-width: 600px) { margin: 10px 12px 18px; .body { padding: 14px; } }
+  .use-address { width:100%; min-height:46px; border:0; border-radius:10px; padding:12px; background:#df2940; color:white; font-weight:800; }
+  .saved-addresses { display:inline-flex; align-items:center; background:transparent; color:#bd253a; padding:8px 4px; border:0; font-weight:750; font-size:12px; }
+  @media (max-width: 760px) { margin: 0 12px 10px; max-width:none; width:calc(100% - 24px); .trigger {display:none;} .body { margin-top:0; padding:15px; } }
+  @media (max-width: 600px) { .body { padding: 14px; } }
 `;
 const money = (n: number) => n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 type Address = {cep:string;address:string;number:string;district:string;city:string;state:string};
 const empty: Address = {cep:'',address:'',number:'',district:'',city:'',state:''};
 
-export function HomeDeliveryEstimator({ restaurantId, deliveryFeeMode, fixedFee, enabled }: {
+export function HomeDeliveryEstimator({ restaurantId, deliveryFeeMode, fixedFee, enabled, mobileOpen, onMobileOpenChange, onUseAddress, onChooseSavedAddress }: {
   restaurantId: number | null; deliveryFeeMode?: 'FIXED'|'DISTANCE'; fixedFee?: number; enabled: boolean;
+  mobileOpen?: boolean; onMobileOpenChange?: (open: boolean) => void;
+  onUseAddress?: (address: { zipCode: string; address: string; number: string; district: string; city: string; state: string; complement: string }) => void;
+  onChooseSavedAddress?: () => void;
 }) {
   const [open,setOpen]=useState(false);
+  const isOpen = mobileOpen ?? open;
   const [address,setAddress]=useState<Address>(empty);
   const [notice,setNotice]=useState('');
   const [busy,setBusy]=useState(false);
@@ -84,12 +91,13 @@ export function HomeDeliveryEstimator({ restaurantId, deliveryFeeMode, fixedFee,
     } finally {if(request===seq.current)setBusy(false);}
   };
   if(!enabled)return null;
-  return <Surface aria-label="Consulta de entrega">
-    <button type="button" className="trigger" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>
+  return <Surface className="home-delivery-estimator" aria-label="Consulta de entrega">
+    <button type="button" className="trigger" aria-expanded={isOpen} onClick={()=>{if(onMobileOpenChange)onMobileOpenChange(!isOpen);else setOpen(v=>!v);}}>
       <span><MapPin aria-hidden="true"/>{mode==='DISTANCE'?'Informe seu endereço e consulte a taxa':'Taxa fixa de entrega'}</span><ChevronDown aria-hidden="true"/>
     </button>
-    {open&&<div className="body">
+    {isOpen&&<div className="body">
       <div className="heading"><Bike aria-hidden="true"/><div><h3>Calcular taxa de entrega</h3><p>{mode==='FIXED'?'Este restaurante utiliza taxa fixa.':'Informe seu endereço para consultar a taxa real por distância.'}</p></div></div>
+      {onChooseSavedAddress && <button type="button" className="saved-addresses" onClick={onChooseSavedAddress}>Escolher um endereço salvo</button>}
       {mode==='FIXED'?<div className="result"><span className="success"><CheckCircle2/> Taxa fixa configurada</span><div className="columns"><span>Taxa padrão<strong className="price">{money(Number(fixedFee||0))}</strong></span><span>Modalidade<strong>Entrega</strong></span></div><p>Cupons e benefícios são verificados no checkout.</p></div>:<>
         <div className="cep"><label>CEP<input inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={address.cep} onChange={e=>update('cep',e.target.value.replace(/\D/g,'').slice(0,8))}/></label><button type="button" className="lookup" disabled={looking} onClick={()=>void findCep()}><Search size={15}/> {looking?'Buscando...':'Consultar'}</button></div>
         <div className="grid">
@@ -101,7 +109,7 @@ export function HomeDeliveryEstimator({ restaurantId, deliveryFeeMode, fixedFee,
         </div>
         <button type="button" className="calculate" disabled={busy||looking} onClick={()=>void calculate()}><Bike aria-hidden="true"/>{busy?'Calculando...':'Calcular taxa de entrega'}</button>
         {notice&&<div className="alert" role="status">{notice}</div>}
-        {estimate?.key===key&&<div className="result" role="status"><span className="success"><CheckCircle2/> Taxa calculada pelo servidor</span><div className="columns"><span>Distância da rota<strong>{estimate.meters===null?'Indisponível':(estimate.meters/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' km'}</strong></span><span>Taxa padrão<strong className="price">{money(estimate.fee)}</strong></span></div><p>O valor final será recalculado no checkout, com as regras e cupons do restaurante.</p></div>}
+        {estimate?.key===key&&<div className="result" role="status"><span className="success"><CheckCircle2/> Taxa calculada pelo servidor</span><div className="columns"><span>Distância da rota<strong>{estimate.meters===null?'Indisponível':(estimate.meters/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' km'}</strong></span><span>Taxa padrão<strong className="price">{money(estimate.fee)}</strong></span></div><p>O valor final será recalculado no checkout, com as regras e cupons do restaurante.</p>{onUseAddress && <button className="use-address" type="button" onClick={()=>{onUseAddress({zipCode:address.cep,address:address.address.trim(),number:address.number.trim(),district:address.district.trim(),city:address.city.trim(),state:address.state.trim().toUpperCase(),complement:''});onMobileOpenChange?.(false);}}>Usar este endereço</button>}</div>}
       </>}
     </div>}
   </Surface>;
