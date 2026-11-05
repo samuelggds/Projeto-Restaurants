@@ -80,6 +80,7 @@ const money = (value: number) =>
 export function FigmaDeliveryExperience({
   data,
   restaurantId,
+  onApplyDeliveryAddress,
   promotionalCoupons = [],
   onApplyPromotionalCoupon,
   cartCount = 0,
@@ -113,6 +114,7 @@ export function FigmaDeliveryExperience({
   const [couponNoticeDismissed, setCouponNoticeDismissed] = useState(false);
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
+  const [deliveryPanelOpen, setDeliveryPanelOpen] = useState(false);
   const [profileQuickMenuOpen, setProfileQuickMenuOpen] = useState(false);
   const [profileQuickMenuClosing, setProfileQuickMenuClosing] = useState(false);
   const [failedAvatarSource, setFailedAvatarSource] = useState<string | null>(null);
@@ -594,7 +596,7 @@ export function FigmaDeliveryExperience({
             disabled={
               activeFulfillmentMethod === 'pickup' || (!onManageAddresses && !onSelectAddress)
             }
-            onClick={activeFulfillmentMethod === 'delivery' ? openAddressPicker : undefined}
+            onClick={activeFulfillmentMethod === 'delivery' ? (data.deliveryFeeMode === 'DISTANCE' ? () => setDeliveryPanelOpen(v => !v) : openAddressPicker) : undefined}
             aria-label={
               activeFulfillmentMethod === 'delivery'
                 ? `Endereço de entrega: ${customerLocationLabel}`
@@ -712,6 +714,7 @@ export function FigmaDeliveryExperience({
 
 
         <S.InlineSearch
+          className="home-inline-search"
           ref={searchContainerRef}
           onFocus={() => setSearchFocused(true)}
           onBlur={(event) => {
@@ -820,7 +823,16 @@ export function FigmaDeliveryExperience({
         <>
           <RestaurantCover brand={data.brand} />
           <StorefrontIntro data={data} deliveryTimeLabel={deliveryTimeLabel} hasCover={hasRestaurantCover} />
-          <HomeDeliveryEstimator restaurantId={restaurantId ?? null} deliveryFeeMode={data.deliveryFeeMode} fixedFee={data.deliveryFee} enabled={data.acceptsDelivery && activeFulfillmentMethod === 'delivery'} />
+          <HomeDeliveryEstimator
+            restaurantId={restaurantId ?? null}
+            deliveryFeeMode={data.deliveryFeeMode}
+            fixedFee={data.deliveryFee}
+            enabled={data.acceptsDelivery && activeFulfillmentMethod === 'delivery'}
+            mobileOpen={deliveryPanelOpen}
+            onMobileOpenChange={setDeliveryPanelOpen}
+            onUseAddress={onApplyDeliveryAddress}
+            onChooseSavedAddress={onManageAddresses ? openAddressPicker : undefined}
+          />
         </>
       ) : null}
 
@@ -854,12 +866,12 @@ export function FigmaDeliveryExperience({
           {promotionBanners.length ? (
             <>
               {hasRestaurantCover ? (
-                <S.PromotionHeading>
+                <S.PromotionHeading className="home-promotion-heading">
                   <span>Ofertas e novidades</span>
                   <h2>Promoções do restaurante</h2>
                 </S.PromotionHeading>
               ) : null}
-            <S.HeroCarousel className={hasRestaurantCover ? 'after-cover' : undefined}>
+            <S.HeroCarousel className={hasRestaurantCover ? 'after-cover home-promotion-carousel' : 'home-promotion-carousel'}>
               <PromotionCarousel banners={promotionBanners} onOpenMenu={openFullMenu} />
               {!hasRestaurantCover && (data.brand.address ||
                 deliveryTimeLabel ||
