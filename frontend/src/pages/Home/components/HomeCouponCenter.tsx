@@ -151,7 +151,7 @@ export function HomeCouponsCenter({
     onSelect?.(coupon.code);
   };
 
-  const useTypedCode = () => {
+  const applyTypedCode = () => {
     const code = normalizedCode(typedCode);
     if (!code) { setFeedback('Digite um código para consultar.'); return; }
     const match = coupons.find(coupon => normalizedCode(coupon.code) === code);
@@ -235,8 +235,8 @@ export function HomeCouponsCenter({
           <div className="cp-manual-row">
             <input id="home-coupon-manual" value={typedCode} onChange={event => setTypedCode(event.target.value)}
               type="text" maxLength={40} autoCapitalize="characters" autoComplete="off" placeholder="Digite o código"
-              onKeyDown={event => { if (event.key === 'Enter') useTypedCode(); }} />
-            <button type="button" onClick={useTypedCode}>Adicionar</button>
+              onKeyDown={event => { if (event.key === 'Enter') applyTypedCode(); }} />
+            <button type="button" onClick={applyTypedCode}>Adicionar</button>
           </div>
         </div>
         <p className="cp-list-label">{coupons.length} {coupons.length === 1 ? 'cupom disponível' : 'cupons disponíveis'}</p>
