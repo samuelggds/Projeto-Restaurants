@@ -4,11 +4,7 @@ import {
   Star, Store, UserRound, UtensilsCrossed, Pizza, Sandwich, Coffee, CupSoda, Beef,
   IceCreamBowl, Salad, TicketPercent, Moon, Sun,
 } from 'lucide-react';
-import {
-  FacebookIcon,
-  InstagramIcon,
-  TikTokIcon,
-} from './components/SocialBrandIcons';
+import { FacebookIcon, InstagramIcon, TikTokIcon } from './components/SocialBrandIcons';
 import { PromotionCarousel } from './components/PromotionCarousel';
 import { ComboCategoryIcon } from './components/ComboCategoryIcon';
 import { RestaurantCover } from './components/RestaurantCover';
@@ -21,25 +17,13 @@ import { ReservationContactCard } from './components/ReservationContactCard';
 import { ReadyProductDetail } from './components/ReadyProductDetail';
 import { FloatingWhatsAppPortal } from './Home.whatsapp';
 import { WhatsAppIcon } from './components/SocialBrandIcons';
-import {
-  buildSocialProfileUrl,
-  formatBusinessHoursSummary,
-} from './domain/publicSettings';
+import { buildSocialProfileUrl, formatBusinessHoursSummary } from './domain/publicSettings';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
-import {
-  captureCartFlyOrigin,
-  scheduleProductToCartAnimation,
-  type CartFlyOrigin,
-} from './cartFlyAnimation';
+import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import { HomeProductCarouselSection as ProductCarouselSection } from './components/HomeProductCarouselSection';
 import { AddressPickerOverlay, ProfileQuickMenuOverlay } from './components/HomeMobileOverlays';
-import {
-  formatCustomerLocationLabel,
-  formatDeliveryTime,
-  getUserInitials,
-  normalizeSearchText,
-} from './domain/homePresentation';
+import { formatCustomerLocationLabel, formatDeliveryTime, getUserInitials, normalizeSearchText } from './domain/homePresentation';
 import { getRestaurantAvailability } from '../admin/domain/businessHours';
 import * as S from './FigmaDeliveryExperience.styles';
 
