@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, ClipboardList, CreditCard, LockKeyhole, LogIn, NotebookPen, ShieldCheck, UserRoundPlus, ConciergeBell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { Store } from 'lucide-react';
+import { nfcStaffReferenceStyles } from './NfcStaffReferenceStyles';
 
 export type NfcStaffSection = 'menu' | 'registration' | 'orders' | 'payment' | 'consult';
 
@@ -231,6 +233,7 @@ const Shell = styled.main`
     &.registration .nfc-staff-card { padding: 21px 16px; }
   }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; transition: none!important; } }
+  ${nfcStaffReferenceStyles}
 `;
 
 type Props = {
@@ -271,7 +274,7 @@ export default function NfcEntryPanel({
   staffLoggedIn, staffChecking, staffError, onRetryStaff,
   staffRole, restaurantName, cardDisplayCode, staffSection, onStaff, onHelp, helpVisible, helpContent, onSelectSection, onBack, pendingCard, children,
 }: Props) {
-  return <Shell className={view === 'staff' ? ('staff' + (staffSection === 'registration' ? ' registration' : '')) : undefined}>
+  return <Shell className={view === 'staff' ? ('staff visual' + (staffSection === 'registration' ? ' registration' : '')) : undefined}>
     <div className="nfc-frame">
       {view === 'home' ? <>
         <div className="nfc-top">
@@ -310,6 +313,7 @@ export default function NfcEntryPanel({
           <span className="nfc-brand"><img src="/gastronexa-logo.svg" alt="" /> Gastro<b>Nexa</b></span>
           {staffAuthorized && <span className="nfc-staff-tag"><ShieldCheck aria-hidden="true" /> {staffRole || 'Equipe'} autenticado</span>}
         </div>
+        {staffAuthorized && <div className="gx-storebar"><Store aria-hidden="true" />{restaurantName || 'Restaurante autenticado'}<span>Atendimento NFC</span></div>}
         {!staffLoggedIn ? <>
           <span className="nfc-kicker">ACESSO EXCLUSIVO À EQUIPE</span>
           <h1 className="nfc-staff-title">Entre no seu painel.</h1>
@@ -330,8 +334,8 @@ export default function NfcEntryPanel({
           <p className="nfc-subtitle">A gravação precisa ser confirmada antes de cadastrar clientes, receber pedidos ou consultar pagamentos.</p>
           <section className="nfc-staff-card">{pendingCard}</section>
         </> : staffSection === 'menu' ? <>
-          <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
-          <h1 className="nfc-staff-title">O que vamos fazer?</h1>
+          <div className="gx-screen-header"><span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
+          <h1 className="nfc-staff-title">O que vamos fazer?</h1></div>
           <p className="nfc-subtitle">Escolha uma das opções para continuar.</p>
           <nav className="nfc-staff-grid" aria-label="Ações autorizadas da equipe NFC">
             {sections.map(item => <button type="button" className="nfc-tile" key={item.section}
@@ -341,16 +345,17 @@ export default function NfcEntryPanel({
             </button>)}
           </nav>
         </> : <>
-          {staffSection === 'registration' ? <div className="nfc-context">
-            <span>Restaurante: {restaurantName || 'Restaurante autenticado'}</span>
-            <span>Cartão: {cardDisplayCode || 'Verificando...'}</span>
-          </div> : <>
+          {staffSection === 'registration' ? <div className="gx-screen-header">
             <span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
+            <h1 className="nfc-staff-title">Cliente vinculado</h1>
+            <p className="nfc-subtitle">Cartão {cardDisplayCode || 'em consulta'} · Cadastro e atendimento NFC do restaurante.</p>
+          </div> : <>
+            <div className="gx-screen-header"><span className="nfc-kicker">ATENDIMENTO GASTRONEXA</span>
             <h1 className="nfc-staff-title">
               {staffSection === 'orders' ? 'Fazer pedido' :
                 staffSection === 'payment' ? 'Pagamentos da comanda' : 'Comanda do cliente'}
             </h1>
-            <p className="nfc-subtitle">Cartão e visita identificados no restaurante da equipe autenticada.</p>
+            <p className="nfc-subtitle">Cartão e visita identificados no restaurante da equipe autenticada.</p></div>
           </>}
           <section className="nfc-staff-card" aria-label="Atendimento NFC autenticado">{children}</section>
         </>}

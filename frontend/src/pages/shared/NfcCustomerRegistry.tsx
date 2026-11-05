@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { RefreshCw, Trash2, Users } from 'lucide-react';
 import nfcRegistrationService, { type NfcCustomerRecord } from '../../Services/nfcRegistrationService';
+import { NfcArchivedCustomerRecovery } from './NfcArchivedCustomerRecovery';
+import { useAuth } from '../../contexts/authContext';
 
 const Surface = styled.section`
   background: #fff; border: 1px solid #e4e9ed; border-radius: 18px; padding: clamp(16px, 3vw, 26px);
@@ -26,9 +28,13 @@ const Surface = styled.section`
   .confirm-actions .danger { color: #fff; background: #a92e28; border-color: #a92e28; }
   .controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
   .controls div { display: flex; gap: 8px; }
+  .registry-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .registry-actions button:first-child { color: #b14e18; border-color: #efd2c1; background: #fff8f2; }
 `;
 
 export function NfcCustomerRegistry() {
+  const { user } = useAuth();
+  const canRecover = String(user?.role || '').toUpperCase() === 'ADMIN';
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [customers, setCustomers] = useState<NfcCustomerRecord[]>([]);
@@ -39,6 +45,7 @@ export function NfcCustomerRegistry() {
   const [pendingCustomer, setPendingCustomer] = useState<NfcCustomerRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [success, setSuccess] = useState('');
+  const [showRecovery, setShowRecovery] = useState(false);
   const remove = async () => {
     if (!pendingCustomer || deleting) return;
     setDeleting(true); setError(''); setSuccess('');
@@ -72,8 +79,12 @@ export function NfcCustomerRegistry() {
   return <Surface aria-label="Cadastro de clientes NFC">
     <header>
       <div><h3>Cadastro de clientes</h3><p>Registros preservados mesmo após a devolução do cartão NFC.</p></div>
-      <button type="button" onClick={() => { setLoading(true); setRevision(v => v + 1); }}><RefreshCw size={15} aria-hidden="true" /> Atualizar</button>
+      <div className="registry-actions">
+        {canRecover && <button type="button" onClick={() => setShowRecovery(value => !value)} aria-expanded={showRecovery}><RefreshCw size={15} aria-hidden="true" /> Recuperar cliente arquivado</button>}
+        <button type="button" onClick={() => { setLoading(true); setRevision(v => v + 1); }}><RefreshCw size={15} aria-hidden="true" /> Atualizar</button>
+      </div>
     </header>
+    {showRecovery && canRecover && <NfcArchivedCustomerRecovery onRecovered={() => { setLoading(true); setRevision(v => v + 1); }} />}
     <p><Users size={15} aria-hidden="true" /> {total} clientes cadastrados neste restaurante</p>
     {loading && <p role="status">Consultando cadastro...</p>}
     {error && <p role="alert">{error}</p>}

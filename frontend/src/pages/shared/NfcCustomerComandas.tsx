@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Clock3, CreditCard, FileText, ShieldAlert, X } from 'lucide-react';
 import nfcComandaService, { type NfcComanda, type NfcCustomerComandas } from '../../Services/nfcComandaService';
 import { NfcPrepareOrder } from './NfcPrepareOrder';
+import { NfcProductThumbnail } from './NfcProductThumbnail';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
 import { scanNfcCard } from './nfcWebReader';
 
@@ -179,7 +180,7 @@ export function NfcCustomerComandas({ customerId, cardId, customerName }: { cust
             <div className="pair"><span>Quitação</span><b>{dateTime(selected.paidAt)}</b></div>
           </div>
           <section className="divider"><h4><FileText size={18}/> Itens consumidos</h4>
-            {selected.items.map(item => <div className="pair line" key={item.id}><span>{item.quantity}× {item.description}<small> · {dateTime(item.createdAt)}</small></span><b>{money(item.totalCents)}</b></div>)}
+            {selected.items.map(item => <div className="pair line" key={item.id}><span style={{display:'flex',alignItems:'center',gap:9,minWidth:0}}><NfcProductThumbnail source={item.image}/><span>{item.quantity}× {item.description}<small> · {dateTime(item.createdAt)}</small></span></span><b>{money(item.totalCents)}</b></div>)}
             {!selected.items.length && <p className="info">Nenhum item lançado nesta comanda.</p>}
           </section>
           <section className="divider">

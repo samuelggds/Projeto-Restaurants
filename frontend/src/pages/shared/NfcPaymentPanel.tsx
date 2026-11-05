@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import api from '../../Services/api';
 import nfcRegistrationService from '../../Services/nfcRegistrationService';
+import { CheckCircle2, CreditCard, LockKeyhole, RotateCcw, ShieldCheck, Wallet } from 'lucide-react';
 
 type PaymentContext = {
   card: { status: 'READY' | 'ACTIVE'; displayCode: string };
@@ -14,7 +15,8 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
   token: string; displayCode: string; onReleased: (code: string) => void;
 }) {
   const [data, setData] = useState<PaymentContext | null>(null);
-  const [loading, setLoading] = useState(true);
+  // No request runs on mount: enable the first CPF validation immediately.
+  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cpf, setCpf] = useState('');
   const [verifiedCpf, setVerifiedCpf] = useState('');
@@ -56,42 +58,65 @@ export function NfcPaymentPanel({ token, displayCode, onReleased }: {
       setCpf('');
     } finally { setBusy(false); }
   };
-  return <section aria-label="Pagamentos da comanda NFC" style={{ display: 'grid', gap: 12 }}>
-    <h2>Pagamento da comanda NFC</h2>
-    <p>Cartão {displayCode}. O cliente deve informar o CPF completo para desbloquear os dados da comanda. Nenhuma segunda leitura NFC é necessária no Safari.</p>
-    {!data ? <form onSubmit={event => void verify(event)} style={{ display: 'grid', gap: 10 }}>
-      <label>CPF completo do titular (11 dígitos)
-        <input type="password" value={cpf} inputMode="numeric" autoComplete="off" minLength={11} maxLength={11}
-          onChange={event => setCpf(event.target.value.replace(/\D/gu, '').slice(0, 11))} required />
-      </label>
-      <button type="submit" disabled={loading || cpf.length !== 11}>{loading ? 'Validando titular...' : 'Verificar CPF e acessar pagamentos'}</button>
-      {error && <p role="alert">{error}</p>}
-    </form> : <>
-      {!data.comanda ? <p role="status">Nenhuma comanda vinculada a este cartão. Cadastre o cliente e abra a comanda primeiro.</p> : <>
-        <div style={{ display: 'grid', gap: 8, border: '1px solid #dce3e7', borderRadius: 12, padding: 15 }}>
-          <strong>Situação: {data.comanda.status === 'PAID' ? 'Quitada' : 'Em atendimento / pagamento pendente'}</strong>
-          <span>Total do consumo: {brl(data.comanda.totalCents)}</span>
-          <span>Pagamentos confirmados: {brl(data.comanda.paidCents)}</span>
-          <strong>Saldo a pagar: {brl(data.comanda.outstandingCents)}</strong>
+  return <section className="gx-payment" aria-label="Pagamentos da comanda NFC">
+    {!data ? <section className="gx-panel">
+      <div className="gx-status-hero">
+        <span className="gx-status-symbol"><LockKeyhole aria-hidden="true"/></span>
+        <h2>Pagamento da comanda NFC</h2>
+        <p>Cartão {displayCode}. O titular deve informar seu CPF completo para consultar saldo e pagamentos. Nenhuma nova leitura é necessária no Safari.</p>
+      </div>
+      <form onSubmit={event=>void verify(event)} className="gx-actions">
+        <label className="gx-field">CPF completo do titular (11 dígitos)
+          <input type="password" inputMode="numeric" autoComplete="off" value={cpf}
+            minLength={11} maxLength={11} onChange={event=>setCpf(event.target.value.replace(/\D/gu,'').slice(0,11))} required />
+        </label>
+        <button type="submit" className="gx-button gx-primary" disabled={loading || cpf.length!==11}>
+          <ShieldCheck aria-hidden="true"/>{loading ? 'Validando titular...' : 'Verificar CPF e acessar pagamentos'}
+        </button>
+      </form>
+      {error && <p className="gx-error" role="alert">{error}</p>}
+      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Somente o backend valida CPF, vínculo e comanda.</p>
+    </section> : <>
+      <div className="gx-inline-context"><span className="gx-avatar"><CreditCard aria-hidden="true"/></span>
+        <div><strong>Cartão {data.card.displayCode}</strong><small>Identidade verificada no restaurante autenticado</small></div>
+        <CheckCircle2 aria-hidden="true"/>
+      </div>
+      {!data.comanda ? <section className="gx-panel gx-empty"><span><Wallet aria-hidden="true"/></span>
+        <h2>Sem comanda vinculada</h2><p>Consulte o vínculo do cliente e abra uma comanda antes de registrar pagamentos.</p>
+      </section> : <>
+        <div className="gx-balance" aria-label="Saldo da comanda">
+          <div className="gx-balance-label"><span>Saldo a pagar</span><span className="gx-pill">{data.comanda.status==='PAID' ? 'Quitada' : 'Em atendimento'}</span></div>
+          <strong>{brl(data.comanda.outstandingCents)}</strong>
+          <dl><div><dt>Total consumido</dt><dd>{brl(data.comanda.totalCents)}</dd></div>
+          <div><dt>Total pago</dt><dd>{brl(data.comanda.paidCents)}</dd></div></dl>
         </div>
-        <div style={{ display: 'grid', gap: 9 }}>
-          <strong>Formas de pagamento</strong>
-          <button type="button" disabled>Pix {data.pixEnabled ? '' : '· Indisponível'}</button>
-          <button type="button" disabled>Cartão na maquininha Point {data.pointEnabled ? '' : '· Indisponível'}</button>
-          <p role="status">{data.reason}</p>
-        </div>
-        {data.comanda.outstandingCents === 0 && <form onSubmit={event => void finish(event)} style={{ display: 'grid', gap: 10 }}>
-          <p>Após confirmar a quitação integral no servidor, o cliente informa o CPF completo para desvincular o cartão. O link gravado permanece igual.</p>
-          <label>CPF completo (11 dígitos)
-            <input type="password" value={cpf} inputMode="numeric" autoComplete="off" minLength={11} maxLength={11}
-              onChange={event => setCpf(event.target.value.replace(/\D/gu, '').slice(0, 11))} required />
-          </label>
-          <button type="submit" disabled={busy || cpf.length !== 11}>{busy ? 'Conferindo...' : 'Verificar quitação e liberar cartão'}</button>
-        </form>}
+        <section className="gx-panel">
+          <h2>Formas de pagamento</h2>
+          <p className="gx-help">Somente pagamentos confirmados pelo provedor são considerados quitados.</p>
+          <button type="button" className="gx-button" disabled><Wallet aria-hidden="true"/> Pix {data.pixEnabled ? '· Aguardando integração de cobrança' : '· Indisponível'}</button>
+          <button type="button" className="gx-button" disabled><CreditCard aria-hidden="true"/> Maquininha Point {data.pointEnabled ? '· Aguardando integração de cobrança' : '· Indisponível'}</button>
+          <p className="gx-line-note">{data.reason}</p>
+        </section>
+        {data.comanda.outstandingCents===0 && <section className="gx-panel">
+          <h2>Conferir quitação e liberar cartão</h2>
+          <p className="gx-help">O servidor verifica todas as pendências. A consulta do CPF não libera o cartão automaticamente.</p>
+          <form className="gx-actions" onSubmit={event=>void finish(event)}>
+            <label className="gx-field">Confirmar CPF completo para devolução
+              <input type="password" inputMode="numeric" autoComplete="off" value={cpf} minLength={11} maxLength={11}
+                onChange={event=>setCpf(event.target.value.replace(/\D/gu,'').slice(0,11))} required/>
+            </label>
+            <button type="submit" className="gx-button gx-primary" disabled={busy || cpf.length!==11}>
+              <ShieldCheck aria-hidden="true"/>{busy?'Conferindo...' : 'Verificar quitação e liberar cartão'}
+            </button>
+          </form>
+        </section>}
       </>}
-      <button type="button" onClick={() => { setLoading(true); void load(verifiedCpf).catch(() => { setData(null); setVerifiedCpf(''); setError('Falha na verificação. Informe o CPF novamente.'); }).finally(() => setLoading(false)); }} disabled={loading || busy}>Atualizar saldo no servidor</button>
-      {message && <p role="status">{message}</p>}
-      {error && <p role="alert">{error}</p>}
+      <button type="button" className="gx-button" disabled={loading || busy} onClick={()=>{
+        setLoading(true);void load(verifiedCpf).catch(()=>{setData(null);setVerifiedCpf('');setError('Falha na verificação. Informe o CPF novamente.');}).finally(()=>setLoading(false));
+      }}><RotateCcw aria-hidden="true"/>{loading ? 'Atualizando...' : 'Atualizar saldo no servidor'}</button>
+      {message && <p role="status" className="gx-pill">{message}</p>}
+      {error && <p role="alert" className="gx-error">{error}</p>}
     </>}
+    <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Informações financeiras verificadas pelo servidor, sem cobrança simulada.</p>
   </section>;
 }

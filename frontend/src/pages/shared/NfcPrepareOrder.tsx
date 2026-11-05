@@ -1,28 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import productsService from '../../Services/productsService';
+import { useAuth } from '../../contexts/authContext';
 import nfcOrderChallengeService from '../../Services/nfcOrderChallengeService';
 import { scanNfcCard } from './nfcWebReader';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
+import { NfcProductThumbnail } from './NfcProductThumbnail';
+import { CheckCircle2, Clock3, ChefHat, Minus, Plus, RotateCcw, Search, ShoppingBag, ShieldCheck } from 'lucide-react';
 
-type Item = { id: number; name: string; price: number; stock: number | null };
+type Item = { id: number; name: string; price: number; stock: number | null; image: string | null; description: string; category: string };
 type Step = 'DRAFT' | 'VERIFY' | 'SENDING' | 'SUCCESS';
 
 export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; cardToken?: string }) {
+  const { user } = useAuth();
+  const tenantId = Number(user?.restaurantId ?? user?.restaurant?.id ?? 0);
   const [products, setProducts] = useState<Item[]>([]);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<Step>('DRAFT');
+  const draftKeyRef = useRef<string | null>(null);
   const [challengeId, setChallengeId] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [token, setToken] = useState(cardToken || '');
   const [prefix, setPrefix] = useState('');
   const [orderId, setOrderId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('Todos');
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [observation, setObservation] = useState('');
   useEffect(() => {
     let active = true;
-    void productsService.listProducts().then((data: unknown) => {
+    if (!Number.isSafeInteger(tenantId) || tenantId <= 0) {
+      return () => { active = false; };
+    }
+    void productsService.listProducts(tenantId).then((data: unknown) => {
       if (!active) return;
       setProducts((Array.isArray(data) ? data : []).flatMap((item: unknown) => {
         if (!item || typeof item !== 'object') return [];
@@ -30,27 +41,35 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
         return Number.isSafeInteger(product.id) && product.active !== false ? [{
           id: Number(product.id), name: String(product.name || ''), price: Number(product.price) || 0,
           stock: product.stock == null ? null : Number(product.stock),
+          image: typeof product.image === 'string' ? product.image : null,
+          description: String(product.description || ''), category: String((product.category as {name?:string}|null)?.name || 'Outros'),
         }] : [];
       }));
-    }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); });
+    }).catch(() => { if (active) setError('Não foi possível carregar o cardápio.'); }).finally(() => { if (active) setLoadingProducts(false); });
     return () => { active = false; };
-  }, []);
+  }, [tenantId]);
   const selected = products.filter(p => (quantities[p.id] || 0) > 0);
-  const filtered = products.filter(p => p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
+  const categories = ['Todos', ...new Set(products.map(p => p.category))];
+  const filtered = products.filter(p => (category === 'Todos' || p.category === category) && p.name.toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR')));
   const total = selected.reduce((sum, p) => sum + Math.round(p.price * 100) * quantities[p.id], 0);
   const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const reset = () => {
     if (busy || step === 'SENDING') return;
-    setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch('');
+    setQuantities({}); setToken(cardToken || ''); setPrefix(''); setObservation(''); setSearch(''); setCategory('Todos');
+    draftKeyRef.current = null;
     setChallengeId(''); setExpiresAt(''); setOrderId(null); setError(''); setStep('DRAFT');
   };
   const start = async () => {
     if (!selected.length || busy) return;
     setError(''); setBusy(true);
     try {
+      // Keep the same idempotency key if the network fails after the server
+      // has already persisted this draft's challenge.
+      const key = draftKeyRef.current || crypto.randomUUID().replace(/-/g, '');
+      draftKeyRef.current = key;
       const challenge = await nfcOrderChallengeService.create(comandaId,
         selected.map(p => ({ productId: p.id, quantity: quantities[p.id] })),
-        crypto.randomUUID().replace(/-/g, ''), observation.trim() || undefined);
+        key, observation.trim() || undefined);
       setChallengeId(challenge.challengeId);
       setExpiresAt(challenge.expiresAt);
       setToken(cardToken || '');
@@ -65,17 +84,30 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     catch { setError('Não foi possível ler o cartão neste aparelho. No iPhone, aproxime o cartão e abra a página NFC no navegador.'); }
     finally { setBusy(false); }
   };
+  const serverError = (cause: unknown, fallback: string) => {
+    const response = cause as { response?: { data?: { error?: string } } };
+    return response.response?.data?.error || fallback;
+  };
   const confirm = async () => {
     if (!token || !/^[0-9]{3}$/.test(prefix) || !challengeId || busy) return;
     setError(''); setBusy(true);
     try {
-      await nfcOrderChallengeService.verify(challengeId, token, prefix);
-      setStep('SENDING');
-      const created = await nfcOrderChallengeService.finalize(challengeId);
-      setOrderId(created.orderId); setPrefix(''); setStep('SUCCESS');
-    } catch {
+      const checked = await nfcOrderChallengeService.verify(challengeId, token, prefix);
+      if (checked.verified !== true) throw new Error('Confirmação não recebida do backend.');
+    } catch (cause) {
       setPrefix('');
-      setError('Confirmação não concluída. Confira o cartão e os três dígitos. Se a identidade já foi validada, confira o status do pedido antes de tentar novamente.');
+      setError(serverError(cause, 'O servidor não confirmou o cartão e os dígitos do CPF. Confira o vínculo e tente novamente.'));
+      setBusy(false);
+      return;
+    }
+    // Once verified, never re-send CPF: the existing idempotent challenge
+    // is the only allowed route for finalizing this exact order.
+    setPrefix(''); setStep('SENDING');
+    try {
+      const created = await nfcOrderChallengeService.finalize(challengeId);
+      setOrderId(created.orderId); setStep('SUCCESS');
+    } catch (cause) {
+      setError(serverError(cause, 'Identidade confirmada, mas o pedido não foi registrado. Confira o resultado antes de tentar novamente.'));
     } finally { setBusy(false); }
   };
   const retrySend = async () => {
@@ -84,48 +116,71 @@ export function NfcPrepareOrder({ comandaId, cardToken }: { comandaId: string; c
     try {
       const created = await nfcOrderChallengeService.finalize(challengeId);
       setOrderId(created.orderId); setStep('SUCCESS');
-    } catch { setError('Ainda não foi possível registrar o pedido. Nenhum segundo pedido será criado com esta confirmação.'); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      setError(serverError(cause, 'Não foi possível concluir este pedido. Nenhuma nova confirmação será criada.'));
+    } finally { setBusy(false); }
   };
   return <section aria-label="Pedido por comanda NFC" style={{ display: 'grid', gap: 12 }}>
     <h4>Cardápio do restaurante · Pedido NFC</h4>
     {step === 'DRAFT' && <>
-      <p>O garçom ou atendente seleciona o pedido. O cliente confirma com os três primeiros dígitos do CPF; quando o cartão já abriu esta página, não é necessária outra aproximação.</p>
-      <label>Buscar no cardápio<input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto" autoComplete="off" /></label>
-      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-        {filtered.map(p => <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #e9eef1' }}>
-          <span>{p.name} · {p.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-          <input type="number" aria-label={`Quantidade de ${p.name}`} min="0" max="100" style={{ width: 68 }} value={quantities[p.id] || 0}
-            onChange={e => setQuantities(current => ({ ...current, [p.id]: Math.min(100, Math.max(0, Number(e.target.value) || 0)) }))} />
-        </div>)}
+      <div className="gx-inline-context"><span className="gx-avatar"><ShoppingBag aria-hidden="true"/></span><div><strong>Comanda identificada</strong><small>#{comandaId.slice(0,8).toUpperCase()} · restaurante autenticado</small></div><CheckCircle2 aria-hidden="true"/></div>
+      <label className="gx-search" aria-label="Buscar produtos"><Search aria-hidden="true"/><input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Buscar no cardápio..."/></label>
+      <div className="gx-categories" aria-label="Categorias do cardápio">
+        {categories.map(name=><button type="button" key={name} aria-pressed={category===name} onClick={()=>setCategory(name)}>{name}</button>)}
       </div>
-      <section aria-label="Sacola do cliente" style={{display:'grid',gap:9,border:'1px solid #dce3e7',borderRadius:12,padding:15}}>
-        <strong>Sacola · {selected.reduce((a,p)=>a+quantities[p.id],0)} itens</strong>
-        {selected.length===0 ? <p>Selecione os produtos do cliente.</p> : selected.map(p => <div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:10}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
-        <label>Observação geral do pedido (opcional)<input value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato" /></label>
-        <strong>Total deste pedido: {brl(total)}</strong>
-        <small>O valor definitivo é calculado novamente no backend. Observações individuais e adicionais por produto exigem suporte específico da API.</small>
+      <div className="gx-list-meta"><span>{filtered.length} produtos</span><span>Cardápio do restaurante</span></div>
+      {(!Number.isSafeInteger(tenantId) || tenantId <= 0) && <p role="alert" className="gx-error">Restaurante da sessão não identificado. Entre novamente como funcionário.</p>}
+      {loadingProducts && tenantId > 0 && <p role="status">Carregando produtos...</p>}
+      {!loadingProducts && filtered.length===0 && <div className="gx-empty"><span><Search aria-hidden="true"/></span><h3>Nenhum produto encontrado</h3><p>Pesquise novamente ou escolha outra categoria.</p></div>}
+      <div className="gx-products">{filtered.map(item=><article className="gx-product" key={item.id}>
+        <NfcProductThumbnail className="gx-photo" source={item.image}/>
+        <div className="gx-product-body"><h3>{item.name}</h3><p>{item.description}</p>
+          <div className="gx-product-bottom"><strong className="gx-price">{brl(Math.round(item.price*100))}</strong>
+            <div className="gx-quantity">
+              <button type="button" aria-label={`Diminuir quantidade de ${item.name}`} disabled={(quantities[item.id]||0)===0} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.max(0,(q[item.id]||0)-1)}))}><Minus aria-hidden="true"/></button>
+              <output aria-label={`Quantidade de ${item.name}`}>{quantities[item.id]||0}</output>
+              <button type="button" aria-label={`Aumentar quantidade de ${item.name}`} disabled={(quantities[item.id]||0)>=100||(item.stock!==null&&(quantities[item.id]||0)>=item.stock)} onClick={()=>setQuantities(q=>({...q,[item.id]:Math.min(100,(q[item.id]||0)+1)}))}><Plus aria-hidden="true"/></button>
+            </div>
+          </div>
+        </div>
+      </article>)}</div>
+      <section className="gx-panel gx-cart" aria-label="Sacola do cliente">
+        <div className="gx-section-heading"><h2>Sacola do cliente</h2><span className="gx-count">{selected.reduce((a,p)=>a+quantities[p.id],0)} itens</span></div>
+        {selected.length===0 ? <div className="gx-cart-empty"><ShoppingBag aria-hidden="true"/> Selecione os produtos do cliente.</div> : selected.map(p=><div className="gx-mini-line" key={p.id}><NfcProductThumbnail source={p.image}/><span>{quantities[p.id]}× {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
+        <label className="gx-field gx-note-field">Observação geral do pedido (opcional)<textarea value={observation} maxLength={400} onChange={e=>setObservation(e.target.value)} placeholder="Ex.: entregar sem contato"/></label>
+        <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
+        <button type="button" className="gx-button gx-primary" disabled={busy||!selected.length} onClick={()=>void start()}>Revisar pedido</button>
+        <p className="gx-mini-caption">Valor definitivo validado pelo backend. Nenhum pagamento é realizado nesta tela.</p>
       </section>
-      <button type="button" disabled={busy || !selected.length} onClick={() => void start()}>Revisar e confirmar pedido NFC</button>
     </>}
-    {step === 'VERIFY' && <div style={{ display: 'grid', gap: 12 }}>
-      <h4>Confirmar pedido na comanda NFC</h4>
-      <p>Pedido preparado para esta comanda. Confira os itens e confirme a identidade do titular antes de enviar. Expira às {new Date(expiresAt).toLocaleTimeString('pt-BR')}.</p>
-      <div style={{border:'1px solid #dce3e7',borderRadius:12,padding:14,display:'grid',gap:8}}><strong>Resumo do pedido</strong>{selected.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',gap:12}}><span>{quantities[p.id]}x {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}{observation.trim()&&<small>Observação geral: {observation.trim()}</small>}<strong>Total estimado: {brl(total)}</strong><small>Comanda: {comandaId.slice(0,8).toUpperCase()}. O servidor valida cartão, vínculo e valores.</small></div>
-      {!cardToken && <button type="button" disabled={busy} onClick={() => void readCard()}>{token ? 'Cartão identificado · Ler novamente' : 'Aproximar cartão NFC (Android)'}</button>}
-      {cardToken && <p role="status">Cartão recebido pelo link NFC. Confirme com os três dígitos do CPF do titular.</p>}
-      {!cardToken && <p>Em iPhones, use o link gravado no cartão NFC para abrir o atendimento.</p>}
-        <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy} />
-      <button type="button" disabled={busy || !token || prefix.length !== 3} onClick={() => void confirm()}>
-        Confirmar identidade e enviar à cozinha como não pago
-      </button>
-      <button type="button" disabled={busy} onClick={reset}>Cancelar e refazer sacola</button>
-    </div>}
-    {step === 'SENDING' && <div role="status">
-      <p>Identidade confirmada. Registrando pedido e enviando à cozinha...</p>
-      <button type="button" disabled={busy} onClick={() => void retrySend()}>Verificar / reenviar com segurança</button>
-    </div>}
-    {step === 'SUCCESS' && <div role="status" style={{display:'grid',gap:12}}><p><strong>Pedido #{orderId} registrado — NÃO PAGO.</strong> Vinculado à comanda e encaminhado à operação conforme o backend.</p><button type="button" onClick={reset}>Novo pedido para esta comanda</button></div>}
+    {step === 'VERIFY' && <section className="gx-panel" aria-label="Revisar e confirmar pedido">
+      <div className="gx-status-hero"><span className="gx-status-symbol"><ShieldCheck aria-hidden="true"/></span><h2>Confirmar pedido do cliente</h2>
+        <p>Confira os itens. O titular confirma com os três primeiros dígitos do CPF. Expira às {new Date(expiresAt).toLocaleTimeString('pt-BR')}.</p></div>
+      {selected.map(p=><div className="gx-mini-line" key={p.id}><NfcProductThumbnail source={p.image}/><span>{quantities[p.id]}× {p.name}</span><strong>{brl(Math.round(p.price*100)*quantities[p.id])}</strong></div>)}
+      <div className="gx-total-row"><span>Total estimado</span><strong>{brl(total)}</strong></div>
+      {observation.trim() && <p className="gx-help">Observação: {observation.trim()}</p>}
+      {!cardToken && <button type="button" className="gx-button" disabled={busy} onClick={()=>void readCard()}>{token ? 'Ler cartão novamente' : 'Aproximar cartão NFC (Android)'}</button>}
+      <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Cartão {cardToken ? 'identificado pelo link NFC' : 'necessário para confirmar'}. O servidor confere o titular.</p>
+      <NfcCpfThreeDigits value={prefix} onChange={setPrefix} disabled={busy}/>
+      <button type="button" className="gx-button gx-primary" disabled={busy||!token||prefix.length!==3} onClick={()=>void confirm()}>Confirmar identidade e enviar à cozinha</button>
+      <button type="button" className="gx-button" disabled={busy} onClick={reset}>Editar a sacola</button>
+    </section>}
+    {step === 'SENDING' && <section className="gx-panel" role="status" aria-label="Confirmação do pedido">
+      <div className="gx-status-hero"><span className="gx-status-symbol"><Clock3 aria-hidden="true"/></span>
+        <h2>{busy ? 'Registrando seu pedido' : 'Confirmação pendente'}</h2><p>A identidade foi validada, mas o pedido só é considerado registrado depois de resposta do servidor.</p></div>
+      <ul className="gx-steps">
+        <li><span className="gx-step-icon"><CheckCircle2 aria-hidden="true"/></span><div><strong>Identidade confirmada</strong><small>O backend validou o cartão e os dígitos.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><RotateCcw aria-hidden="true"/></span><div><strong>Registro {busy ? 'em andamento' : 'a confirmar'}</strong><small>Retomar a mesma tentativa, sem duplicação.</small></div></li>
+        <li><span className="gx-step-icon gx-wait"><ChefHat aria-hidden="true"/></span><div><strong>Cozinha</strong><small>Aguardando registro confirmado.</small></div></li>
+      </ul>
+      <button type="button" className="gx-button gx-primary" disabled={busy} onClick={()=>void retrySend()}><RotateCcw aria-hidden="true"/> Verificar / reenviar com segurança</button>
+      <p className="gx-mini-caption">Confirmação do pedido não significa pagamento efetuado.</p>
+    </section>}
+    {step === 'SUCCESS' && <section className="gx-panel" role="status"><div className="gx-status-hero gx-success">
+      <span className="gx-status-symbol"><CheckCircle2 aria-hidden="true"/></span><h2>Pedido registrado</h2>
+      <p>Pedido #{orderId} confirmado pelo backend e encaminhado ao restaurante como NÃO PAGO.</p></div>
+      <button type="button" className="gx-button gx-primary" onClick={reset}>Fazer novo pedido</button>
+    </section>}
     {error && <p role="alert" style={{ color: '#9e2626' }}>{error}</p>}
   </section>;
 }
