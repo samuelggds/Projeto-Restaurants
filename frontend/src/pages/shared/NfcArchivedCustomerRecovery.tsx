@@ -20,14 +20,17 @@ const Panel = styled.section`
     border: 1px solid #ccd5dc; border-radius: 10px; background: #fff; color: #26313b;
     font: inherit; font-size: 16px;
   }
-  button {
+  /* Keep recovery actions readable inside parent surfaces with generic button styles. */
+  && button {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
-    border-radius: 10px; border: 1px solid #c85820; background: #c85820; color: #fff;
+    border-radius: 10px; border: 1px solid #b94b17; background: #b94b17; color: #fff;
     padding: 10px 14px; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
+    transition: background-color .18s ease, border-color .18s ease, opacity .18s ease;
   }
-  button svg { width: 17px; height: 17px; }
-  button:disabled { opacity: .55; cursor: not-allowed; }
-  button:focus-visible, input:focus-visible { outline: 3px solid #f2b48d; outline-offset: 2px; }
+  && button svg { width: 17px; height: 17px; flex: none; color: currentColor; }
+  && button:hover:not(:disabled) { background: #92370f; border-color: #92370f; }
+  && button:disabled { background: #8f9aa3; border-color: #8f9aa3; color: #fff; opacity: .8; cursor: not-allowed; }
+  && button:focus-visible, input:focus-visible { outline: 3px solid #f2b48d; outline-offset: 2px; }
   .result { display: grid; gap: 11px; border: 1px solid #e8d4c6; border-radius: 12px; background: #fff; padding: 15px; }
   .result strong { font-size: 14px; }
   .confirm { display: flex; align-items: flex-start; gap: 9px; line-height: 1.6; font-weight: 600; font-size: 12px; }

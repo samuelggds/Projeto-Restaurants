@@ -30,14 +30,47 @@ const Frame = styled.section`
 const Overlay = styled.div`
   position: fixed; inset: 0; z-index: 10000; background: rgba(8, 20, 34, .68);
   display: flex; align-items: center; justify-content: center; padding: 16px;
-  .dialog { width: min(620px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto;
-    border-radius: 20px; background: #fff; box-shadow: 0 20px 75px #0005; color: #1b2730; }
-  .header { padding: 22px 24px; background: linear-gradient(125deg, #202833, #354153); color: #fff; display: flex;
-    justify-content: space-between; align-items: start; gap: 12px; }
-  .header h3 { font-size: 21px; margin: 6px 0; }
+  .dialog {
+    width: min(940px, 100%); max-height: calc(100dvh - 32px); min-width: 0;
+    display: flex; flex-direction: column; overflow: hidden;
+    border-radius: 20px; background: #fff; box-shadow: 0 20px 75px #0005;
+    color: #1b2730; color-scheme: light;
+  }
+  .header {
+    padding: 19px 24px; background: linear-gradient(125deg, #202833, #354153); color: #fff;
+    display: flex; flex: none; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .header > div { min-width: 0; }
+  .header small { color: #e4e9ed; font-size: 11px; letter-spacing: .07em; }
+  .header h3 { font-size: 21px; margin: 6px 0; overflow-wrap: anywhere; color: #fff; }
   .header p { font-size: 13px; color: #dbe2e9; margin: 0; }
-  .close { border: 1px solid #fff5; color: #fff; background: #ffffff19; border-radius: 9px; padding: 8px; cursor: pointer; }
-  .content { padding: 20px 24px; display: grid; gap: 17px; }
+  .close {
+    display: inline-grid; place-items: center; flex: none; min-width: 40px; min-height: 40px;
+    border: 1px solid #ffffff65; color: #fff; background: #ffffff19;
+    border-radius: 10px; padding: 8px; cursor: pointer;
+  }
+  .close:hover { background: #ffffff30; }
+  .content {
+    padding: 22px 24px; display: grid; gap: 20px; overflow-y: auto;
+    overscroll-behavior: contain; min-height: 0; min-width: 0;
+  }
+  .content > *, .divider { min-width: 0; }
+  .divider > h4 { color: #2a3741; }
+  .pair { align-items: baseline; }
+  .pair b { text-align: right; overflow-wrap: anywhere; }
+  .line { align-items: center; }
+  .line > span { min-width: 0; overflow-wrap: anywhere; }
+  .line small { color: #74808a; display: block; font-size: 11px; }
+  .dialog .action:focus-visible, .dialog .close:focus-visible { outline: 3px solid #f3a87d; outline-offset: 2px; }
+  @media (max-width: 650px) {
+    padding: 8px;
+    .dialog { width: 100%; max-height: calc(100dvh - 16px); border-radius: 15px; }
+    .header { padding: 15px; }
+    .header h3 { font-size: 19px; }
+    .content { padding: 15px; gap: 16px; }
+    .pair { font-size: 12px; }
+    .total { font-size: 16px; }
+  }
   .pair { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13px; }
   .pair span { color: #63707a; }
   .divider { border-top: 1px solid #e9eef2; padding-top: 16px; }
