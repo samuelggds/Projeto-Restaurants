@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
-import { CheckCircle2, ChevronDown, ConciergeBell, CreditCard, Eye, RefreshCw, ShieldCheck, Store, UtensilsCrossed } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2, ChevronDown, ConciergeBell, CreditCard, Eye, RefreshCw, ShieldCheck, Store, UtensilsCrossed } from 'lucide-react';
 import styled from 'styled-components';
 import api from '../../Services/api';
 import NfcCpfThreeDigits from './NfcCpfThreeDigits';
@@ -32,6 +32,10 @@ const Layout = styled.main`
   .shell { max-width: 590px; margin: 0 auto; }
   .top, .row, .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .top { margin-bottom: 24px; }
+  .back-button { display:inline-flex; align-items:center; gap:7px; margin:0 0 16px; padding:10px 0;
+    color:var(--muted); background:transparent; border:0; font-size:13px; cursor:pointer; }
+  .back-button:hover { color:var(--orange); }
+  .back-button:focus-visible { outline:2px solid var(--orange); outline-offset:3px; border-radius:4px; }
   .brand { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 22px;
     font-weight: 800; letter-spacing: -.05em; }
   .brand span { color: var(--orange); }
@@ -107,6 +111,7 @@ const Layout = styled.main`
 
 export default function NfcCustomerReadOnlyPage() {
   const { token = '' } = useParams();
+  const navigate = useNavigate();
   const [cpf, setCpf] = useState('');
   const [session, setSession] = useState('');
   const [visit, setVisit] = useState<CustomerVisit | null>(null);
@@ -164,6 +169,10 @@ export default function NfcCustomerReadOnlyPage() {
 
   const orders = visit ? [...visit.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
   return <Layout><div className="shell">
+    <button type="button" className="back-button" onClick={() => {
+      if (window.history.state?.idx > 0) navigate(-1);
+      else navigate("/", { replace: true });
+    }}><ArrowLeft size={16} aria-hidden="true" /> Voltar</button>
     <header className="top"><div className="brand"><img src="/gastronexa-logo.svg" alt="" />Gastro<span>Nexa</span></div>
       <span className="live">● Atualização automática</span></header>
     {!visit && <><section className="card access">
