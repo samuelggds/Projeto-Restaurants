@@ -58,7 +58,7 @@ export function NfcStaffComanda({ token }: { token: string }) {
           {visit.orders.length===0 && visit.items.length===0 ? <div className="gx-empty">
             <span><UtensilsCrossed aria-hidden="true"/></span><h2>Nenhum pedido registrado</h2><p>Os pedidos feitos durante o atendimento aparecerão aqui.</p>
           </div> : <>
-            {visit.orders.map((order, index) => {
+            {visit.orders.map(order => {
               const expanded = (expandedOrderId ?? visit.orders[0]?.id) === order.id;
               const orderItems = visit.items.filter(item => item.orderId === order.id);
               return <div className="gx-order-card gx-order-accordion" key={order.id}>
