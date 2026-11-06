@@ -26,6 +26,7 @@ const Layout = styled.main`
   --paper: #f7f8fa; --surface: #fff; --ink: #232b37; --muted: #64748b;
   --line: #e2e6ec; --soft: #f0f2f6; --orange: #c34610; --orange-bg: #fff0e8;
   --green: #19824b; --green-bg: #e8f7ef;
+  color-scheme: light;
   min-height: 100dvh; padding: 22px 16px 55px; color: var(--ink); background: var(--paper);
   * { box-sizing: border-box; }
   .shell { max-width: 590px; margin: 0 auto; }
@@ -98,11 +99,6 @@ const Layout = styled.main`
   .access .access-fields { background: var(--soft); border-radius: 10px; padding: 18px 12px; width: 100%; display: grid; justify-items: center; gap: 9px; }
   .access .hint { font-size: 11px; color: var(--muted); }
   .access .readonly { width: fit-content; margin: 18px auto 0; }
-  @media(prefers-color-scheme:dark) {
-    --paper: #151a20; --surface: #202731; --ink: #f1f4f8; --muted: #b2bdca;
-    --line: #3c4552; --soft: #2b3441; --orange: #ff9b69; --orange-bg: #3b2a23;
-    --green: #8ad9a8; --green-bg: #243b2f;
-  }
   @media(max-width:360px) {
     .card { padding: 15px; } .order summary { padding: 13px; gap: 7px; }
     .readonly { font-size: 10px; } .brand { font-size: 19px; } .visit { gap: 9px; }
