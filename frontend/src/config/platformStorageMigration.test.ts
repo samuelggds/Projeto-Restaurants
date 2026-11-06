@@ -41,9 +41,7 @@ describe('identidade GastroNexa e preferências existentes', () => {
     expect(getBrandIdentity()).toEqual({ name: 'GastroNexa', logoUrl: '/gastronexa-logo.svg' });
     applyRestaurantBrowserBranding(document, '', 'RESTAURANTE');
     expect(document.title).toBe('GastroNexa');
-    expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe(
-      '/gastronexa-logo.svg',
-    );
+    expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe('/favicon.png');
   });
   it('atualiza referências gravadas da logo com fundo sem substituir marcas personalizadas', () => {
     localStorage.setItem(

@@ -39,6 +39,24 @@ export function getRestaurantCategoryFavicon(value: unknown) {
   return `data:image/svg+xml,${encodeURIComponent(buildCategorySvg(category))}`;
 }
 
+function getOrCreateFavicon(targetDocument: Document) {
+  let favicon = targetDocument.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (!favicon) {
+    favicon = targetDocument.createElement('link');
+    favicon.rel = 'icon';
+    targetDocument.head.appendChild(favicon);
+  }
+
+  return favicon;
+}
+
+export function applyPlatformBrowserFavicon(targetDocument: Document) {
+  const favicon = getOrCreateFavicon(targetDocument);
+  favicon.type = 'image/png';
+  favicon.setAttribute('sizes', '96x96');
+  favicon.href = '/favicon.png';
+}
+
 export function applyRestaurantBrowserBranding(
   targetDocument: Document,
   restaurantName: unknown,
@@ -47,18 +65,15 @@ export function applyRestaurantBrowserBranding(
   const title = normalizePlatformName(String(restaurantName || '').trim()) || DEFAULT_BROWSER_TITLE;
   targetDocument.title = title;
 
-  let favicon = targetDocument.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-  if (!favicon) {
-    favicon = targetDocument.createElement('link');
-    favicon.rel = 'icon';
-    targetDocument.head.appendChild(favicon);
+  if (title === DEFAULT_BROWSER_TITLE) {
+    applyPlatformBrowserFavicon(targetDocument);
+    return;
   }
 
+  const favicon = getOrCreateFavicon(targetDocument);
   favicon.type = 'image/svg+xml';
-  favicon.href =
-    title === DEFAULT_BROWSER_TITLE
-      ? '/gastronexa-logo.svg'
-      : getRestaurantCategoryFavicon(category);
+  favicon.setAttribute('sizes', 'any');
+  favicon.href = getRestaurantCategoryFavicon(category);
 }
 
 export function notifyRestaurantBrowserBrandingUpdated() {

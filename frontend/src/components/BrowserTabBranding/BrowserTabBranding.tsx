@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import restaurantSettingsService from '../../Services/restaurantSettingsService';
 import { useAuth } from '../../contexts/authContext';
 import {
+  applyPlatformBrowserFavicon,
   applyRestaurantBrowserBranding,
   DEFAULT_BROWSER_TITLE,
   RESTAURANT_BROWSER_BRANDING_UPDATED_EVENT,
@@ -128,12 +129,7 @@ function restaurantReferenceFromLocation(pathname: string, search: string) {
 
 function applyMarketingBrowserBranding(_pathname: string) {
   document.title = 'GastroNexa | Gestão completa para restaurantes';
-
-  const favicon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
-  if (favicon) {
-    favicon.type = 'image/svg+xml';
-    favicon.href = '/gastronexa-logo.svg';
-  }
+  applyPlatformBrowserFavicon(document);
 }
 
 export default function BrowserTabBranding() {
