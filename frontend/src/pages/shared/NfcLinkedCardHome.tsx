@@ -9,7 +9,7 @@ type CardDetails = { card: { displayCode: string; status: string };
     totalCents: number; paidCents: number; outstandingCents: number } | null };
 
 export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpenComanda,
-  hasUnsettledComanda, needsCardReturn, busy, error, onOpenComanda, onOrder, onConsult,
+  hasUnsettledComanda, needsCardReturn, busy, onOpenComanda, onOrder, onConsult,
   onPendingOrder, onReturn }: {
   token: string; code: string; customerName?: string | null; comandaId: string | null;
   canOpenComanda?: boolean; hasUnsettledComanda?: boolean; needsCardReturn?: boolean;
