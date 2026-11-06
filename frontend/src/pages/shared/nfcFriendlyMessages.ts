@@ -31,6 +31,8 @@ export function nfcFriendlyError(
     return 'Este cadastro está arquivado. Peça ao administrador para recuperá-lo.';
   if (/cart[aã]o.*(revogad|n[aã]o encontrad|inv[aá]lid|n[aã]o est[aá] ativ)/i.test(raw))
     return 'Não foi possível identificar este cartão. Confira com a equipe do restaurante.';
+  if (/comanda.*(n[aã]o est[aá].*(quitad|paga)|n[aã]o.*totalmente quitad)|saldo.*(pendente|em aberto)/i.test(raw))
+    return 'Esta comanda ainda não está quitada. Confira o saldo pendente e confirme o pagamento antes de liberar o cartão.';
   if (/comanda.*(pend[eê]n|vencid)|pagamento.*n[aã]o confirmad|quitação.*pendente/i.test(raw))
     return 'Há uma pendência na comanda. Confira os pagamentos antes de continuar.';
   if (/n[aã]o possui acesso|sem permiss[aã]o|somente o administrador/i.test(raw))
