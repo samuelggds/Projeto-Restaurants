@@ -13,6 +13,7 @@ const Shell = styled.main`
   --nfc-muted: #67717f;
   --nfc-border: #e4e7eb;
   min-height: 100dvh;
+  color-scheme: light;
   background: #fafafa;
   color: var(--nfc-text);
   padding: 24px 15px 42px;
@@ -92,14 +93,6 @@ const Shell = styled.main`
     border-radius: 10px; color: white; text-decoration: none; background: #ce5118; font-weight: 650; }
   .nfc-login p { font-size: 13px; line-height: 1.5; color: var(--nfc-muted); }
   .nfc-staff-card .nfc-inline-muted { color: var(--nfc-muted); }
-  @media (prefers-color-scheme: dark) {
-    &.staff { background: #14191f; --nfc-text: #f3f5f7; --nfc-muted: #b4bdc9; --nfc-border: #394450; }
-    &.staff .nfc-tile, &.staff .nfc-staff-card, &.staff .nfc-login { background: #202832; }
-    &.staff .nfc-tile .nfc-tile-icon { background: #3d2c25; color: #ff9863; }
-    &.staff .nfc-staff-tag { background: #153327; border-color: #294d3a; color: #8be6ae; }
-    &.staff .nfc-staff-card input:not([type=checkbox]),
-    &.staff .nfc-staff-card select, &.staff .nfc-staff-card textarea { background: #212b34; color: white; }
-  }
   @media (max-width: 350px) {
     padding: 16px 10px 35px;
     .nfc-staff-grid { gap: 8px; }
@@ -110,11 +103,11 @@ const Shell = styled.main`
   }
   /* Same envelope, brand spacing and form frame used in the supplied NFC ZIP. */
   &.staff {
-    --nfc-orange: light-dark(#b94011, #ff9b6b);
-    --nfc-text: light-dark(#232b35, #f1f4f8);
-    --nfc-muted: light-dark(#64707e, #b3bdca);
-    --nfc-border: light-dark(#e4e8ee, #3c4552);
-    background: light-dark(#f7f8fa, #151a20);
+    --nfc-orange: #b94011;
+    --nfc-text: #232b35;
+    --nfc-muted: #64707e;
+    --nfc-border: #e4e8ee;
+    background: #f7f8fa;
     color: var(--nfc-text);
     font: 400 14px/1.5 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     padding: 25px 20px 28px;
@@ -151,8 +144,8 @@ const Shell = styled.main`
     gap: 5px;
     font-size: 11px;
     font-weight: 400;
-    background: light-dark(#edf8f0, #243c30);
-    color: light-dark(#267345, #8ad9a8);
+    background: #edf8f0;
+    color: #267345;
     border: 0;
     border-radius: 6px;
     padding: 6px 8px;
@@ -177,7 +170,7 @@ const Shell = styled.main`
     align-items: flex-start;
     min-height: 154px;
     padding: 22px 20px;
-    background: light-dark(#fff, #202731);
+    background: #fff;
     color: var(--nfc-text);
     border: 1px solid var(--nfc-border);
     border-radius: 13px;
@@ -187,7 +180,7 @@ const Shell = styled.main`
     width: 41px;
     height: 41px;
     border-radius: 10px;
-    background: light-dark(#fff2e8, #3b2b23);
+    background: #fff2e8;
     color: var(--nfc-orange);
     margin-bottom: 4px;
   }
@@ -201,10 +194,10 @@ const Shell = styled.main`
   &.registration .nfc-staff-card {
     display: block;
     margin: 0;
-    border: 1px solid light-dark(#e5e9ef, #3b4350);
+    border: 1px solid #e5e9ef;
     border-radius: 15px;
     padding: 30px;
-    background: light-dark(#fff, #20262f);
+    background: #fff;
     box-shadow: 0 5px 20px rgba(34,40,50,.03);
   }
   &.registration .nfc-staff-card > p[role=status] { display: none; }
