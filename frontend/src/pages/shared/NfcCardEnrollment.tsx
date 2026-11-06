@@ -12,18 +12,18 @@ import { nfcFriendlyError } from './nfcFriendlyMessages';
  * to the authenticated backend; never ship the reference's mock customers.
  */
 const Panel = styled.section`
-  --r-bg: light-dark(#f6f7f9, #15191f);
-  --r-surface: light-dark(#fff, #20262f);
-  --r-ink: light-dark(#222832, #f0f3f7);
-  --r-muted: light-dark(#64707e, #b1bccb);
-  --r-line: light-dark(#e5e9ef, #3b4350);
-  --r-soft: light-dark(#f3f5f8, #2b3441);
-  --r-orange: light-dark(#b94011, #ff9b6b);
-  --r-on-orange: light-dark(#fff, #2b1509);
-  --r-tint: light-dark(#fff2e9, #3c2b24);
-  --r-green: light-dark(#267746, #8bdbad);
-  --r-green-bg: light-dark(#edf8f0, #243d30);
-  --r-red: light-dark(#b3423b, #ffaba4);
+  --r-bg: #f6f7f9;
+  --r-surface: #fff;
+  --r-ink: #222832;
+  --r-muted: #64707e;
+  --r-line: #e5e9ef;
+  --r-soft: #f3f5f8;
+  --r-orange: #b94011;
+  --r-on-orange: #fff;
+  --r-tint: #fff2e9;
+  --r-green: #267746;
+  --r-green-bg: #edf8f0;
+  --r-red: #b3423b;
 
   display: block;
   width: 100%;
@@ -264,9 +264,6 @@ const Panel = styled.section`
     .gx-r-mode svg { display: none; }
     && .gx-r-visit-row > .gx-r-field { width: 115px; min-width: 115px; }
     .gx-r-visit-row { gap: 11px; }
-  }
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
   }
   @media (prefers-reduced-motion: reduce) {
     &, & * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

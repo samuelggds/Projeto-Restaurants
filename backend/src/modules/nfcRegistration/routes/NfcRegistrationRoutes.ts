@@ -887,13 +887,20 @@ router.post('/cards/staff-comanda', async (req, res) => {
           select: { id: true, nameEncrypted: true },
         }) : null;
       const images = comanda ? await nfcComandaItemImageMap(tx, restaurantId, comanda.items) : new Map<number, string | null>();
+      // Resolve each consumed item to its source order inside the authenticated tenant.
+      const sourceItemIds = comanda?.items.flatMap(item => item.sourceOrderItemId ? [item.sourceOrderItemId] : []) ?? [];
+      const sourceOrderItems = sourceItemIds.length ? await tx.orderItem.findMany({
+        where: { id: { in: sourceItemIds }, order: { restaurantId } },
+        select: { id: true, orderId: true },
+      }) : [];
+      const orderByItemId = new Map(sourceOrderItems.map(item => [item.id, item.orderId]));
       return {
         card: { displayCode: card.displayCode, status: card.status },
         customer: customer ? { name: decryptNfcPii(restaurantId, customer.id, 'name', customer.nameEncrypted) } : null,
         comanda: comanda ? {
           ...comanda, totalCents: Number(comanda.totalCents), paidCents: Number(comanda.paidCents),
           outstandingCents: Math.max(0, Number(comanda.totalCents - comanda.paidCents)),
-          items: comanda.items.map(item => ({ ...item, image: item.sourceOrderItemId ? images.get(item.sourceOrderItemId) ?? null : null, totalCents: Number(item.totalCents) })),
+          items: comanda.items.map(item => ({ ...item, orderId: item.sourceOrderItemId ? orderByItemId.get(item.sourceOrderItemId) ?? null : null, image: item.sourceOrderItemId ? images.get(item.sourceOrderItemId) ?? null : null, totalCents: Number(item.totalCents) })),
           payments: comanda.payments.map(payment => ({ ...payment, amountCents: Number(payment.amountCents) })),
         } : null,
       };

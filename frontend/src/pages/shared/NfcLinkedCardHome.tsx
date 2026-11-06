@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, ChevronDown, ClipboardList, CreditCard, LockKeyhole, RotateCcw, ShoppingBag, ShieldCheck } from 'lucide-react';
 import api from '../../Services/api';
+import { nfcFriendlyError } from './nfcFriendlyMessages';
 
 type CardDetails = { card: { displayCode: string; status: string };
   customer: { name: string } | null;
@@ -8,7 +9,7 @@ type CardDetails = { card: { displayCode: string; status: string };
     totalCents: number; paidCents: number; outstandingCents: number } | null };
 
 export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpenComanda,
-  hasUnsettledComanda, needsCardReturn, busy, error, onOpenComanda, onOrder, onConsult,
+  hasUnsettledComanda, needsCardReturn, busy, onOpenComanda, onOrder, onConsult,
   onPendingOrder, onReturn }: {
   token: string; code: string; customerName?: string | null; comandaId: string | null;
   canOpenComanda?: boolean; hasUnsettledComanda?: boolean; needsCardReturn?: boolean;
@@ -22,6 +23,7 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
   const [cpf, setCpf] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [releaseError, setReleaseError] = useState('');
   useEffect(() => {
     let active = true;
     void api.post<CardDetails>('/nfc-registration/cards/staff-comanda', { token },
@@ -38,7 +40,9 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
     event.preventDefault();
     if (submitting || busy || cpf.length !== 11 || !confirmed) return;
     setSubmitting(true);
+    setReleaseError('');
     try { await onReturn(cpf); setCpf(''); setConfirmed(false); }
+    catch (cause) { setReleaseError(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira os pagamentos pendentes.')); }
     finally { setSubmitting(false); }
   };
   return <section aria-label="Cliente vinculado ao cartão">
@@ -72,12 +76,13 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         <RotateCcw aria-hidden="true"/><span>Consultar confirmação pendente<small>Continuar a confirmação do pedido</small></span><ArrowRight aria-hidden="true"/>
       </button>
     </div>
-    {needsCardReturn || hasUnsettledComanda ? <p className="gx-alert" role="status">Existe pendência de comanda ou devolução. Consulte o saldo antes de liberar o cartão.</p> : null}
     <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> Seus dados são protegidos durante todo o atendimento.</p>
     <details className="gx-release">
       <summary><LockKeyhole aria-hidden="true"/><span>Devolver e liberar cartão</span><ChevronDown aria-hidden="true"/></summary>
       <form className="gx-release-content" onSubmit={event => void release(event)}>
         <p>Para devolver o cartão, informe o CPF completo. A liberação só será realizada quando não houver pagamentos pendentes.</p>
+        {current && current.outstandingCents > 0 && <p className="gx-alert" role="status">Esta comanda ainda não está quitada. Há um saldo de { (current.outstandingCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) } pendente. Confirme o pagamento antes de liberar o cartão.</p>}
+        {!current && (needsCardReturn || hasUnsettledComanda) && <p className="gx-alert" role="status">Existe uma pendência de comanda. Consulte os pagamentos antes de liberar o cartão.</p>}
         <label className="gx-field">CPF completo do titular
           <input type="password" inputMode="numeric" autoComplete="off" maxLength={11}
             value={cpf} onChange={event=>setCpf(event.target.value.replace(/\D/gu,'').slice(0,11))}
@@ -90,7 +95,7 @@ export function NfcLinkedCardHome({ token, code, customerName, comandaId, canOpe
         <button type="submit" className="gx-button gx-primary" disabled={busy || submitting || cpf.length!==11 || !confirmed}>
           {submitting ? 'Conferindo pagamentos...' : 'Verificar quitação e liberar cartão'}
         </button>
-        {error && <p className="gx-error" role="alert">{error}</p>}
+        {releaseError && <p className="gx-alert" role="alert">{releaseError}</p>}
       </form>
     </details>
     <p className="gx-line-note"><ShieldCheck aria-hidden="true"/> O cartão permanecerá vinculado até a quitação da comanda.</p>

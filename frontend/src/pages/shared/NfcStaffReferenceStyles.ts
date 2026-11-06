@@ -4,20 +4,20 @@ import { css } from 'styled-components';
    design tokens only. No demo data or simulated business logic. */
 export const nfcStaffReferenceStyles = css`
   &.staff.visual {
-    color-scheme: light dark;
-    --gx-bg: light-dark(#f7f8fa, #151a20);
-    --gx-surface: light-dark(#fff, #202730);
-    --gx-ink: light-dark(#232b35, #f4f5f7);
-    --gx-muted: light-dark(#697582, #a8b4c3);
-    --gx-line: light-dark(#e4e8ee, #36404d);
-    --gx-brand: light-dark(#bd4414, #f59063);
-    --gx-fill: light-dark(#bd4414, #b94215);
-    --gx-soft: light-dark(#fff3ed, #392820);
-    --gx-green: light-dark(#267345, #8bd5aa);
-    --gx-green-bg: light-dark(#edf7f0, #23372d);
-    --gx-amber: light-dark(#956516, #edc47a);
-    --gx-amber-bg: light-dark(#fff8e9, #362e20);
-    --gx-red: light-dark(#a73232, #ffabab);
+    color-scheme: light;
+    --gx-bg: #f7f8fa;
+    --gx-surface: #fff;
+    --gx-ink: #232b35;
+    --gx-muted: #697582;
+    --gx-line: #e4e8ee;
+    --gx-brand: #bd4414;
+    --gx-fill: #bd4414;
+    --gx-soft: #fff3ed;
+    --gx-green: #267345;
+    --gx-green-bg: #edf7f0;
+    --gx-amber: #956516;
+    --gx-amber-bg: #fff8e9;
+    --gx-red: #a73232;
     min-height: 100dvh;
     background: var(--gx-bg);
     padding: 0;
@@ -233,6 +233,26 @@ export const nfcStaffReferenceStyles = css`
   &.staff.visual .gx-bill-tabs button { position:relative; min-height:42px; padding:10px 0 12px; border:0; background:transparent; color:var(--gx-muted); font-size:12px; }
   &.staff.visual .gx-bill-tabs button[aria-pressed="true"] { color:var(--gx-brand); font-weight:650; }
   &.staff.visual .gx-bill-tabs button[aria-pressed="true"]:after { content:''; position:absolute; bottom:-1px; left:0; right:0; height:2px; background:var(--gx-brand); }
+  &.staff.visual .gx-order-accordion { padding:0; }
+  &.staff.visual .gx-order-toggle {
+    display:flex; width:100%; min-height:65px; padding:14px 0; gap:8px;
+    align-items:center; border:0; background:transparent; color:var(--gx-ink);
+    text-align:left; cursor:pointer;
+  }
+  &.staff.visual .gx-order-toggle .gx-order-top { flex:1; min-width:0; }
+  &.staff.visual .gx-order-chevron {
+    width:15px; height:15px; flex:none; color:var(--gx-muted);
+    transition:transform 250ms ease;
+  }
+  &.staff.visual .gx-order-chevron.is-open { transform:rotate(180deg); }
+  &.staff.visual .gx-order-details {
+    display:grid; grid-template-rows:0fr; opacity:0;
+    transition:grid-template-rows 280ms ease, opacity 220ms ease;
+  }
+  &.staff.visual .gx-order-details[data-open="true"] { grid-template-rows:1fr; opacity:1; }
+  &.staff.visual .gx-order-details-inner { overflow:hidden; min-height:0; }
+  &.staff.visual .gx-order-unlinked { padding:16px 0; border-top:1px solid var(--gx-line); }
+  &.staff.visual .gx-order-unlinked > strong { font-size:12px; }
   &.staff.visual .gx-order-card { padding:14px 0; }
   &.staff.visual .gx-order-card + .gx-order-card { border-top:1px solid var(--gx-line); }
   &.staff.visual .gx-order-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }

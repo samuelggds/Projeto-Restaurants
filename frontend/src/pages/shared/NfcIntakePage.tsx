@@ -266,8 +266,6 @@ function NfcCardFlow({ token, urlSlug }: { token: string; urlSlug: string }) {
               setStaffCard({status:'READY',displayCode:returned.displayCode,comandaId:null});
               setStaffTab('registration');
               setResult('Pagamento conferido! O cartão já está disponível para outro cliente.');
-            } catch (cause) {
-              setMessage(nfcFriendlyError(cause, 'Não foi possível liberar o cartão. Confira os pagamentos pendentes.'));
             } finally { setBusy(false); }
           }} />)}
       {orderChallenge && <form onSubmit={event=>void verifyOrder(event)} style={{display:'grid',gap:12}}>
