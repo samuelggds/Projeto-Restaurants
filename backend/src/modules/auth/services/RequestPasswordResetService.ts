@@ -6,6 +6,7 @@ import { forgotPasswordSchema } from '../../../validators/ForgotPasswordValidato
 import { canLogLocalAuthCode } from '../security/localAuthCodeLogging.js';
 import passwordResetCodeRepository from '../repositories/PasswordResetCodeRepository.js';
 import { isPasswordResetCoolingDown } from '../security/passwordResetCooldown.js';
+import { isWhatsAppMfaConfigured, sendMfaCode } from './MfaDeliveryService.js';
 
 function isBasicAuthDisabledError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '');
@@ -37,9 +38,9 @@ class RequestPasswordResetService {
       ? await userRepository.findByEmail(normalizedEmail)
       : await userRepository.findByPhone(normalizedPhone);
 
-    // Always return the same response to avoid exposing registered emails.
+    // Always return the same response to avoid exposing registered accounts.
     const safeMessage =
-      'Se os dados identificarem uma conta, enviamos um código para o e-mail cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
+      'Se os dados identificarem uma conta, enviamos um código para o canal cadastrado. Se o telefone estiver em mais de uma conta, informe o e-mail.';
 
     // Recovering a password must never undo an administrator's suspension.
     // Only the existing CLIENTE self-deactivation flow permits self-reactivation.
@@ -76,6 +77,35 @@ class RequestPasswordResetService {
     if (!claimed) {
       // A concurrent request won, a lock was applied or the account changed.
       // Do not send another code or disclose the existence of the account.
+      return { message: safeMessage };
+    }
+
+    if (normalizedPhone) {
+      try {
+        if (!isWhatsAppMfaConfigured()) {
+          if (canLogPasswordResetCode()) {
+            console.warn(`[password-reset] WhatsApp nao configurado. Codigo: ${code}`);
+          }
+          return { message: safeMessage };
+        }
+
+        await sendMfaCode({
+          channel: 'WHATSAPP',
+          recipient: {
+            email: user.email,
+            phone: user.phone || normalizedPhone,
+          },
+          code,
+          ttlMinutes: 15,
+        });
+      } catch (error) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error('[password-reset] Nao foi possivel enviar o codigo pelo WhatsApp.');
+          return { message: safeMessage };
+        }
+        throw error;
+      }
+
       return { message: safeMessage };
     }
 
