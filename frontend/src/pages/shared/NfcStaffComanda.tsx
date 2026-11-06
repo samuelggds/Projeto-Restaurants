@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../Services/api';
 import { NfcProductThumbnail } from './NfcProductThumbnail';
 import { nfcFriendlyOrderStatus } from './nfcFriendlyMessages';
-import { CheckCircle2, ClipboardList, CreditCard, RefreshCw, ShieldCheck, UtensilsCrossed } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ClipboardList, CreditCard, RefreshCw, ShieldCheck, UtensilsCrossed } from 'lucide-react';
 
 type Visit = {
   id: string; status: 'OPEN' | 'UNPAID' | 'PAID' | 'CANCELLED'; tableNumber: number | null;
   totalCents: number; paidCents: number; outstandingCents: number;
-  items: Array<{ id: string; description: string; quantity: number; totalCents: number; image?: string | null }>;
+  items: Array<{ id: string; orderId: number | null; description: string; quantity: number; totalCents: number; image?: string | null }>;
   orders: Array<{ id: number; status: string }>;
   payments: Array<{ id: string; status: string; amountCents: number }>;
 };
@@ -19,6 +19,7 @@ export function NfcStaffComanda({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'orders'|'payments'>('orders');
+  const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const load = useCallback(async () => {
     const result = await api.post<Context>('/nfc-registration/cards/staff-comanda',
       { token }, { skipBaseUrlFallback: true });
@@ -57,12 +58,31 @@ export function NfcStaffComanda({ token }: { token: string }) {
           {visit.orders.length===0 && visit.items.length===0 ? <div className="gx-empty">
             <span><UtensilsCrossed aria-hidden="true"/></span><h2>Nenhum pedido registrado</h2><p>Os pedidos feitos durante o atendimento aparecerão aqui.</p>
           </div> : <>
-            {visit.orders.map(order=><div className="gx-order-card" key={order.id}>
-              <div className="gx-order-top"><strong>Pedido #{order.id}</strong><span className="gx-pill">{nfcFriendlyOrderStatus(order.status)}</span></div>
-            </div>)}
-            {visit.items.map(item=><div className="gx-mini-line" key={item.id}>
-              <NfcProductThumbnail source={item.image}/><span>{item.quantity}× {item.description}</span><strong>{money(item.totalCents)}</strong>
-            </div>)}
+            {visit.orders.map((order, index) => {
+              const expanded = (expandedOrderId ?? visit.orders[0]?.id) === order.id;
+              const orderItems = visit.items.filter(item => item.orderId === order.id);
+              return <div className="gx-order-card gx-order-accordion" key={order.id}>
+                <button type="button" className="gx-order-toggle" aria-expanded={expanded}
+                  aria-controls={`nfc-order-items-${order.id}`}
+                  onClick={() => setExpandedOrderId(expanded ? -1 : order.id)}>
+                  <span className="gx-order-top"><strong>Pedido #{order.id}</strong><span className="gx-pill">{nfcFriendlyOrderStatus(order.status)}</span></span>
+                  <ChevronDown className={expanded ? 'gx-order-chevron is-open' : 'gx-order-chevron'} aria-hidden="true" />
+                </button>
+                <div id={`nfc-order-items-${order.id}`} className="gx-order-details" data-open={expanded}>
+                  <div className="gx-order-details-inner">
+                    {orderItems.length ? orderItems.map(item=><div className="gx-mini-line" key={item.id}>
+                      <NfcProductThumbnail source={item.image}/><span>{item.quantity}× {item.description}</span><strong>{money(item.totalCents)}</strong>
+                    </div>) : <p className="gx-line-note">Nenhum item registrado neste pedido.</p>}
+                  </div>
+                </div>
+              </div>;
+            })}
+            {visit.items.filter(item => item.orderId == null).length > 0 && <div className="gx-order-unlinked">
+              <strong>Outros itens da comanda</strong>
+              {visit.items.filter(item => item.orderId == null).map(item=><div className="gx-mini-line" key={item.id}>
+                <NfcProductThumbnail source={item.image}/><span>{item.quantity}× {item.description}</span><strong>{money(item.totalCents)}</strong>
+              </div>)}
+            </div>}
           </>}
         </section> : <section className="gx-panel" aria-label="Histórico de pagamentos">
           {visit.payments.length===0 ? <div className="gx-empty"><span><CreditCard aria-hidden="true"/></span>
