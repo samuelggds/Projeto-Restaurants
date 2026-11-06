@@ -270,13 +270,26 @@ async function sendEmailCode(recipient: MfaRecipient, code: string, ttlMinutes: 
     'no-reply@gastronexa.local';
 
   try {
-    await transporter.sendMail({
+    const result = await transporter.sendMail({
       from,
       to: destination,
       subject: 'Código de verificação de login - GastroNexa',
       text: `Seu código de verificação é: ${code}. Ele expira em ${ttlMinutes} minutos.`,
     });
+    // SMTP acceptance is not final delivery. Do not log OTPs, addresses or message body.
+    console.info('[login-mfa] SMTP accepted MFA email', {
+      messageId: result.messageId || null,
+      acceptedCount: result.accepted?.length ?? 0,
+      rejectedCount: result.rejected?.length ?? 0,
+    });
   } catch (error) {
+    // Diagnostic metadata only; SMTP error messages may contain recipient addresses.
+    const smtpError = error as { code?: unknown; responseCode?: unknown; command?: unknown };
+    console.error('[login-mfa] SMTP send failed', {
+      code: typeof smtpError?.code === 'string' ? smtpError.code.slice(0, 40) : null,
+      responseCode: typeof smtpError?.responseCode === 'number' ? smtpError.responseCode : null,
+      command: typeof smtpError?.command === 'string' ? smtpError.command.slice(0, 30) : null,
+    });
     if (process.env.NODE_ENV !== 'production') {
       if (canLogLocalAuthCode()) {
         console.warn(`[login-mfa] Falha no SMTP local. Codigo para ${destination}: ${code}`);
