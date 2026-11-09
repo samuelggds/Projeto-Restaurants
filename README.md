@@ -18,6 +18,35 @@
 
 ---
 
+## Visão geral para recrutadores
+
+**GastroNexa** é um projeto SaaS multi-restaurante desenvolvido de forma independente. O principal desafio de engenharia é permitir que restaurantes diferentes usem a mesma plataforma sem compartilhar dados ou permissões, integrando a jornada do cliente com a operação de pedidos e pagamentos.
+
+| Dimensão | Solução e evidências no projeto |
+| --- | --- |
+| Frontend | React, TypeScript e Vite; experiência de cardápio, carrinho e acompanhamento de pedidos |
+| Backend | Node.js, Express e TypeScript; organização por funcionalidades, controllers, services e repositories |
+| Dados e isolamento | PostgreSQL + Prisma; autorização vinculada ao contexto autenticado e ao restaurante |
+| Integrações | Mercado Pago, webhooks e comunicação em tempo real com Socket.IO |
+| Qualidade | Comandos de typecheck, lint, testes e build; testes E2E e verificações de multi-tenancy |
+| Infraestrutura | Docker, AWS e pipelines de CI/CD |
+
+### Papel no projeto
+
+Sou responsável pelas decisões técnicas e pelo desenvolvimento do produto, incluindo modelagem dos dados, APIs, interfaces e integração com serviços externos. É um **projeto independente**, e não uma experiência apresentada como emprego anterior em equipe.
+
+### Links para avaliação
+
+- **[Produto e apresentação comercial](https://www.gastronexa.com.br/)**
+- **[Decisões de arquitetura](ARCHITECTURE.md)**
+- **[Estratégia de testes](TESTING.md)**
+- **[Código frontend](frontend/)** e **[backend](backend/)**
+- **[README visual detalhado](#-etapa-1--autenticação)** (fluxos e telas mobile/desktop abaixo)
+
+> Demonstrações visuais e documentação de fluxos não substituem evidência de clientes pagantes, métricas de uso ou testes executados em uma versão específica. Esses resultados não são presumidos neste material.
+
+---
+
 ## Sobre o GastroNexa
 
 O **GastroNexa** é uma plataforma SaaS multi-restaurante que conecta toda a jornada de compra e operação: descoberta do cardápio, personalização do produto, carrinho, endereço, pagamento, confirmação, rastreamento, conta do cliente, fidelidade e áreas operacionais do restaurante.
