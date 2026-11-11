@@ -18,6 +18,8 @@
 
 ---
 
+> **Avaliando este projeto para uma oportunidade de desenvolvimento?** Leia primeiro a [visão técnica para recrutadores](RECRUTADORES.md): contexto, decisões de arquitetura, testes e links diretos para evidências no código. Esta página permanece como documentação visual dos fluxos da aplicação.
+
 ## Sobre o GastroNexa
 
 O **GastroNexa** é uma plataforma SaaS multi-restaurante que conecta toda a jornada de compra e operação: descoberta do cardápio, personalização do produto, carrinho, endereço, pagamento, confirmação, rastreamento, conta do cliente, fidelidade e áreas operacionais do restaurante.
