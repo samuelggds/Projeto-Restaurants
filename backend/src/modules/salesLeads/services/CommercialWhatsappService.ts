@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypt
 import prisma from '../../../config/prisma.js';
 import { commercialWhatsappAiEnabled, generateCommercialWhatsappAiReply } from './CommercialWhatsappAiService.js';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
+import { resumeUnansweredCustomerHandoffs } from './CommercialWhatsappHandoffRecoveryService.js';
 import {
   decryptCredential,
   encryptCredential,
@@ -16,7 +17,6 @@ import {
   commercialWhatsappAutoReplyAvailableAt,
   commercialWhatsappAutoReplyRetryAt,
   commercialWhatsappAutoReplySuppressionReason,
-  shouldReopenCommercialWhatsappCycle,
   type CommercialWhatsappConversationMode,
 } from '../domain/commercialWhatsappAutomation.js';
 
@@ -24,7 +24,8 @@ type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
-const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY'];
+const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY', 'AI_TIMEOUT'];
+const HUMAN_UNAVAILABLE_TEXT = 'Olá! 😊 Nossa equipe humana não está disponível neste momento. Mas estou aqui 24 horas para ajudar com suas dúvidas sobre a GastroNexa. Como posso te ajudar?';
 
 export class PlatformWhatsappRecoveryRequiredError extends Error {
   readonly code = 'PLATFORM_WHATSAPP_ORPHAN_SESSION';
@@ -621,7 +622,7 @@ async function enqueueAutoReply(
       where: {
         conversationId,
         status: 'PENDING',
-        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY'] : ['GREETING', 'AI_REPLY'] },
+        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY', 'AI_TIMEOUT'] : ['GREETING', 'AI_REPLY', 'AI_TIMEOUT'] },
       },
       data: {
         status: 'SUPPRESSED',
@@ -768,36 +769,15 @@ export async function processPlatformEvolutionInbound(
     receivedAt,
   );
 
-  let mode = conversation.automationMode;
-  if (mode === 'CLOSED') {
-    if (
-      !shouldReopenCommercialWhatsappCycle({
-        mode,
-        closedAt: conversation.closedAt,
-        open,
-        now: receivedAt,
-      })
-    ) {
-      return {
-        accepted: true,
-        queued: false,
-        reason: open ? 'closed_cooldown' : 'outside_hours',
-      } as const;
-    }
-
-    await prisma.salesLeadWhatsappConversation.update({
-      where: { id: conversation.id },
-      data: { automationMode: 'BOT', closedAt: null },
-    });
-    mode = 'BOT';
-    publishCommercialWhatsappUpdate(conversation.id, 'automation_reopened');
-  }
-
-  if (!open || mode !== 'BOT') {
-    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
+  // CLOSED conversations remain closed until Super Admin explicitly reopens.
+  if (conversation.automationMode === 'CLOSED') {
+    return { accepted: true, queued: false, reason: 'conversation_closed' } as const;
   }
 
   const aiEnabled = commercialWhatsappAiEnabled();
+  if (!aiEnabled && !open) {
+    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
+  }
   const botReply = aiEnabled ? null : botReplyForMessage(text);
   // AI replies are generated at dispatch, after the 15-second debounce.
   // The queue contains no API key, database record or generated secret.
@@ -919,10 +899,10 @@ export async function deliverPlatformWhatsappOutbox() {
     WHERE o."id" = picked."id" AND c."id" = o."conversationId"
     RETURNING o."id", o."conversationId", o."kind", o."body", o."attempts", c."phone"`;
 
-  const hasInboundAutomaticReplies = rows.some((item) =>
-    AUTOMATIC_REPLY_KINDS.includes(item.kind),
+  const hasPolicyControlledReplies = rows.some((item) =>
+    AUTOMATIC_REPLY_KINDS.includes(item.kind) || item.kind === 'MANUAL',
   );
-  const automationSettings = hasInboundAutomaticReplies
+  const automationSettings = hasPolicyControlledReplies
     ? await prisma.platformSettings.findUnique({
         where: { id: 1 },
         select: {
@@ -964,6 +944,7 @@ export async function deliverPlatformWhatsappOutbox() {
         mode: conversation.automationMode,
         automationEnabled: automationSettings?.commercialWhatsappEnabled === true,
         open: automationOpen,
+        aiEnabled: commercialWhatsappAiEnabled(),
       });
       if (automaticSuppression) {
         await prisma.salesLeadWhatsappOutbox.update({
@@ -971,6 +952,21 @@ export async function deliverPlatformWhatsappOutbox() {
           data: {
             status: 'SUPPRESSED',
             suppressedReason: automaticSuppression,
+            lockedUntil: null,
+            lockToken: null,
+          },
+        });
+        continue;
+      }
+
+      if (item.kind === 'MANUAL' && !automationOpen) {
+        // Even a manual message queued just before closing must not be
+        // delivered outside the configured human-support schedule.
+        await prisma.salesLeadWhatsappOutbox.update({
+          where: { id: item.id },
+          data: {
+            availableAt: new Date(Date.now() + 15 * 60_000),
+            attempts: { decrement: 1 },
             lockedUntil: null,
             lockToken: null,
           },
@@ -1051,15 +1047,17 @@ export async function deliverPlatformWhatsappOutbox() {
             automated: turn.automated,
           })),
         ).catch(() => ({
-          body: 'Vou encaminhar sua dúvida para nossa equipe da GastroNexa para que você receba uma informação correta. 🙂',
-          handoff: true,
+          body: 'Não consegui confirmar essa informação agora, mas continuo por aqui para ajudar com suas outras dúvidas. 🙂',
+          handoff: false,
         }));
         outgoingBody = answer.body;
-        handoffToHuman = answer.handoff;
+        // Do not queue a human takeover outside the configured support hours.
+        handoffToHuman = answer.handoff && automationOpen;
+        if (answer.handoff && !automationOpen) outgoingBody = HUMAN_UNAVAILABLE_TEXT;
       }
 
       // An operator or a newer inbound message can invalidate a response while AI runs.
-      if (item.kind === 'AI_REPLY') {
+      if (item.kind === 'AI_REPLY' || item.kind === 'AI_TIMEOUT') {
         const [currentConversation, currentOutbox] = await Promise.all([
           prisma.salesLeadWhatsappConversation.findUnique({
             where: { id: item.conversationId }, select: { automationMode: true },
@@ -1100,7 +1098,7 @@ export async function deliverPlatformWhatsappOutbox() {
           data: {
             lastOutboundAt: new Date(),
             ...(handoffToHuman
-              ? { automationMode: 'HUMAN', closedAt: null }
+              ? { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: new Date() }
               : {}),
           },
         }),
@@ -1159,6 +1157,7 @@ export async function setCommercialWhatsappConversationMode(
       data: {
         automationMode: mode,
         closedAt: mode === 'CLOSED' ? new Date() : null,
+        handoffRequestedAt: null,
       },
     });
   });
@@ -1178,10 +1177,24 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
     });
     if (!conversation) throw new Error('Conversa não encontrada.');
 
+    // The human-service schedule is enforced server-side, never only by the UI.
+    const settings = await tx.platformSettings.findUnique({
+      where: { id: 1 },
+      select: { commercialWhatsappHours: true, timezone: true },
+    });
+    if (!settings || !isCommercialWhatsappHumanServiceOpen(
+      settings.commercialWhatsappHours,
+      settings.timezone,
+    )) {
+      const error = new Error('O atendimento humano está disponível apenas no horário configurado.');
+      Object.assign(error, { statusCode: 403 });
+      throw error;
+    }
+
     await suppressPendingAutomaticReplies(tx, id, 'human_mode');
     await tx.salesLeadWhatsappConversation.update({
       where: { id },
-      data: { automationMode: 'HUMAN', closedAt: null },
+      data: { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: null },
     });
     await tx.salesLeadWhatsappOutbox.create({
       data: {
@@ -1248,7 +1261,8 @@ export async function enqueuePendingLeadWhatsappGreetings() {
 }
 
 export async function drainCommercialWhatsapp() {
+  const resumed = await resumeUnansweredCustomerHandoffs(publishCommercialWhatsappUpdate);
   const queued = await enqueuePendingLeadWhatsappGreetings();
   const delivered = await deliverPlatformWhatsappOutbox();
-  return { queued, delivered };
+  return { resumed, queued, delivered };
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS,
+  COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS,
   COMMERCIAL_WHATSAPP_CLOSED_COOLDOWN_MS,
   commercialWhatsappAutoReplyAvailableAt,
   commercialWhatsappAutoReplyRetryAt,
@@ -134,4 +135,34 @@ test('reserva concorrente adia próxima resposta para após os 15 segundos, sem 
     commercialWhatsappAutoReplyRetryAt(now, new Date('2026-10-23T11:59:59.000Z')).toISOString(),
     '2026-10-23T12:00:15.000Z',
   );
+});
+
+test('IA responde 24h em BOT, mas nunca depois de takeover humano ou encerramento', () => {
+  for (const open of [false, true]) {
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'BOT', automationEnabled: true, open, aiEnabled: true,
+    }), null);
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'HUMAN', automationEnabled: true, open, aiEnabled: true,
+    }), 'human_mode');
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'CLOSED', automationEnabled: true, open, aiEnabled: true,
+    }), 'conversation_closed');
+  }
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_REPLY', mode: 'BOT', automationEnabled: false, open: true, aiEnabled: true,
+  }), 'automation_disabled');
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_REPLY', mode: 'BOT', automationEnabled: true, open: true, aiEnabled: false,
+  }), 'ai_disabled');
+});
+
+test('retomada de solicitação humana tem prazo fixo de dez minutos', () => {
+  assert.equal(COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS, 10 * 60_000);
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_TIMEOUT', mode: 'BOT', automationEnabled: true, open: false, aiEnabled: true,
+  }), null);
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_TIMEOUT', mode: 'HUMAN', automationEnabled: true, open: true, aiEnabled: true,
+  }), 'human_mode');
 });
