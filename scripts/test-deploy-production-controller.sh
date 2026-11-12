@@ -33,7 +33,7 @@ RECOVERABLE_MIGRATION='20260914130000_add_ai_credit_wallet_and_plan_policy'
 
 make_fixture() {
   local dir="$1"
-  mkdir -p "$dir/bin" "$dir/scripts"
+  mkdir -p "$dir/bin" "$dir/scripts" "$dir/.git"
   cp "$ROOT/scripts/deploy-production.sh" "$dir/scripts/deploy-production.sh"
   printf 'BACKUP_AGE_RECIPIENT=age1synthetictestrecipient\n' > "$dir/.env.production"
   : > "$dir/docker-compose.production.yml"
