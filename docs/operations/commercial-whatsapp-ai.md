@@ -52,3 +52,10 @@ Este recurso é **comercial da plataforma**, não o assistente do ADMIN de cada 
 - A IA não tem acesso a ferramentas, SQL arbitrário, qualquer pedido real, tabelas pessoais, logs, secret managers, ações administrativas ou privilégios do Super Admin.
 - Manter o atendimento da IA 24h e as regras já existentes de transferência humana: pedido explícito no horário humano, timeout de 10 minutos sem resposta, atendimento humano nos horários configurados e suspensão enquanto o Super Admin assume.
 - Antes de publicar, validar com ataques de extração e prompt injection; nenhum filtro textual garante segurança absoluta. Em caso de dúvida, prefira recusar e registrar apenas telemetria não sensível.
+
+## Modelo comercial de maior capacidade
+
+- Padrão do serviço: `gpt-6.1-sol`, `reasoning_effort=medium`, saída limitada a 2.000 tokens de conclusão (inclui raciocínio interno), resposta JSON de até 1.200 caracteres e `timeout=45s`.
+- A configuração `COMMERCIAL_WHATSAPP_AI_MODEL` continua substituível. **Importante:** se `.env.production` já contiver `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-4o-mini`, essa variável explícita prevalece sobre os novos defaults do código e do Compose; somente alteração operacional aprovada e verificada aplicará Sol em produção. Nunca imprimir valores de `.env.production` nem chaves da API em logs.
+- O modelo mais capaz pode custar mais e responder mais lentamente; validar orçamento, limites da conta, disponibilidade, casos adversariais, integração Evolution/worker e conclusão das respostas antes do deploy.
+- Se a resposta estruturada falhar, continuar com resposta segura; nunca reduzir verificações de segurança para forçar uma resposta.
