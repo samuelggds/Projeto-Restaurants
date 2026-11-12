@@ -316,6 +316,7 @@ model SalesLeadWhatsappConversation {
 
   @@index([automationMode, updatedAt])
   @@index([automationMode, closedAt])
+  @@index([automationMode, handoffRequestedAt])
 }
 
 model SalesLeadWhatsappMessage {
