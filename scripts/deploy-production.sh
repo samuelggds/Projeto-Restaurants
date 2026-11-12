@@ -56,9 +56,25 @@ if [[ ! "$READINESS_SLEEP_SECONDS" =~ ^[0-9]+$ ]]; then
 fi
 
 sync_release_source() {
+  # A deployment without a valid, trusted checkout must fail BEFORE any
+  # migrations, backups, image updates or container restarts.
+  # Git may return nonzero here for dubious ownership as well as no .git.
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo 'Checkout Git ausente; sincronizacao de fonte ignorada apenas para fixture isolada.'
-    return
+    echo 'Deploy recusado: checkout Git ausente ou nao confiavel para o usuario de deploy.' >&2
+    echo 'Verifique ownership, trust e permissoes; nunca use Compose antigo.' >&2
+    return 1
+  fi
+
+  local repository_root
+  repository_root="$(git rev-parse --show-toplevel)"
+  if [[ "$(cd "$repository_root" && pwd -P)" != "$(pwd -P)" ]]; then
+    echo 'Deploy recusado: APP_DIR deve ser a raiz do repositorio Git.' >&2
+    return 1
+  fi
+
+  if [[ ! -w . || ! -w .git || ! -w "$COMPOSE_FILE" ]]; then
+    echo 'Deploy recusado: usuario de deploy sem permissao de escrita no checkout/Compose.' >&2
+    return 1
   fi
 
   if ! git diff --quiet --ignore-submodules -- || ! git diff --cached --quiet --ignore-submodules --; then
