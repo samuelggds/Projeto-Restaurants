@@ -295,7 +295,7 @@ export default function ManagedServiceArea() {
             <strong>Seu plano inclui a implantação inicial</strong>
             <p>
               Depois da conclusão, as alterações do dia a dia ficam com o administrador do
-              restaurante. Para gestão contínua pela equipe GastroNexa, o plano Gestão Total oferece
+              restaurante. Para gestão contínua pela equipe GastroNexa, o plano Avançado oferece
               solicitações sob demanda.
             </p>
           </div>
