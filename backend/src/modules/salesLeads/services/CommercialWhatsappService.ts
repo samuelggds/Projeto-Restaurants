@@ -16,7 +16,6 @@ import {
   commercialWhatsappAutoReplyAvailableAt,
   commercialWhatsappAutoReplyRetryAt,
   commercialWhatsappAutoReplySuppressionReason,
-  shouldReopenCommercialWhatsappCycle,
   type CommercialWhatsappConversationMode,
 } from '../domain/commercialWhatsappAutomation.js';
 
@@ -768,36 +767,15 @@ export async function processPlatformEvolutionInbound(
     receivedAt,
   );
 
-  let mode = conversation.automationMode;
-  if (mode === 'CLOSED') {
-    if (
-      !shouldReopenCommercialWhatsappCycle({
-        mode,
-        closedAt: conversation.closedAt,
-        open,
-        now: receivedAt,
-      })
-    ) {
-      return {
-        accepted: true,
-        queued: false,
-        reason: open ? 'closed_cooldown' : 'outside_hours',
-      } as const;
-    }
-
-    await prisma.salesLeadWhatsappConversation.update({
-      where: { id: conversation.id },
-      data: { automationMode: 'BOT', closedAt: null },
-    });
-    mode = 'BOT';
-    publishCommercialWhatsappUpdate(conversation.id, 'automation_reopened');
-  }
-
-  if (!open || mode !== 'BOT') {
-    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
+  // CLOSED conversations remain closed until Super Admin explicitly reopens.
+  if (conversation.automationMode === 'CLOSED') {
+    return { accepted: true, queued: false, reason: 'conversation_closed' } as const;
   }
 
   const aiEnabled = commercialWhatsappAiEnabled();
+  if (!aiEnabled && !open) {
+    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
+  }
   const botReply = aiEnabled ? null : botReplyForMessage(text);
   // AI replies are generated at dispatch, after the 15-second debounce.
   // The queue contains no API key, database record or generated secret.
@@ -964,6 +942,7 @@ export async function deliverPlatformWhatsappOutbox() {
         mode: conversation.automationMode,
         automationEnabled: automationSettings?.commercialWhatsappEnabled === true,
         open: automationOpen,
+        aiEnabled: commercialWhatsappAiEnabled(),
       });
       if (automaticSuppression) {
         await prisma.salesLeadWhatsappOutbox.update({
@@ -1177,6 +1156,20 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
       select: { id: true },
     });
     if (!conversation) throw new Error('Conversa não encontrada.');
+
+    // The human-service schedule is enforced server-side, never only by the UI.
+    const settings = await tx.platformSettings.findUnique({
+      where: { id: 1 },
+      select: { commercialWhatsappHours: true, timezone: true },
+    });
+    if (!settings || !isCommercialWhatsappHumanServiceOpen(
+      settings.commercialWhatsappHours,
+      settings.timezone,
+    )) {
+      const error = new Error('O atendimento humano está disponível apenas no horário configurado.');
+      Object.assign(error, { statusCode: 403 });
+      throw error;
+    }
 
     await suppressPendingAutomaticReplies(tx, id, 'human_mode');
     await tx.salesLeadWhatsappConversation.update({
