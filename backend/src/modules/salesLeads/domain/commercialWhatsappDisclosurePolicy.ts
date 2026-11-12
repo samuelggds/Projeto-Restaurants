@@ -41,6 +41,14 @@ export function redactCommercialWhatsappPersonalData(value: string) {
     .replace(/\b(?:rua|avenida|av\.?|travessa|alameda|rodovia|estrada)\s+[\p{L}\d][\p{L}\d\s,/-]{3,80}/giu, '[endereço omitido]');
 }
 
+// Only product facts are trusted. Customer and catalog text must never
+// instruct the model to change its role, disclosure rules, or permissions.
+const PROMPT_OVERRIDE_PATTERN = /(?:ignore|ignorar|desconsidere|esqueca|desative|burle|contorne)[\s\S]{0,100}(?:instrucoes|regras|restricoes|filtros|seguranca|politica|prompt)|(?:finja|assuma|atue como|agora voce e)[\s\S]{0,70}(?:system|developer|super.?admin|administrador|modo desenvolvedor)|(?:^|[\n;])\s*(?:role\s*[:=]\s*)?(?:system|developer)\s*[:=]|<\|im_start\|>/iu;
+
+export function isCommercialWhatsappPromptOverride(value: string) {
+  return PROMPT_OVERRIDE_PATTERN.test(normalize(value));
+}
+
 const SECRET_REQUEST = /(?:\.env\b|process\.env|database_url|postgres(?:ql)?:\/\/|(?:api[_ -]?key|client[_ -]?secret|access[_ -]?token|jwt|senha|password|credencial|token|chave privada|chave de api|segredo|secret|otp|codigo de verificacao|codigo de acesso|mfa))/iu;
 const EXTRACT = /(?:\b(?:me\s+)?(?:envie|passe|mostre|revele|exiba|liste|retorne|forneca|consulte|acesse|extraia|exporte|compartilhe|detalhe|descubra|copie)\b|quais sao|qual e|quem e|como acesso)/iu;
 const PRIVATE_DATA = /(?:\b(?:cpfs?|rgs?|cnpjs?|telefones?|e-mail|email|endereco|identidade|nome completo|conta bancaria|dados bancarios|dados financeiros|dados pessoais|dados privados|dados cadastrais|faturamento real|historico de pedidos|pedido numero|pedido #|transacao real|fatura real|saldo|credenciais|logins|dados dos clientes|dados de funcionarios|dados dos funcionarios|dados dos donos|dados do super.?admin)\b)/iu;
