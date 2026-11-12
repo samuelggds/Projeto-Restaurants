@@ -29,7 +29,7 @@ const currency=(n:number)=>new Intl.NumberFormat('pt-BR',{style:'currency',curre
 export function ApprovedMarketingPlans({onSelectPlan}:{onSelectPlan:(code:PlanCode)=>void}){
  const [plans,setPlans]=useState<PublicPlan[]>(fallback);
  useEffect(()=>{let active=true;api.get('/platform/plans',{skipBaseUrlFallback:true}).then(r=>{if(active)setPlans(validCatalog(r.data))}).catch(()=>undefined);return()=>{active=false}},[]);
- const sorted=useMemo(()=>plans.filter((plan) => plan.code !== 'GESTAO_TOTAL').sort((a,b)=>order[a.code]-order[b.code),[plans]);
+ const sorted=useMemo(()=>plans.filter((plan) => plan.code !== 'GESTAO_TOTAL').sort((a,b)=>order[a.code]-order[b.code]),[plans]);
  return <div className="price-grid" aria-label="Planos da GastroNexa">
  {sorted.map(plan=>{
   // Marketing only: final entitlement is always verified server-side.
