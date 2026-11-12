@@ -88,6 +88,22 @@ if [[ "$input" == recipient-check ]]; then exit 0; fi
 [[ "$input" == synthetic-private-database ]]
 printf 'age-encryption.org/v1\nsynthetic-ciphertext' > "$4"
 EOF
+  cat > "$dir/bin/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${FAKE_GIT_UNTRUSTED:-false}" == true ]]; then
+  echo 'fatal: detected dubious ownership in repository' >&2
+  exit 128
+fi
+case "${1:-} ${2:-}" in
+  "rev-parse --is-inside-work-tree") printf 'true\n' ;;
+  "rev-parse --show-toplevel") printf '%s\n' "$APP_DIR" ;;
+  "rev-parse HEAD") printf '%s\n' "$DEPLOY_SHA" ;;
+  "diff "*|"status "*|"fetch "*|"cat-file "*|"merge-base "*|"checkout "*) exit 0 ;;
+  *) echo "Unrecognized simulated Git command: $*" >&2; exit 2 ;;
+esac
+EOF
+  chmod +x "$dir/bin/git"
   chmod +x "$dir/bin/docker"
   chmod +x "$dir/bin/age"
 }
@@ -115,6 +131,7 @@ run_case() {
   export FAKE_READINESS_FAIL=false
   export FAKE_WORKER_READINESS_FAIL=false
   export FAKE_DATABASE_RUNNING=false FAKE_DUMP_FAIL=false FAKE_AGE_FAIL=false
+  export FAKE_GIT_UNTRUSTED=false
 
   case "$mode" in
     backup-recipient-config)
@@ -133,6 +150,14 @@ run_case() {
       if bash "$ROOT/scripts/configure-predeploy-backup-key.sh" "$dir/backup.env" "$dir/.env.production" > "$dir/output.log" 2>&1; then exit 1; fi
       test "$before" = "$(sha256sum "$dir/.env.production")"
       if [[ "$(uname -s)" == Linux ]]; then [[ $(stat -c %a "$dir/.env.production") == 600 ]]; fi
+      ;;
+    git-untrusted)
+      export FAKE_GIT_UNTRUSTED=true
+      if bash "$dir/scripts/deploy-production.sh" >"$dir/output.log" 2>&1; then
+        echo 'Unsafe untrusted checkout accepted' >&2; exit 1
+      fi
+      grep -q 'Deploy recusado: checkout Git ausente ou nao confiavel' "$dir/output.log"
+      if [[ -s "$dir/docker.log" ]]; then echo 'Untrusted checkout contacted Docker' >&2; exit 1; fi
       ;;
     backup)
       export FAKE_DATABASE_RUNNING=true
@@ -202,6 +227,7 @@ run_case() {
   esac
 }
 
+run_case git-untrusted
 run_case migration
 run_case recoverable-migration
 run_case readiness
