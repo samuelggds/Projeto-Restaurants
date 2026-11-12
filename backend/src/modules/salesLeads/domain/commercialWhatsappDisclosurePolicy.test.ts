@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   isRestrictedCommercialDisclosureRequest,
   isUnsafeCommercialAiOutput,
+  hasCommercialWhatsappPersonalData,
+  redactCommercialWhatsappPersonalData,
 } from './commercialWhatsappDisclosurePolicy.js';
 
 test('bloqueia solicitações de dados privados de clientes, funcionários, donos e super admin', () => {
@@ -53,4 +55,25 @@ test('bloqueia identificadores, segredos e URLs privadas na saída da IA', () =>
   }
   assert.equal(isUnsafeCommercialAiOutput('O QR Code abre o cardápio digital no celular.'), false);
   assert.equal(isUnsafeCommercialAiOutput('A GastroNexa oferece gestão de pedidos e relatórios.'), false);
+});
+
+
+test('bloqueia CPFs e CNPJs com pontuação e dados pessoais na saída', () => {
+  for (const output of [
+    'CPF registrado: 123.456.789-09',
+    'CNPJ: 12.345.678/0001-90',
+    'Meu nome é Ana Pereira Lima',
+    'Endereço: Rua Exemplo, 123, Centro',
+  ]) {
+    assert.equal(hasCommercialWhatsappPersonalData(output), true, output);
+    assert.equal(isUnsafeCommercialAiOutput(output), true, output);
+  }
+});
+
+test('remove identificadores formatados antes do envio do histórico ao modelo', () => {
+  const original = 'CPF 123.456.789-09, CNPJ 12.345.678/0001-90, meu nome é Ana Pereira Lima, Rua Exemplo, 123';
+  const redacted = redactCommercialWhatsappPersonalData(original);
+  assert.doesNotMatch(redacted, /123\.456|12\.345|Ana Pereira|Rua Exemplo/u);
+  assert.match(redacted, /\[documento omitido\]/u);
+  assert.equal(hasCommercialWhatsappPersonalData('Cardápio digital e QR Code de mesa'), false);
 });
