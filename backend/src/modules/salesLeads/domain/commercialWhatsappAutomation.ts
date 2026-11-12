@@ -40,14 +40,25 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
   kind: string;
   mode: string;
   automationEnabled: boolean;
-  open: boolean;
+  open: boolean; // true when HUMAN service is in its configured schedule
+  aiEnabled?: boolean;
 }) {
   const kind = String(input.kind || '').trim().toUpperCase();
 
-  // Respostas AWAY pertencem ao fluxo antigo. Fora do horário agora é silêncio.
+  // AWAY replies were removed. Legacy greetings still obey business hours.
   if (kind === 'AWAY') return 'outside_hours';
   if (!INBOUND_AUTO_REPLY_KINDS.has(kind)) return null;
   if (!input.automationEnabled) return 'automation_disabled';
+
+  // The sales AI answers 24/7, including in HUMAN conversations outside
+  // the human shift. When the human shift resumes, human takeover wins.
+  if (kind === 'AI_REPLY') {
+    if (input.aiEnabled === false) return 'ai_disabled';
+    if (input.mode === 'BOT' || (input.mode === 'HUMAN' && !input.open)) return null;
+    if (input.mode === 'HUMAN') return 'human_mode';
+    return 'conversation_closed';
+  }
+
   if (!input.open) return 'outside_hours';
   if (input.mode === 'HUMAN') return 'human_mode';
   if (input.mode === 'CLOSED') return 'conversation_closed';
