@@ -13,11 +13,11 @@ function normalize(value: string) {
 // punctuation is present. A public commercial bot has no reason to receive
 // documents or contact details as prompt context.
 const CPF_PATTERN = /(?<!\d)\d{3}[.\s-]?\d{3}[.\s-]?\d{3}[-.\s]?\d{2}(?!\d)/iu;
-const CNPJ_PATTERN = /(?<!\d)\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[\/\s-]?\d{4}[-.\s]?\d{2}(?!\d)/iu;
+const CNPJ_PATTERN = /(?<!\d)\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[/\s-]?\d{4}[-.\s]?\d{2}(?!\d)/iu;
 const EMAIL_PATTERN = /\b[\w.%+-]+@[\w.-]+\.[a-z]{2,}\b/iu;
 const PHONE_PATTERN = /(?:\+?55\s*)?\(?\d{2}\)?[\s-]?9?\d{4}[\s-]?\d{4}\b/u;
 const SELF_IDENTIFICATION_PATTERN = /\b(?:me chamo|meu nome (?:e|é)|sou o cliente|sou a cliente)\s+[\p{L}][\p{L}\s'-]{2,80}/iu;
-const STREET_ADDRESS_PATTERN = /\b(?:rua|avenida|av\.?|travessa|alameda|rodovia|estrada)\s+[\p{L}\d][\p{L}\d\s,.-]{3,80}/iu;
+const STREET_ADDRESS_PATTERN = /\b(?:rua|avenida|av\.?|travessa|alameda|rodovia|estrada)\s+[\p{L}\d][\p{L}\d\s,/-]{3,80}/iu;
 
 export function hasCommercialWhatsappPersonalData(value: string) {
   const text = String(value || '');
@@ -34,11 +34,11 @@ export function hasCommercialWhatsappPersonalData(value: string) {
 export function redactCommercialWhatsappPersonalData(value: string) {
   return String(value || '')
     .replace(/\b[\w.%+-]+@[\w.-]+\.[a-z]{2,}\b/giu, '[e-mail omitido]')
-    .replace(/(?<!\d)\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[\/\s-]?\d{4}[-.\s]?\d{2}(?!\d)/gu, '[documento omitido]')
+    .replace(/(?<!\d)\d{2}[.\s-]?\d{3}[.\s-]?\d{3}[/\s-]?\d{4}[-.\s]?\d{2}(?!\d)/gu, '[documento omitido]')
     .replace(/(?<!\d)\d{3}[.\s-]?\d{3}[.\s-]?\d{3}[-.\s]?\d{2}(?!\d)/gu, '[documento omitido]')
     .replace(/(?:\+?55\s*)?\(?\d{2}\)?[\s-]?9?\d{4}[\s-]?\d{4}\b/gu, '[telefone omitido]')
     .replace(/\b(?:me chamo|meu nome (?:e|é)|sou o cliente|sou a cliente)\s+[\p{L}][\p{L}\s'-]{2,80}/giu, '[identificação omitida]')
-    .replace(/\b(?:rua|avenida|av\.?|travessa|alameda|rodovia|estrada)\s+[\p{L}\d][\p{L}\d\s,.-]{3,80}/giu, '[endereço omitido]');
+    .replace(/\b(?:rua|avenida|av\.?|travessa|alameda|rodovia|estrada)\s+[\p{L}\d][\p{L}\d\s,/-]{3,80}/giu, '[endereço omitido]');
 }
 
 const SECRET_REQUEST = /(?:\.env\b|process\.env|database_url|postgres(?:ql)?:\/\/|(?:api[_ -]?key|client[_ -]?secret|access[_ -]?token|jwt|senha|password|credencial|token|chave privada|chave de api|segredo|secret|otp|codigo de verificacao|codigo de acesso|mfa))/iu;
