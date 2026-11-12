@@ -26,7 +26,7 @@ test('workspace Entrada encerra com implantação, Avançado permanece', () => {
   assert.equal(hasManagedWorkspaceAccess('BASICO', 'ATIVA', 'CONCLUIDA'), false);
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'EM_IMPLANTACAO'), true);
   assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'CONCLUIDA'), true);
-  assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'ATIVA', 'CANCELADA'), false);
+  assert.equal(hasManagedWorkspaceAccess('PREMIUM', 'CANCELADA', 'CONCLUIDA'), false);
   assert.equal(hasManagedWorkspaceAccess('GESTAO_TOTAL', 'ATIVA', 'CONCLUIDA'), true);
 });
 
