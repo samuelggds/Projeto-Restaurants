@@ -220,10 +220,10 @@ export class ManagedServiceService {
       });
 
       const gestaoTotalIds = eligibleSubscriptions
-        .filter(({ plan }) => plan === 'GESTAO_TOTAL')
+        .filter(({ plan }) => plan === 'GESTAO_TOTAL' || plan === 'PREMIUM')
         .map(({ restaurantId }) => restaurantId);
       const oneTimeSetupIds = eligibleSubscriptions
-        .filter(({ plan }) => plan === 'BASICO' || plan === 'PREMIUM')
+        .filter(({ plan }) => plan === 'BASICO')
         .map(({ restaurantId }) => restaurantId);
 
       await Promise.all([
@@ -236,7 +236,7 @@ export class ManagedServiceService {
         oneTimeSetupIds.length
           ? prisma.restaurantImplementation.updateMany({
               where: { restaurantId: { in: oneTimeSetupIds } },
-              data: { productLimit: 100 },
+              data: { productLimit: 50 },
             })
           : Promise.resolve(),
       ]);
