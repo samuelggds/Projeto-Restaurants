@@ -623,7 +623,7 @@ async function enqueueAutoReply(
       where: {
         conversationId,
         status: 'PENDING',
-        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY'] : ['GREETING', 'AI_REPLY'] },
+        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY', 'AI_TIMEOUT'] : ['GREETING', 'AI_REPLY', 'AI_TIMEOUT'] },
       },
       data: {
         status: 'SUPPRESSED',
