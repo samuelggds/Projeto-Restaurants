@@ -9,7 +9,7 @@ A implementação não configura, contrata nem requer a WhatsApp Business Platfo
 ## Ativação controlada
 
 - Padrão: `COMMERCIAL_WHATSAPP_AI_ENABLED=false`, preservando o bot por menus.
-- Para homologar, configurar `OPENAI_API_KEY` em secret de backend, `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-4o-mini`, e habilitar a flag **somente em homologação**; nenhuma chave entra no frontend ou no Git.
+- Para homologar, configurar `OPENAI_API_KEY` em secret de backend, `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-6.1-sol`, e habilitar a flag **somente em homologação**; nenhuma chave entra no frontend ou no Git.
 - O Docker de produção propaga apenas as variáveis explícitas de ambiente para backend/worker. Reiniciar/deployar os serviços para aplicar nova configuração.
 - O switch do Super Admin `commercialWhatsappEnabled`, o horário configurado e os modos BOT/HUMAN/CLOSED continuam valendo; a IA não responde quando a automação estiver desligada nem substitui um humano.
 - Há um atraso de 15 segundos e reserva compartilhada entre workers; a resposta é gerada na fase de entrega, não no webhook, para permitir suprimir mensagens substituídas.
