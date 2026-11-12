@@ -171,6 +171,8 @@ test('planos utilizam catálogo público real e selecionam interesse',async ({pa
  await expect(section.getByRole('heading',{name:'Gestão Total'})).toHaveCount(0);
  await expect(section).toContainText('79,90');
  await expect(section).toContainText('149,90');
+ await expect(section).toContainText('Cardápio digital com QR Code de mesa');
+ await expect(section).toContainText('Gestão assistida contínua');
  await section.getByRole('link',{name:/Quero o Avançado/}).click();
  await expect(page.getByRole('form',{name:'Contato comercial'}).getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
 });
