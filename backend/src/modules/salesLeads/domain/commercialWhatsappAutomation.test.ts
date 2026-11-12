@@ -135,3 +135,23 @@ test('reserva concorrente adia próxima resposta para após os 15 segundos, sem 
     '2026-10-23T12:00:15.000Z',
   );
 });
+
+test('IA responde 24h em BOT, mas nunca depois de takeover humano ou encerramento', () => {
+  for (const open of [false, true]) {
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'BOT', automationEnabled: true, open, aiEnabled: true,
+    }), null);
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'HUMAN', automationEnabled: true, open, aiEnabled: true,
+    }), 'human_mode');
+    assert.equal(commercialWhatsappAutoReplySuppressionReason({
+      kind: 'AI_REPLY', mode: 'CLOSED', automationEnabled: true, open, aiEnabled: true,
+    }), 'conversation_closed');
+  }
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_REPLY', mode: 'BOT', automationEnabled: false, open: true, aiEnabled: true,
+  }), 'automation_disabled');
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_REPLY', mode: 'BOT', automationEnabled: true, open: true, aiEnabled: false,
+  }), 'ai_disabled');
+});
