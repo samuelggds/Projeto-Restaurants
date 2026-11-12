@@ -242,16 +242,16 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
   if (accessState === 'allowed') return <>{children}</>;
 
   return (
-    <Shell aria-label="Recurso disponível nos planos Premium e Gestão Total">
+    <Shell aria-label="Recurso disponível nos planos Entrada e Avançado">
       <Hero>
         <div>
           <span className="badge">
             <Sparkles size={14} /> RECURSO AVANÇADO
           </span>
-          <h2>Sistema de mesas disponível no Premium e Gestão Total</h2>
+          <h2>Sistema de mesas disponível no Entrada e Avançado</h2>
           <p>
-            Seu plano Básico continua com o sistema de delivery. Para usar o atendimento presencial
-            por mesa, QR Code e conta compartilhada, escolha o Premium ou Gestão Total.
+            O acesso a mesas e QR Code está disponível nos planos Entrada e Avançado.
+            Verifique se a assinatura do seu restaurante está ativa.
           </p>
         </div>
         <span className="icon" aria-hidden="true">
@@ -266,7 +266,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
           <li><CheckCircle2 /> Conta, divisão e pagamento da mesa</li>
         </ul>
         <div className="actions">
-          <span>O delivery permanece disponível normalmente no plano Básico.</span>
+          <span>O delivery permanece disponível normalmente no seu plano.</span>
           <a href="/admin?area=subscriptions&billing=plans">Conhecer os planos</a>
         </div>
       </Body>
