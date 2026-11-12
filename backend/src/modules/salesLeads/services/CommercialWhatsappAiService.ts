@@ -68,6 +68,12 @@ const SYSTEM_PROMPT = [
   'Responda SOMENTE um objeto JSON com as chaves reply (texto pronto para WhatsApp, até 1200 caracteres) e handoff (booleano).',
 ].join('\n');
 
+export const DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL = 'gpt-6.1-sol';
+
+export function resolveCommercialWhatsappAiModel(value = process.env.COMMERCIAL_WHATSAPP_AI_MODEL) {
+  return String(value || DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL).trim() || DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL;
+}
+
 export function commercialWhatsappAiEnabled() {
   return String(process.env.COMMERCIAL_WHATSAPP_AI_ENABLED || '').trim().toLowerCase() === 'true';
 }
@@ -172,11 +178,16 @@ export async function generateCommercialWhatsappAiReply(
   } else {
     const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
     if (!apiKey) return FALLBACK_REPLY;
-    const client = new OpenAI({ apiKey, timeout: 12_000, maxRetries: 0 });
+    // Reasoning models need sufficient time and output budget for a complete JSON reply.
+    const client = new OpenAI({ apiKey, timeout: 45_000, maxRetries: 0 });
+    const model = resolveCommercialWhatsappAiModel();
     const completion = await client.chat.completions.create({
-      model: String(process.env.COMMERCIAL_WHATSAPP_AI_MODEL || 'gpt-4o-mini').trim(),
+      model,
+      ...(model === DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL
+        ? { reasoning_effort: 'medium' as const }
+        : {}),
       response_format: { type: 'json_object' },
-      max_completion_tokens: 400,
+      max_completion_tokens: 2_000,
       store: false,
       messages,
     });
