@@ -107,15 +107,14 @@ test('bloqueia nova ativação de domínio e landing fora do plano permitido', a
 
   prisma.subscription.findUnique = async () => ({ plan: 'PREMIUM', status: 'ATIVA' });
   saved.customDomainRequested = true;
-  await assert.rejects(
-    () =>
-      service.execute({
-        restaurantId: 7,
-        customDomainRequested: true,
-        landingPageEnabled: true,
-      }),
-    /Gestão Total/i,
+  await assert.doesNotReject(() =>
+    service.execute({
+      restaurantId: 7,
+      customDomainRequested: true,
+      landingPageEnabled: true,
+    }),
   );
+  assert.equal(saved.landingPageEnabled, true);
 });
 
 test('rejeita troca manual de credencial Mercado Pago e preserva o grant OAuth', async () => {
