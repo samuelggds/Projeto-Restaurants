@@ -6,6 +6,7 @@ import {
   isRestrictedCommercialWhatsappQuestion,
   isExplicitHumanHandoffRequest,
   parseCommercialWhatsappAiReply,
+  isExplicitHumanHandoffRequest,
   redactCommercialWhatsappHistoryText,
 } from './CommercialWhatsappAiService.js';
 
@@ -164,4 +165,24 @@ test('o modelo não pode transferir para humano por conta própria', async () =>
     complete: async () => JSON.stringify({ reply: 'Podemos explicar o QR Code.', handoff: true }),
   });
   assert.equal(answer.handoff, false);
+});
+
+test('somente pedido explícito do cliente transfere a conversa para humano', async () => {
+  assert.equal(isExplicitHumanHandoffRequest('Quero falar com um atendente'), true);
+  assert.equal(isExplicitHumanHandoffRequest('Gostaria de suporte ao cardápio'), false);
+  const explicit = await generateCommercialWhatsappAiReply([
+    { direction: 'INBOUND', body: 'Quero falar com uma pessoa' },
+  ], {
+    loadPlans: async () => { throw new Error('Nenhum acesso ao catálogo deve ocorrer'); },
+  });
+  assert.equal(explicit.handoff, true);
+  assert.match(explicit.body, /horário comercial/u);
+
+  const unsupported = await generateCommercialWhatsappAiReply([
+    { direction: 'INBOUND', body: 'Quais são os recursos de NFC?' },
+  ], {
+    loadPlans: async () => publicPlans,
+    complete: async () => JSON.stringify({ reply: 'Vou confirmar as informações com a equipe.', handoff: true }),
+  });
+  assert.equal(unsupported.handoff, false, 'O modelo não deve assumir a conversa por conta própria');
 });
