@@ -6,8 +6,8 @@ import { presentPlanBenefits } from './planBenefitPresentation';
 type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL';
 type PublicPlan = { code: PlanCode; name: string; description: string; monthlyFee: number; trialDays: number; features: string[]; featured: boolean };
 const fallback: PublicPlan[] = [
-  {code:'BASICO',name:'Básico',description:'Operação de delivery para quem está começando.',monthlyFee:79.9,trialDays:7,featured:false,features:['Sistema de delivery','Implantação inicial assistida','Cadastro inicial de até 50 produtos','Suporte padrão']},
-  {code:'PREMIUM',name:'Premium',description:'Delivery e atendimento de mesas com QR Code.',monthlyFee:149.9,trialDays:15,featured:false,features:['Sistema de delivery','Cardápio digital com QR Code de mesa','Cartões NFC com comandas individuais (em homologação)','Implantação inicial assistida','Suporte prioritário']},
+  {code:'BASICO',name:'Básico',description:'Delivery, pedidos e atendimento por QR Code de mesa.',monthlyFee:79.9,trialDays:7,featured:false,features:['Sistema de delivery','Cardápio digital com QR Code de mesa','Implantação inicial assistida','Cadastro inicial de até 50 produtos','Suporte padrão']},
+  {code:'PREMIUM',name:'Premium',description:'Tudo do Entrada, com recursos avançados e gestão assistida contínua.',monthlyFee:149.9,trialDays:15,featured:false,features:['Sistema de delivery','Cardápio digital com QR Code de mesa','Cartões NFC com comandas individuais (em homologação)','Implantação inicial assistida','Suporte prioritário','Gestão assistida contínua, inclusive com atualizações diárias sob solicitação','Domínio próprio opcional com gestão técnica pela GastroNexa','Página personalizada do restaurante opcional no domínio próprio']},
   {code:'GESTAO_TOTAL',name:'Gestão Total',description:'Tudo do Premium com apoio contínuo sob solicitação.',monthlyFee:299.9,trialDays:15,featured:true,features:['Tudo do Plano Premium','Implantação inicial assistida','Gestão assistida contínua sob solicitação','Suporte prioritário']},
 ];
 const order: Record<PlanCode, number> = {BASICO:1,PREMIUM:2,GESTAO_TOTAL:3};
@@ -30,14 +30,12 @@ export function ApprovedMarketingPlans({onSelectPlan}:{onSelectPlan:(code:PlanCo
  const [plans,setPlans]=useState<PublicPlan[]>(fallback);
  useEffect(()=>{let active=true;api.get('/platform/plans',{skipBaseUrlFallback:true}).then(r=>{if(active)setPlans(validCatalog(r.data))}).catch(()=>undefined);return()=>{active=false}},[]);
  const sorted=useMemo(()=>plans.filter((plan) => plan.code !== 'GESTAO_TOTAL').sort((a,b)=>order[a.code]-order[b.code),[plans]);
- return <div className="price-grid" aria-label="Planos comerciais de Black Friday">
+ return <div className="price-grid" aria-label="Planos da GastroNexa">
  {sorted.map(plan=>{
   // Marketing only: final entitlement is always verified server-side.
-  const features = plan.code === 'BASICO' || plan.features.some(feature => /cartões? NFC/i.test(feature))
-    ? plan.features
-    : [...plan.features, 'Cartões NFC com comandas individuais (em homologação)'];
+  const features = plan.features;
   const detail=presentPlanBenefits(features);
-  const offerPrice = plan.code === 'BASICO' ? 79.9 : 149.9;
+  const offerPrice = plan.monthlyFee;
   const title = plan.code === 'BASICO' ? 'Entrada' : 'Avançado';
   const isFeatured = plan.code === 'PREMIUM';
   const primary=detail.sections.flatMap(s=>s.items);
@@ -45,7 +43,7 @@ export function ApprovedMarketingPlans({onSelectPlan}:{onSelectPlan:(code:PlanCo
    {isFeatured?<span className="price-ribbon">MAIS COMPLETO</span>:null}
    <h3>{title}</h3><p className="plan-desc">{plan.description}</p>
    <div className="price"><strong>{currency(offerPrice)}</strong><span>/mês</span></div>
-   <span className="trial"><Clock3 size={14}/> Oferta comercial de novembro</span>
+   <span className="trial"><Clock3 size={14}/> {plan.trialDays>0?`${plan.trialDays} dias de teste`:'Sem período de teste'}</span>
    <ul className="plan-features">
     {primary.slice(0,5).map(f=><li key={f.original}><Check size={16} aria-hidden="true"/><span>{f.title}</span></li>)}
    </ul>
