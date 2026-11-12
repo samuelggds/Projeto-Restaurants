@@ -272,7 +272,8 @@ test('não envia documentos formatados ou nome e endereço do cliente ao modelo'
     },
   });
   assert.doesNotMatch(prompt, /123\.456|12\.345|Ana Pereira|Rua Exemplo/u);
-  assert.equal(answer.body, 'O QR Code abre o cardápio digital.');
+  assert.equal(prompt, '', 'A política pode recusar a mensagem antes da chamada à IA');
+  assert.match(answer.body, /Por segurança/u);
 });
 
 test('impede respostas com CPF e CNPJ formatados mesmo sem palavras-chave', async () => {
