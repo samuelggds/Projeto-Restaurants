@@ -18,14 +18,14 @@ export class CustomerAddressController {
 
   async list(req: Request, res: Response) {
     const userId = this.userId(req, res);
-    if (!userId) return;
+    if (!userId) return undefined;
     const addresses = await this.service.list(userId);
     return res.json({ addresses });
   }
 
   async create(req: Request, res: Response) {
     const userId = this.userId(req, res);
-    if (!userId) return;
+    if (!userId) return undefined;
     const parsed = customerAddressSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Preencha todos os dados do endereço corretamente.' });
@@ -36,7 +36,7 @@ export class CustomerAddressController {
 
   async setDefault(req: Request, res: Response) {
     const userId = this.userId(req, res);
-    if (!userId) return;
+    if (!userId) return undefined;
     const parsedId = addressIdSchema.safeParse(req.params.id);
     if (!parsedId.success) {
       return res.status(404).json({ error: 'Endereço não encontrado.' });
