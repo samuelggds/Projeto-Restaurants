@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import prisma from '../config/prisma.js';
-import { hasPremiumFeatureAccess } from '../modules/billing/domain/planFeaturePolicy.js';
+import { hasTableQrAccess } from '../modules/billing/domain/planFeaturePolicy.js';
 
 export async function premiumTablePlanMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
@@ -14,9 +14,9 @@ export async function premiumTablePlanMiddleware(req: Request, res: Response, ne
       select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
     });
 
-    if (!hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
+    if (!hasTableQrAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
-        error: 'O sistema de mesas está disponível nos planos Premium e Gestão Total.',
+        error: 'O acesso às mesas exige uma assinatura ativa dos planos Entrada ou Avançado.',
         code: 'PREMIUM_TABLE_PLAN_REQUIRED',
       });
     }
