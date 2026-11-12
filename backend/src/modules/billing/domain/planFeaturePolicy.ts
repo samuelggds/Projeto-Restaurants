@@ -36,6 +36,20 @@ export function hasTemporaryFullFeatureAccess(
   );
 }
 
+/** QR Code de mesa está incluso no Entrada; NFC, IA e domínio continuam com acesso próprio. */
+export function hasTableQrAccess(
+  plan: RestaurantPlan | null | undefined,
+  status: RestaurantSubscriptionStatus | null | undefined,
+  restaurant?: RestaurantFeatureGrant | null,
+  now: Date = new Date(),
+) {
+  const normalized = String(plan || '').trim().toUpperCase();
+  return hasTemporaryFullFeatureAccess(status, restaurant, now) || (
+    hasActiveRestaurantPlan(status) &&
+    (normalized === 'BASICO' || normalized === 'PREMIUM' || normalized === 'GESTAO_TOTAL')
+  );
+}
+
 export function hasPremiumFeatureAccess(
   plan: RestaurantPlan | null | undefined,
   status: RestaurantSubscriptionStatus | null | undefined,
@@ -66,7 +80,7 @@ export function hasHostedLandingAccess(
 ) {
   return hasTemporaryFullFeatureAccess(status, restaurant, now) || (
     hasActiveRestaurantPlan(status) &&
-    String(plan || '').trim().toUpperCase() === 'GESTAO_TOTAL'
+    ['PREMIUM', 'GESTAO_TOTAL'].includes(String(plan || '').trim().toUpperCase())
   );
 }
 
