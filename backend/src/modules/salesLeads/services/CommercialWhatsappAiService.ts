@@ -103,7 +103,8 @@ export function redactCommercialWhatsappHistoryText(value: string) {
 export function isRestrictedCommercialWhatsappQuestion(value: string) {
   const question = String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/gu, '').toLowerCase();
   return /(?:\.env\b|process\.env\b|database_url|postgres(?:ql)?:\/\/|sql\s+(?:do|de|da)\s+banco|dados\s+(?:de|dos)\s+outro|cpf\s+(?:dos|de)\s+clientes)/u.test(question) ||
-    /(?:me\s+(?:passe|envie|mostre)|revel[ae]|exib[ae]|fornec[ae]|qual\s+(?:e|eh|seria))[\s\S]{0,80}(?:senha|segredo|secret|api.?key|credencia|token|jwt|chave\s+(?:privada|de\s+api|pix))/u.test(question);
+    /(?:me\s+(?:passe|envie|mostre)|revel[ae]|exib[ae]|fornec[ae]|qual\s+(?:e|eh|seria|o|a))[\s\S]{0,80}(?:senha|segredo|secret|api.?key|credencia|token|jwt|chave\s+(?:privada|de\s+api|pix))/u.test(question) ||
+    /(?:senha|segredo|token|chave\s+privada)\s+(?:do|da|de)\s+(?:jwt|backend|banco|sistema|api|plataforma)/u.test(question);
 }
 
 export function parseCommercialWhatsappAiReply(raw: string | null | undefined): CommercialWhatsappAiReply {
@@ -123,6 +124,12 @@ export async function generateCommercialWhatsappAiReply(
   const latestCustomerTurn = [...turns].reverse().find((turn) => turn.direction === 'INBOUND');
   if (!latestCustomerTurn) return FALLBACK_REPLY;
   if (isRestrictedCommercialWhatsappQuestion(latestCustomerTurn.body)) return RESTRICTED_REPLY;
+  const normalizedRequest = latestCustomerTurn.body
+    .normalize('NFD').replace(/[\u0300-\u036f]/gu, '').trim().toLowerCase();
+  if (/(?:falar com (?:uma )?pessoa|atendimento humano|falar com atendente|quero um atendente|preciso de suporte humano)/u.test(normalizedRequest) ||
+    /^(?:5|humano|atendente)$/u.test(normalizedRequest)) {
+    return { body: 'Claro! Vou encaminhar sua conversa para nossa equipe da GastroNexa. 🙂', handoff: true };
+  }
 
   // Read the published, active catalog on EVERY reply. No dynamic SQL or model-selected Prisma queries.
   const plans = await (dependencies.loadPlans || (() => platformPlanCatalogService.list({ activeOnly: true })))();
