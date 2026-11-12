@@ -119,7 +119,7 @@ describe('configurações principais do administrador', () => {
       container.querySelectorAll('input[type="checkbox"]'),
     ) as HTMLInputElement[];
     expect(premiumCheckboxes.at(-2)?.disabled).toBe(false);
-    expect(premiumCheckboxes.at(-1)?.disabled).toBe(true);
+    expect(premiumCheckboxes.at(-1)?.disabled).toBe(false);
 
     renderBrand('GESTAO_TOTAL', true);
     const totalCheckboxes = Array.from(
