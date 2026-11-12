@@ -3,6 +3,8 @@ import test from 'node:test';
 import {
   buildPublicCommercialWhatsappCatalog,
   generateCommercialWhatsappAiReply,
+  resolveCommercialWhatsappAiModel,
+  DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL,
   isRestrictedCommercialWhatsappQuestion,
   isExplicitHumanHandoffRequest,
   parseCommercialWhatsappAiReply,
@@ -248,4 +250,11 @@ test('não transmite respostas com dados pessoais ou informações internas', as
     assert.match(answer.body, /Não consegui confirmar/u);
     assert.equal(answer.handoff, false);
   }
+});
+
+test('modelo comercial mais capaz e fallback configurável por ambiente', () => {
+  assert.equal(DEFAULT_COMMERCIAL_WHATSAPP_AI_MODEL, 'gpt-6.1-sol');
+  assert.equal(resolveCommercialWhatsappAiModel(''), 'gpt-6.1-sol');
+  assert.equal(resolveCommercialWhatsappAiModel('gpt-4o-mini'), 'gpt-4o-mini');
+  assert.equal(resolveCommercialWhatsappAiModel('  gpt-6.1-sol  '), 'gpt-6.1-sol');
 });
