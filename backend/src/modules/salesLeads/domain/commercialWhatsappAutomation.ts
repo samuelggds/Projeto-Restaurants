@@ -50,13 +50,14 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
   if (!INBOUND_AUTO_REPLY_KINDS.has(kind)) return null;
   if (!input.automationEnabled) return 'automation_disabled';
 
-  // The sales AI answers 24/7, including in HUMAN conversations outside
-  // the human shift. When the human shift resumes, human takeover wins.
+  // AI is available 24/7 while in BOT mode. A customer's explicit
+  // handoff or Super Admin takeover puts the conversation in HUMAN mode;
+  // it must remain there until the Super Admin explicitly returns it to BOT.
   if (kind === 'AI_REPLY') {
     if (input.aiEnabled === false) return 'ai_disabled';
-    if (input.mode === 'BOT' || (input.mode === 'HUMAN' && !input.open)) return null;
     if (input.mode === 'HUMAN') return 'human_mode';
-    return 'conversation_closed';
+    if (input.mode === 'CLOSED') return 'conversation_closed';
+    return null;
   }
 
   if (!input.open) return 'outside_hours';
