@@ -460,4 +460,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   .footer .footer-links{grid-template-columns:1fr}
 }
 
+
+/* Two commercial cards; preserve the existing page design. */
+#gx-pricing-root > .price-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:900px;margin-left:auto;margin-right:auto}
+@media(max-width:690px){#gx-pricing-root > .price-grid{grid-template-columns:1fr;max-width:490px}}
 `;
