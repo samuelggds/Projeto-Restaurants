@@ -130,10 +130,10 @@ export async function generateCommercialWhatsappAiReply(
 ): Promise<CommercialWhatsappAiReply> {
   const latestCustomerTurn = [...turns].reverse().find((turn) => turn.direction === 'INBOUND');
   if (!latestCustomerTurn) return FALLBACK_REPLY;
-  if (isRestrictedCommercialWhatsappQuestion(latestCustomerTurn.body)) return RESTRICTED_REPLY;
   if (isExplicitHumanHandoffRequest(latestCustomerTurn.body)) {
     return { body: 'Claro! Vou encaminhar sua conversa para nossa equipe da GastroNexa. O atendimento humano seguirá o horário comercial configurado. 🙂', handoff: true };
   }
+  if (isRestrictedCommercialWhatsappQuestion(latestCustomerTurn.body)) return RESTRICTED_REPLY;
 
   // Read the published, active catalog on EVERY reply. No dynamic SQL or model-selected Prisma queries.
   const plans = await (dependencies.loadPlans || (() => platformPlanCatalogService.list({ activeOnly: true })))();
