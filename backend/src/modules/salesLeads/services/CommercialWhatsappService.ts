@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import prisma from '../../../config/prisma.js';
+import { commercialWhatsappAiEnabled, generateCommercialWhatsappAiReply } from './CommercialWhatsappAiService.js';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import {
   decryptCredential,
@@ -23,7 +24,7 @@ type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
-const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY'];
+const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY'];
 
 export class PlatformWhatsappRecoveryRequiredError extends Error {
   readonly code = 'PLATFORM_WHATSAPP_ORPHAN_SESSION';
@@ -587,7 +588,7 @@ async function suppressPendingAutomaticReplies(
 async function enqueueAutoReply(
   conversationId: string,
   phone: string,
-  kind: 'GREETING' | 'HANDOFF',
+  kind: 'GREETING' | 'HANDOFF' | 'AI_REPLY',
   body: string,
   sourceMessageKey: string,
 ) {
@@ -620,7 +621,7 @@ async function enqueueAutoReply(
       where: {
         conversationId,
         status: 'PENDING',
-        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF'] : ['GREETING'] },
+        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY'] : ['GREETING', 'AI_REPLY'] },
       },
       data: {
         status: 'SUPPRESSED',
@@ -796,12 +797,15 @@ export async function processPlatformEvolutionInbound(
     return { accepted: true, queued: false, reason: 'outside_hours' } as const;
   }
 
-  const botReply = botReplyForMessage(text);
+  const aiEnabled = commercialWhatsappAiEnabled();
+  const botReply = aiEnabled ? null : botReplyForMessage(text);
+  // AI replies are generated at dispatch, after the 15-second debounce.
+  // The queue contains no API key, database record or generated secret.
   const queued = await enqueueAutoReply(
     conversation.id,
     phone,
-    botReply.handoff ? 'HANDOFF' : 'GREETING',
-    botReply.body,
+    aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
+    aiEnabled ? 'AI_PENDING' : botReply!.body,
     meta.providerMessageId || inboundMessageId,
   );
 
@@ -1030,19 +1034,64 @@ export async function deliverPlatformWhatsappOutbox() {
         }
       }
 
-      await sendPlatformWhatsappText(item.phone, item.body);
+      let outgoingBody = item.body;
+      let handoffToHuman = item.kind === 'HANDOFF';
+      if (item.kind === 'AI_REPLY') {
+        // On each message, load only this lead's short history. No tenant data or secrets.
+        const history = await prisma.salesLeadWhatsappMessage.findMany({
+          where: { conversationId: item.conversationId },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 8,
+          select: { direction: true, body: true, automated: true },
+        });
+        const answer = await generateCommercialWhatsappAiReply(
+          history.reverse().map((turn) => ({
+            direction: turn.direction === 'INBOUND' ? 'INBOUND' : 'OUTBOUND',
+            body: turn.body,
+            automated: turn.automated,
+          })),
+        ).catch(() => ({
+          body: 'Vou encaminhar sua dúvida para nossa equipe da GastroNexa para que você receba uma informação correta. 🙂',
+          handoff: true,
+        }));
+        outgoingBody = answer.body;
+        handoffToHuman = answer.handoff;
+      }
+
+      // An operator or a newer inbound message can invalidate a response while AI runs.
+      if (item.kind === 'AI_REPLY') {
+        const [currentConversation, currentOutbox] = await Promise.all([
+          prisma.salesLeadWhatsappConversation.findUnique({
+            where: { id: item.conversationId }, select: { automationMode: true },
+          }),
+          prisma.salesLeadWhatsappOutbox.findUnique({
+            where: { id: item.id }, select: { status: true, lockToken: true },
+          }),
+        ]);
+        if (currentConversation?.automationMode !== 'BOT' ||
+          currentOutbox?.status !== 'PENDING' ||
+          currentOutbox.lockToken !== lockToken) {
+          await prisma.salesLeadWhatsappOutbox.updateMany({
+            where: { id: item.id, status: 'PENDING', lockToken },
+            data: { status: 'SUPPRESSED', suppressedReason: 'conversation_changed', lockedUntil: null, lockToken: null },
+          });
+          continue;
+        }
+      }
+
+      await sendPlatformWhatsappText(item.phone, outgoingBody);
       await prisma.$transaction([
         prisma.salesLeadWhatsappOutbox.update({
           where: { id: item.id },
-          data: { status: 'SENT', sentAt: new Date(), lockedUntil: null, lockToken: null },
+          data: { status: 'SENT', body: outgoingBody, sentAt: new Date(), lockedUntil: null, lockToken: null },
         }),
         prisma.salesLeadWhatsappMessage.create({
           data: {
             id: randomUUID(),
             conversationId: item.conversationId,
             direction: 'OUTBOUND',
-            kind: item.kind,
-            body: item.body,
+            kind: handoffToHuman ? 'HANDOFF' : item.kind,
+            body: outgoingBody,
             automated: item.kind !== 'MANUAL',
           },
         }),
@@ -1050,14 +1099,14 @@ export async function deliverPlatformWhatsappOutbox() {
           where: { id: item.conversationId },
           data: {
             lastOutboundAt: new Date(),
-            ...(item.kind === 'HANDOFF'
+            ...(handoffToHuman
               ? { automationMode: 'HUMAN', closedAt: null }
               : {}),
           },
         }),
       ]);
       publishCommercialWhatsappUpdate(item.conversationId, 'outbound_message');
-      if (item.kind === 'HANDOFF') {
+      if (handoffToHuman) {
         publishCommercialWhatsappUpdate(item.conversationId, 'human_handoff');
       }
       sent++;
