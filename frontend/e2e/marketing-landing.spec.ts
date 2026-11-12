@@ -166,13 +166,12 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
 test('planos utilizam catálogo público real e selecionam interesse',async ({page})=>{
  await page.goto('/');
  const section=page.locator('#planos');
- await expect(section.getByRole('heading',{name:'Básico'})).toBeVisible();
- await expect(section.getByRole('heading',{name:'Premium'})).toBeVisible();
- await expect(section.getByRole('heading',{name:'Gestão Total'})).toBeVisible();
- await expect(section).toContainText('99,90');
- await expect(section).toContainText('199,90');
- await expect(section).toContainText('299,90');
- await section.getByRole('link',{name:/Quero o Premium/}).click();
+ await expect(section.getByRole('heading',{name:'Entrada'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Avançado'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Gestão Total'})).toHaveCount(0);
+ await expect(section).toContainText('79,90');
+ await expect(section).toContainText('149,90');
+ await section.getByRole('link',{name:/Quero o Avançado/}).click();
  await expect(page.getByRole('form',{name:'Contato comercial'}).getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
 });
 
@@ -202,7 +201,7 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /Quero o Premium/ }).click();
+  await page.getByRole('link', { name: /Quero o Avançado/ }).click();
   const form = page.getByRole('form', { name: 'Contato comercial' });
   await expect(form.getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
   await form.getByLabel('Seu nome', { exact: true }).fill('Joana Silva');
