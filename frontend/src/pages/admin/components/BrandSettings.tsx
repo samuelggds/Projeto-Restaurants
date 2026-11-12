@@ -50,7 +50,7 @@ export function BrandSettings({
   const planActive = normalizedStatus === 'ATIVA' || normalizedStatus === 'TESTE';
   const customDomainAllowed =
     planActive && (normalizedPlan === 'PREMIUM' || normalizedPlan === 'GESTAO_TOTAL');
-  const landingAllowed = planActive && normalizedPlan === 'GESTAO_TOTAL';
+  const landingAllowed = planActive && (normalizedPlan === 'PREMIUM' || normalizedPlan === 'GESTAO_TOTAL');
   const platformHost = (() => {
     try {
       const configured = String(import.meta.env.VITE_APP_URL || '').trim();
