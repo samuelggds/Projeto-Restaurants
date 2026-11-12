@@ -9,7 +9,7 @@ A implementação não configura, contrata nem requer a WhatsApp Business Platfo
 ## Ativação controlada
 
 - Padrão: `COMMERCIAL_WHATSAPP_AI_ENABLED=false`, preservando o bot por menus.
-- Para homologar, configurar `OPENAI_API_KEY` em secret de backend, `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-4o-mini`, e habilitar a flag **somente em homologação**; nenhuma chave entra no frontend ou no Git.
+- Para homologar, configurar `OPENAI_API_KEY` em secret de backend, `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-6.1-sol`, e habilitar a flag **somente em homologação**; nenhuma chave entra no frontend ou no Git.
 - O Docker de produção propaga apenas as variáveis explícitas de ambiente para backend/worker. Reiniciar/deployar os serviços para aplicar nova configuração.
 - O switch do Super Admin `commercialWhatsappEnabled`, o horário configurado e os modos BOT/HUMAN/CLOSED continuam valendo; a IA não responde quando a automação estiver desligada nem substitui um humano.
 - Há um atraso de 15 segundos e reserva compartilhada entre workers; a resposta é gerada na fase de entrega, não no webhook, para permitir suprimir mensagens substituídas.
@@ -41,3 +41,21 @@ A implementação não configura, contrata nem requer a WhatsApp Business Platfo
 ## Observação de arquitetura
 
 Este recurso é **comercial da plataforma**, não o assistente do ADMIN de cada restaurante. O custo de API da IA comercial não deve descontar créditos de restaurantes; monitorar custo, rate limit e eventual orçamento dedicado na infraestrutura da plataforma antes da liberação.
+
+## Agente especialista de produto: informações públicas e limites
+
+- Além dos preços e funcionalidades por plano obtidos a cada mensagem no catálogo público ativo do PostgreSQL, o agente recebe uma base de conhecimento **escrita e aprovada** com explicações comerciais públicas: cardápio digital, pedidos, delivery, retirada, mesas, QR Code, NFC, cozinha, equipe, relatórios, cupons, fidelidade, implantação, suporte e presença digital.
+- O conhecimento é selecionado pela pergunta (no máximo quatro áreas), sem buscas livres no repositório, sem consulta a tabelas de clientes, funcionários, donos de restaurantes ou super_admin.
+- A base de produto **não concede funcionalidades**: disponibilidade, mensalidade, teste e condições de cada plano continuam controlados pelo catálogo comercial ativo; NFC permanece sujeito à homologação anunciada.
+- Perguntas sobre identidade, comportamento e acessos de indivíduos, transações privadas, credenciais, detalhes privilegiados de infraestrutura, configurações internas ou possíveis vulnerabilidades recebem recusa.
+- O backend aplica filtros antes de consultar o catálogo/IA e valida as respostas de saída. Uma resposta potencialmente sensível é substituída por texto seguro. Esses filtros complementam, mas não substituem, controle de acesso e minimização da origem.
+- A IA não tem acesso a ferramentas, SQL arbitrário, qualquer pedido real, tabelas pessoais, logs, secret managers, ações administrativas ou privilégios do Super Admin.
+- Manter o atendimento da IA 24h e as regras já existentes de transferência humana: pedido explícito no horário humano, timeout de 10 minutos sem resposta, atendimento humano nos horários configurados e suspensão enquanto o Super Admin assume.
+- Antes de publicar, validar com ataques de extração e prompt injection; nenhum filtro textual garante segurança absoluta. Em caso de dúvida, prefira recusar e registrar apenas telemetria não sensível.
+
+## Modelo comercial de maior capacidade
+
+- Padrão do serviço: `gpt-6.1-sol`, `reasoning_effort=medium`, saída limitada a 2.000 tokens de conclusão (inclui raciocínio interno), resposta JSON de até 1.200 caracteres e `timeout=45s`.
+- A configuração `COMMERCIAL_WHATSAPP_AI_MODEL` continua substituível. **Importante:** se `.env.production` já contiver `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-4o-mini`, essa variável explícita prevalece sobre os novos defaults do código e do Compose; somente alteração operacional aprovada e verificada aplicará Sol em produção. Nunca imprimir valores de `.env.production` nem chaves da API em logs.
+- O modelo mais capaz pode custar mais e responder mais lentamente; validar orçamento, limites da conta, disponibilidade, casos adversariais, integração Evolution/worker e conclusão das respostas antes do deploy.
+- Se a resposta estruturada falhar, continuar com resposta segura; nunca reduzir verificações de segurança para forçar uma resposta.
