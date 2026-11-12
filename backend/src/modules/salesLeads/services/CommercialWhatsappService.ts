@@ -897,10 +897,10 @@ export async function deliverPlatformWhatsappOutbox() {
     WHERE o."id" = picked."id" AND c."id" = o."conversationId"
     RETURNING o."id", o."conversationId", o."kind", o."body", o."attempts", c."phone"`;
 
-  const hasInboundAutomaticReplies = rows.some((item) =>
-    AUTOMATIC_REPLY_KINDS.includes(item.kind),
+  const hasPolicyControlledReplies = rows.some((item) =>
+    AUTOMATIC_REPLY_KINDS.includes(item.kind) || item.kind === 'MANUAL',
   );
-  const automationSettings = hasInboundAutomaticReplies
+  const automationSettings = hasPolicyControlledReplies
     ? await prisma.platformSettings.findUnique({
         where: { id: 1 },
         select: {
@@ -950,6 +950,21 @@ export async function deliverPlatformWhatsappOutbox() {
           data: {
             status: 'SUPPRESSED',
             suppressedReason: automaticSuppression,
+            lockedUntil: null,
+            lockToken: null,
+          },
+        });
+        continue;
+      }
+
+      if (item.kind === 'MANUAL' && !automationOpen) {
+        // Even a manual message queued just before closing must not be
+        // delivered outside the configured human-support schedule.
+        await prisma.salesLeadWhatsappOutbox.update({
+          where: { id: item.id },
+          data: {
+            availableAt: new Date(Date.now() + 15 * 60_000),
+            attempts: { decrement: 1 },
             lockedUntil: null,
             lockToken: null,
           },
