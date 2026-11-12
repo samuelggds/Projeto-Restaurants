@@ -4,6 +4,7 @@ import {
   buildPublicCommercialWhatsappCatalog,
   generateCommercialWhatsappAiReply,
   isRestrictedCommercialWhatsappQuestion,
+  isExplicitHumanHandoffRequest,
   parseCommercialWhatsappAiReply,
   redactCommercialWhatsappHistoryText,
 } from './CommercialWhatsappAiService.js';
@@ -81,7 +82,7 @@ test('recusa solicitação de credenciais sem consultar o banco nem o modelo', a
     complete: async () => { called = true; return null; },
   });
   assert.equal(called, false);
-  assert.equal(answer.handoff, true);
+  assert.equal(answer.handoff, false);
   assert.match(answer.body, /segurança/u);
 });
 
@@ -104,7 +105,7 @@ test('falha segura para respostas sem JSON válido, não autorizadas ou contendo
     JSON.stringify({ reply: 'Acesse https://localhost:3000/admin', handoff: false }),
     JSON.stringify({ reply: 'Ok', handoff: false, credentials: 'secret' }),
   ]) {
-    assert.equal(parseCommercialWhatsappAiReply(value).handoff, true);
+    assert.equal(parseCommercialWhatsappAiReply(value).handoff, false);
   }
   assert.equal(isRestrictedCommercialWhatsappQuestion('Qual o segredo do JWT?'), true);
   assert.equal(isRestrictedCommercialWhatsappQuestion('Vocês têm cardápio digital?'), false);
@@ -119,7 +120,7 @@ test('catálogo indisponível não gera resposta comercial inventada', async () 
     complete: async () => { modelCalled = true; return null; },
   });
   assert.equal(modelCalled, false);
-  assert.equal(answer.handoff, true);
+  assert.equal(answer.handoff, false);
 });
 
 test('preserva somente até oito turnos e nunca envia a identificação do restaurante do cliente', async () => {
@@ -137,4 +138,30 @@ test('preserva somente até oito turnos e nunca envia a identificação do resta
   });
   assert.doesNotMatch(sent, /Dúvida 0|Dúvida 5/u);
   assert.match(sent, /Dúvida 13/u);
+});
+
+test('somente pedido explícito do cliente interrompe o atendimento da IA', async () => {
+  assert.equal(isExplicitHumanHandoffRequest('Quero falar com uma pessoa'), true);
+  assert.equal(isExplicitHumanHandoffRequest('Preciso saber o valor do plano'), false);
+  assert.equal(isExplicitHumanHandoffRequest('Tenho um problema na minha conta'), false);
+  let calls = 0;
+  const handoff = await generateCommercialWhatsappAiReply([
+    { direction: 'INBOUND', body: 'Quero falar com uma pessoa' },
+  ], {
+    loadPlans: async () => { calls++; return publicPlans; },
+    complete: async () => { calls++; return null; },
+  });
+  assert.equal(handoff.handoff, true);
+  assert.equal(calls, 0);
+  assert.match(handoff.body, /horário comercial/u);
+});
+
+test('o modelo não pode transferir para humano por conta própria', async () => {
+  const answer = await generateCommercialWhatsappAiReply([
+    { direction: 'INBOUND', body: 'Como funciona o QR Code?' },
+  ], {
+    loadPlans: async () => publicPlans,
+    complete: async () => JSON.stringify({ reply: 'Podemos explicar o QR Code.', handoff: true }),
+  });
+  assert.equal(answer.handoff, false);
 });
