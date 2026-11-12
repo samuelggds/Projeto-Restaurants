@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS,
+  COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS,
   COMMERCIAL_WHATSAPP_CLOSED_COOLDOWN_MS,
   commercialWhatsappAutoReplyAvailableAt,
   commercialWhatsappAutoReplyRetryAt,
@@ -154,4 +155,14 @@ test('IA responde 24h em BOT, mas nunca depois de takeover humano ou encerrament
   assert.equal(commercialWhatsappAutoReplySuppressionReason({
     kind: 'AI_REPLY', mode: 'BOT', automationEnabled: true, open: true, aiEnabled: false,
   }), 'ai_disabled');
+});
+
+test('retomada de solicitação humana tem prazo fixo de dez minutos', () => {
+  assert.equal(COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS, 10 * 60_000);
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_TIMEOUT', mode: 'BOT', automationEnabled: true, open: false, aiEnabled: true,
+  }), null);
+  assert.equal(commercialWhatsappAutoReplySuppressionReason({
+    kind: 'AI_TIMEOUT', mode: 'HUMAN', automationEnabled: true, open: true, aiEnabled: true,
+  }), 'human_mode');
 });
