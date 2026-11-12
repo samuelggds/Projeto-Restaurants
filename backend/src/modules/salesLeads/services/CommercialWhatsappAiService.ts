@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { selectPublicCommercialProductKnowledge } from '../domain/commercialWhatsappPublicKnowledge.js';
+import { hasCommercialWhatsappPersonalData, redactCommercialWhatsappPersonalData } from '../domain/commercialWhatsappDisclosurePolicy.js';
 import {
   isRestrictedCommercialDisclosureRequest,
   isUnsafeCommercialAiOutput,
@@ -107,8 +108,7 @@ export function buildPublicCommercialWhatsappCatalog(plans: readonly PublicPlanF
 }
 
 export function redactCommercialWhatsappHistoryText(value: string) {
-  return String(value || '')
-    .slice(0, 900)
+  return redactCommercialWhatsappPersonalData(String(value || '').slice(0, 900))
     .replace(/\b[\w.%+-]+@[\w.-]+\.[A-Z]{2,}\b/giu, '[e-mail omitido]')
     .replace(/\b(?:sk-[a-z0-9_-]{10,}|gh[pousr]_[a-z0-9_-]{12,}|APP_USR-[a-z0-9_-]+)\b/giu, '[credencial omitida]')
     .replace(/\b(?:senha|password|token|api[_ -]?key|segredo)\s*[:=]\s*\S+/giu, '[credencial omitida]')
@@ -152,6 +152,8 @@ export async function generateCommercialWhatsappAiReply(
   }
   if (isRestrictedCommercialWhatsappQuestion(latestCustomerTurn.body) ||
     isRestrictedCommercialDisclosureRequest(latestCustomerTurn.body)) return RESTRICTED_REPLY;
+  // Do not send user-submitted documents/contact details to an external model.
+  // A normal commercial question can still be answered without the identifiers.
 
   // Read the published, active catalog on EVERY reply. No dynamic SQL or model-selected Prisma queries.
   const plans = await (dependencies.loadPlans || (() => platformPlanCatalogService.list({ activeOnly: true })))();
@@ -196,7 +198,7 @@ export async function generateCommercialWhatsappAiReply(
   // The language model cannot trigger a takeover by itself. Only an
   // explicit customer request (handled above) or the Super Admin can do so.
   const parsed = parseCommercialWhatsappAiReply(raw);
-  if (isUnsafeCommercialAiOutput(parsed.body)) return FALLBACK_REPLY;
+  if (hasCommercialWhatsappPersonalData(parsed.body) || isUnsafeCommercialAiOutput(parsed.body)) return FALLBACK_REPLY;
   return { ...parsed, handoff: false };
 }
 
