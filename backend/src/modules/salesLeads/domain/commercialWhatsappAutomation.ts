@@ -1,9 +1,10 @@
 export const COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS = 15_000;
 export const COMMERCIAL_WHATSAPP_CLOSED_COOLDOWN_MS = 30 * 60 * 1_000;
+export const COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS = 10 * 60 * 1_000;
 
 export type CommercialWhatsappConversationMode = 'BOT' | 'HUMAN' | 'CLOSED';
 
-const INBOUND_AUTO_REPLY_KINDS = new Set(['GREETING', 'HANDOFF', 'FORM_GREETING', 'AI_REPLY']);
+const INBOUND_AUTO_REPLY_KINDS = new Set(['GREETING', 'HANDOFF', 'FORM_GREETING', 'AI_REPLY', 'AI_TIMEOUT']);
 
 export function commercialWhatsappAutoReplyAvailableAt(now = new Date()) {
   return new Date(now.getTime() + COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS);
@@ -50,10 +51,9 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
   if (!INBOUND_AUTO_REPLY_KINDS.has(kind)) return null;
   if (!input.automationEnabled) return 'automation_disabled';
 
-  // AI is available 24/7 while in BOT mode. A customer's explicit
-  // handoff or Super Admin takeover puts the conversation in HUMAN mode;
-  // it must remain there until the Super Admin explicitly returns it to BOT.
-  if (kind === 'AI_REPLY') {
+  // AI and timeout follow-up run 24/7 in BOT. HUMAN is never auto-
+  // overridden here; only an explicitly timed customer handoff may expire.
+  if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT') {
     if (input.aiEnabled === false) return 'ai_disabled';
     if (input.mode === 'HUMAN') return 'human_mode';
     if (input.mode === 'CLOSED') return 'conversation_closed';
