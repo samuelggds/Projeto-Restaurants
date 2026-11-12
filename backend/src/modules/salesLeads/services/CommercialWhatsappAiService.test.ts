@@ -258,3 +258,31 @@ test('modelo comercial mais capaz e fallback configurável por ambiente', () => 
   assert.equal(resolveCommercialWhatsappAiModel('gpt-4o-mini'), 'gpt-4o-mini');
   assert.equal(resolveCommercialWhatsappAiModel('  gpt-6.1-sol  '), 'gpt-6.1-sol');
 });
+
+
+test('não envia documentos formatados ou nome e endereço do cliente ao modelo', async () => {
+  let prompt = '';
+  const answer = await generateCommercialWhatsappAiReply([
+    { direction: 'INBOUND', body: 'Meu CPF 123.456.789-09 e CNPJ 12.345.678/0001-90. Meu nome é Ana Pereira Lima. Rua Exemplo, 123. Como funciona o QR Code?' },
+  ], {
+    loadPlans: async () => publicPlans,
+    complete: async (messages) => {
+      prompt = JSON.stringify(messages);
+      return JSON.stringify({ reply: 'O QR Code abre o cardápio digital.', handoff: false });
+    },
+  });
+  assert.doesNotMatch(prompt, /123\.456|12\.345|Ana Pereira|Rua Exemplo/u);
+  assert.equal(answer.body, 'O QR Code abre o cardápio digital.');
+});
+
+test('impede respostas com CPF e CNPJ formatados mesmo sem palavras-chave', async () => {
+  for (const reply of ['123.456.789-09', '12.345.678/0001-90']) {
+    const answer = await generateCommercialWhatsappAiReply([
+      { direction: 'INBOUND', body: 'Como funciona o cardápio digital?' },
+    ], {
+      loadPlans: async () => publicPlans,
+      complete: async () => JSON.stringify({ reply, handoff: false }),
+    });
+    assert.match(answer.body, /Não consegui confirmar/u);
+  }
+});
