@@ -25,12 +25,13 @@ const test = base.extend<{ apiIsolation: void }>({
                 plans: [
                   {
                     code: 'BASICO',
-                    name: 'Básico',
-                    description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
-                    monthlyFee: 99.9,
+                    name: 'Entrada',
+                    description: 'Delivery e QR Code',
+                    monthlyFee: 79.9,
                     trialDays: 7,
                     features: [
                       'Sistema de delivery',
+                      'Cardápio digital com QR Code de mesa',
                       'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
                       'Suporte padrão',
                       'Ganhe de graça uma máquina térmica de 58mm após o pagamento da primeira mensalidade',
@@ -40,14 +41,15 @@ const test = base.extend<{ apiIsolation: void }>({
                   },
                   {
                     code: 'PREMIUM',
-                    name: 'Premium',
-                    description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
-                    monthlyFee: 199.9,
+                    name: 'Avançado',
+                    description: 'Gestão assistida e recursos avançados',
+                    monthlyFee: 149.9,
                     trialDays: 15,
                     features: [
                       'Sistema de delivery',
                       'Cardápio digital com QR Code de mesa',
                       'Suporte prioritário',
+                      'Gestão assistida contínua sob solicitação',
                     ],
                     featured: false,
                   },
