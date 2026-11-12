@@ -41,3 +41,14 @@ A implementação não configura, contrata nem requer a WhatsApp Business Platfo
 ## Observação de arquitetura
 
 Este recurso é **comercial da plataforma**, não o assistente do ADMIN de cada restaurante. O custo de API da IA comercial não deve descontar créditos de restaurantes; monitorar custo, rate limit e eventual orçamento dedicado na infraestrutura da plataforma antes da liberação.
+
+## Agente especialista de produto: informações públicas e limites
+
+- Além dos preços e funcionalidades por plano obtidos a cada mensagem no catálogo público ativo do PostgreSQL, o agente recebe uma base de conhecimento **escrita e aprovada** com explicações comerciais públicas: cardápio digital, pedidos, delivery, retirada, mesas, QR Code, NFC, cozinha, equipe, relatórios, cupons, fidelidade, implantação, suporte e presença digital.
+- O conhecimento é selecionado pela pergunta (no máximo quatro áreas), sem buscas livres no repositório, sem consulta a tabelas de clientes, funcionários, donos de restaurantes ou super_admin.
+- A base de produto **não concede funcionalidades**: disponibilidade, mensalidade, teste e condições de cada plano continuam controlados pelo catálogo comercial ativo; NFC permanece sujeito à homologação anunciada.
+- Perguntas sobre identidade, comportamento e acessos de indivíduos, transações privadas, credenciais, detalhes privilegiados de infraestrutura, configurações internas ou possíveis vulnerabilidades recebem recusa.
+- O backend aplica filtros antes de consultar o catálogo/IA e valida as respostas de saída. Uma resposta potencialmente sensível é substituída por texto seguro. Esses filtros complementam, mas não substituem, controle de acesso e minimização da origem.
+- A IA não tem acesso a ferramentas, SQL arbitrário, qualquer pedido real, tabelas pessoais, logs, secret managers, ações administrativas ou privilégios do Super Admin.
+- Manter o atendimento da IA 24h e as regras já existentes de transferência humana: pedido explícito no horário humano, timeout de 10 minutos sem resposta, atendimento humano nos horários configurados e suspensão enquanto o Super Admin assume.
+- Antes de publicar, validar com ataques de extração e prompt injection; nenhum filtro textual garante segurança absoluta. Em caso de dúvida, prefira recusar e registrar apenas telemetria não sensível.
