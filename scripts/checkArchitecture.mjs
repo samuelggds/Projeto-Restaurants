@@ -15,6 +15,31 @@ const legacyLimits = new Map([
   ["frontend/src/pages/kitchen/Kitchen.styles.ts", 1356],
   ["frontend/src/pages/waiter/Waiter.styles.ts", 1465],
 ]);
+// Legacy route debt is explicit and must not grow; remove entries as modules are migrated.
+const legacyRouteDatabaseAccess = new Set([
+  "backend/src/modules/coupon/routes/CouponRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcArchivedCustomerRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcCashlessAccessRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcComandaRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcCustomerViewRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcInventoryRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcOrderConfirmationRoutes.ts",
+  "backend/src/modules/nfcRegistration/routes/NfcRegistrationRoutes.ts",
+  "backend/src/modules/waiterCalls/routes/TableServiceCallRoutes.ts",
+]);
+const legacyRouteLineLimits = new Map([
+  ["backend/src/modules/nfcRegistration/routes/NfcCashlessAccessRoutes.ts", 178],
+  ["backend/src/modules/nfcRegistration/routes/NfcComandaRoutes.ts", 214],
+  ["backend/src/modules/nfcRegistration/routes/NfcCustomerViewRoutes.ts", 205],
+  ["backend/src/modules/nfcRegistration/routes/NfcInventoryRoutes.ts", 168],
+  ["backend/src/modules/nfcRegistration/routes/NfcOrderConfirmationRoutes.ts", 211],
+  ["backend/src/modules/nfcRegistration/routes/NfcRegistrationRoutes.ts", 1178],
+  ["backend/src/modules/orders/routes/orderRoutes.ts", 285],
+]);
+const routeDefaultLineLimit = 150;
+const routeModulePattern = /^backend\/src\/modules\/[^/]+\/routes\/[^/]+\.ts$/u;
+const repositoryBoundaryPattern =
+  /(?:^|\/)(?:config\/prisma|database\/tenantDbContext|repositories\/)|^@prisma\/client$/u;
 const forbiddenImportRules = [
   {
     source: /^frontend\/src\/shared\//u,
@@ -72,6 +97,7 @@ const files = (await Promise.all(roots.map(collectFiles))).flat();
 const oversized = [];
 const forbiddenImports = [];
 const forbiddenContent = [];
+const routeViolations = [];
 
 for (const file of files) {
   const content = await readFile(file, "utf8");
@@ -79,6 +105,29 @@ for (const file of files) {
   const normalizedFile = file.replace(/\\/gu, "/");
   const limit = legacyLimits.get(normalizedFile) ?? maximumLines;
   if (lines > limit) oversized.push({ file: normalizedFile, lines, limit });
+
+  if (routeModulePattern.test(normalizedFile) && !normalizedFile.endsWith(".test.ts")) {
+    const routeLimit = legacyRouteLineLimits.get(normalizedFile) ?? routeDefaultLineLimit;
+    if (lines > routeLimit) {
+      routeViolations.push({
+        file: normalizedFile,
+        reason: "rota tem " + lines + " linhas efetivas (limite " + routeLimit + "); extraia responsabilidades",
+      });
+    }
+    // Do not allow new routes to bypass application services.
+    if (!legacyRouteDatabaseAccess.has(normalizedFile)) {
+      importSpecifierPattern.lastIndex = 0;
+      for (const match of content.matchAll(importSpecifierPattern)) {
+        const specifier = (match[1] ?? match[2] ?? match[3]).replace(/\\/gu, "/");
+        if (!repositoryBoundaryPattern.test(specifier)) continue;
+        const line = content.slice(0, match.index).split(/\r?\n/u).length;
+        routeViolations.push({
+          file: normalizedFile,
+          reason: "linha " + line + ": rota importa persistência diretamente (" + specifier + ")",
+        });
+      }
+    }
+  }
 
   for (const rule of forbiddenImportRules) {
     if (!rule.source.test(normalizedFile)) continue;
@@ -125,7 +174,14 @@ if (forbiddenContent.length) {
   }
 }
 
-if (oversized.length || forbiddenImports.length || forbiddenContent.length) {
+if (routeViolations.length) {
+  console.error("Rotas fora dos limites de arquitetura limpa:");
+  for (const item of routeViolations) {
+    console.error("- " + item.file + ": " + item.reason);
+  }
+}
+
+if (oversized.length || forbiddenImports.length || forbiddenContent.length || routeViolations.length) {
   process.exitCode = 1;
 } else {
   console.log(
