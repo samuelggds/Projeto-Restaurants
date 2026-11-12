@@ -22,7 +22,7 @@ export function managedImplementationProductLimit(
 ) {
   const normalized = String(plan || '').trim().toUpperCase();
   if (normalized === 'BASICO') return 50;
-  if (normalized === 'PREMIUM') return 100;
+  if (normalized === 'PREMIUM') return null;
   return null;
 }
 
@@ -32,7 +32,7 @@ export function hasContinuousManagementAccess(
 ) {
   return (
     hasActiveSubscription(status) &&
-    String(plan || '').trim().toUpperCase() === 'GESTAO_TOTAL'
+    ['PREMIUM', 'GESTAO_TOTAL'].includes(String(plan || '').trim().toUpperCase())
   );
 }
 

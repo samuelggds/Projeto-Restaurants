@@ -118,8 +118,8 @@ export default function ManagedServiceArea() {
 
   const planName = useMemo(() => {
     if (data?.plan === 'GESTAO_TOTAL') return 'Gestão Total';
-    if (data?.plan === 'PREMIUM') return 'Premium';
-    if (data?.plan === 'BASICO') return 'Básico';
+    if (data?.plan === 'PREMIUM') return 'Avançado';
+    if (data?.plan === 'BASICO') return 'Entrada';
     return data?.plan || 'Não identificado';
   }, [data?.plan]);
 
@@ -288,14 +288,14 @@ export default function ManagedServiceArea() {
             )}
           </S.History>
         </S.RequestGrid>
-      ) : data?.plan === 'PREMIUM' || data?.plan === 'BASICO' ? (
+      ) : data?.plan === 'BASICO' ? (
         <S.PremiumNote>
           <CheckCircle2 aria-hidden="true" />
           <div>
             <strong>Seu plano inclui a implantação inicial</strong>
             <p>
               Depois da conclusão, as alterações do dia a dia ficam com o administrador do
-              restaurante. Para gestão contínua pela equipe GastroNexa, o plano Gestão Total oferece
+              restaurante. Para gestão contínua pela equipe GastroNexa, o plano Avançado oferece
               solicitações sob demanda.
             </p>
           </div>

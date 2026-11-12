@@ -38,16 +38,16 @@ describe('ManagedServiceArea', () => {
     container.remove();
   });
 
-  it('Premium mostra implantação única sem formulário de atualização contínua', async () => {
+  it('Avançado inclui implantação ilimitada e solicitações de gestão contínua', async () => {
     mocks.get.mockResolvedValue({
       data: {
         plan: 'PREMIUM',
         subscriptionStatus: 'ATIVA',
         implementationEligible: true,
-        continuousManagementEnabled: false,
+        continuousManagementEnabled: true,
         implementation: {
           status: 'EM_IMPLANTACAO',
-          productLimit: 100,
+          productLimit: null,
         },
         requests: [],
       },
@@ -56,10 +56,11 @@ describe('ManagedServiceArea', () => {
     await act(async () => root.render(<ManagedServiceArea />));
     await flush();
 
-    expect(container.textContent).toContain('Implantação assistida');
-    expect(container.textContent).toContain('Até 100 produtos');
-    expect(container.textContent).toContain('Seu plano inclui a implantação inicial');
-    expect(container.querySelector('form')).toBeNull();
+    expect(container.textContent).toContain('Gestão assistida contínua');
+    expect(container.textContent).toContain('Produtos ilimitados na implantação inicial');
+    expect(container.textContent).toContain('Avançado');
+    expect(container.querySelector('form')).not.toBeNull();
+    expect(container.textContent).not.toContain('Seu plano inclui a implantação inicial');
   });
 
   it('Básico mostra implantação única de até 50 produtos sem gestão contínua', async () => {

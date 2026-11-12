@@ -301,9 +301,8 @@ export function SalesContactForm({
                     onChange={(event) => onPlanChange?.(event.currentTarget.value as PlanInterest)}
                   >
                     <option value="UNDECIDED">Quero uma orientação</option>
-                    <option value="BASICO">Básico</option>
-                    <option value="PREMIUM">Premium</option>
-                    <option value="GESTAO_TOTAL">Gestão Total</option>
+                    <option value="BASICO">Entrada</option>
+                    <option value="PREMIUM">Avançado</option>
                   </select>
                 </S.Field>
               </S.Grid>

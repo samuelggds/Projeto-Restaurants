@@ -76,12 +76,12 @@ test('rejeita QR sem restaurante e aceita id interno antigo quando o token é v�
   assert.equal(result.id, 91);
 });
 
-test('rejeita restaurante fora do plano de cardápio de mesa', async () => {
+test('rejeita cardápio de mesa com assinatura cancelada', async () => {
   tableRepository.findPublicByReference = async () => ({
     ...publicTable,
     restaurant: {
       ...publicTable.restaurant,
-      subscription: { plan: 'BASICO', status: 'ATIVA' },
+      subscription: { plan: 'BASICO', status: 'CANCELADA' },
     },
   });
 
@@ -94,4 +94,21 @@ test('rejeita restaurante fora do plano de cardápio de mesa', async () => {
       }),
     /não está disponível/i,
   );
+});
+
+test('permite QR Code de mesa no plano Entrada com assinatura ativa', async () => {
+  tableRepository.findPublicByReference = async () => ({
+    ...publicTable,
+    restaurant: {
+      ...publicTable.restaurant,
+      subscription: { plan: 'BASICO', status: 'ATIVA' },
+    },
+  });
+  const result = await resolvePublicTableService.execute({
+    tableNumber: 12,
+    tableToken,
+    restaurantSlug: 'restaurante-teste',
+  });
+  assert.equal(result.restaurantId, 7);
+  assert.equal(result.number, 12);
 });

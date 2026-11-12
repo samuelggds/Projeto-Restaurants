@@ -157,7 +157,7 @@ export class CreateRestaurantService {
               data: {
                 restaurantId: createdRestaurant.id,
                 status: 'AGUARDANDO_MATERIAL',
-                productLimit: parsedPayload.plan === PlanType.GESTAO_TOTAL ? null : parsedPayload.plan === PlanType.BASICO ? 50 : 100,
+                productLimit: parsedPayload.plan === PlanType.BASICO ? 50 : null,
                 initialSetupExpiresAt: new Date(today.getTime() + 7 * 86_400_000),
               },
             });

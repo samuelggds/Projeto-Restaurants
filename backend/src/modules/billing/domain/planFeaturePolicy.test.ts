@@ -6,6 +6,7 @@ import {
   hasHostedLandingAccess,
   hasNfcCardAccess,
   hasPremiumFeatureAccess,
+  hasTableQrAccess,
   hasTemporaryFullFeatureAccess,
 } from './planFeaturePolicy.js';
 
@@ -22,14 +23,14 @@ test('domínio próprio é exclusivo de Premium e Gestão Total ativos', () => {
   assert.equal(hasCustomDomainAccess('PREMIUM', 'CANCELADA'), false);
 });
 
-test('landing hospedada pela GastroNexa é exclusiva do Gestão Total ativo', () => {
+test('landing hospedada pela GastroNexa é inclusa no Avançado e legado ativos', () => {
   assert.equal(hasHostedLandingAccess('BASICO', 'ATIVA'), false);
-  assert.equal(hasHostedLandingAccess('PREMIUM', 'ATIVA'), false);
+  assert.equal(hasHostedLandingAccess('PREMIUM', 'ATIVA'), true);
   assert.equal(hasHostedLandingAccess('GESTAO_TOTAL', 'ATIVA'), true);
   assert.equal(hasHostedLandingAccess('GESTAO_TOTAL', 'EXPIRADA'), false);
 });
 
-test('cartões NFC apenas Premium e Gestão Total com assinatura em teste ou ativa', () => {
+test('cartões NFC apenas Avançado e Gestão Total legado com assinatura em teste ou ativa', () => {
   for (const plan of ['PREMIUM', 'GESTAO_TOTAL']) {
     assert.equal(hasNfcCardAccess(plan, 'TESTE'), true);
     assert.equal(hasNfcCardAccess(plan, 'ATIVA'), true);
@@ -60,4 +61,13 @@ test('liberação SUPER_ADMIN cobre recursos e expira no instante definido sem q
   assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,active:false},before),false);
   assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,accessBlockReason:'MANUAL'},before),false);
   assert.equal(hasTemporaryFullFeatureAccess('EXPIRADA',{...restaurant,billingTemporaryAccessUntil:null},before),false);
+});
+
+test('Entrada ativo recebe QR de mesa mas não NFC ou domínio personalizado', () => {
+  assert.equal(hasTableQrAccess('BASICO','ATIVA'),true);
+  assert.equal(hasTableQrAccess('BASICO','TESTE'),true);
+  assert.equal(hasTableQrAccess('BASICO','CANCELADA'),false);
+  assert.equal(hasTableQrAccess('PREMIUM','ATIVA'),true);
+  assert.equal(hasNfcCardAccess('BASICO','ATIVA'),false);
+  assert.equal(hasCustomDomainAccess('BASICO','ATIVA'),false);
 });

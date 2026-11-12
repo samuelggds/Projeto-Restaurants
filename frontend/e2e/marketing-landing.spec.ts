@@ -25,12 +25,13 @@ const test = base.extend<{ apiIsolation: void }>({
                 plans: [
                   {
                     code: 'BASICO',
-                    name: 'Básico',
-                    description: 'Operação de delivery para restaurantes que estão iniciando na plataforma.',
-                    monthlyFee: 99.9,
+                    name: 'Entrada',
+                    description: 'Delivery e QR Code',
+                    monthlyFee: 79.9,
                     trialDays: 7,
                     features: [
                       'Sistema de delivery',
+                      'Cardápio digital com QR Code de mesa',
                       'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
                       'Suporte padrão',
                       'Ganhe de graça uma máquina térmica de 58mm após o pagamento da primeira mensalidade',
@@ -40,14 +41,15 @@ const test = base.extend<{ apiIsolation: void }>({
                   },
                   {
                     code: 'PREMIUM',
-                    name: 'Premium',
-                    description: 'Experiência completa com delivery e atendimento por QR Code de mesa.',
-                    monthlyFee: 199.9,
+                    name: 'Avançado',
+                    description: 'Gestão assistida e recursos avançados',
+                    monthlyFee: 149.9,
                     trialDays: 15,
                     features: [
                       'Sistema de delivery',
                       'Cardápio digital com QR Code de mesa',
                       'Suporte prioritário',
+                      'Gestão assistida contínua sob solicitação',
                     ],
                     featured: false,
                   },
@@ -166,13 +168,14 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
 test('planos utilizam catálogo público real e selecionam interesse',async ({page})=>{
  await page.goto('/');
  const section=page.locator('#planos');
- await expect(section.getByRole('heading',{name:'Básico'})).toBeVisible();
- await expect(section.getByRole('heading',{name:'Premium'})).toBeVisible();
- await expect(section.getByRole('heading',{name:'Gestão Total'})).toBeVisible();
- await expect(section).toContainText('99,90');
- await expect(section).toContainText('199,90');
- await expect(section).toContainText('299,90');
- await section.getByRole('link',{name:/Quero o Premium/}).click();
+ await expect(section.getByRole('heading',{name:'Entrada'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Avançado'})).toBeVisible();
+ await expect(section.getByRole('heading',{name:'Gestão Total'})).toHaveCount(0);
+ await expect(section).toContainText('79,90');
+ await expect(section).toContainText('149,90');
+ await expect(section).toContainText('Cardápio digital com QR Code de mesa');
+ await expect(section).toContainText('Gestão assistida contínua');
+ await section.getByRole('link',{name:/Quero o Avançado/}).click();
  await expect(page.getByRole('form',{name:'Contato comercial'}).getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
 });
 
@@ -202,7 +205,7 @@ test('formulário preserva dados após falha, repete a chave e confirma recebime
   });
 
   await page.goto('/');
-  await page.getByRole('link', { name: /Quero o Premium/ }).click();
+  await page.getByRole('link', { name: /Quero o Avançado/ }).click();
   const form = page.getByRole('form', { name: 'Contato comercial' });
   await expect(form.getByLabel('Plano de interesse')).toHaveValue('PREMIUM');
   await form.getByLabel('Seu nome', { exact: true }).fill('Joana Silva');

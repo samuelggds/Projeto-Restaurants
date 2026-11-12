@@ -1,4 +1,5 @@
-import { PlanType, Prisma, SubscriptionStatus, TableServiceCallType } from '@prisma/client';
+import { Prisma, TableServiceCallType } from '@prisma/client';
+import { hasTableQrAccess } from '../../billing/domain/planFeaturePolicy.js';
 import prisma from '../../../config/prisma.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 import tableServiceCallRepository from '../repositories/TableServiceCallRepository.js';
@@ -128,13 +129,7 @@ class CreateTableServiceCallService {
         }
 
         const subscription = context.table.restaurant.subscription;
-        const subscriptionIsActive =
-          subscription?.status === SubscriptionStatus.ATIVA ||
-          subscription?.status === SubscriptionStatus.TESTE;
-        const hasPremiumFeatures =
-          subscription?.plan === PlanType.PREMIUM ||
-          subscription?.plan === PlanType.GESTAO_TOTAL;
-        if (!subscriptionIsActive || !hasPremiumFeatures) {
+        if (!hasTableQrAccess(subscription?.plan, subscription?.status)) {
           throw new Error(
             'O atendimento pelo cardápio de mesa não está disponível neste restaurante.',
           );

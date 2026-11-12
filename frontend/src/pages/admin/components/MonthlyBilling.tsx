@@ -45,6 +45,7 @@ const PLAN_ORDER: Record<PlanCode, number> = {
 const benefits: Record<PlanCode, string[]> = {
   BASICO: [
     'Sistema de delivery',
+    'Cardápio digital com QR Code de mesa',
     'Implantação inicial assistida uma única vez',
     'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
     'Após a implantação, o próprio ADMIN gerencia o cardápio e as configurações',
@@ -58,6 +59,8 @@ const benefits: Record<PlanCode, string[]> = {
     'Cadastro inicial de até 100 produtos',
     'Suporte prioritário',
     'GastroNexa IA com US$ 2,00 de créditos iniciais',
+    'Gestão assistida contínua sob solicitação',
+    'Página personalizada opcional no domínio próprio',
   ],
   GESTAO_TOTAL: [
     'Tudo do Plano Premium',
@@ -73,15 +76,15 @@ const benefits: Record<PlanCode, string[]> = {
 const fallbackPlans: BillingPlan[] = [
   {
     plan: 'BASICO',
-    name: 'Básico',
-    monthlyFee: 99.9,
+    name: 'Entrada',
+    monthlyFee: 79.9,
     trialDays: 7,
     features: benefits.BASICO,
   },
   {
     plan: 'PREMIUM',
-    name: 'Premium',
-    monthlyFee: 199.9,
+    name: 'Avançado',
+    monthlyFee: 149.9,
     trialDays: 15,
     features: benefits.PREMIUM,
   },

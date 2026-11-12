@@ -348,16 +348,14 @@ test('aplica a matriz de plano para domínio próprio e página personalizada', 
       landingPageEnabled: false,
     }),
   );
-  await assert.rejects(
-    () =>
-      createRestaurantSettingsService.execute({
-        restaurantId: 8,
-        deliveryFee: 0,
-        minimumOrder: 0,
-        customDomainRequested: true,
-        landingPageEnabled: true,
-      }),
-    /Gestão Total/i,
+  await assert.doesNotReject(() =>
+    createRestaurantSettingsService.execute({
+      restaurantId: 8,
+      deliveryFee: 0,
+      minimumOrder: 0,
+      customDomainRequested: true,
+      landingPageEnabled: true,
+    }),
   );
 
   prisma.subscription.findUnique = async () => ({ plan: 'GESTAO_TOTAL', status: 'ATIVA' });

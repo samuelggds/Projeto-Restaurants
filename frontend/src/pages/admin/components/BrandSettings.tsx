@@ -50,7 +50,7 @@ export function BrandSettings({
   const planActive = normalizedStatus === 'ATIVA' || normalizedStatus === 'TESTE';
   const customDomainAllowed =
     planActive && (normalizedPlan === 'PREMIUM' || normalizedPlan === 'GESTAO_TOTAL');
-  const landingAllowed = planActive && normalizedPlan === 'GESTAO_TOTAL';
+  const landingAllowed = planActive && (normalizedPlan === 'PREMIUM' || normalizedPlan === 'GESTAO_TOTAL');
   const platformHost = (() => {
     try {
       const configured = String(import.meta.env.VITE_APP_URL || '').trim();
@@ -221,8 +221,8 @@ export function BrandSettings({
               {customDomainAllowed
                 ? 'Disponível no seu plano. A configuração técnica de DNS e SSL é feita pelo SUPER_ADMIN.'
                 : normalizedPlan === 'BASICO'
-                  ? 'Disponível nos planos Premium e Gestão Total. No Básico, use o endereço GastroNexa /slug.'
-                  : 'Aguardando uma assinatura Premium ou Gestão Total ativa.'}
+                  ? 'Disponível no plano Avançado. No Entrada, use o endereço GastroNexa /slug.'
+                  : 'Aguardando uma assinatura Avançado ativa.'}
             </small>
           </S.Field>
 

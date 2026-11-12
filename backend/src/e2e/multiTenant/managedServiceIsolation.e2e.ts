@@ -133,7 +133,7 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
     );
     assert.equal(overviewB.response.status, 200, JSON.stringify(overviewB.data));
     assert.equal(overviewB.data.plan, 'PREMIUM');
-    assert.equal(overviewB.data.continuousManagementEnabled, false);
+    assert.equal(overviewB.data.continuousManagementEnabled, true);
     assert.equal(
       overviewB.data.requests.some((request: { id: string }) => request.id === valid.data.id),
       false,
@@ -147,16 +147,22 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
         method: 'POST',
         json: {
           category: 'PRODUTO',
-          title: 'Solicitação contínua Premium',
-          description: 'O Premium deve ter somente implantação inicial e não gestão contínua.',
+          title: 'Solicitação contínua Avançado',
+          description: 'O plano Avançado possui gestão contínua no próprio restaurante.',
         },
       },
     );
-    assert.equal(premiumContinuousAttempt.response.status, 403);
+    assert.equal(premiumContinuousAttempt.response.status, 201, JSON.stringify(premiumContinuousAttempt.data));
+    assert.equal(premiumContinuousAttempt.data.restaurantId, fixture.restaurants.b.id);
+    assert.notEqual(premiumContinuousAttempt.data.id, valid.data.id);
+    const refreshedOverviewB = await apiRequest(app.baseUrl, '/managed-service', fixture.tokens.adminB);
+    assert.equal(refreshedOverviewB.response.status, 200);
+    assert.ok(refreshedOverviewB.data.requests.some((request: { id: string }) => request.id === premiumContinuousAttempt.data.id));
+    assert.ok(refreshedOverviewB.data.requests.every((request: { restaurantId: number }) => request.restaurantId === fixture.restaurants.b.id));
 
     await prisma.restaurantImplementation.update({
       where: { restaurantId: fixture.restaurants.b.id },
-      data: { productLimit: 1 },
+      data: { productLimit: null },
     });
 
     const productLimitAttempt = await apiRequest(
@@ -166,19 +172,21 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
       {
         method: 'POST',
         json: {
-          name: 'Produto acima do limite Premium',
+          name: 'Produto adicional do Avançado',
           price: 20,
           categoryId: fixture.categories.b.id,
           saleMode: 'COMPLETE',
         },
       },
     );
-    assert.equal(productLimitAttempt.response.status, 409, JSON.stringify(productLimitAttempt.data));
+    assert.equal(productLimitAttempt.response.status, 201, JSON.stringify(productLimitAttempt.data));
 
     const premiumProducts = await prisma.product.count({
       where: { restaurantId: fixture.restaurants.b.id },
     });
-    assert.equal(premiumProducts, 1);
+    assert.equal(premiumProducts, 2);
+    const foreignProducts = await prisma.product.count({ where: { restaurantId: fixture.restaurants.a.id, name: 'Produto adicional do Avançado' } });
+    assert.equal(foreignProducts, 0);
   });
 
   await t.test('SUPER_ADMIN trabalha no tenant alvo sem expor credenciais', async () => {
@@ -499,7 +507,7 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
     });
   });
 
-  await t.test('Premium perde workspace depois da implantação concluída', async () => {
+  await t.test('Avançado mantém workspace após implantação sem cruzar tenants', async () => {
     const concluded = await apiRequest(
       app.baseUrl,
       `/super-admin/managed-service/implementations/${fixture.restaurants.b.id}`,
@@ -520,7 +528,9 @@ test('gestão assistida mantém isolamento multi-tenant e limites de privilégio
       `/super-admin/managed-service/restaurants/${fixture.restaurants.b.id}/workspace`,
       superToken,
     );
-    assert.equal(premiumWorkspace.response.status, 403, JSON.stringify(premiumWorkspace.data));
+    assert.equal(premiumWorkspace.response.status, 200, JSON.stringify(premiumWorkspace.data));
+    assert.equal(premiumWorkspace.data.restaurant.id, fixture.restaurants.b.id);
+    assert.ok(premiumWorkspace.data.products.every((product: { restaurantId?: number }) => product.restaurantId === undefined || product.restaurantId === fixture.restaurants.b.id));
 
     const gestaoTotalWorkspace = await apiRequest(
       app.baseUrl,

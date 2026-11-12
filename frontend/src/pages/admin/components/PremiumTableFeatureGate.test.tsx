@@ -59,8 +59,8 @@ describe('PremiumTableFeatureGate', () => {
     const { container, root } = renderGate();
     await flush();
 
-    expect(container.textContent).toContain('Sistema de mesas disponível no Premium e Gestão Total');
-    expect(container.textContent).toContain('Seu plano Básico continua com o sistema de delivery');
+    expect(container.textContent).toContain('Sistema de mesas disponível no Entrada e Avançado');
+    expect(container.textContent).toContain('O acesso a mesas e QR Code está disponível nos planos Entrada e Avançado');
     expect(container.textContent).toContain('Mesas e QR Codes seguros');
     expect(container.textContent).toContain('Conta, divisão e pagamento da mesa');
     expect(container.textContent).not.toContain('Conteúdo de mesas liberado');

@@ -115,11 +115,19 @@ describe('configurações principais do administrador', () => {
     expect(basicCheckboxes.at(-1)?.disabled).toBe(true);
 
     renderBrand('PREMIUM');
+    const premiumBeforeDomain = Array.from(
+      container.querySelectorAll('input[type="checkbox"]'),
+    ) as HTMLInputElement[];
+    expect(premiumBeforeDomain.at(-2)?.disabled).toBe(false);
+    // Página personalizada exige a seleção prévia de domínio próprio.
+    expect(premiumBeforeDomain.at(-1)?.disabled).toBe(true);
+
+    renderBrand('PREMIUM', true);
     const premiumCheckboxes = Array.from(
       container.querySelectorAll('input[type="checkbox"]'),
     ) as HTMLInputElement[];
     expect(premiumCheckboxes.at(-2)?.disabled).toBe(false);
-    expect(premiumCheckboxes.at(-1)?.disabled).toBe(true);
+    expect(premiumCheckboxes.at(-1)?.disabled).toBe(false);
 
     renderBrand('GESTAO_TOTAL', true);
     const totalCheckboxes = Array.from(

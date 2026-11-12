@@ -59,7 +59,7 @@ test('permite sistema de mesas para Gestão Total ativa', async () => {
   assert.equal(res.statusCode, 200);
 });
 
-test('bloqueia sistema de mesas para plano Básico', async () => {
+test('libera sistema de mesas para plano Entrada', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
 
   const req = { user: { restaurantId: 7 } };
@@ -70,10 +70,8 @@ test('bloqueia sistema de mesas para plano Básico', async () => {
     nextCalled = true;
   });
 
-  assert.equal(nextCalled, false);
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, 'PREMIUM_TABLE_PLAN_REQUIRED');
-  assert.match(res.body.error, /Premium e Gestão Total/i);
+  assert.equal(nextCalled, true);
+  assert.equal(res.statusCode, 200);
 });
 
 test('usa o restaurante da sessão para cliente de mesa sem login', async () => {
@@ -112,7 +110,7 @@ test('delivery continua disponível sem consultar trava Premium', async () => {
   assert.equal(queriedSubscription, false);
 });
 
-test('pedido de mesa exige Premium', async () => {
+test('pedido de mesa liberado no Entrada', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
 
   const req = {
@@ -126,7 +124,6 @@ test('pedido de mesa exige Premium', async () => {
     nextCalled = true;
   });
 
-  assert.equal(nextCalled, false);
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, 'PREMIUM_TABLE_PLAN_REQUIRED');
+  assert.equal(nextCalled, true);
+  assert.equal(res.statusCode, 200);
 });
