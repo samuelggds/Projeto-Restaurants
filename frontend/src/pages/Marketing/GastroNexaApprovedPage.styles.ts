@@ -460,4 +460,76 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
   .footer .footer-links{grid-template-columns:1fr}
 }
 
+
+/* Black Friday 2026: scoped campaign theme. */
+.notice{background:#17120f;min-height:43px;gap:12px;font-size:11px}
+.notice strong{color:#ffcf71;letter-spacing:.1em}
+.notice>span:not(.notice-star){color:#fff3e6}
+.notice>a{color:#ffcf71;font-weight:800;display:inline-flex;align-items:center;gap:5px;text-decoration:underline;text-underline-offset:3px}
+.notice>a .icon{width:14px;height:14px}
+.notice-star{color:#ffcf71}
+.site-header{background:#1b1512;border-color:#38251c;box-shadow:0 10px 30px rgba(16,12,9,.09)}
+.site-header .header-nav a{color:#f9e6d9}
+.site-header .header-nav a:hover{color:#ffcb77}
+.site-header .header-actions .main-btn{background:#f26a27;border-color:#f26a27}
+.hero{background:radial-gradient(circle at 80% 8%,#4e2c19 0%,transparent 44%),linear-gradient(133deg,#1b1410 0%,#241913 60%,#362219 100%);padding:100px 0 105px}
+.hero:before{background:radial-gradient(circle,rgba(248,115,44,.19),rgba(231,91,25,.07) 60%,transparent 72%)}
+.hero:after{opacity:.1}
+.hero-copy h1,.hero-copy h1 strong{color:#fff9f2}
+.hero-copy h1 em{color:#ffb663}
+.hero-copy p,.hero-copy p strong{color:#eed8ca}
+.hero-badge{background:#39251b;border:1px solid #9d5629;color:#ffbf71}
+.hero-badge .dot{background:#ffac58;box-shadow:0 0 0 4px rgba(251,177,82,.14)}
+.hero-copy .outline-btn{background:#fffaf4;color:#201613;border-color:#fffaf4}
+.hero-assurance span,.hero-assurance .icon{color:#f2d8c6}
+.hero-social-proof b{color:#fff9f2}
+.hero-social-proof small{color:#e7cabb}
+.bf-offer-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:22px 0 18px;max-width:505px}
+.bf-offer-item{display:flex;flex-wrap:wrap;align-content:center;align-items:baseline;gap:5px 7px;padding:16px 17px;min-width:0;border:1px solid #6f4731;border-radius:16px;background:rgba(255,255,255,.055);color:#fff}
+.bf-offer-item span{width:100%;font-size:10px;letter-spacing:.13em;color:#e4c5af;font-weight:850}
+.bf-offer-item strong{font-size:clamp(23px,2.7vw,34px);line-height:1.1;letter-spacing:-.04em;color:#fff8eb}
+.bf-offer-item small{font-size:11px;color:#e8cbb9}
+.bf-offer-item-highlight{background:linear-gradient(130deg,#55331c,#73451f);border-color:#e9a64c}
+.bf-offer-item-highlight span,.bf-offer-item-highlight strong{color:#ffd688}
+.lead-card{border-top-color:#ffb566;box-shadow:0 25px 75px rgba(0,0,0,.25)}
+.pricing-section{background:linear-gradient(180deg,#171310,#211914 65%,#171310);color:#fff;padding:95px 0 105px}
+.pricing-section .section-eyebrow{color:#ffc26e}
+.pricing-section .section-title{color:#fff9ee}
+.pricing-section .section-desc{color:#e7cfc2}
+.pricing-section .price-note{color:#cbb9ac}
+#gx-pricing-root>.price-grid{grid-template-columns:repeat(2,minmax(0,1fr));max-width:970px;margin:52px auto 0;gap:24px}
+#gx-pricing-root .price-card{background:#fffaf5;border:1px solid #e7cebb;padding:35px 33px;min-height:440px;border-radius:23px;box-shadow:0 16px 35px rgba(0,0,0,.15)}
+#gx-pricing-root .price-card.featured{border:2px solid #ffc36f;box-shadow:0 25px 65px rgba(252,171,70,.17)}
+#gx-pricing-root .price-card h3{font-size:27px;color:#211713}
+#gx-pricing-root .price-card .plan-desc{color:#70645b;font-size:13px;min-height:40px}
+#gx-pricing-root .price strong{color:#1f1612;font-size:43px}
+#gx-pricing-root .price-card .trial{color:#ae6326;font-size:11px}
+#gx-pricing-root .plan-features li{color:#524c45;font-size:12px;line-height:1.5}
+#gx-pricing-root .price-ribbon{background:#f6ae55;color:#24170d;font-size:10px}
+#gx-pricing-root .price-card .main-btn{background:#f26421;color:#fff}
+.bottom-cta{background:linear-gradient(110deg,#2b1d15,#e45e1e)}
+@media(max-width:990px){
+ .hero{padding:65px 0 76px}
+ .hero-copy h1{color:#fffaf4}
+ .site-header .mobile-toggle{background:#2f231d;color:#fff;border-color:#604436}
+ .site-header .header-nav{background:#241b17}
+ .site-header .header-nav a{color:#fff5ed}
+}
+@media(max-width:690px){
+ .notice{flex-wrap:wrap;gap:4px 8px;padding:9px 12px}
+ .notice>span:not(.notice-star){display:none}
+ .hero{padding:53px 0 65px}
+ .hero-copy h1{font-size:clamp(39px,10vw,54px)}
+ .bf-offer-summary{gap:9px}
+ .bf-offer-item{padding:12px}
+ .bf-offer-item strong{font-size:clamp(22px,6.2vw,29px)}
+ #gx-pricing-root>.price-grid{grid-template-columns:1fr;gap:20px;max-width:480px}
+ #gx-pricing-root .price-card{padding:26px 23px;min-height:0}
+ #gx-pricing-root .price-card.featured{transform:none}
+ .hero-social-proof small{color:#e7cabb}
+}
+@media(max-width:355px){
+ .bf-offer-summary{grid-template-columns:1fr}
+ .bf-offer-item{padding:10px 13px}
+}
 `;
