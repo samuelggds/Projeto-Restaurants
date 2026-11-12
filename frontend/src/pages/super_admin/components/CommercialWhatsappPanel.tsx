@@ -401,7 +401,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                 O bot aguarda ao menos 15 segundos antes da resposta e mantém 15 segundos entre
                 envios automáticos da plataforma, inclusive quando há mensagens na fila.
                 Com a IA habilitada no servidor, o atendimento automático funciona 24 horas.
-                A IA só para na conversa quando o cliente pede uma pessoa ou o Super Admin assume.
+                Se um cliente pedir uma pessoa durante o expediente e ninguém responder em 10 minutos, a IA retoma o atendimento. Fora do expediente, a IA avisa que a equipe não está disponível e continua ajudando. O Super Admin pode assumir a conversa para suspender a IA até devolvê-la.
                 As respostas humanas só podem ser enviadas nos horários configurados.
                 Mensagens manuais não passam pelo atraso da IA.
               </small>
