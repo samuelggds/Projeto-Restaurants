@@ -1,8 +1,10 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { selectPublicCommercialProductKnowledge } from '../domain/commercialWhatsappPublicKnowledge.js';
-import { hasCommercialWhatsappPersonalData, redactCommercialWhatsappPersonalData } from '../domain/commercialWhatsappDisclosurePolicy.js';
 import {
+  hasCommercialWhatsappPersonalData,
+  redactCommercialWhatsappPersonalData,
+  isCommercialWhatsappPromptOverride,
   isRestrictedCommercialDisclosureRequest,
   isUnsafeCommercialAiOutput,
 } from '../domain/commercialWhatsappDisclosurePolicy.js';
@@ -82,7 +84,9 @@ export function commercialWhatsappAiEnabled() {
 // The model never receives Prisma records, configuration, secrets, phone, lead, tenant or account objects.
 function safeCatalogText(value: unknown, maxLength: number) {
   const text = typeof value === 'string' ? value.trim() : '';
-  if (!text || text.length > maxLength || SOURCE_SECRET_PATTERN.test(text)) return null;
+  if (!text || text.length > maxLength || SOURCE_SECRET_PATTERN.test(text) ||
+    hasCommercialWhatsappPersonalData(text) || isCommercialWhatsappPromptOverride(text) ||
+    /https?:\/\/|www\./iu.test(text)) return null;
   return text.replace(/[\r\n]+/gu, ' ').trim();
 }
 
@@ -151,7 +155,8 @@ export async function generateCommercialWhatsappAiReply(
     return { body: 'Claro! Vou encaminhar sua conversa para nossa equipe da GastroNexa. O atendimento humano seguirá o horário comercial configurado. 🙂', handoff: true };
   }
   if (isRestrictedCommercialWhatsappQuestion(latestCustomerTurn.body) ||
-    isRestrictedCommercialDisclosureRequest(latestCustomerTurn.body)) return RESTRICTED_REPLY;
+    isRestrictedCommercialDisclosureRequest(latestCustomerTurn.body) ||
+    isCommercialWhatsappPromptOverride(latestCustomerTurn.body)) return RESTRICTED_REPLY;
   // Do not send user-submitted documents/contact details to an external model.
   // A normal commercial question can still be answered without the identifiers.
 
@@ -165,7 +170,9 @@ export async function generateCommercialWhatsappAiReply(
     .filter((turn) => turn.direction === 'INBOUND' || turn.automated === true)
     .map((turn) => ({
       speaker: turn.direction === 'INBOUND' ? 'cliente' : 'assistente',
-      text: redactCommercialWhatsappHistoryText(turn.body),
+      text: isCommercialWhatsappPromptOverride(turn.body)
+        ? '[conteúdo não confiável omitido]'
+        : redactCommercialWhatsappHistoryText(turn.body),
     }))
     .filter((turn) => turn.text);
 
