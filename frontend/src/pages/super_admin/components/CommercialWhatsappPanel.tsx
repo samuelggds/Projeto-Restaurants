@@ -400,8 +400,10 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
               <small>
                 O bot aguarda ao menos 15 segundos antes da resposta e mantém 15 segundos entre
                 envios automáticos da plataforma, inclusive quando há mensagens na fila.
-                Fora dos horários configurados, nenhuma resposta automática é enviada.
-                Mensagens enviadas manualmente não são atrasadas.
+                Com a IA habilitada no servidor, o atendimento automático funciona 24 horas.
+                A IA só para na conversa quando o cliente pede uma pessoa ou o Super Admin assume.
+                As respostas humanas só podem ser enviadas nos horários configurados.
+                Mensagens manuais não passam pelo atraso da IA.
               </small>
             </span>
             <S.Switch
@@ -430,9 +432,10 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
       <S.FormCard>
         <header>
           <div>
-            <h2>Horários da automação e do atendimento humano</h2>
+            <h2>Horários do atendimento humano</h2>
             <p>
-              Configure até dois períodos por dia. Fora desses períodos, o bot fica silencioso.
+              Configure até dois períodos por dia. A IA funciona 24 horas;
+              fora desses períodos, a equipe humana não pode enviar mensagens pelo painel.
             </p>
           </div>
         </header>
@@ -570,7 +573,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                         ? 'Atendimento humano'
                         : conversation.automationMode === 'CLOSED'
                           ? 'Encerrado'
-                          : 'Automático'}
+                          : 'Automático 24h'}
                     </small>
                     <time>{formatDate(conversation.lastInboundAt || conversation.lastOutboundAt, true)}</time>
                   </span>
@@ -592,7 +595,7 @@ export function CommercialWhatsappPanel({ refreshKey = 0 }: { refreshKey?: numbe
                       ? 'Atendimento humano ativo'
                       : selected.automationMode === 'CLOSED'
                         ? 'Atendimento encerrado'
-                        : 'Automação ativa'}
+                        : 'IA automática 24h'}
                   </em>
                 </span>
                 <S.ActionGroup>
