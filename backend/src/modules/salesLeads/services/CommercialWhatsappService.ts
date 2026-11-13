@@ -424,11 +424,17 @@ export async function sendPlatformWhatsappText(destination: string, message: str
   if (!/^\d{12,15}$/u.test(number)) throw new Error('Número de WhatsApp inválido.');
   const text = String(message || '').trim();
   if (!text || text.length > 4000) throw new Error('Mensagem comercial inválida.');
-  await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
+  const response = await evolutionRequest(`/message/sendText/${encodeURIComponent(row.externalInstanceId)}`, {
     method: 'POST',
     apiKey: connectionToken(row),
     body: { number, text, linkPreview: false },
   });
+  const result = response && typeof response === 'object' ? response as JsonRecord : {};
+  const key = result.key && typeof result.key === 'object' ? result.key as JsonRecord : {};
+  const resultData = result.data && typeof result.data === 'object' ? result.data as JsonRecord : {};
+  const nestedKey = resultData.key && typeof resultData.key === 'object' ? resultData.key as JsonRecord : {};
+  const providerMessageId = String(key.id || nestedKey.id || result.id || '').trim();
+  return providerMessageId && providerMessageId.length <= 191 ? providerMessageId : null;
 }
 
 function inboundData(body: JsonRecord) {
@@ -620,7 +626,7 @@ export async function processPlatformEvolutionInbound(
     }
     return { accepted: true, queued: false } as const;
   }
-  if (!meta.event.includes('messages') || meta.fromMe) {
+  if (!meta.event.includes('messages')) {
     return { accepted: true, queued: false } as const;
   }
   if (!meta.remoteJid || /@g\.us$/u.test(meta.remoteJid) || /@newsletter$/u.test(meta.remoteJid)) {
@@ -631,6 +637,71 @@ export async function processPlatformEvolutionInbound(
   if (!/^\d{10,15}$/u.test(phone)) return { accepted: true, queued: false } as const;
   const text = inboundText(body);
   if (!text) return { accepted: true, queued: false } as const;
+
+  if (meta.fromMe) {
+    // This webhook is authenticated for the single configured commercial
+    // Evolution instance. remoteJid identifies the CUSTOMER, not our own number.
+    // Never hardcode the business phone or infer ownership from message text.
+    if (!meta.providerMessageId || meta.providerMessageId.length > 191) {
+      return { accepted: true, queued: false, reason: 'missing_provider_message_id' } as const;
+    }
+    const existing = await prisma.salesLeadWhatsappMessage.findUnique({
+      where: { providerMessageId: meta.providerMessageId },
+      select: { id: true },
+    });
+    if (existing) return { accepted: true, queued: false, reason: 'already_recorded_outbound' } as const;
+
+    // An Evolution echo can arrive before sendText returns its provider ID.
+    // A short, exact match against our in-flight/recent outbox avoids treating
+    // most automated echoes as human. This is deliberately a fallback, not a
+    // cryptographic proof of origin; matching provider IDs takes precedence.
+    const ownReply = await prisma.salesLeadWhatsappOutbox.findFirst({
+      where: {
+        conversation: { is: { phone } },
+        kind: { in: AUTOMATIC_REPLY_KINDS },
+        body: text,
+        status: { in: ['UNCERTAIN', 'SENT'] },
+        createdAt: { gte: new Date(receivedAt.getTime() - 60_000) },
+      },
+      select: { id: true },
+    });
+    if (ownReply) return { accepted: true, queued: false, reason: 'automated_echo' } as const;
+
+    const changed = await prisma.$transaction(async (tx) => {
+      const conversation = await tx.salesLeadWhatsappConversation.upsert({
+        where: { phone },
+        create: { id: randomUUID(), phone, automationMode: 'HUMAN', lastOutboundAt: receivedAt, handoffRequestedAt: receivedAt },
+        update: {},
+      });
+      // Only process the provider event once, including retries/replays.
+      const inserted = await tx.salesLeadWhatsappMessage.createMany({
+        data: [{
+          id: randomUUID(),
+          conversationId: conversation.id,
+          direction: 'OUTBOUND',
+          kind: 'MANUAL_DEVICE',
+          body: text,
+          providerMessageId: meta.providerMessageId,
+          automated: false,
+        }],
+        skipDuplicates: true,
+      });
+      if (inserted.count !== 1) return null;
+      await suppressPendingAutomaticReplies(tx, conversation.id, 'human_mode');
+      await tx.salesLeadWhatsappConversation.update({
+        where: { id: conversation.id },
+        data: {
+          automationMode: 'HUMAN',
+          handoffRequestedAt: receivedAt,
+          lastOutboundAt: receivedAt,
+          closedAt: null,
+        },
+      });
+      return conversation.id;
+    });
+    if (changed) publishCommercialWhatsappUpdate(changed, 'manual_device_message');
+    return { accepted: true, queued: false, reason: changed ? 'human_device_takeover' : 'duplicate_outbound' } as const;
+  }
 
   // Provider message IDs are mandatory for deterministic replay handling.
   // Do not turn an unidentifiable webhook into a customer-facing message.
@@ -1029,7 +1100,8 @@ export async function deliverPlatformWhatsappOutbox() {
       if (sendClaim.count !== 1) continue;
 
       providerContacted = true;
-      await sendPlatformWhatsappText(item.phone, outgoingBody);
+      const providerMessageId = await sendPlatformWhatsappText(item.phone, outgoingBody);
+      const sentAt = new Date();
       await prisma.$transaction([
         prisma.salesLeadWhatsappOutbox.update({
           where: { id: item.id },
@@ -1042,15 +1114,17 @@ export async function deliverPlatformWhatsappOutbox() {
             direction: 'OUTBOUND',
             kind: handoffToHuman ? 'HANDOFF' : item.kind,
             body: outgoingBody,
+            providerMessageId,
             automated: item.kind !== 'MANUAL',
           },
         }),
         prisma.salesLeadWhatsappConversation.update({
           where: { id: item.conversationId },
           data: {
-            lastOutboundAt: new Date(),
+            lastOutboundAt: sentAt,
+            ...(item.kind === 'MANUAL' ? { handoffRequestedAt: sentAt } : {}),
             ...(handoffToHuman
-              ? { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: new Date() }
+              ? { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: sentAt }
               : {}),
           },
         }),
