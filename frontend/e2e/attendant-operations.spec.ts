@@ -78,7 +78,7 @@ async function setup(page: Page) {
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const path = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
     if (path.startsWith('/socket.io')) return route.abort();
     if (path === '/auth/me') return json(route, { user });
     if (path === `/settings/public/${restaurantId}`) {
