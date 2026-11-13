@@ -636,7 +636,9 @@ export async function processPlatformEvolutionInbound(
   const phone = digitsOnly(meta.remoteJid.split('@')[0]);
   if (!/^\d{10,15}$/u.test(phone)) return { accepted: true, queued: false } as const;
   const text = inboundText(body);
-  if (!text) return { accepted: true, queued: false } as const;
+  // Outgoing voice, image, document and sticker messages are still human
+  // activity even when their WhatsApp payload contains no text.
+  if (!text && !meta.fromMe) return { accepted: true, queued: false } as const;
 
   if (meta.fromMe) {
     // This webhook is authenticated for the single configured commercial
@@ -680,7 +682,7 @@ export async function processPlatformEvolutionInbound(
           conversationId: conversation.id,
           direction: 'OUTBOUND',
           kind: 'MANUAL_DEVICE',
-          body: text,
+          body: text || '[Mensagem manual enviada no WhatsApp comercial]',
           providerMessageId: meta.providerMessageId,
           automated: false,
         }],
