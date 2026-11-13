@@ -80,3 +80,25 @@ test('publica imagens persistidas como recursos cacheáveis sem carregar base64 
   assert.equal(result.products[0].optionGroups[0].options[1].ingredient.image, null);
   assert.doesNotMatch(JSON.stringify(result), /SU5HUkVESUVOVEU=/u);
 });
+
+
+test('catálogo público minimiza campos enquanto painel interno preserva o modelo', async () => {
+  productRepository.findAll = async () => [{
+    id: 75, restaurantId: 3, name: 'Pizza', price: 34, stock: 0,
+    active: false, createdAt: new Date('2026-02-01'), internalMarker: 'private',
+    image: null, category: { id: 8, name: 'Pizzas', internalMarker: 'private' },
+    ingredients: [], compositionItems: [], optionGroups: [], comboGroups: [],
+  }];
+
+  const publicCatalog = await service.execute({ restaurantId: 3 });
+  const internalCatalog = await service.execute({ restaurantId: 3, exposure: 'INTERNAL' });
+
+  assert.equal(publicCatalog.count, 1);
+  assert.equal(publicCatalog.products[0].active, false);
+  assert.equal(publicCatalog.products[0].stock, 0);
+  assert.equal('createdAt' in publicCatalog.products[0], false);
+  assert.equal('internalMarker' in publicCatalog.products[0], false);
+  assert.equal('internalMarker' in publicCatalog.products[0].category, false);
+  assert.equal(internalCatalog.products[0].internalMarker, 'private');
+  assert.equal(internalCatalog.products[0].category.internalMarker, 'private');
+});
