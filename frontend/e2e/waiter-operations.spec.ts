@@ -299,7 +299,7 @@ function json(route: Route, body: unknown, status = 200) {
 async function mockAnonymousAuthRefresh(page: Page) {
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (pathname === '/auth/refresh' && request.method() === 'POST') {
       return json(route, { error: 'Não autenticado.' }, 401);
