@@ -346,6 +346,22 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
       });
     }
 
+    // Public presentation and authenticated operational settings are distinct.
+    // Shared layout components still fetch this tenant's public restaurant name.
+    // Keep cross-tenant public requests rejected in this scenario.
+    if (pathname === `/settings/public/${RESTAURANT_ID}` && method === 'GET') {
+      return json(route, {
+        restaurantId: RESTAURANT_ID,
+        restaurantName: 'Restaurante Rota 42',
+        primaryColor: '#cf562f',
+        restaurant: {
+          id: RESTAURANT_ID,
+          name: 'Restaurante Rota 42',
+          slug: 'restaurante-rota-42',
+        },
+      });
+    }
+
     if (pathname.startsWith('/settings/public/') && method === 'GET') {
       state.rejectedTenantRequests += 1;
       return json(route, { error: 'Restaurante fora do tenant autenticado.' }, 403);
