@@ -9,10 +9,6 @@ const scanRoots = [
   'frontend/src',
 ];
 const scanFiles = [
-  '.env.docker.example',
-  '.env.production.example',
-  'backend/.env.docker.example',
-  'backend/.env.example',
   'backend/package.json',
   'backend/package-lock.json',
   'docker-compose.yml',

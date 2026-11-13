@@ -27,7 +27,9 @@ Requisitos recomendados para a primeira importacao:
 Crie a configuracao local:
 
 ```powershell
-Copy-Item .env.routing.local.example .env.routing.local
+if (!(Test-Path '.env.routing.local')) { New-Item -ItemType File '.env.routing.local' | Out-Null }
+# Configure ROUTING_PBF_URL, ROUTING_REPLICATION_URL, ROUTING_DATASET_BASENAME,
+# OSRM_IMAGE, NOMINATIM_UPDATE_MODE, OSRM_HOST_PORT e NOMINATIM_HOST_PORT.
 ```
 
 Baixe o recorte oficial e prepare o OSRM (a etapa `extract` e a mais pesada):

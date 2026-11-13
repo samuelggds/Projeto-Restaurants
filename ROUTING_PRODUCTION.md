@@ -21,8 +21,8 @@ Referências oficiais: [OSRM](https://project-osrm.org/docs/v26.6.1/http), [imag
 ## 1. Ambiente
 
 ```bash
-cp .env.production.example .env.production
-chmod 600 .env.production
+if [ ! -e .env.production ]; then install -m 600 /dev/null .env.production; fi
+# Configure as variáveis obrigatórias por um canal seguro; nunca faça commit do arquivo.
 ```
 
 Edite `.env.production`:

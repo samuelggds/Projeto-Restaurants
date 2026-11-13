@@ -59,8 +59,8 @@ O repositorio e publico, portanto o servidor precisa apenas de acesso de leitura
 
 ```bash
 cd /opt/gastronexa
-cp .env.production.example .env.production
-chmod 600 .env.production
+if [ ! -e .env.production ]; then install -m 600 /dev/null .env.production; fi
+# Informe as variáveis obrigatórias via canal seguro e sem versionar credenciais.
 ```
 
 Preencha os valores reais. Para o primeiro servidor pequeno use:

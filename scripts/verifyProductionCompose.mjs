@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const composePath = 'docker-compose.production.yml';
@@ -45,6 +46,27 @@ const markers = Object.fromEntries(passthroughKeys.map((key) => [key, `compose-t
 const variableNames = [...composeSource.matchAll(/\$\{([A-Z][A-Z0-9_]*)/gu)].map(
   (match) => match[1],
 );
+// Production Compose tests must not depend on committed environment templates.
+const syntheticRequired = {
+  DATABASE_URL: 'postgresql://pizza_runtime:synthetic-only@postgres:5432/pizza_test?schema=public',
+  DIRECT_URL: 'postgresql://pizza_owner:synthetic-only@postgres:5432/pizza_test?schema=public',
+  APP_DOMAIN: 'app.example.test',
+  API_DOMAIN: 'api.example.test',
+  POSTGRES_DB: 'pizza_test',
+  POSTGRES_USER: 'pizza_owner',
+  POSTGRES_PASSWORD: 'synthetic-only',
+  VITE_MAP_TILE_URL: 'https://tiles.example.test/{z}/{x}/{y}.png',
+  ACME_EMAIL: 'ops@example.test',
+};
+const temporaryDirectory = mkdtempSync(path.join(tmpdir(), 'gastronexa-compose-check-'));
+const temporaryEnvPath = path.join(temporaryDirectory, 'synthetic.env');
+writeFileSync(
+  temporaryEnvPath,
+  Object.entries(syntheticRequired).map(([key, value]) => `${key}=${value}`).join('\n') + '\n',
+  { encoding: 'utf8', mode: 0o600 },
+);
+process.on('exit', () => rmSync(temporaryDirectory, { recursive: true, force: true }));
+
 const cleanEnvironment = { ...process.env };
 for (const key of variableNames) delete cleanEnvironment[key];
 delete cleanEnvironment.COMPOSE_FILE;
@@ -58,7 +80,7 @@ function run(profile = '', overrides = {}) {
       [
         'compose',
         '--env-file',
-        '.env.production.example',
+        temporaryEnvPath,
         ...(profile ? ['--profile', profile] : []),
         '-f',
         composePath,
@@ -76,7 +98,7 @@ function run(profile = '', overrides = {}) {
   } catch {
     // Não mostrar stdout/stderr do subprocesso: Compose resolvido contém credenciais.
     throw new Error(
-      'Não foi possível validar o Compose. Verifique Docker Compose e os arquivos de exemplo.',
+      'Não foi possível validar o Compose. Verifique Docker Compose e as variáveis sintéticas de validação.',
     );
   }
   return JSON.parse(result);
