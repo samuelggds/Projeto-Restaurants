@@ -4,6 +4,7 @@ import test, { after } from 'node:test';
 import {
   prisma, runtimePrisma, resetTenantE2EDatabase, seedTenantE2EFixture,
 } from './tenantE2EHarness.js';
+import { resumeUnansweredCustomerHandoffs } from '../../modules/salesLeads/services/CommercialWhatsappHandoffRecoveryService.js';
 import {
   deliverPlatformWhatsappOutbox,
   processPlatformEvolutionInbound,
@@ -88,6 +89,36 @@ test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em Post
           where: { kind: 'AI_REPLY', status: 'SUPPRESSED' },
         }), 1);
         await setCommercialWhatsappConversationMode(conversation.id, 'BOT');
+      });
+
+      await t.test('retomada de 10 minutos é única; takeover humano manual nunca expira', async () => {
+        const current = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { phone },
+        });
+        const requestedAt = new Date(Date.now() - 11 * 60_000);
+        await prisma.salesLeadWhatsappConversation.update({
+          where: { id: current.id },
+          data: { automationMode: 'HUMAN', handoffRequestedAt: requestedAt },
+        });
+        const notifications: string[] = [];
+        const resumed = await Promise.all([
+          resumeUnansweredCustomerHandoffs((id) => notifications.push(id)),
+          resumeUnansweredCustomerHandoffs((id) => notifications.push(id)),
+        ]);
+        assert.equal(resumed.reduce((sum, count) => sum + count, 0), 1);
+        assert.equal(notifications.length, 1);
+        assert.equal(await prisma.salesLeadWhatsappOutbox.count({
+          where: { conversationId: current.id, kind: 'AI_TIMEOUT' },
+        }), 1);
+
+        await prisma.salesLeadWhatsappConversation.update({
+          where: { id: current.id },
+          data: { automationMode: 'HUMAN', handoffRequestedAt: null },
+        });
+        assert.equal(await resumeUnansweredCustomerHandoffs(() => {
+          throw new Error('takeover manual não pode expirar');
+        }), 0);
+        await setCommercialWhatsappConversationMode(current.id, 'BOT');
       });
 
       const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
