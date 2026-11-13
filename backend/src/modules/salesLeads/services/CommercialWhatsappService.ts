@@ -587,6 +587,7 @@ async function suppressPendingAutomaticReplies(
 }
 
 async function enqueueAutoReply(
+  db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
   conversationId: string,
   phone: string,
   kind: 'GREETING' | 'HANDOFF' | 'AI_REPLY',
@@ -597,8 +598,7 @@ async function enqueueAutoReply(
     .update(JSON.stringify(['AUTO_REPLY', conversationId, phone, kind, sourceMessageKey]))
     .digest('hex');
 
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.salesLeadWhatsappOutbox.findUnique({
+    const existing = await db.salesLeadWhatsappOutbox.findUnique({
       where: { deduplicationKey: key },
       select: { id: true },
     });
@@ -606,7 +606,7 @@ async function enqueueAutoReply(
       return { queued: false, reason: 'duplicate_inbound' } as const;
     }
 
-    const pendingHandoff = await tx.salesLeadWhatsappOutbox.findFirst({
+    const pendingHandoff = await db.salesLeadWhatsappOutbox.findFirst({
       where: {
         conversationId,
         status: 'PENDING',
@@ -618,7 +618,7 @@ async function enqueueAutoReply(
       return { queued: false, reason: 'handoff_pending' } as const;
     }
 
-    await tx.salesLeadWhatsappOutbox.updateMany({
+    await db.salesLeadWhatsappOutbox.updateMany({
       where: {
         conversationId,
         status: 'PENDING',
@@ -632,7 +632,7 @@ async function enqueueAutoReply(
       },
     });
 
-    await tx.salesLeadWhatsappOutbox.create({
+    await db.salesLeadWhatsappOutbox.create({
       data: {
         id: randomUUID(),
         conversationId,
@@ -643,7 +643,6 @@ async function enqueueAutoReply(
       },
     });
     return { queued: true } as const;
-  });
 }
 
 function scheduleCommercialWhatsappDrain() {
@@ -712,91 +711,102 @@ export async function processPlatformEvolutionInbound(
   const text = inboundText(body);
   if (!text) return { accepted: true, queued: false } as const;
 
-  if (meta.providerMessageId) {
-    const duplicate = await prisma.salesLeadWhatsappMessage.findUnique({
-      where: { providerMessageId: meta.providerMessageId },
-      select: { id: true },
-    });
-    if (duplicate) return { accepted: true, queued: false } as const;
+  // Provider message IDs are mandatory for deterministic replay handling.
+  // Do not turn an unidentifiable webhook into a customer-facing message.
+  if (!meta.providerMessageId || meta.providerMessageId.length > 191) {
+    return { accepted: true, queued: false, reason: 'missing_provider_message_id' } as const;
   }
 
   const leadPhone = localBrazilPhone(phone);
-  const lead = await prisma.salesLead.findFirst({
-    where: { phone: { in: [phone, leadPhone] } },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true },
+  const [lead, settings] = await Promise.all([
+    prisma.salesLead.findFirst({
+      where: { phone: { in: [phone, leadPhone] } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    }),
+    prisma.platformSettings.findUnique({
+      where: { id: 1 },
+      select: {
+        commercialWhatsappEnabled: true,
+        commercialWhatsappHours: true,
+        timezone: true,
+      },
+    }),
+  ]);
+
+  // Persist the inbound message and its reply intent in ONE transaction.
+  // ON CONFLICT DO NOTHING serializes concurrent webhook deliveries by the
+  // provider ID, without producing a 500 or a second outbox entry.
+  const result = await prisma.$transaction(async (tx) => {
+    const conversation = await tx.salesLeadWhatsappConversation.upsert({
+      where: { phone },
+      create: { id: randomUUID(), phone, lastInboundAt: receivedAt },
+      update: { lastInboundAt: receivedAt },
+    });
+    const inboundMessageId = randomUUID();
+    const inserted = await tx.salesLeadWhatsappMessage.createMany({
+      data: [{
+        id: inboundMessageId,
+        conversationId: conversation.id,
+        leadId: lead?.id || null,
+        direction: 'INBOUND',
+        kind: 'CUSTOMER',
+        body: text,
+        providerMessageId: meta.providerMessageId,
+        automated: false,
+      }],
+      skipDuplicates: true,
+    });
+    if (inserted.count !== 1) {
+      return { accepted: true, queued: false, reason: 'duplicate_inbound' } as const;
+    }
+    const recorded = { conversationId: conversation.id };
+    if (conversation.automationMode === 'HUMAN') {
+      return { ...recorded, accepted: true, queued: false, reason: 'human_mode' } as const;
+    }
+    if (!settings?.commercialWhatsappEnabled) {
+      return { ...recorded, accepted: true, queued: false, reason: 'automation_disabled' } as const;
+    }
+    if (conversation.automationMode === 'CLOSED') {
+      return { ...recorded, accepted: true, queued: false, reason: 'conversation_closed' } as const;
+    }
+    const open = isCommercialWhatsappHumanServiceOpen(
+      settings.commercialWhatsappHours,
+      settings.timezone,
+      receivedAt,
+    );
+    const aiEnabled = commercialWhatsappAiEnabled();
+    if (!aiEnabled && !open) {
+      return { ...recorded, accepted: true, queued: false, reason: 'outside_hours' } as const;
+    }
+    const botReply = aiEnabled ? null : botReplyForMessage(text);
+    // The outbox stores an intent; the model is called only during delivery.
+    const queued = await enqueueAutoReply(
+      tx,
+      conversation.id,
+      phone,
+      aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
+      aiEnabled ? 'AI_PENDING' : botReply!.body,
+      meta.providerMessageId,
+    );
+    return {
+      ...recorded,
+      accepted: true,
+      queued: queued.queued,
+      sent: 0,
+      reason: queued.queued ? 'queued_with_delay' : queued.reason,
+    } as const;
   });
-  const conversation = await prisma.salesLeadWhatsappConversation.upsert({
-    where: { phone },
-    create: { id: randomUUID(), phone, lastInboundAt: receivedAt },
-    update: { lastInboundAt: receivedAt },
-  });
 
-  const inboundMessageId = randomUUID();
-  await prisma.salesLeadWhatsappMessage.create({
-    data: {
-      id: inboundMessageId,
-      conversationId: conversation.id,
-      leadId: lead?.id || null,
-      direction: 'INBOUND',
-      kind: 'CUSTOMER',
-      body: text,
-      providerMessageId: meta.providerMessageId,
-      automated: false,
-    },
-  });
-  publishCommercialWhatsappUpdate(conversation.id, 'inbound_message');
-
-  if (conversation.automationMode === 'HUMAN') {
-    return { accepted: true, queued: false, reason: 'human_mode' } as const;
+  if ('conversationId' in result) {
+    publishCommercialWhatsappUpdate(result.conversationId, 'inbound_message');
   }
-
-  const settings = await prisma.platformSettings.findUnique({
-    where: { id: 1 },
-    select: {
-      commercialWhatsappEnabled: true,
-      commercialWhatsappHours: true,
-      timezone: true,
-    },
-  });
-  if (!settings?.commercialWhatsappEnabled) {
-    return { accepted: true, queued: false, reason: 'automation_disabled' } as const;
-  }
-
-  const open = isCommercialWhatsappHumanServiceOpen(
-    settings.commercialWhatsappHours,
-    settings.timezone,
-    receivedAt,
-  );
-
-  // CLOSED conversations remain closed until Super Admin explicitly reopens.
-  if (conversation.automationMode === 'CLOSED') {
-    return { accepted: true, queued: false, reason: 'conversation_closed' } as const;
-  }
-
-  const aiEnabled = commercialWhatsappAiEnabled();
-  if (!aiEnabled && !open) {
-    return { accepted: true, queued: false, reason: 'outside_hours' } as const;
-  }
-  const botReply = aiEnabled ? null : botReplyForMessage(text);
-  // AI replies are generated at dispatch, after the 15-second debounce.
-  // The queue contains no API key, database record or generated secret.
-  const queued = await enqueueAutoReply(
-    conversation.id,
-    phone,
-    aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
-    aiEnabled ? 'AI_PENDING' : botReply!.body,
-    meta.providerMessageId || inboundMessageId,
-  );
-
-  if (queued.queued) scheduleCommercialWhatsappDrain();
-
-  return {
-    accepted: true,
-    queued: queued.queued,
-    sent: 0,
-    reason: queued.queued ? 'queued_with_delay' : queued.reason,
-  } as const;
+  if (result.queued) scheduleCommercialWhatsappDrain();
+  // Do not expose internal database identifiers to the webhook caller.
+  const { conversationId: _conversationId, ...response } = result as typeof result & {
+    conversationId?: string;
+  };
+  return response;
 }
 
 export async function enqueueLeadWhatsappGreeting(leadId: string) {
