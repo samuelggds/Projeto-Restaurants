@@ -13,11 +13,11 @@ O caminho recomendado é `docker-compose.production.yml`: PostgreSQL, API e fron
 ## 2. Configuração
 
 ```bash
-cp .env.production.example .env.production
-chmod 600 .env.production
+if [ ! -e .env.production ]; then install -m 600 /dev/null .env.production; fi
+# Preencha o arquivo por um canal seguro; não faça commit de credenciais.
 ```
 
-Substitua todos os placeholders, habilite somente os provedores de pagamento utilizados e configure URLs públicas HTTPS. A inicialização é bloqueada quando faltam banco, origens, serviços privados de rota ou segredos seguros.
+Preencha todas as variáveis obrigatórias do Compose com valores reais e seguros, habilite somente os provedores de pagamento utilizados e configure URLs públicas HTTPS. A inicialização é bloqueada quando faltam banco, origens, serviços privados de rota ou segredos seguros.
 
 Para Geoapify, mantenha `ROUTING_PROVIDER=geoapify` e preencha `GEOAPIFY_API_KEY`.
 Para infraestrutura própria, configure `ROUTING_PROVIDER=osrm` e `COMPOSE_PROFILES=selfhost-routing` no arquivo de ambiente e prepare os dados antes da subida. O profile ativa OSRM/Nominatim; definir somente as URLs não inicia esses serviços.
@@ -158,7 +158,7 @@ Frontend e backend podem ser publicados separadamente. Configure Geoapify ou OSR
 - backend: `npm ci && npm run build && npx prisma generate`; início `npm run start` apenas com segredos runtime;
 - job de pré-deploy separado com credenciais owner: `prisma migrate deploy`; provisionamento da role na infraestrutura e bootstrap separado antes do primeiro início;
 - frontend: `npm ci && npm run build`; publicação de `dist`;
-- todas as variáveis obrigatórias de `.env.production.example`;
+- todas as variáveis obrigatórias de `docker-compose.production.yml` e da aplicação;
 - healthcheck do backend em `/ready`;
 - uma instância com `DISTRIBUTED_STATE=memory` ou múltiplas com `DISTRIBUTED_STATE=postgres`, PostgreSQL compartilhado e Socket.IO somente WebSocket;
 - proxy com suporte a WebSocket e HTTPS.
