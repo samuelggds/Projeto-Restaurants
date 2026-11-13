@@ -25,7 +25,7 @@ test('real: editar cópias e limite da mesa no celular', async ({ page }) => {
 
   await page.route(/:3000\/|\/api\//, async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const path = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (path === '/kitchen-printing/settings') {
       if (request.method() === 'PATCH') {
