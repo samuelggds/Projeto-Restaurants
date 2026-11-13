@@ -45,8 +45,20 @@ export function redactCommercialWhatsappPersonalData(value: string) {
 // instruct the model to change its role, disclosure rules, or permissions.
 const PROMPT_OVERRIDE_PATTERN = /(?:ignore|ignorar|desconsidere|esqueca|desative|burle|contorne)[\s\S]{0,100}(?:instrucoes|regras|restricoes|filtros|seguranca|politica|prompt)|(?:finja|assuma|atue como|agora voce e)[\s\S]{0,70}(?:system|developer|super.?admin|administrador|modo desenvolvedor)|(?:^|[\n;])\s*(?:role\s*[:=]\s*)?(?:system|developer)\s*[:=]|<\|im_start\|>/iu;
 
+// Treat embedded role delimiters, JSON role claims, and commands to decode
+// instructions as untrusted data. The matcher intentionally does not evaluate
+// or decode user-supplied content.
+const ROLE_SPOOF_PATTERN = /(?:<\s*\/?\s*(?:system|developer)\s*>|(?:^|[\n;])\s*#{1,6}\s*(?:system|developer)\b|["']role["']\s*:\s*["'](?:system|developer)["']|(?:^|[\n;])\s*(?:system|developer)\s*[:=])/iu;
+const ENCODED_OVERRIDE_PATTERN = /\b(?:decodifiqu\w*|decode)\s+(?:(?:o|em|de)\s+)?(?:base64|rot13|hexadecimal)\b/iu;
+const AUTHORITY_SPOOF_PATTERN = /\b(?:aviso|comunicado|ordem)\s+(?:da|do)\s+(?:equipe|administracao|suporte|sistema)(?:\s+oficial)?\b[\s\S]{0,180}\b(?:politica|regras|instrucoes|proxima resposta|resposta obrigatoria)\b/iu;
+
 export function isCommercialWhatsappPromptOverride(value: string) {
-  return PROMPT_OVERRIDE_PATTERN.test(normalize(value));
+  const normalized = normalize(value).normalize('NFKC')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/gu, '');
+  return PROMPT_OVERRIDE_PATTERN.test(normalized) ||
+    ROLE_SPOOF_PATTERN.test(normalized) ||
+    ENCODED_OVERRIDE_PATTERN.test(normalized) ||
+    AUTHORITY_SPOOF_PATTERN.test(normalized);
 }
 
 const SECRET_REQUEST = /(?:\.env\b|process\.env|database_url|postgres(?:ql)?:\/\/|(?:api[_ -]?key|client[_ -]?secret|access[_ -]?token|jwt|senha|password|credencial|token|chave privada|chave de api|segredo|secret|otp|codigo de verificacao|codigo de acesso|mfa))/iu;
@@ -72,6 +84,7 @@ const UNSAFE_OUTPUT = /(?:\b[\w.%+-]+@[\w.-]+\.[a-z]{2,}\b|(?:\+?55\s*)?\(?\d{2}
 export function isUnsafeCommercialAiOutput(value: string) {
   const text = String(value || '');
   if (hasCommercialWhatsappPersonalData(text)) return true;
+  if (/(?:\/(?:api\/)?(?:super[-_]?admin|internal|private|debug)\b|\bBearer\s+[A-Za-z0-9._~+/-]{10,}|\bbase64\s*:\s*[A-Za-z0-9+/]{16,}={0,2})/iu.test(text)) return true;
   if (UNSAFE_OUTPUT.test(text)) return true;
   const normalized = normalize(text);
   return /(?:\b(?:codigo fonte|api interna|rota privada|endpoint interno|logs internos|chave de criptografia|configuracao interna|credenciais|dados pessoais|dados privados)\b)/u.test(normalized) &&
