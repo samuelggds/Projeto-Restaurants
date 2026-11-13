@@ -34,7 +34,12 @@ function ingredient(value: unknown) {
   return optional(value, ['id', 'name', 'category', 'price', 'image', 'active']);
 }
 
-export function presentPublicProduct(value: unknown) {
+type PublicProductPresentation = RecordLike & {
+  optionGroups: Array<{ options: Array<{ ingredient: RecordLike | null }> }>;
+  comboGroups: Array<{ options: Array<{ componentProduct: RecordLike | null }> }>;
+};
+
+export function presentPublicProduct(value: unknown): PublicProductPresentation {
   const product = record(value);
 
   return {
