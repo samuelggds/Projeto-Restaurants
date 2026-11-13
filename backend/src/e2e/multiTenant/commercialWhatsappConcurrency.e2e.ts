@@ -91,6 +91,96 @@ test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em Post
         await setCommercialWhatsappConversationMode(conversation.id, 'BOT');
       });
 
+      await t.test('mensagem manual pelo WhatsApp comercial ativa HUMAN sem resposta da IA', async () => {
+        const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { phone },
+        });
+        const makeManual = (id: string, message: string) => ({
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', id, fromMe: true },
+            message: { conversation: message },
+          },
+        });
+        const first = await processPlatformEvolutionInbound(
+          'gastronexa-platform', secret, makeManual('manual-one-e2e', 'O proprietário assumiu o atendimento'),
+        );
+        assert.equal(first.queued, false);
+        assert.equal((await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).automationMode, 'HUMAN');
+        assert.equal(await prisma.salesLeadWhatsappOutbox.count({
+          where: { conversationId: conversation.id, status: 'PENDING', kind: 'AI_REPLY' },
+        }), 0);
+        const firstTimer = (await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).handoffRequestedAt;
+        assert.ok(firstTimer);
+
+        const customer = await processPlatformEvolutionInbound('gastronexa-platform', secret, {
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', id: 'customer-during-human-e2e', fromMe: false },
+            message: { conversation: 'Ainda estou aqui, podem me ajudar?' },
+          },
+        });
+        assert.equal(customer.queued, false);
+        assert.equal(await prisma.salesLeadWhatsappOutbox.count({
+          where: { conversationId: conversation.id, status: 'PENDING', kind: 'AI_REPLY' },
+        }), 0);
+        const second = await processPlatformEvolutionInbound(
+          'gastronexa-platform', secret, makeManual('manual-two-e2e', 'Outra resposta humana'),
+        );
+        assert.equal(second.queued, false);
+        const renewed = (await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).handoffRequestedAt;
+        assert.ok(renewed);
+        assert.ok(renewed.getTime() >= firstTimer.getTime());
+        // Replayed echo of the same manual message does not extend the timeout.
+        const replay = await processPlatformEvolutionInbound(
+          'gastronexa-platform', secret, makeManual('manual-two-e2e', 'Outra resposta humana'),
+        );
+        assert.equal(replay.queued, false);
+        assert.equal((await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).handoffRequestedAt?.getTime(), renewed.getTime());
+        assert.equal(await resumeUnansweredCustomerHandoffs(() => {
+          throw new Error('não pode retomar antes de 10 minutos de inatividade humana');
+        }, new Date(renewed.getTime() + 9 * 60_000)), 0);
+        assert.equal(await resumeUnansweredCustomerHandoffs(() => undefined,
+          new Date(renewed.getTime() + 10 * 60_000)), 1);
+      });
+
+      await t.test('eco de mensagem automática própria não ativa HUMAN', async () => {
+        const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { phone },
+        });
+        await setCommercialWhatsappConversationMode(conversation.id, 'BOT');
+        await prisma.salesLeadWhatsappOutbox.create({
+          data: {
+            id: randomUUID(),
+            conversationId: conversation.id,
+            deduplicationKey: createHash('sha256').update('echo-e2e').digest('hex'),
+            kind: 'AI_REPLY',
+            body: 'Resposta gerada pelo sistema - somente teste',
+            status: 'UNCERTAIN',
+            availableAt: new Date(),
+          },
+        });
+        const echo = await processPlatformEvolutionInbound('gastronexa-platform', secret, {
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', id: 'automatic-echo-e2e', fromMe: true },
+            message: { conversation: 'Resposta gerada pelo sistema - somente teste' },
+          },
+        });
+        assert.equal(echo.queued, false);
+        assert.equal((await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).automationMode, 'BOT');
+      });
+
       await t.test('retomada de 10 minutos é única; takeover humano manual nunca expira', async () => {
         const current = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
           where: { phone },
