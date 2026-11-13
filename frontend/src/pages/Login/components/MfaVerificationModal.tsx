@@ -401,7 +401,9 @@ export function MfaVerificationModal<T>({
                 ? 'Escolha onde deseja receber o código de verificação.'
                 : activeChannel === 'TOTP'
                   ? 'Digite os seis números do seu aplicativo autenticador. Não é necessário receber mensagens.'
-                  : `Digite o código de 6 dígitos enviado para ${activeDestination || 'seu contato cadastrado'}.`}
+                  : emailOnly || activeChannel === 'EMAIL'
+                    ? `Digite o código de 6 dígitos enviado para seu e-mail${activeDestination && activeDestination !== 'seu contato cadastrado' ? ` (${activeDestination})` : ''}.`
+                    : `Digite o código de 6 dígitos enviado para ${activeDestination || 'seu contato cadastrado'}.`}
             </p>
           </S.HeaderText>
 
