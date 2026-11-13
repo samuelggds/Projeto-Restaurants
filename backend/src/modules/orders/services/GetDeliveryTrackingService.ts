@@ -244,9 +244,47 @@ class GetDeliveryTrackingService {
       }
     }
 
+    // Explicit delivery view: do not return persistence-only identifiers or
+    // payment provider references to browsers, even to authorized customers.
     return {
       order: {
-        ...order,
+        id: order.id,
+        publicId: order.publicId,
+        restaurantId: order.restaurantId,
+        status: order.status,
+        type: order.type,
+        paid: order.paid,
+        paymentMethod: order.paymentMethod,
+        payOnDeliveryMethod: order.payOnDeliveryMethod,
+        total: order.total,
+        itemsSubtotal: order.itemsSubtotal,
+        productDiscountTotal: order.productDiscountTotal,
+        couponDiscount: order.couponDiscount,
+        deliveryFeeAmount: order.deliveryFeeAmount,
+        deliveryRating: order.deliveryRating,
+        deliveryRatedAt: order.deliveryRatedAt,
+        address: order.address,
+        number: order.number,
+        district: order.district,
+        city: order.city,
+        state: order.state,
+        deliveryStartedAt: order.deliveryStartedAt,
+        deliveredAt: order.deliveredAt,
+        deliveryConfirmedAt: order.deliveryConfirmedAt,
+        restaurant: order.restaurant,
+        items: order.items,
+        paymentAttempts: order.paymentAttempts.map((attempt) => ({
+          method: attempt.method,
+          cardBrand: attempt.cardBrand,
+          cardLast4: attempt.cardLast4,
+        })),
+        assignedCourier: order.assignedCourier
+          ? {
+              name: order.assignedCourier.name,
+              phone: order.assignedCourier.phone,
+              avatar: order.assignedCourier.avatar,
+            }
+          : null,
         estimatedArrival,
         routeEstimate,
         navigationState: navigationTelemetry?.state || null,
