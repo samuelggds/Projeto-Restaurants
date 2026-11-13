@@ -152,6 +152,24 @@ test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em Post
           new Date(renewed.getTime() + 10 * 60_000)), 1);
       });
 
+      await t.test('áudio manual sem texto também ativa HUMAN', async () => {
+        const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { phone },
+        });
+        await setCommercialWhatsappConversationMode(conversation.id, 'BOT');
+        const audio = await processPlatformEvolutionInbound('gastronexa-platform', secret, {
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', id: 'manual-audio-e2e', fromMe: true },
+            message: { audioMessage: { mimetype: 'audio/ogg' } },
+          },
+        });
+        assert.equal(audio.queued, false);
+        assert.equal((await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { id: conversation.id },
+        })).automationMode, 'HUMAN');
+      });
+
       await t.test('eco de mensagem automática própria não ativa HUMAN', async () => {
         const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
           where: { phone },
