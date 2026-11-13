@@ -161,6 +161,53 @@ test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em Post
         assert.equal(state.attempts, 1);
       });
 
+      await t.test('sucesso remoto com falha no commit fica UNCERTAIN e não duplica', async () => {
+        const item = await enqueue('remote-accepted-db-failure');
+        await prisma.platformWhatsappConnection.update({
+          where: { id: 1 }, data: { nextAutomaticSendAt: null },
+        });
+        let remoteDeliveries = 0;
+        globalThis.fetch = (async () => {
+          remoteDeliveries++;
+          return new Response('{}', { status: 200 });
+        }) as typeof fetch;
+        // A trigger injects a DB failure after the fake provider accepted
+        // the send. No actual provider or production data is contacted.
+        await prisma.$executeRawUnsafe(`
+          CREATE FUNCTION commercial_wa_e2e_fail_outbound() RETURNS trigger AS $
+          BEGIN
+            IF NEW."direction" = 'OUTBOUND' THEN
+              RAISE EXCEPTION 'synthetic_outbound_commit_failure';
+            END IF;
+            RETURN NEW;
+          END;
+          $ LANGUAGE plpgsql
+        `);
+        await prisma.$executeRawUnsafe(`
+          CREATE TRIGGER commercial_wa_e2e_fail_outbound_trigger
+          BEFORE INSERT ON "SalesLeadWhatsappMessage"
+          FOR EACH ROW EXECUTE FUNCTION commercial_wa_e2e_fail_outbound()
+        `);
+        try {
+          await deliverPlatformWhatsappOutbox();
+          await prisma.platformWhatsappConnection.update({
+            where: { id: 1 }, data: { nextAutomaticSendAt: null },
+          });
+          await deliverPlatformWhatsappOutbox();
+          assert.equal(remoteDeliveries, 1);
+          assert.equal((await prisma.salesLeadWhatsappOutbox.findUniqueOrThrow({
+            where: { id: item.id },
+          })).status, 'UNCERTAIN');
+        } finally {
+          await prisma.$executeRawUnsafe(
+            'DROP TRIGGER IF EXISTS commercial_wa_e2e_fail_outbound_trigger ON "SalesLeadWhatsappMessage"',
+          );
+          await prisma.$executeRawUnsafe(
+            'DROP FUNCTION IF EXISTS commercial_wa_e2e_fail_outbound()',
+          );
+        }
+      });
+
       await t.test('dois workers não podem enviar a mesma mensagem', async () => {
         const item = await enqueue('concurrent');
         await prisma.platformWhatsappConnection.update({
