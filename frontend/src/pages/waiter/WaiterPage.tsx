@@ -164,7 +164,7 @@ export default function WaiterPage() {
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
-      .getPublicSettings(restaurantId)
+      .getOperationalSettings()
       .then((settings: GenericRecord) => {
         if (!mountedRef.current) return;
         const restaurantRecord = asRecord(settings.restaurant);
