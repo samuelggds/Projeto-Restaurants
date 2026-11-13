@@ -55,7 +55,7 @@ vi.mock('../../Services/courierRouteService', () => ({
   default: { startRoute: mocks.startRoute },
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
-  default: { getPublicSettings: mocks.getSettings },
+  default: { getOperationalSettings: mocks.getSettings },
 }));
 vi.mock('../../Services/deliveryChatService', () => ({
   default: { courierInbox: vi.fn().mockResolvedValue([]) },
