@@ -931,6 +931,7 @@ export async function deliverPlatformWhatsappOutbox() {
 
   let sent = 0;
   for (const item of rows) {
+    let providerContacted = false;
     try {
       const conversation = await prisma.salesLeadWhatsappConversation.findUnique({
         where: { id: item.conversationId },
@@ -1087,6 +1088,29 @@ export async function deliverPlatformWhatsappOutbox() {
         }
       }
 
+      // Claim the final send decision atomically. Once the worker is about to
+      // contact Evolution, a lost HTTP response is ambiguous and MUST NOT be
+      // retried automatically: doing so could deliver two customer messages.
+      // The uncertain state stays visible for reconciliation by an operator.
+      const sendClaim = await prisma.salesLeadWhatsappOutbox.updateMany({
+        where: {
+          id: item.id,
+          status: 'PENDING',
+          lockToken,
+          conversation: {
+            is: { automationMode: item.kind === 'MANUAL' ? 'HUMAN' : 'BOT' },
+          },
+        },
+        data: {
+          status: 'UNCERTAIN',
+          body: outgoingBody,
+          lockedUntil: null,
+          lockToken: null,
+        },
+      });
+      if (sendClaim.count !== 1) continue;
+
+      providerContacted = true;
       await sendPlatformWhatsappText(item.phone, outgoingBody);
       await prisma.$transaction([
         prisma.salesLeadWhatsappOutbox.update({
@@ -1119,10 +1143,15 @@ export async function deliverPlatformWhatsappOutbox() {
       }
       sent++;
     } catch {
+      if (providerContacted) {
+        // May have been accepted remotely. Keep UNCERTAIN rather than resend.
+        // A separate, deliberate reconciliation is required.
+        continue;
+      }
       const exhausted = item.attempts >= 8;
       const delayMs = Math.min(60 * 60_000, 60_000 * 2 ** Math.min(item.attempts - 1, 6));
-      await prisma.salesLeadWhatsappOutbox.update({
-        where: { id: item.id },
+      await prisma.salesLeadWhatsappOutbox.updateMany({
+        where: { id: item.id, status: 'PENDING', lockToken },
         data: {
           status: exhausted ? 'FAILED' : 'PENDING',
           availableAt: new Date(Date.now() + delayMs),
