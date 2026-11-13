@@ -33,7 +33,7 @@ function internalCatalogTenant() {
     const user = JSON.parse(readSessionUserRaw() || 'null');
     const role = String(user?.role || '').toUpperCase();
     const tenant = Number(user?.restaurantId || user?.restaurant?.id || 0);
-    return ['ADMIN', 'FUNCIONARIO', 'MOTOQUEIRO'].includes(role) &&
+    return ['ADMIN', 'FUNCIONARIO'].includes(role) &&
       Number.isSafeInteger(tenant) && tenant > 0 ? tenant : null;
   } catch {
     return null;
