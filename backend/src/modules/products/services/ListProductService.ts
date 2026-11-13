@@ -3,10 +3,12 @@ import restaurantRepository from '../../restaurants/repositories/RestaurantRepos
 import { resolveProductBasePricing } from '../utils/productDiscount.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { presentPublicProduct } from '../utils/publicProductPresenter.js';
 
 type ListProductsPayload = {
   restaurantId?: number | string | null;
   slug?: string;
+  exposure?: 'PUBLIC' | 'INTERNAL';
 };
 
 function presentCategoryImage<
@@ -36,7 +38,7 @@ function presentIngredientImage<
 }
 
 class ListProductsService {
-  async execute({ restaurantId, slug }: ListProductsPayload) {
+  async execute({ restaurantId, slug, exposure = 'PUBLIC' }: ListProductsPayload) {
     let normalizedRestaurantId = Number(restaurantId);
 
     if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
@@ -132,9 +134,18 @@ class ListProductsService {
       };
     });
 
+    // Sold-out products remain visible as unavailable; manually deactivated
+    // products with stock are excluded from public menus.
+    const visibleProducts = exposure === 'INTERNAL'
+      ? normalizedProducts
+      : normalizedProducts
+          .filter((product) => product.active !== false ||
+            (product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0))
+          .map(presentPublicProduct);
+
     return {
-      products: normalizedProducts,
-      count: normalizedProducts.length,
+      products: visibleProducts,
+      count: visibleProducts.length,
     };
   }
 }
