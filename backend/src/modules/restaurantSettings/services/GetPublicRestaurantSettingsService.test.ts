@@ -61,6 +61,28 @@ test('mantém a cor personalizada na configuração pública', async () => {
   });
 });
 
+test('nunca publica parâmetros operacionais mesmo se a fonte os incluir', async () => {
+  restaurantSettingsRepository.findPublicByRestaurantId = async () => ({
+    restaurantId: 7,
+    primaryColor: '#123456',
+    autoAcceptOrders: true,
+    maxConcurrentOrders: 19,
+    soundNotifications: false,
+    trackingRequiresLogin: false,
+    receiveOrdersOnWhatsapp: true,
+    receiveStatusNotifications: true,
+    restaurant: { active: true, banners: [] },
+  }) as never;
+
+  const settings = await GetPublicRestaurantSettingsService.execute({ restaurantId: 7 });
+  for (const field of [
+    'autoAcceptOrders', 'maxConcurrentOrders', 'soundNotifications',
+    'trackingRequiresLogin', 'receiveOrdersOnWhatsapp', 'receiveStatusNotifications',
+  ]) {
+    assert.equal(field in settings, false, field);
+  }
+});
+
 test('expõe Open Finance somente quando Efí está configurada e há chave Pix beneficiária', async () => {
   restaurantSettingsRepository.findPublicByRestaurantId = async () =>
     ({
