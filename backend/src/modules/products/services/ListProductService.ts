@@ -134,14 +134,11 @@ class ListProductsService {
       };
     });
 
-    // Sold-out products remain visible as unavailable; manually deactivated
-    // products with stock are excluded from public menus.
+    // Preserve the existing storefront behavior: unavailable products can still
+    // be displayed with disabled purchase actions. The public DTO is allowlisted.
     const visibleProducts = exposure === 'INTERNAL'
       ? normalizedProducts
-      : normalizedProducts
-          .filter((product) => product.active !== false ||
-            (product.stock !== null && product.stock !== undefined && Number(product.stock) <= 0))
-          .map(presentPublicProduct);
+      : normalizedProducts.map(presentPublicProduct);
 
     return {
       products: visibleProducts,
