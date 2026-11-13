@@ -117,7 +117,7 @@ export default function KitchenPage() {
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
-      .getPublicSettings(restaurantId)
+      .getOperationalSettings()
       .then((s: Record<string, unknown>) => {
         if (!mountedRef.current) return;
         setRestaurant(mapRestaurantBrand(s));
