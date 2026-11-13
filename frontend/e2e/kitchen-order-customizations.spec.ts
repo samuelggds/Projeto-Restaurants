@@ -323,7 +323,7 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
       return json(route, { user: kitchenUser });
     }
 
-    if (pathname === `/settings/public/${RESTAURANT_ID}` && method === 'GET') {
+    if (pathname === '/settings/operational' && method === 'GET') {
       return json(route, {
         restaurantId: RESTAURANT_ID,
         restaurantName: 'Restaurante Tenant 41',
