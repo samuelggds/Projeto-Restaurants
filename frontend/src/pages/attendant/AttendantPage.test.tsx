@@ -36,7 +36,7 @@ vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: mocks.release }),
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
-  default: { getPublicSettings: mocks.getPublicSettings },
+  default: { getOperationalSettings: mocks.getPublicSettings },
 }));
 vi.mock('./attendantApi', () => ({
   default: { getWorkspace: mocks.getWorkspace },
