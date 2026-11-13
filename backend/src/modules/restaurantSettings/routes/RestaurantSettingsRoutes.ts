@@ -25,8 +25,7 @@ import LalamoveSandboxBookingController from '../../externalDelivery/controllers
 import LalamoveSandboxTrackingController from '../../externalDelivery/controllers/LalamoveSandboxTrackingController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
-import prisma from '../../../config/prisma.js';
-import getPublicRestaurantSettingsService from '../services/GetPublicRestaurantSettingsService.js';
+import GetOperationalRestaurantSettingsController from '../controllers/GetOperationalRestaurantSettingsController.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
 const router = Router();
@@ -59,34 +58,9 @@ router.get('/public/:restaurantId', publicRestaurantBillingMiddleware, (req, res
   GetPublicRestaurantSettingsController.handle(req, res),
 );
 
-// Operational settings are accessible only to authenticated staff of their own tenant.
-// Keep staffing/capacity details off public menu responses.
-router.get('/operational', authMiddleware, staffMiddleware, async (req, res) => {
-  try {
-    const restaurantId = Number(req.user.restaurantId);
-    const [publicSettings, operation] = await Promise.all([
-      getPublicRestaurantSettingsService.execute({ restaurantId }),
-      prisma.restaurantSettings.findUnique({
-        where: { restaurantId },
-        select: {
-          autoAcceptOrders: true,
-          trackingRequiresLogin: true,
-          soundNotifications: true,
-          maxConcurrentOrders: true,
-          receiveOrdersOnWhatsapp: true,
-          receiveStatusNotifications: true,
-        },
-      }),
-    ]);
-    res.setHeader('Cache-Control', 'private, no-store');
-    return res.json({
-      ...publicSettings,
-      ...operation,
-    });
-  } catch {
-    return res.status(500).json({ error: 'Não foi possível carregar configurações operacionais.' });
-  }
-});
+router.get('/operational', authMiddleware, staffMiddleware, (req, res) =>
+  GetOperationalRestaurantSettingsController.handle(req, res),
+);
 
 router.post('/', authMiddleware, adminMiddleware, (req, res) =>
   CreateRestaurantSettingsController.handle(req, res),
