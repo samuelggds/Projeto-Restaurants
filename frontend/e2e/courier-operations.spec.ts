@@ -333,7 +333,7 @@ async function mockCourierApi(page: Page, state: CourierE2EState) {
       return json(route, { ...courierUser, ...payload });
     }
 
-    if (pathname === `/settings/public/${RESTAURANT_ID}` && method === 'GET') {
+    if (pathname === '/settings/operational' && method === 'GET') {
       return json(route, {
         restaurantId: RESTAURANT_ID,
         restaurantName: 'Restaurante Rota 42',
