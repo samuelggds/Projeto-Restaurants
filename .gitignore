@@ -12,9 +12,8 @@ test-results/
 backups/
 backend/load-test-reports/
 
-# Local secrets and backup packages (examples remain versioned).
+# Local secrets and backup packages (never commit environment templates).
 **/.env.*
-!**/.env*.example
 **/*env*.7z
 **/*.pem
 **/*.p12
