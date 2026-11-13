@@ -116,7 +116,7 @@ export default function AttendantPage() {
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
-      .getPublicSettings(restaurantId)
+      .getOperationalSettings()
       .then((settings: UnknownRecord) => {
         if (!mountedRef.current) return;
         const settingsRestaurant = asRecord(settings.restaurant);
