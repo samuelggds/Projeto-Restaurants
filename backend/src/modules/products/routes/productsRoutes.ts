@@ -9,6 +9,7 @@ import UpsertProductDiscountController from '../controllers/UpsertProductDiscoun
 import DeleteProductDiscountController from '../controllers/DeleteProductDiscountController.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
+import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
 const router = Router();
@@ -16,6 +17,9 @@ const router = Router();
 router.post('/', authMiddleware, adminMiddleware, CreateProductController.handle);
 
 router.get('/', publicRestaurantBillingMiddleware, ListProductsController.handle);
+router.get('/manage', authMiddleware, staffMiddleware, (req, res) =>
+  ListProductsController.handlePrivate(req, res),
+);
 router.get('/ratings', ListProductRatingsController.handle);
 router.post('/:id/rating', RateProductController.handle);
 
