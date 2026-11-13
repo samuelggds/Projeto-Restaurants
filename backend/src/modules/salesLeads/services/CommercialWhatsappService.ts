@@ -1168,7 +1168,17 @@ export async function listCommercialWhatsappConversations() {
   return prisma.salesLeadWhatsappConversation.findMany({
     orderBy: { updatedAt: 'desc' },
     take: 100,
-    include: { messages: { orderBy: { createdAt: 'asc' } } },
+    include: {
+      messages: { orderBy: { createdAt: 'asc' } },
+      // Super Admin can see uncertain deliveries without receiving raw tokens,
+      // provider HTTP payloads or an automatic retry control.
+      outbox: {
+        where: { status: 'UNCERTAIN' },
+        select: { id: true, kind: true, status: true, attempts: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      },
+    },
   });
 }
 
