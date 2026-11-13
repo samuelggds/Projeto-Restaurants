@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../../contexts/authContext';
 import authService from '../../../Services/authService';
+import { AuthenticatorSetup } from '../../admin/components/AuthenticatorSetup';
 import * as S from '../SuperAdmin.styles';
 
 export function SuperAdminMfaControl() {
@@ -42,12 +43,13 @@ export function SuperAdminMfaControl() {
   };
 
   return (
+    <>
     <S.FormCard>
       <header>
         <div>
           <h2>Segurança da conta SUPER_ADMIN</h2>
           <p>
-            A verificação em duas etapas é opcional e pode ser ativada ou desativada por esta conta.
+            A verificação em duas etapas é obrigatória. Configure também um aplicativo autenticador para evitar atrasos de e-mail.
           </p>
         </div>
       </header>
@@ -74,10 +76,12 @@ export function SuperAdminMfaControl() {
         />
       </label>
 
-      <S.Button type="button" $variant="primary" disabled={saving} onClick={() => void toggle()}>
+      <S.Button type="button" $variant="primary" disabled={saving || enabled} onClick={() => void toggle()}>
         <ShieldCheck size={16} />
-        {saving ? 'Salvando…' : enabled ? 'Desativar MFA' : 'Ativar MFA'}
+        {saving ? 'Salvando…' : enabled ? 'MFA obrigatório' : 'Ativar MFA'}
       </S.Button>
     </S.FormCard>
+    <AuthenticatorSetup />
+    </>
   );
 }

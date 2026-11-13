@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
   navigate: vi.fn(),
   updateMfaPreference: vi.fn(),
+  getAuthenticatorStatus: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
 }));
@@ -22,6 +23,7 @@ vi.mock('../../../contexts/authContext', () => ({
 vi.mock('../../../Services/authService', () => ({
   default: {
     updateMfaPreference: mocks.updateMfaPreference,
+    getAuthenticatorStatus: mocks.getAuthenticatorStatus,
   },
 }));
 
@@ -70,6 +72,7 @@ describe('SecuritySettings', () => {
     vi.clearAllMocks();
     mocks.user.mfaEnabled = false;
     mocks.updateMfaPreference.mockResolvedValue({ mfaEnabled: true });
+    mocks.getAuthenticatorStatus.mockResolvedValue({ enabled: false });
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
@@ -84,7 +87,7 @@ describe('SecuritySettings', () => {
     await render();
 
     expect(host.textContent).toContain('MFA desativado');
-    expect(host.textContent).toContain('Desativado por padrão');
+    expect(host.textContent).toContain('MFA administrativo obrigatório');
     expect(button('Ativar MFA')).toBeTruthy();
 
     await act(async () => button('Ativar MFA')?.click());
@@ -107,20 +110,15 @@ describe('SecuritySettings', () => {
     );
   });
 
-  it('permite desativar o MFA quando a conta já está protegida', async () => {
+  it('não permite desativar MFA obrigatório pelo painel administrativo', async () => {
     mocks.user.mfaEnabled = true;
-    mocks.updateMfaPreference.mockResolvedValue({ mfaEnabled: false });
     await render();
-    await fillPassword('senha-atual-segura');
 
     expect(host.textContent).toContain('MFA ativado');
-    expect(button('Desativar MFA')).toBeTruthy();
-
-    await act(async () => button('Desativar MFA')?.click());
-
-    expect(mocks.updateMfaPreference).toHaveBeenCalledWith(false, 'senha-atual-segura');
-    expect(mocks.logout).toHaveBeenCalledOnce();
-    expect(mocks.navigate).toHaveBeenCalledWith('/login');
+    const control = button('MFA obrigatório');
+    expect(control).toBeTruthy();
+    expect(control?.disabled).toBe(true);
+    expect(mocks.updateMfaPreference).not.toHaveBeenCalled();
   });
 
   it('mantém o gerenciamento de funcionários disponível', async () => {

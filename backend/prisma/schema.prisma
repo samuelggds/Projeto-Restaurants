@@ -40,6 +40,8 @@ model User {
   resetPasswordLockedUntil      DateTime?
   mustChangePassword            Boolean                      @default(false)
   mfaEnabled                    Boolean                      @default(false)
+  mfaTotpEnabled                Boolean                      @default(false)
+  authTotpCredential            AuthTotpCredential?
   avatar                        String?
   authMfaChallenge              AuthMfaChallenge?
   authRefreshSession            AuthRefreshSession?
@@ -2247,6 +2249,23 @@ model LoginLockout {
   updatedAt       DateTime  @updatedAt
 
   @@index([lockUntil])
+}
+
+// TOTP secrets remain separate from normal User reads and public profile serialization.
+model AuthTotpCredential {
+  userId                  Int      @id
+  secretCiphertext        String?
+  pendingSecretCiphertext String?
+  pendingExpiresAt        DateTime? @db.Timestamptz(3)
+  pendingFailedAttempts   Int      @default(0)
+  lastUsedStep            BigInt   @default(-1)
+  failedLoginAttempts     Int      @default(0)
+  loginLockedUntil        DateTime? @db.Timestamptz(3)
+  createdAt               DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime @updatedAt @db.Timestamptz(3)
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([pendingExpiresAt])
 }
 
 model AuthMfaChallenge {
