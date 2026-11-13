@@ -43,7 +43,7 @@ vi.mock('../../Services/ordersService', () => ({
   },
 }));
 vi.mock('../../Services/restaurantSettingsService', () => ({
-  default: { getPublicSettings: mocks.getSettings },
+  default: { getOperationalSettings: mocks.getSettings },
 }));
 vi.mock('../../Services/socketService', () => ({
   acquireSocket: () => ({ socket: mocks.socket, release: vi.fn() }),
