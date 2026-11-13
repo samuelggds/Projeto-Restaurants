@@ -218,7 +218,7 @@ export default function CourierWorkspace() {
   useEffect(() => {
     if (!restaurantId) return;
     restaurantSettingsService
-      .getPublicSettings(restaurantId)
+      .getOperationalSettings()
       .then((settings: Record<string, unknown>) => {
         const restaurant = (settings.restaurant as Record<string, unknown>) || {};
         setBrand({
