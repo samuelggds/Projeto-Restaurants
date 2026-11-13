@@ -83,7 +83,7 @@ async function mockMercadoPagoFields(page: Page) {
 async function mockAdminApi(page: Page, state: BillingTestState) {
   await page.route(API, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
     const method = request.method();
 
     if (pathname === '/billing/recurring') {
@@ -685,7 +685,7 @@ test('abas permitem navegação pelo teclado sem alterar o pagamento', async ({ 
 test('acesso GastroNexa adapta a composição vetorial ao desktop e celular', async ({ page }) => {
   await page.clock.install();
   await page.route(API, (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const path = new URL(route.request().url()).pathname.replace(/^\/products\/manage$/u, '/products');
     if (path === '/auth/refresh' || path === '/auth/me')
       return route.fulfill({ status: 401, json: {} });
     if (path === '/platform/status') return route.fulfill({ json: { available: true } });

@@ -252,7 +252,7 @@ class SuperAdminManagedRestaurantService {
     const restaurant = await assertManagedAccess(restaurantId);
 
     const [products, categories, ingredients, combos, banners, settings] = await Promise.all([
-      listProductService.execute({ restaurantId }),
+      listProductService.execute({ restaurantId, exposure: 'INTERNAL' }),
       listCategoryService.execute(restaurantId),
       listIngredientsService.execute(restaurantId),
       productComboService.list(restaurantId),

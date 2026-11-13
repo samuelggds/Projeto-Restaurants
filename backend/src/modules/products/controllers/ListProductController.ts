@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import listProductService from '../services/ListProductService.js';
 
 class ListProductsController {
+  async handlePrivate(req: Request, res: Response) {
+    try {
+      const restaurantId = Number(req.user?.restaurantId || 0);
+      const products = await listProductService.execute({ restaurantId, exposure: 'INTERNAL' });
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(200).json(products);
+    } catch {
+      return res.status(400).json({ message: 'Não foi possível carregar os produtos.' });
+    }
+  }
+
   async handle(req: Request, res: Response) {
     try {
       const restaurantId = Number(req.query.restaurantId) || Number(req.user?.restaurantId);

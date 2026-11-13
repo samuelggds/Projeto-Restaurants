@@ -39,7 +39,7 @@ async function openIngredientCatalog(page: Page, imageSearchFails = false) {
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (pathname === '/auth/me') {
       await route.fulfill({
@@ -320,7 +320,7 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (pathname === '/auth/me') {
       await route.fulfill({
@@ -538,7 +538,7 @@ test('editor de produto permanece contido e utilizável no celular', async ({ pa
   });
 
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
-    const pathname = new URL(route.request().url()).pathname;
+    const pathname = new URL(route.request().url()).pathname.replace(/^\/products\/manage$/u, '/products');
     const responses: Record<string, unknown> = {
       '/auth/me': { user: { id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 } },
       '/products': {

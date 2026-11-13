@@ -210,8 +210,6 @@ class RestaurantSettingsRepository {
         whatsappEnabled: true,
         whatsappDisplayName: true,
         whatsappDefaultMessage: true,
-        receiveOrdersOnWhatsapp: true,
-        receiveStatusNotifications: true,
         instagram: true,
         facebook: true,
         tiktok: true,
@@ -225,10 +223,6 @@ class RestaurantSettingsRepository {
         averageDeliveryTime: true,
         deliveryTimeMin: true,
         deliveryTimeMax: true,
-        autoAcceptOrders: true,
-        trackingRequiresLogin: true,
-        soundNotifications: true,
-        maxConcurrentOrders: true,
         restaurant: {
           select: {
             name: true,

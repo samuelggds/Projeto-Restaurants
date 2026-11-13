@@ -3,10 +3,12 @@ import restaurantRepository from '../../restaurants/repositories/RestaurantRepos
 import { resolveProductBasePricing } from '../utils/productDiscount.js';
 import { createPublicMediaReference } from '../../publicMedia/utils/publicMediaReference.js';
 import { withTenantDbContext } from '../../../database/tenantDbContext.js';
+import { presentPublicProduct } from '../utils/publicProductPresenter.js';
 
 type ListProductsPayload = {
   restaurantId?: number | string | null;
   slug?: string;
+  exposure?: 'PUBLIC' | 'INTERNAL';
 };
 
 function presentCategoryImage<
@@ -36,7 +38,7 @@ function presentIngredientImage<
 }
 
 class ListProductsService {
-  async execute({ restaurantId, slug }: ListProductsPayload) {
+  async execute({ restaurantId, slug, exposure = 'PUBLIC' }: ListProductsPayload) {
     let normalizedRestaurantId = Number(restaurantId);
 
     if ((!Number.isInteger(normalizedRestaurantId) || normalizedRestaurantId <= 0) && slug) {
@@ -132,9 +134,15 @@ class ListProductsService {
       };
     });
 
+    // Preserve the existing storefront behavior: unavailable products can still
+    // be displayed with disabled purchase actions. The public DTO is allowlisted.
+    const visibleProducts = exposure === 'INTERNAL'
+      ? normalizedProducts
+      : normalizedProducts.map(presentPublicProduct);
+
     return {
-      products: normalizedProducts,
-      count: normalizedProducts.length,
+      products: visibleProducts,
+      count: visibleProducts.length,
     };
   }
 }

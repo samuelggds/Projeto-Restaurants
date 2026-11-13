@@ -24,6 +24,8 @@ import LalamoveDispatchPreparationController from '../../externalDelivery/contro
 import LalamoveSandboxBookingController from '../../externalDelivery/controllers/LalamoveSandboxBookingController.js';
 import LalamoveSandboxTrackingController from '../../externalDelivery/controllers/LalamoveSandboxTrackingController.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
+import { staffMiddleware } from '../../../middlewares/staffMiddleware.js';
+import GetOperationalRestaurantSettingsController from '../controllers/GetOperationalRestaurantSettingsController.js';
 import { publicRestaurantBillingMiddleware } from '../../../middlewares/publicRestaurantBillingMiddleware.js';
 
 const router = Router();
@@ -54,6 +56,10 @@ router.get('/public/slug/:slug', publicRestaurantBillingMiddleware, (req, res) =
 
 router.get('/public/:restaurantId', publicRestaurantBillingMiddleware, (req, res) =>
   GetPublicRestaurantSettingsController.handle(req, res),
+);
+
+router.get('/operational', authMiddleware, staffMiddleware, (req, res) =>
+  GetOperationalRestaurantSettingsController.handle(req, res),
 );
 
 router.post('/', authMiddleware, adminMiddleware, (req, res) =>

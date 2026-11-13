@@ -90,6 +90,27 @@ test('cliente dono recebe rastro, destino salvo e geometria da rota', async () =
   assert.match(result.order.deliveryConfirmationCode, /^\d{4}$/);
 });
 
+test('tracking entrega dados úteis sem IDs internos e referências do provedor', async () => {
+  prisma.order.findUnique = async () => order({
+    pixPaymentId: 'private-payment-reference',
+    paymentAttempts: [{
+      method: 'CARD', provider: 'PRIVATE_PROVIDER', cardBrand: 'visa',
+      cardLast4: '1234', finalizedAt: new Date(),
+    }],
+    items: [{ id: 6, quantity: 2, price: 12, product: { id: 8, name: 'Pizza' } }],
+  });
+  prisma.deliveryLocation.findMany = async () => [];
+  const result = await getDeliveryTrackingService.execute({
+    orderId: 91, userId: 12, restaurantId: 7, role: UserRole.CLIENTE,
+  });
+  assert.equal(result.order.items[0].product.name, 'Pizza');
+  assert.equal(result.order.paymentAttempts[0].cardLast4, '1234');
+  for (const field of ['pixPaymentId', 'userId', 'assignedCourierId']) {
+    assert.equal(field in result.order, false, field);
+  }
+  assert.equal('provider' in result.order.paymentAttempts[0], false);
+});
+
 test('nega outro cliente, outro motoqueiro e pedido que não seja delivery', async () => {
   prisma.deliveryLocation.findMany = async () => {
     throw new Error('não deveria consultar o rastro');

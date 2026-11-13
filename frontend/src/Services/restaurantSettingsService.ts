@@ -178,6 +178,11 @@ class RestaurantSettingsService {
     return response.data;
   }
 
+  async getOperationalSettings() {
+    const response = await api.get('/settings/operational');
+    return publicSettingsFromResponse(response);
+  }
+
   async getPublicSettings(restaurantId, revision = '') {
     const response = await api.get(`/settings/public/${restaurantId}`, {
       params: revision ? { revision } : { _t: Date.now() },

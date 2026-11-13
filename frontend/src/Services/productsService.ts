@@ -28,14 +28,31 @@ function resolveRestaurantIdFromStorage() {
   }
 }
 
+function internalCatalogTenant() {
+  try {
+    const user = JSON.parse(readSessionUserRaw() || 'null');
+    const role = String(user?.role || '').toUpperCase();
+    const tenant = Number(user?.restaurantId || user?.restaurant?.id || 0);
+    return ['ADMIN', 'FUNCIONARIO'].includes(role) &&
+      Number.isSafeInteger(tenant) && tenant > 0 ? tenant : null;
+  } catch {
+    return null;
+  }
+}
+
 class ProductsService {
   async listProducts(restaurantId?: string | number | null) {
     const resolvedRestaurantId =
       Number(restaurantId || 0) > 0 ? Number(restaurantId) : resolveRestaurantIdFromStorage();
 
-    const response = await api.get('/products', {
-      params: resolvedRestaurantId ? { restaurantId: resolvedRestaurantId } : undefined,
-    });
+    const internalTenant = internalCatalogTenant();
+    const isOwnStaffCatalog = internalTenant !== null &&
+      internalTenant === Number(resolvedRestaurantId);
+    const response = isOwnStaffCatalog
+      ? await api.get('/products/manage')
+      : await api.get('/products', {
+          params: resolvedRestaurantId ? { restaurantId: resolvedRestaurantId } : undefined,
+        });
     const payload = response.data;
 
     const products = Array.isArray(payload) ? payload : payload?.products;

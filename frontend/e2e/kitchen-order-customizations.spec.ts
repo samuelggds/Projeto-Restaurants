@@ -323,6 +323,22 @@ async function mockKitchenApi(page: Page, state: KitchenE2EState) {
       return json(route, { user: kitchenUser });
     }
 
+    if (pathname === '/settings/operational' && method === 'GET') {
+      return json(route, {
+        restaurantId: RESTAURANT_ID,
+        restaurantName: 'Restaurante Tenant 41',
+        primaryColor: '#cf562f',
+        restaurant: {
+          id: RESTAURANT_ID,
+          name: 'Restaurante Tenant 41',
+          slug: 'restaurante-tenant-41',
+        },
+      });
+    }
+
+    // Public presentation and authenticated operational settings are distinct.
+    // Shared layout components still fetch this tenant's public restaurant name.
+    // Keep cross-tenant public requests rejected in this scenario.
     if (pathname === `/settings/public/${RESTAURANT_ID}` && method === 'GET') {
       return json(route, {
         restaurantId: RESTAURANT_ID,

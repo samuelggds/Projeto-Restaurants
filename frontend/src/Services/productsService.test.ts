@@ -21,7 +21,7 @@ describe('productsService restaurant context', () => {
 
     await productsService.listProducts();
 
-    expect(api.get).toHaveBeenCalledWith('/products', { params: { restaurantId: 11 } });
+    expect(api.get).toHaveBeenCalledWith('/products/manage');
     expect(localStorage.getItem('user')).toBeNull();
   });
 
@@ -35,7 +35,7 @@ describe('productsService restaurant context', () => {
   });
 
   it('respeita o contexto explícito do cardápio público', async () => {
-    persistAuthSession({ id: 7, restaurantId: 11 }, 'memory-token');
+    persistAuthSession({ id: 7, role: 'ADMIN', restaurantId: 11 }, 'memory-token');
 
     await productsService.listProducts(22);
 
