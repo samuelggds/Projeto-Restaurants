@@ -70,18 +70,12 @@ type PublicSettingsFallback = {
   whatsappEnabled: boolean;
   whatsappDisplayName: string | null;
   whatsappDefaultMessage: string | null;
-  receiveOrdersOnWhatsapp: boolean;
-  receiveStatusNotifications: boolean;
   companyLegalName: string | null;
   businessHours: unknown;
   isOpenForOrders: boolean;
   averageDeliveryTime: string | null;
   deliveryTimeMin: number | null;
   deliveryTimeMax: number | null;
-  autoAcceptOrders: boolean;
-  trackingRequiresLogin: boolean;
-  soundNotifications: boolean;
-  maxConcurrentOrders: number;
   restaurantRatingAverage?: number | null;
   restaurantRatingCount?: number;
   restaurant: {
@@ -164,10 +158,10 @@ const PRIVATE_OPERATIONAL_SETTINGS = [
   'maxConcurrentOrders', 'receiveOrdersOnWhatsapp', 'receiveStatusNotifications',
 ] as const;
 
-function publicSettingsOnly<T extends object>(settings: T): T {
+function publicSettingsOnly<T extends object>(settings: T): Omit<T, (typeof PRIVATE_OPERATIONAL_SETTINGS)[number]> {
   const safe = { ...settings } as Record<string, unknown>;
   for (const field of PRIVATE_OPERATIONAL_SETTINGS) delete safe[field];
-  return safe as T;
+  return safe as Omit<T, (typeof PRIVATE_OPERATIONAL_SETTINGS)[number]>;
 }
 
 function publicCommercialContact(value: unknown) {
