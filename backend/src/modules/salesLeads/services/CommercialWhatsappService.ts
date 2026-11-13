@@ -1198,7 +1198,9 @@ export async function setCommercialWhatsappConversationMode(
       data: {
         automationMode: mode,
         closedAt: mode === 'CLOSED' ? new Date() : null,
-        handoffRequestedAt: null,
+        // Every human takeover starts a fresh ten-minute inactivity window.
+        // Another human message resets it; BOT/CLOSED do not have a timer.
+        handoffRequestedAt: mode === 'HUMAN' ? new Date() : null,
       },
     });
   });
@@ -1235,7 +1237,7 @@ export async function enqueueManualCommercialWhatsappMessage(id: string, message
     await suppressPendingAutomaticReplies(tx, id, 'human_mode');
     await tx.salesLeadWhatsappConversation.update({
       where: { id },
-      data: { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: null },
+      data: { automationMode: 'HUMAN', closedAt: null, handoffRequestedAt: new Date() },
     });
     await tx.salesLeadWhatsappOutbox.create({
       data: {
