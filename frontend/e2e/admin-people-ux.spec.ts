@@ -66,7 +66,7 @@ const employees = [
 
 async function mockAdminApi(page: Page) {
   await page.route(API, async (route) => {
-    const pathname = new URL(route.request().url()).pathname;
+    const pathname = new URL(route.request().url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (pathname === '/auth/me') {
       await route.fulfill({
