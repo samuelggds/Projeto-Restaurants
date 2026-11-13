@@ -67,7 +67,7 @@ const catalogProducts = [
 async function mockAdminComboCatalog(page: Page) {
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
 
     if (pathname === '/auth/me') {
       return json(route, {
