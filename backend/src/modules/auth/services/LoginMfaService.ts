@@ -8,6 +8,8 @@ import userRepository from '../repositories/UserRepository.js';
 import successfulLoginRecorderService from './SuccessfulLoginRecorderService.js';
 import { platformMaintenanceAccessService } from '../../platform/services/PlatformMaintenanceService.js';
 import { isMfaRequiredForRole } from '../security/mfaPolicy.js';
+import { decryptCredential } from '../../restaurantSettings/security/credentialEncryption.js';
+import { verifyTotpCode } from '../security/totp.js';
 import {
   listAvailableMfaChannels,
   parseMfaDeliveryChannel,
@@ -27,6 +29,7 @@ type LoginUser = {
   active: boolean;
   mustChangePassword: boolean;
   mfaEnabled?: boolean;
+  mfaTotpEnabled?: boolean;
   authVersion?: number;
   phone?: string | null;
   address?: string | null;
@@ -59,12 +62,13 @@ function requiresMfa(user: Pick<LoginUser, 'role' | 'mfaEnabled'>) {
   return user.mfaEnabled === true || isMfaRequiredForRole(user.role);
 }
 
-function createMfaToken(user: LoginUser) {
+function createMfaToken(user: LoginUser, channel?: MfaDeliveryChannel | 'TOTP') {
   return jwt.sign(
     {
       type: 'login_mfa',
       userId: Number(user.id),
       authVersion: Number(user.authVersion || 0),
+      ...(channel ? { channel } : {}),
     },
     getMfaSecret(),
     {
@@ -85,6 +89,7 @@ function decodeMfaToken(mfaToken: unknown) {
   const tokenType = String((decoded as any).type || '').trim();
   const userId = Number((decoded as any).userId || 0);
   const authVersion = (decoded as jwt.JwtPayload).authVersion;
+  const channel = (decoded as jwt.JwtPayload).channel;
   if (
     tokenType !== 'login_mfa' ||
     !Number.isInteger(userId) ||
@@ -95,7 +100,10 @@ function decodeMfaToken(mfaToken: unknown) {
     throw new Error('Token de verificacao invalido');
   }
 
-  return { userId, authVersion: authVersion as number };
+  if (channel !== undefined && !['TOTP','EMAIL','SMS','WHATSAPP'].includes(String(channel))) {
+    throw new Error('Token de verificacao invalido');
+  }
+  return { userId, authVersion: authVersion as number, channel: channel as string | undefined };
 }
 
 function mapUser(user: any) {
@@ -148,7 +156,10 @@ export class LoginMfaService {
   }
 
   private getOptions(user: LoginUser) {
-    return listAvailableMfaChannels(user);
+    return [
+      ...(user.mfaTotpEnabled ? [{ channel: 'TOTP' as const, label: 'Aplicativo autenticador', destination: 'Seu aplicativo autenticador' }] : []),
+      ...listAvailableMfaChannels(user),
+    ];
   }
 
   private async issueChallenge(
@@ -217,13 +228,48 @@ export class LoginMfaService {
 
     return {
       mfaRequired: true,
-      mfaToken: createMfaToken(user),
+      mfaToken: createMfaToken(user, requestedChannel),
       destination: selectedOption.destination,
       selectedChannel: requestedChannel,
       channelSelectionRequired: false,
       deliveryOptions: options,
       resendAfterSeconds: MFA_RESEND_COOLDOWN_SECONDS,
       message: `Envio do codigo solicitado por ${selectedOption.label}. A entrega depende do provedor e pode sofrer atrasos.`,
+    };
+  }
+
+  private async issueTotpChallenge(user: LoginUser) {
+    if (!user.mfaTotpEnabled) throw new Error('Aplicativo autenticador indisponivel.');
+    const credential = await prisma.authTotpCredential.findUnique({ where: { userId: user.id } });
+    if (!credential?.secretCiphertext) throw new Error('Autenticador nao configurado.');
+    if (credential.loginLockedUntil && credential.loginLockedUntil.getTime() > Date.now()) {
+      throw new Error('Muitas tentativas. Tente novamente mais tarde.');
+    }
+    // The challenge is not the authenticator code. It is only a server-side
+    // login attempt gate, bound to the signed short-lived MFA token.
+    await prisma.authMfaChallenge.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        codeHash: 'TOTP:' + crypto.randomBytes(32).toString('hex'),
+        expiresAt: new Date(Date.now() + 10 * 60_000),
+        failedAttempts: 0,
+      },
+      update: {
+        codeHash: 'TOTP:' + crypto.randomBytes(32).toString('hex'),
+        expiresAt: new Date(Date.now() + 10 * 60_000),
+        failedAttempts: 0,
+      },
+    });
+    return {
+      mfaRequired: true,
+      mfaToken: createMfaToken(user, 'TOTP'),
+      destination: 'seu aplicativo autenticador',
+      selectedChannel: 'TOTP' as const,
+      channelSelectionRequired: false,
+      deliveryOptions: this.getOptions(user),
+      resendAfterSeconds: 0,
+      message: 'Digite o codigo do aplicativo autenticador. Nenhum codigo sera enviado.',
     };
   }
 
@@ -254,22 +300,31 @@ export class LoginMfaService {
       };
     }
 
-    const preferredChannel = options.some((option) => option.channel === 'EMAIL')
-      ? 'EMAIL'
-      : options[0].channel;
-    return this.issueChallenge(user, false, preferredChannel);
+    const preferredChannel = user.mfaTotpEnabled
+      ? 'TOTP'
+      : options.some((option) => option.channel === 'EMAIL')
+        ? 'EMAIL'
+        : options[0].channel;
+    return preferredChannel === 'TOTP'
+      ? this.issueTotpChallenge(user)
+      : this.issueChallenge(user, false, preferredChannel);
   }
 
   async selectChannel(mfaToken: string, channelInput: string) {
     const user = await this.loadEligibleUser(mfaToken);
-    const channel = parseMfaDeliveryChannel(channelInput);
+    const channel = channelInput.toUpperCase() === 'TOTP' && user.mfaTotpEnabled
+      ? 'TOTP'
+      : parseMfaDeliveryChannel(channelInput);
     if (!channel) throw new Error('Canal de verificacao invalido.');
-    return this.issueChallenge(user, false, channel);
+    return channel === 'TOTP' ? this.issueTotpChallenge(user) : this.issueChallenge(user, false, channel);
   }
 
   async resend(mfaToken: string, channelInput?: string) {
     const user = await this.loadEligibleUser(mfaToken);
     const options = this.getOptions(user);
+    if (channelInput?.trim().toUpperCase() === 'TOTP') {
+      throw new Error('O aplicativo autenticador gera codigos localmente.');
+    }
     const requested = parseMfaDeliveryChannel(channelInput);
     const defaultChannel = options.some((option) => option.channel === 'EMAIL') ? 'EMAIL' : null;
     const channel = requested || defaultChannel;
@@ -285,7 +340,7 @@ export class LoginMfaService {
       throw new Error('Token e codigo de verificacao sao obrigatorios');
     }
 
-    const { userId, authVersion } = decodeMfaToken(mfaToken);
+    const { userId, authVersion, channel } = decodeMfaToken(mfaToken);
     const challenge = await prisma.authMfaChallenge.findUnique({
       where: { userId },
     });
@@ -309,6 +364,71 @@ export class LoginMfaService {
     }
 
     await this.platformAccess.assertRoleAllowed(user.role);
+
+    if (channel === 'TOTP') {
+      if (!user.mfaTotpEnabled || !challenge.codeHash.startsWith('TOTP:')) {
+        throw new Error('Verificacao invalida. Inicie o login novamente.');
+      }
+      const credential = await prisma.authTotpCredential.findUnique({ where: { userId } });
+      if (!credential?.secretCiphertext) throw new Error('Autenticador indisponivel.');
+      if (credential.loginLockedUntil && credential.loginLockedUntil.getTime() > Date.now()) {
+        throw new Error('Muitas tentativas. Tente novamente mais tarde.');
+      }
+      const secret = decryptCredential(credential.secretCiphertext, `authenticator:totp:user:${userId}`);
+      const step = secret ? verifyTotpCode(secret, rawCode, Date.now(), credential.lastUsedStep) : null;
+      if (step === null) {
+        const nextCount = credential.failedLoginAttempts + 1;
+        await prisma.authTotpCredential.updateMany({
+          where: { userId, failedLoginAttempts: credential.failedLoginAttempts },
+          data: {
+            failedLoginAttempts: { increment: 1 },
+            ...(nextCount >= 5 ? { loginLockedUntil: new Date(Date.now() + 10 * 60_000) } : {}),
+          },
+        });
+        throw new Error('Codigo de verificacao invalido');
+      }
+      const tokenPayload = {
+        id: user.id,
+        role: user.role,
+        subRole: user.subRole ?? null,
+        restaurantId: user.restaurantId,
+        authVersion,
+      };
+      const result = await prisma.$transaction(async (tx) => {
+        const fresh = await tx.user.updateMany({
+          where: { id: userId, active: true, authVersion, mfaTotpEnabled: true },
+          data: { authVersion },
+        });
+        if (fresh.count !== 1) throw new Error('Verificacao expirada.');
+        const claimed = await tx.authTotpCredential.updateMany({
+          where: {
+            userId,
+            secretCiphertext: credential.secretCiphertext,
+            lastUsedStep: { lt: step },
+            OR: [{ loginLockedUntil: null }, { loginLockedUntil: { lte: new Date() } }],
+          },
+          data: { lastUsedStep: step, failedLoginAttempts: 0, loginLockedUntil: null },
+        });
+        if (claimed.count !== 1) throw new Error('Codigo ja utilizado ou verificacao bloqueada.');
+        const consumed = await tx.authMfaChallenge.deleteMany({
+          where: {
+            id: challenge.id, userId, codeHash: challenge.codeHash,
+            expiresAt: { gt: new Date() }, failedAttempts: { lt: 5 },
+          },
+        });
+        if (consumed.count !== 1) throw new Error('Verificacao expirada ou ja utilizada.');
+        const token = authTokenService.createAccessToken(tokenPayload);
+        const refreshToken = await authTokenService.createRefreshToken(tokenPayload, tx);
+        return { token, refreshToken };
+      });
+      await successfulLoginRecorderService.execute(user.id);
+      return { user: mapUser(user), ...result };
+    }
+    // Legacy tokens issued before channel binding may still verify their
+    // pre-existing delivery challenge, but never an authenticator challenge.
+    if (challenge.codeHash.startsWith('TOTP:')) {
+      throw new Error('Selecione novamente o metodo de verificacao.');
+    }
 
     const validCode = await bcrypt.compare(rawCode, challenge.codeHash);
     if (!validCode) {

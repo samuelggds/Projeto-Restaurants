@@ -1,6 +1,6 @@
 import api from './api';
 
-type MfaDeliveryChannel = 'EMAIL' | 'SMS' | 'WHATSAPP';
+type MfaDeliveryChannel = 'EMAIL' | 'SMS' | 'WHATSAPP' | 'TOTP';
 
 type MfaDeliveryOption = {
   channel: MfaDeliveryChannel;
@@ -42,6 +42,21 @@ class AuthService {
     const response = await api.put('/auth/profile', data);
 
     return response.data;
+  }
+
+  async getAuthenticatorStatus() {
+    const response = await api.get('/auth/mfa/authenticator');
+    return response.data as { enabled: boolean };
+  }
+
+  async startAuthenticatorSetup(currentPassword: string) {
+    const response = await api.post('/auth/mfa/authenticator/start', { currentPassword });
+    return response.data as { secret: string; provisioningUri: string; expiresAfterSeconds: number };
+  }
+
+  async confirmAuthenticatorSetup(code: string) {
+    const response = await api.post('/auth/mfa/authenticator/confirm', { code });
+    return response.data as { enabled: boolean; reauthenticationRequired: boolean };
   }
 
   async updateMfaPreference(enabled: boolean, currentPassword: string) {

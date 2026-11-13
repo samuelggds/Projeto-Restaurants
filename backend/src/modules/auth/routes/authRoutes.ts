@@ -17,6 +17,7 @@ import ResendLoginMfaController from '../controllers/ResendLoginMfaController.js
 import SelectLoginMfaChannelController from '../controllers/SelectLoginMfaChannelController.js';
 import ClaimEmployeeOnboardingController from '../controllers/ClaimEmployeeOnboardingController.js';
 import UpdateMfaPreferenceController from '../controllers/UpdateMfaPreferenceController.js';
+import TotpEnrollmentController from '../controllers/TotpEnrollmentController.js';
 import VerifyEmailController from '../controllers/VerifyEmailController.js';
 import ResendEmailVerificationController from '../controllers/ResendEmailVerificationController.js';
 import PhoneAuthConfigController from '../controllers/PhoneAuthConfigController.js';
@@ -131,6 +132,18 @@ router.put('/password', authMiddleware, (req, res) => {
 
 router.put('/profile', authMiddleware, (req, res) => {
   UpdateProfileController.handle(req, res);
+});
+
+router.get('/mfa/authenticator', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
+  TotpEnrollmentController.status(req, res);
+});
+
+router.post('/mfa/authenticator/start', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
+  TotpEnrollmentController.start(req, res);
+});
+
+router.post('/mfa/authenticator/confirm', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {
+  TotpEnrollmentController.confirm(req, res);
 });
 
 router.patch('/mfa', authMiddleware, securityPreferenceRateLimitMiddleware, (req, res) => {

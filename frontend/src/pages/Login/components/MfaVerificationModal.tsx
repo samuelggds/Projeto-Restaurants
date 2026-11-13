@@ -16,13 +16,14 @@ import {
   Mail,
   MessageCircleMore,
   MessageSquareText,
+  Smartphone,
   ShieldCheck,
 } from 'lucide-react';
 import authService from '../../../Services/authService';
 import * as S from './MfaVerificationModal.styles';
 
 type VerificationState = 'idle' | 'error' | 'success';
-type DeliveryChannel = 'EMAIL' | 'SMS' | 'WHATSAPP';
+type DeliveryChannel = 'EMAIL' | 'SMS' | 'WHATSAPP' | 'TOTP';
 
 type DeliveryOption = {
   channel: DeliveryChannel;
@@ -82,11 +83,13 @@ function formatCountdown(seconds: number) {
 }
 
 function ChannelIcon({ channel }: { channel: DeliveryChannel }) {
+  if (channel === 'TOTP') return <Smartphone />;
   if (channel === 'EMAIL') return <Mail />;
   return channel === 'WHATSAPP' ? <MessageCircleMore /> : <MessageSquareText />;
 }
 
 function getChannelActionLabel(channel: DeliveryChannel) {
+  if (channel === 'TOTP') return 'Usar aplicativo autenticador';
   if (channel === 'EMAIL') return 'Receber por e-mail';
   if (channel === 'SMS') return 'Receber por SMS';
   return 'Receber pelo WhatsApp';
@@ -307,7 +310,9 @@ export function MfaVerificationModal<T>({
       setSelectionRequired(Boolean(result.channelSelectionRequired));
       setDigits(Array(6).fill(''));
       setSecondsRemaining(Math.max(1, Number(result.resendAfterSeconds ?? 60)));
-      setMessage(`Envio solicitado para ${result.destination || activeDestination}. A entrega pode atrasar; aguarde antes de solicitar outro código.`);
+      setMessage(channel === 'TOTP'
+        ? 'Abra o autenticador cadastrado e digite o código atual.'
+        : `Envio solicitado para ${result.destination || activeDestination}. A entrega pode atrasar; aguarde antes de solicitar outro código.`);
       window.setTimeout(() => inputRefs.current[0]?.focus(), 40);
     } catch (error) {
       setState('error');
@@ -394,7 +399,9 @@ export function MfaVerificationModal<T>({
             <p id="mfa-description">
               {waitingForChannel
                 ? 'Escolha onde deseja receber o código de verificação.'
-                : `Digite o código de 6 dígitos enviado para seu e-mail${activeDestination && activeDestination !== 'seu contato cadastrado' ? ` (${activeDestination})` : ''}.`}
+                : activeChannel === 'TOTP'
+                  ? 'Digite os seis números do seu aplicativo autenticador. Não é necessário receber mensagens.'
+                  : `Digite o código de 6 dígitos enviado para ${activeDestination || 'seu contato cadastrado'}.`}
             </p>
           </S.HeaderText>
 
@@ -465,7 +472,7 @@ export function MfaVerificationModal<T>({
                 )}
               </S.VerifyButton>
 
-              <S.ResendRow>
+              {activeChannel !== 'TOTP' && <S.ResendRow>
                 <S.ResendButton
                   type="button"
                   onClick={() => void handleResend()}
@@ -476,7 +483,7 @@ export function MfaVerificationModal<T>({
                 {secondsRemaining > 0 ? (
                   <S.Countdown aria-live="polite">Reenviar em {formatCountdown(secondsRemaining)}</S.Countdown>
                 ) : null}
-              </S.ResendRow>
+              </S.ResendRow>}
             </form>
           )}
         </S.Dialog>
