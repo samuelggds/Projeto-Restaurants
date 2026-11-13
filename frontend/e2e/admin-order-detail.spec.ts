@@ -33,7 +33,7 @@ async function setup(page: Page) {
   };
   await page.route(/^http:\/\/(127\.0\.0\.1|localhost):3000\/.*$/, async (route) => {
     const request = route.request();
-    const pathname = new URL(request.url()).pathname;
+    const pathname = new URL(request.url()).pathname.replace(/^\/products\/manage$/u, '/products');
     const method = request.method();
     const json = async (body: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     if (pathname === '/auth/me') return json({ user: { id: 9, name: 'Admin Teste', role: 'ADMIN', restaurantId: 9 } });
