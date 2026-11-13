@@ -9,7 +9,9 @@ class PlatformEvolutionInboundWebhookController {
         req.get('x-gastronexa-webhook-token'),
         req.body,
       );
-      if (!result.accepted) return res.status(result.status).json({ ok: false });
+      if ('status' in result && typeof result.status === 'number') {
+        return res.status(result.status).json({ ok: false });
+      }
       return res.status(200).json({ ok: true });
     } catch (error) {
       console.error('[PLATFORM_EVOLUTION_WEBHOOK_ERROR]', {
