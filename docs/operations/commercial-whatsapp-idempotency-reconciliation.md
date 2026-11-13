@@ -39,3 +39,13 @@ A suíte `backend/src/e2e/multiTenant/commercialWhatsappConcurrency.e2e.ts` util
 - dois workers disputando uma única linha da fila.
 
 Somente aprovar após CI completo, revisão de segurança e ensaio adicional das limitações de takeover; não realizar testes sobre conversas reais ou produção.
+
+## Detecção do atendimento humano pelo número comercial
+- O webhook autenticado da instância comercial da GastroNexa recebe mensagens enviadas pelo próprio dispositivo com `fromMe=true`. A conversa é identificada pelo `remoteJid` do cliente; **não** pelo número próprio como destinatário.
+- Se o `providerMessageId` já existir no histórico de saídas automatizadas, o eco é ignorado. Há uma verificação adicional de coincidência exata com uma resposta automática recente da outbox para mitigar ecos que chegam antes da confirmação do provedor. Esse fallback **não é prova de origem**: mensagens humanas de texto idêntico podem ser confundidas; é um risco a validar em homologação da Evolution real.
+- Mensagem manual nova entra como `MANUAL_DEVICE`, altera o modo para `HUMAN` e cancela respostas automáticas ainda pendentes.
+- Qualquer resposta humana posterior, seja pelo dispositivo ou pelo painel Super Admin, renova `handoffRequestedAt`. Mensagens recebidas do cliente **não** renovam esse relógio.
+- Após 10 minutos de inatividade humana, o worker converte `HUMAN -> BOT` atomicamente e **sem mensagem de aviso**. A IA responderá somente ao próximo contato do cliente.
+- A cada retomada concorrente o predicado de timestamp impede dois workers de reativar a conversa.
+- O takeover ainda possui uma janela concorrente entre autorização final e transmissão externa: deve permanecer como risco pendente até que seja possível serializar de forma confiável a transição de modo com o despacho.
+- Nunca afirmar que uma mudança nesta branch já está em produção. O PR #451 precisa passar no CI e ser homologado antes de merge/deploy.
