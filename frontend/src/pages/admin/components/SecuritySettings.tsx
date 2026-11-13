@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import styled from 'styled-components';
 import { useAuth } from '../../../contexts/authContext';
 import authService from '../../../Services/authService';
+import { AuthenticatorSetup } from './AuthenticatorSetup';
 import * as S from '../Admin.styles';
 
 type Props = {
@@ -422,8 +423,8 @@ export function SecuritySettings({ openEmployees }: Props) {
             <span className="eyebrow">SEGURANÇA DA CONTA ADMINISTRATIVA</span>
             <h2>Acesso administrativo protegido por escolha da conta</h2>
             <p>
-              O MFA vem desativado por padrão. Cada administrador pode ativar uma segunda etapa de
-              verificação para a própria conta quando desejar.
+              A verificação em duas etapas protege contas administrativas. Configure um
+              aplicativo autenticador para não depender da entrega de e-mails.
             </p>
           </div>
         </div>
@@ -441,14 +442,14 @@ export function SecuritySettings({ openEmployees }: Props) {
             <div>
               <h3>Verificação em duas etapas (MFA)</h3>
               <p>
-                Ative ou desative a proteção para esta conta administrativa. A configuração não
-                altera o MFA de outros usuários ou restaurantes.
+                A proteção desta conta é validada no backend. A configuração não altera
+                o acesso de outros usuários ou restaurantes.
               </p>
             </div>
           </div>
 
           <div className="security-points">
-            <span>Desativado por padrão até o administrador ativar</span>
+            <span>MFA administrativo obrigatório; não pode ser desativado no painel</span>
             <span>A senha atual é obrigatória para alterar esta configuração</span>
             <span>A mudança invalida sessões antigas por segurança</span>
           </div>
@@ -473,11 +474,11 @@ export function SecuritySettings({ openEmployees }: Props) {
               className="mfa-button"
               type="button"
               data-enabled={mfaEnabled ? 'true' : 'false'}
-              disabled={mfaSaving}
+              disabled={mfaSaving || mfaEnabled}
               onClick={() => void toggleMfa()}
             >
               <ShieldCheck aria-hidden="true" />
-              {mfaSaving ? 'Salvando...' : mfaEnabled ? 'Desativar MFA' : 'Ativar MFA'}
+              {mfaSaving ? 'Salvando...' : mfaEnabled ? 'MFA obrigatório' : 'Ativar MFA'}
             </button>
             <p className="mfa-note">
               Após a alteração, você será desconectado e precisará entrar novamente.
@@ -504,6 +505,7 @@ export function SecuritySettings({ openEmployees }: Props) {
           </button>
         </S.Card>
       </div>
+      <AuthenticatorSetup />
     </SecurityPage>
   );
 }

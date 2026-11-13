@@ -41,6 +41,25 @@ describe('MfaVerificationModal do cliente', () => {
     expect(markup).not.toContain('Ajuda');
   });
 
+  it('mostra autenticador apenas quando o servidor seleciona TOTP e não oferece reenvio', () => {
+    const markup = renderToStaticMarkup(
+      <MfaVerificationModal
+        open
+        selectedChannel="TOTP"
+        destination="seu aplicativo autenticador"
+        resendAfterSeconds={0}
+        onVerify={vi.fn(async () => ({ ok: true }))}
+        onResend={vi.fn(async () => ({ selectedChannel: 'TOTP' as const }))}
+        onSuccess={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    expect(markup).toContain('seu aplicativo autenticador');
+    expect(markup).toContain('Não é necessário receber mensagens');
+    expect(markup).not.toContain('Reenviar código');
+    expect(markup).not.toContain('enviado para seu e-mail');
+  });
+
   it('renderiza os seis campos do código e as versões desktop e mobile do CTA', () => {
     const markup = renderToStaticMarkup(
       <MfaVerificationModal
