@@ -17,9 +17,12 @@ const router = Router();
 router.post('/', authMiddleware, adminMiddleware, CreateProductController.handle);
 
 router.get('/', publicRestaurantBillingMiddleware, ListProductsController.handle);
-router.get('/manage', authMiddleware, staffMiddleware, (req, res) =>
-  ListProductsController.handlePrivate(req, res),
-);
+router.get('/manage', authMiddleware, staffMiddleware, (req, res) => {
+  if (!['ADMIN', 'FUNCIONARIO'].includes(String(req.user.role))) {
+    return res.status(403).json({ error: 'Acesso negado.' });
+  }
+  return ListProductsController.handlePrivate(req, res);
+});
 router.get('/ratings', ListProductRatingsController.handle);
 router.post('/:id/rating', RateProductController.handle);
 
