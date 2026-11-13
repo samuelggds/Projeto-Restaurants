@@ -109,15 +109,20 @@ test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em Post
         assert.equal(notifications.length, 1);
         assert.equal(await prisma.salesLeadWhatsappOutbox.count({
           where: { conversationId: current.id, kind: 'AI_TIMEOUT' },
-        }), 1);
+        }), 0, 'bot retorna silenciosamente sem mensagem automática inesperada');
 
-        await prisma.salesLeadWhatsappConversation.update({
+        // A new human message resets the ten-minute window. Customer messages
+        // must not extend the human inactivity deadline.
+        await setCommercialWhatsappConversationMode(current.id, 'HUMAN');
+        const updated = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
           where: { id: current.id },
-          data: { automationMode: 'HUMAN', handoffRequestedAt: null },
         });
+        assert.ok(updated.handoffRequestedAt);
         assert.equal(await resumeUnansweredCustomerHandoffs(() => {
-          throw new Error('takeover manual não pode expirar');
-        }), 0);
+          throw new Error('não pode retomar antes de dez minutos');
+        }, new Date(updated.handoffRequestedAt.getTime() + 9 * 60_000)), 0);
+        assert.equal(await resumeUnansweredCustomerHandoffs(() => undefined,
+          new Date(updated.handoffRequestedAt.getTime() + 10 * 60_000)), 1);
         await setCommercialWhatsappConversationMode(current.id, 'BOT');
       });
 
