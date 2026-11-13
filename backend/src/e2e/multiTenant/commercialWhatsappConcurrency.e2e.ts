@@ -1,0 +1,171 @@
+import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
+import test, { after } from 'node:test';
+import {
+  prisma, runtimePrisma, resetTenantE2EDatabase, seedTenantE2EFixture,
+} from './tenantE2EHarness.js';
+import {
+  deliverPlatformWhatsappOutbox,
+  processPlatformEvolutionInbound,
+  setCommercialWhatsappConversationMode,
+} from '../../modules/salesLeads/services/CommercialWhatsappService.js';
+
+after(async () => {
+  await prisma.$disconnect();
+  await runtimePrisma.$disconnect();
+});
+
+test('WhatsApp comercial: replay, corrida entre workers e falha ambígua em PostgreSQL isolado',
+  { timeout: 90_000 }, async (t) => {
+    await resetTenantE2EDatabase();
+    await seedTenantE2EFixture();
+    const oldAi = process.env.COMMERCIAL_WHATSAPP_AI_ENABLED;
+    const oldUrl = process.env.EVOLUTION_PLATFORM_API_URL;
+    const oldKey = process.env.EVOLUTION_PLATFORM_API_KEY;
+    const oldFetch = globalThis.fetch;
+    const secret = 'webhook-e2e-secret-synthetic';
+    const phone = '5511999999888';
+    const hours = Array.from({ length: 7 }, (_, weekday) => ({
+      weekday, enabled: true, periods: [
+        { enabled: true, start: '00:00', end: '23:59' },
+        { enabled: false, start: '00:00', end: '00:01' },
+      ],
+    }));
+    try {
+      process.env.COMMERCIAL_WHATSAPP_AI_ENABLED = 'true';
+      process.env.EVOLUTION_PLATFORM_API_URL = 'http://127.0.0.1:9';
+      process.env.EVOLUTION_PLATFORM_API_KEY = 'synthetic-api-key';
+      await prisma.platformSettings.upsert({
+        where: { id: 1 },
+        update: { commercialWhatsappEnabled: true, commercialWhatsappHours: hours, timezone: 'America/Sao_Paulo' },
+        create: { id: 1, commercialWhatsappEnabled: true, commercialWhatsappHours: hours, timezone: 'America/Sao_Paulo' },
+      });
+      await prisma.platformWhatsappConnection.create({
+        data: {
+          id: 1,
+          externalInstanceId: 'gastronexa-platform',
+          webhookSecretHash: createHash('sha256').update(secret).digest('hex'),
+          instanceTokenCiphertext: 'synthetic-token-never-used-in-production',
+          status: 'DISCONNECTED',
+        },
+      });
+
+      await t.test('oito webhooks simultâneos têm apenas um inbound e uma resposta na fila', async () => {
+        const payload = {
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', id: 'provider-e2e-one', fromMe: false },
+            message: { conversation: 'Como funciona a GastroNexa?' },
+          },
+        };
+        const calls = await Promise.all(
+          Array.from({ length: 8 }, () =>
+            processPlatformEvolutionInbound('gastronexa-platform', secret, payload)),
+        );
+        assert.ok(calls.every((call) => call.accepted === true));
+        assert.equal(calls.filter((call) => call.queued === true).length, 1);
+        assert.equal(await prisma.salesLeadWhatsappMessage.count({
+          where: { providerMessageId: 'provider-e2e-one' },
+        }), 1);
+        assert.equal(await prisma.salesLeadWhatsappOutbox.count(), 1);
+        const missing = await processPlatformEvolutionInbound('gastronexa-platform', secret, {
+          event: 'messages.upsert',
+          data: {
+            key: { remoteJid: phone + '@s.whatsapp.net', fromMe: false },
+            message: { conversation: 'Mensagem sem ID não pode ser processada.' },
+          },
+        });
+        assert.equal(missing.queued, false);
+        assert.equal(await prisma.salesLeadWhatsappMessage.count(), 1);
+      });
+
+      await t.test('takeover humano suprime resposta pendente da IA', async () => {
+        const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+          where: { phone },
+        });
+        await setCommercialWhatsappConversationMode(conversation.id, 'HUMAN');
+        assert.equal(await prisma.salesLeadWhatsappOutbox.count({
+          where: { kind: 'AI_REPLY', status: 'SUPPRESSED' },
+        }), 1);
+        await setCommercialWhatsappConversationMode(conversation.id, 'BOT');
+      });
+
+      const conversation = await prisma.salesLeadWhatsappConversation.findUniqueOrThrow({
+        where: { phone },
+      });
+      const enqueue = async (suffix: string) => {
+        return prisma.salesLeadWhatsappOutbox.create({
+          data: {
+            id: randomUUID(),
+            conversationId: conversation.id,
+            kind: 'GREETING',
+            body: 'Mensagem fictícia ' + suffix,
+            deduplicationKey: createHash('sha256').update('e2e:' + suffix).digest('hex'),
+            availableAt: new Date(Date.now() - 1000),
+          },
+        });
+      };
+      process.env.COMMERCIAL_WHATSAPP_AI_ENABLED = 'false';
+      await prisma.platformWhatsappConnection.update({
+        where: { id: 1 }, data: { status: 'CONNECTED', nextAutomaticSendAt: null },
+      });
+
+      await t.test('erro do provedor cria UNCERTAIN e não repete o envio', async () => {
+        const item = await enqueue('ambiguous');
+        let attempts = 0;
+        globalThis.fetch = (async () => {
+          attempts++;
+          return new Response('unavailable', { status: 503 });
+        }) as typeof fetch;
+        await deliverPlatformWhatsappOutbox();
+        await prisma.platformWhatsappConnection.update({
+          where: { id: 1 }, data: { nextAutomaticSendAt: null },
+        });
+        await deliverPlatformWhatsappOutbox();
+        assert.equal(attempts, 1);
+        const state = await prisma.salesLeadWhatsappOutbox.findUniqueOrThrow({
+          where: { id: item.id },
+        });
+        assert.equal(state.status, 'UNCERTAIN');
+        assert.equal(state.attempts, 1);
+      });
+
+      await t.test('dois workers não podem enviar a mesma mensagem', async () => {
+        const item = await enqueue('concurrent');
+        await prisma.platformWhatsappConnection.update({
+          where: { id: 1 }, data: { nextAutomaticSendAt: null },
+        });
+        let started!: () => void;
+        let release!: () => void;
+        const entered = new Promise<void>((resolve) => { started = resolve; });
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        let requests = 0;
+        globalThis.fetch = (async () => {
+          requests++;
+          started();
+          await gate;
+          return new Response('{}', { status: 200 });
+        }) as typeof fetch;
+        const first = deliverPlatformWhatsappOutbox();
+        await entered;
+        try {
+          await deliverPlatformWhatsappOutbox();
+        } finally {
+          release();
+        }
+        await first;
+        assert.equal(requests, 1);
+        assert.equal((await prisma.salesLeadWhatsappOutbox.findUniqueOrThrow({
+          where: { id: item.id },
+        })).status, 'SENT');
+      });
+    } finally {
+      globalThis.fetch = oldFetch;
+      if (oldAi === undefined) delete process.env.COMMERCIAL_WHATSAPP_AI_ENABLED;
+      else process.env.COMMERCIAL_WHATSAPP_AI_ENABLED = oldAi;
+      if (oldUrl === undefined) delete process.env.EVOLUTION_PLATFORM_API_URL;
+      else process.env.EVOLUTION_PLATFORM_API_URL = oldUrl;
+      if (oldKey === undefined) delete process.env.EVOLUTION_PLATFORM_API_KEY;
+      else process.env.EVOLUTION_PLATFORM_API_KEY = oldKey;
+    }
+  });
