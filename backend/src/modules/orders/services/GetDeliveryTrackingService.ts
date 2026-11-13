@@ -273,7 +273,7 @@ class GetDeliveryTrackingService {
         deliveryConfirmedAt: order.deliveryConfirmedAt,
         restaurant: order.restaurant,
         items: order.items,
-        paymentAttempts: order.paymentAttempts.map((attempt) => ({
+        paymentAttempts: (order.paymentAttempts || []).map((attempt) => ({
           method: attempt.method,
           cardBrand: attempt.cardBrand,
           cardLast4: attempt.cardLast4,
