@@ -3,6 +3,7 @@ import prisma from '../../../config/prisma.js';
 import { commercialWhatsappAiEnabled, generateCommercialWhatsappAiReply } from './CommercialWhatsappAiService.js';
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import { resumeUnansweredCustomerHandoffs } from './CommercialWhatsappHandoffRecoveryService.js';
+import { AUTOMATIC_REPLY_KINDS, enqueueAutoReply, suppressPendingAutomaticReplies } from './CommercialWhatsappOutboxQueueService.js';
 import {
   decryptCredential,
   encryptCredential,
@@ -24,7 +25,6 @@ type JsonRecord = Record<string, unknown>;
 const PLATFORM_CONNECTION_ID = 1;
 const PLATFORM_INSTANCE_NAME = 'gastronexa-platform';
 const TOKEN_CONTEXT = 'platform-whatsapp-connection:evolution';
-const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY', 'AI_TIMEOUT'];
 const HUMAN_UNAVAILABLE_TEXT = 'Olá! 😊 Nossa equipe humana não está disponível neste momento. Mas estou aqui 24 horas para ajudar com suas dúvidas sobre a GastroNexa. Como posso te ajudar?';
 
 export class PlatformWhatsappRecoveryRequiredError extends Error {
@@ -566,85 +566,6 @@ function botReplyForMessage(message: string) {
   return { handoff: false, body: menuMessage() };
 }
 
-async function suppressPendingAutomaticReplies(
-  db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
-  conversationId: string,
-  reason: string,
-) {
-  await db.salesLeadWhatsappOutbox.updateMany({
-    where: {
-      conversationId,
-      status: 'PENDING',
-      kind: { in: AUTOMATIC_REPLY_KINDS },
-    },
-    data: {
-      status: 'SUPPRESSED',
-      suppressedReason: reason,
-      lockedUntil: null,
-      lockToken: null,
-    },
-  });
-}
-
-async function enqueueAutoReply(
-  db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
-  conversationId: string,
-  phone: string,
-  kind: 'GREETING' | 'HANDOFF' | 'AI_REPLY',
-  body: string,
-  sourceMessageKey: string,
-) {
-  const key = createHash('sha256')
-    .update(JSON.stringify(['AUTO_REPLY', conversationId, phone, kind, sourceMessageKey]))
-    .digest('hex');
-
-    const existing = await db.salesLeadWhatsappOutbox.findUnique({
-      where: { deduplicationKey: key },
-      select: { id: true },
-    });
-    if (existing) {
-      return { queued: false, reason: 'duplicate_inbound' } as const;
-    }
-
-    const pendingHandoff = await db.salesLeadWhatsappOutbox.findFirst({
-      where: {
-        conversationId,
-        status: 'PENDING',
-        kind: 'HANDOFF',
-      },
-      select: { id: true },
-    });
-    if (pendingHandoff && kind !== 'HANDOFF') {
-      return { queued: false, reason: 'handoff_pending' } as const;
-    }
-
-    await db.salesLeadWhatsappOutbox.updateMany({
-      where: {
-        conversationId,
-        status: 'PENDING',
-        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY', 'AI_TIMEOUT'] : ['GREETING', 'AI_REPLY', 'AI_TIMEOUT'] },
-      },
-      data: {
-        status: 'SUPPRESSED',
-        suppressedReason: 'superseded_by_new_inbound',
-        lockedUntil: null,
-        lockToken: null,
-      },
-    });
-
-    await db.salesLeadWhatsappOutbox.create({
-      data: {
-        id: randomUUID(),
-        conversationId,
-        deduplicationKey: key,
-        kind,
-        body,
-        availableAt: commercialWhatsappAutoReplyAvailableAt(),
-      },
-    });
-    return { queued: true } as const;
-}
-
 function scheduleCommercialWhatsappDrain() {
   const timer = setTimeout(() => {
     void deliverPlatformWhatsappOutbox().catch(() => undefined);
@@ -803,10 +724,7 @@ export async function processPlatformEvolutionInbound(
   }
   if (result.queued) scheduleCommercialWhatsappDrain();
   // Do not expose internal database identifiers to the webhook caller.
-  const { conversationId: _conversationId, ...response } = result as typeof result & {
-    conversationId?: string;
-  };
-  return response;
+  return result.accepted === true ? { accepted: true, queued: result.queued, reason: result.reason } : result;
 }
 
 export async function enqueueLeadWhatsappGreeting(leadId: string) {
