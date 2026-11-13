@@ -159,6 +159,17 @@ function externalizePublicRestaurantImages(
   };
 }
 
+const PRIVATE_OPERATIONAL_SETTINGS = [
+  'autoAcceptOrders', 'trackingRequiresLogin', 'soundNotifications',
+  'maxConcurrentOrders', 'receiveOrdersOnWhatsapp', 'receiveStatusNotifications',
+] as const;
+
+function publicSettingsOnly<T extends object>(settings: T): T {
+  const safe = { ...settings } as Record<string, unknown>;
+  for (const field of PRIVATE_OPERATIONAL_SETTINGS) delete safe[field];
+  return safe as T;
+}
+
 function publicCommercialContact(value: unknown) {
   return String(value || '').replace(/\D/g, '') || null;
 }
@@ -273,7 +284,7 @@ class GetPublicRestaurantSettingsService {
       };
 
       return {
-        ...fallback,
+        ...publicSettingsOnly(fallback),
         restaurant: externalizePublicRestaurantImages(normalizedRestaurantId, fallback.restaurant),
       };
     }
@@ -323,7 +334,7 @@ class GetPublicRestaurantSettingsService {
     const commercialNumber = publicCommercialContact(settings.restaurant?.whatsapp);
 
     return {
-      ...settings,
+      ...publicSettingsOnly(settings),
       ...restaurantRatingFields,
       ...(typeof settings.acceptsPix === 'boolean' ? { acceptsPix } : {}),
       ...(typeof settings.acceptsCard === 'boolean' ? { acceptsCard } : {}),
