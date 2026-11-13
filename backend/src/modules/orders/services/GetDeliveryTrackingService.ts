@@ -40,7 +40,6 @@ class GetDeliveryTrackingService {
         paid: true,
         paymentMethod: true,
         payOnDeliveryMethod: true,
-        pixPaymentId: true,
         total: true,
         itemsSubtotal: true,
         productDiscountTotal: true,
@@ -74,13 +73,11 @@ class GetDeliveryTrackingService {
           take: 1,
           select: {
             method: true,
-            provider: true,
             cardBrand: true,
             cardLast4: true,
-            finalizedAt: true,
           },
         },
-        assignedCourier: { select: { id: true, name: true, phone: true, avatar: true } },
+        assignedCourier: { select: { name: true, phone: true, avatar: true } },
       },
     });
     if (!order) throw new Error('Pedido não encontrado.');
