@@ -87,7 +87,22 @@ export class SalesLeadService {
       });
 
       if (this.db === prisma) {
-        await enqueueLeadWhatsappGreeting(lead.id).catch(() => undefined);
+        // The lead and its email outbox remain committed even if WhatsApp
+        // cannot be queued. Log only the opaque lead ID and a safe reason.
+        try {
+          const greeting = await enqueueLeadWhatsappGreeting(lead.id);
+          if (!greeting.queued) {
+            console.info('[SALES_LEAD_WHATSAPP_NOT_QUEUED]', {
+              leadId: lead.id,
+              reason: greeting.reason,
+            });
+          }
+        } catch (error) {
+          console.error('[SALES_LEAD_WHATSAPP_ENQUEUE_ERROR]', {
+            leadId: lead.id,
+            errorType: error instanceof Error ? error.name : 'unknown',
+          });
+        }
       }
 
       return { created: true, response: { id: lead.id, received: true, emailStatus: 'PENDING' } };
