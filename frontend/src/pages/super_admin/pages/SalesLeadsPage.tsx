@@ -20,9 +20,9 @@ const emailLabels = {
   FAILED: 'Falha no aviso por e-mail',
 } as const;
 const planLabels = {
-  BASICO: 'Básico',
-  PREMIUM: 'Premium',
-  GESTAO_TOTAL: 'Gestão Total',
+  BASICO: 'Entrada',
+  PREMIUM: 'Avançado',
+  GESTAO_TOTAL: 'Avançado (contrato anterior)',
   UNDECIDED: 'Quero orientação',
 } as const;
 const channelLabels = { DELIVERY: 'Delivery', TABLE: 'Mesas', PICKUP: 'Retirada' } as const;
