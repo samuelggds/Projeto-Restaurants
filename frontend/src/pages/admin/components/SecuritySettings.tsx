@@ -22,16 +22,14 @@ const SecurityPage = styled(S.SettingSection)`
     align-items: center;
     gap: 24px;
     padding: 28px;
-    border: 1px solid #ded5cd;
-    border-radius: 20px;
-    background:
-      radial-gradient(circle at 92% 12%, color-mix(in srgb, var(--a) 18%, transparent), transparent 27%),
-      linear-gradient(135deg, #26211e 0%, #342b26 58%, #201d1b 100%);
-    color: #fff;
-    box-shadow: 0 18px 42px rgba(43, 32, 25, 0.14);
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    color: #252a31;
   }
 
   .security-hero::after {
+    display: none;
     content: '';
     position: absolute;
     right: -56px;
@@ -62,10 +60,10 @@ const SecurityPage = styled(S.SettingSection)`
   .hero-icon {
     width: 54px;
     height: 54px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid #e5e7eb;
     border-radius: 16px;
-    background: rgba(255, 255, 255, 0.08);
-    color: color-mix(in srgb, var(--a) 72%, white);
+    background: #fff6ef;
+    color: #b94a17;
     backdrop-filter: blur(8px);
   }
 
@@ -76,16 +74,16 @@ const SecurityPage = styled(S.SettingSection)`
   .eyebrow {
     display: block;
     margin-bottom: 7px;
-    color: color-mix(in srgb, var(--a) 55%, white);
-    font-size: 9px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
   .security-hero h2 {
     margin: 0;
-    color: #fff;
+    color: #252a31;
     font-size: clamp(21px, 2.5vw, 29px);
     line-height: 1.1;
   }
@@ -93,7 +91,7 @@ const SecurityPage = styled(S.SettingSection)`
   .security-hero p {
     max-width: 650px;
     margin: 9px 0 0;
-    color: rgba(255, 255, 255, 0.68);
+    color: #68717d;
     font-size: 12px;
     line-height: 1.55;
   }
@@ -107,10 +105,10 @@ const SecurityPage = styled(S.SettingSection)`
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 999px;
     padding: 8px 11px;
-    color: #d9f4df;
-    background: rgba(31, 112, 57, 0.28);
-    font-size: 10px;
-    font-weight: 850;
+    color: #21653d;
+    background: #eef8f1;
+    font-size: 12px;
+    font-weight: 650;
     white-space: nowrap;
   }
 
@@ -119,8 +117,8 @@ const SecurityPage = styled(S.SettingSection)`
   }
 
   .status-badge[data-enabled='false'] {
-    color: #f3d8ce;
-    background: rgba(151, 70, 45, 0.24);
+    color: #88532b;
+    background: #fff6ed;
   }
 
   .security-grid {
@@ -172,7 +170,7 @@ const SecurityPage = styled(S.SettingSection)`
   .security-card > p {
     margin: 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.55;
   }
 
@@ -187,7 +185,7 @@ const SecurityPage = styled(S.SettingSection)`
     align-items: center;
     gap: 8px;
     color: #5e554f;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 650;
   }
 
@@ -212,8 +210,8 @@ const SecurityPage = styled(S.SettingSection)`
     display: grid;
     gap: 6px;
     color: #514942;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .mfa-control input {
@@ -246,12 +244,12 @@ const SecurityPage = styled(S.SettingSection)`
     border-radius: 9px;
     background: #f8f5f2;
     color: #5e554f;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .mfa-state strong {
     color: #302a26;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .mfa-button {
@@ -261,8 +259,8 @@ const SecurityPage = styled(S.SettingSection)`
     padding: 0 15px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     box-shadow: 0 8px 18px color-mix(in srgb, var(--a) 20%, transparent);
     transition:
@@ -291,7 +289,7 @@ const SecurityPage = styled(S.SettingSection)`
   .mfa-note {
     margin: 0;
     color: #827a73;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -308,8 +306,8 @@ const SecurityPage = styled(S.SettingSection)`
     padding: 0 15px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     box-shadow: 0 8px 18px color-mix(in srgb, var(--a) 20%, transparent);
     transition:
       transform 220ms cubic-bezier(0.22, 1, 0.36, 1),

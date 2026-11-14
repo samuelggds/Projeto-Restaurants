@@ -32,7 +32,7 @@ const Notice = styled.div`
   small {
     display: block;
     margin-top: 4px;
-    font-size: 11px;
+    font-size:12px;
     line-height: 1.6;
     color: #5e7059;
   }

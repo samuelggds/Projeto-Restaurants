@@ -271,43 +271,43 @@ function TopUpDialog({
 const Card = styled.aside<{ $exhausted: boolean }>`
   margin: 10px 0 14px;
   padding: 16px;
-  border: 1px solid rgba(255,255,255,.035);
+  border: 1px solid #414141;
   border-radius: 15px;
-  color: #fff;
-  background: #2b2b2b;
+  color: #f7f3ef;
+  background: #282828;
   box-shadow: none;
   .topline { display: flex; gap: 8px; align-items: center; }
   .topline .icon {
     flex: 0 0 23px; display: grid; place-items: center;
-    color: #aaa; width: 23px; height: 23px;
+    color: #bfb6b0; width: 23px; height: 23px;
   }
   .topline svg { width: 21px; height: 21px; }
-  .topline b { color: #c5c5c5; font-size: 13px; font-weight: 780; }
+  .topline b { color: #f7f3ef; font-size: 13px; font-weight: 650; }
   .balance-row {
     display: flex; gap: 6px; align-items: center;
     justify-content: space-between; margin-top: 10px;
   }
   .balance-row strong {
-    color: #fff; font-family: 'Sora', sans-serif;
-    font-size: 14px; font-weight: 800; white-space: nowrap;
+    color: #fff; font-family: inherit;
+    font-size: 14px; font-weight:650; white-space: nowrap;
   }
-  .available { color: ({ $exhausted }) => $exhausted ? '#fca5a5' : '#999'; font-size: 12px; }
+  .available { color: ${({ $exhausted }) => $exhausted ? '#ffb4a8' : '#bfb6b0'}; font-size: 12px; }
   .credit-track {
     margin-top: 12px; width: 100%; height: 5px;
-    overflow: hidden; border-radius: 999px; background: #575757;
+    overflow: hidden; border-radius: 999px; background: #484848;
   }
   .credit-track span {
     display: block; height: 100%; border-radius: inherit;
-    background: #ff4b4b;
+    background: #b94a17;
   }
   .topup {
     margin-top: 12px; width: 100%; min-height: 40px;
     border: 0; border-radius: 7px;
-    color: #fff; background: #ff4b4b;
-    font: inherit; font-size: 12px; font-weight: 850; cursor: pointer;
+    color: #fff; background: #b94a17;
+    font: inherit; font-size: 12px; font-weight:650; cursor: pointer;
   }
-  .topup:hover { background: #ed3838; }
-  .topup:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+  .topup:hover { background: #9e3c10; }
+  .topup:focus-visible { outline: 2px solid #b94a17; outline-offset: 3px; }
   @media (max-width: 820px) { margin-inline: 0; }
 `;
 
@@ -316,10 +316,10 @@ const Overlay = styled.div`
 `;
 
 const Modal = styled.div`
-  width: min(520px, 100%); max-height: min(760px, 92vh); overflow: auto; border-radius: 18px; padding: 22px; color: #1e2925; background: #fffdf9; box-shadow: 0 28px 80px rgba(10,20,16,.24);
+  width: min(520px, 100%); max-height: min(760px, 92vh); overflow: auto; border-radius:12px; padding: 22px; color: #1e2925; background: #fffdf9; box-shadow: 0 28px 80px rgba(10,20,16,.24);
   header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
   h2 { margin: 4px 0 0; font-size: 24px; }
-  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing:.12em; color:#6b746f; }
+  .eyebrow { font-size:12px; font-weight:650; letter-spacing:.12em; color:#6b746f; }
   .close { border:0; background:transparent; cursor:pointer; color:#44504b; }
   > label { display:grid; gap:7px; margin-top:18px; font-size:12px; font-weight:750; }
   input, textarea { width:100%; box-sizing:border-box; border:1px solid #d9dedb; border-radius:10px; padding:11px 12px; background:#fff; color:#1e2925; font:inherit; }
@@ -331,12 +331,12 @@ const Modal = styled.div`
   @keyframes spin { to { transform: rotate(360deg); } }
   .pix-only { margin-top:14px; display:flex; align-items:center; gap:10px; border:1px solid #bfd4ca; border-radius:12px; padding:12px; background:#f2f7f4; color:#24302b; }
   .pix-only > span { display:grid; gap:2px; }
-  .pix-only small { font-size:10px; color:#5f6d66; }
+  .pix-only small { font-size:12px; color:#5f6d66; }
   .pix-result { margin-top:16px; display:grid; gap:10px; }
   .pix-result img { width:190px; max-width:100%; margin:auto; border-radius:10px; }
-  .pix-result label { display:grid; gap:6px; font-size:11px; font-weight:750; }
+  .pix-result label { display:grid; gap:6px; font-size:12px; font-weight:750; }
   .pix-result button { justify-self:start; border:1px solid #d3d9d6; border-radius:9px; padding:8px 10px; background:#fff; cursor:pointer; }
-  .error, .success, .pending { margin:12px 0 0; padding:10px 12px; border-radius:10px; font-size:11px; }
+  .error, .success, .pending { margin:12px 0 0; padding:10px 12px; border-radius:10px; font-size:12px; }
   .error { background:#fff0f0; color:#9d2525; }
   .success { background:#edf8f0; color:#176c38; }
   .pending { background:#fff8e8; color:#7c5b13; }

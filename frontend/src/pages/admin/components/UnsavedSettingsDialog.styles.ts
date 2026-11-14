@@ -27,11 +27,11 @@ export const Dialog = styled.section`
   width: min(100%, 470px);
   min-height: 300px;
   border: 1px solid rgba(255, 255, 255, 0.82);
-  border-radius: 24px;
+  border-radius: 12px;
   padding: 30px;
-  background: #fffdfb;
+  background: #f8f9fb;
   color: #211e1b;
-  box-shadow: 0 30px 90px rgba(20, 14, 10, 0.28);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -54,7 +54,7 @@ export const Dialog = styled.section`
   @media (max-width: 520px) {
     min-height: 286px;
     padding: 24px 18px;
-    border-radius: 20px;
+    border-radius: 12px;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -113,7 +113,7 @@ export const Actions = styled.footer`
     gap: 7px;
     font: inherit;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 650;
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -154,20 +154,20 @@ export const Actions = styled.footer`
   }
 
   .discard {
-    border: 1px solid #ded7d0;
+    border: 1px solid #e5e7eb;
     background: #fff;
     color: #514b46;
   }
 
   .discard::before {
-    background: #e5ddd6;
+    background: #e5e7eb;
   }
 
   .save {
     border: 0;
     background: var(--a, #d64d08);
     color: #fff;
-    box-shadow: 0 9px 22px color-mix(in srgb, var(--a, #d64d08) 28%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   @keyframes admin-unsaved-button-progress {
@@ -210,7 +210,7 @@ export const Result = styled.div<{ $tone: 'success' | 'discarded' }>`
   .result-icon {
     width: 68px;
     height: 68px;
-    border-radius: 22px;
+    border-radius: 12px;
     color: ${({ $tone }) => ($tone === 'success' ? '#237346' : '#9a493d')};
     background: ${({ $tone }) => ($tone === 'success' ? '#eaf7ef' : '#fff0ed')};
     display: grid;
@@ -241,7 +241,7 @@ export const Result = styled.div<{ $tone: 'success' | 'discarded' }>`
   small {
     margin-top: 22px;
     color: #918981;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;

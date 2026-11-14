@@ -46,7 +46,7 @@ export const ProductCategoryTitle = styled.h2`
   color: #2a2622;
   span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
   }
 `;
@@ -85,7 +85,7 @@ export const Product = styled.article`
     line-height: 1.25;
   }
   span {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--muted);
   }
   footer {
@@ -131,7 +131,7 @@ export const Product = styled.article`
     border: 1px solid var(--border);
     border-radius: 10px;
     background: #fff;
-    box-shadow: 0 14px 34px rgba(45, 31, 20, 0.18);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     /* The popover must stay fixed under the pointer during its entrance. */
     animation: catalog-menu-enter 140ms ease-out both;
   }
@@ -201,7 +201,7 @@ export const ToggleRows = styled.div`
     gap: 4px;
   }
   .toggle-row span {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
   }
   .toggle-row input {
@@ -254,9 +254,9 @@ export const DayRow = styled.div`
   gap: 10px;
   input {
     height: 46px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
-    background: #fcfbf9;
+    background: #f8f9fb;
     padding: 0 12px;
     outline: 0;
     transition:
@@ -300,7 +300,7 @@ export const QrPanel = styled.div`
   gap: 15px;
   span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .code {
     font-size: 32px;
@@ -394,7 +394,7 @@ export const IngredientGuide = styled.section`
   border: 1px solid var(--border);
   border-radius: 16px;
   background: #fff;
-  box-shadow: 0 12px 30px rgba(48, 35, 25, 0.045);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .guide-heading {
     display: flex;
     align-items: center;
@@ -403,8 +403,8 @@ export const IngredientGuide = styled.section`
   }
   .guide-heading small {
     color: var(--a);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .guide-heading h3 {
     margin: 4px 0 0;
@@ -421,8 +421,8 @@ export const IngredientGuide = styled.section`
     padding: 0 15px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .guide-heading button svg {
@@ -443,9 +443,9 @@ export const IngredientGuide = styled.section`
     align-items: center;
     gap: 9px;
     padding: 12px;
-    border: 1px solid #e6dfd8;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   li > i {
     width: 29px;
@@ -455,9 +455,9 @@ export const IngredientGuide = styled.section`
     border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
-    font-size: 10px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   li > i svg {
     width: 14px;
@@ -473,7 +473,7 @@ export const IngredientGuide = styled.section`
   }
   li b,
   li small {
-    font-size: 10px;
+    font-size: 12px;
   }
   li small {
     color: var(--muted);
@@ -505,9 +505,9 @@ export const IngredientForm = styled.form`
   gap: 14px;
   padding: 22px;
   border: 1px solid var(--border);
-  border-radius: 17px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 12px 30px rgba(48, 35, 25, 0.045);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .form-heading {
     display: flex;
     align-items: center;
@@ -535,15 +535,15 @@ export const IngredientForm = styled.form`
   p {
     margin: 4px 0 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   label {
     display: grid;
     gap: 7px;
     color: #4b433d;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   input,
   button {
@@ -553,9 +553,9 @@ export const IngredientForm = styled.form`
   input {
     min-width: 0;
     width: 100%;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     padding: 0 12px;
-    background: #fcfbfa;
+    background: #f8f9fb;
     outline: 0;
   }
   input:focus {
@@ -566,9 +566,9 @@ export const IngredientForm = styled.form`
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: center;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
-    background: #fcfbfa;
+    background: #f8f9fb;
   }
   .money-input:focus-within {
     border-color: var(--a);
@@ -578,7 +578,7 @@ export const IngredientForm = styled.form`
     padding-left: 12px;
     color: var(--a);
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 650;
   }
   .money-input input {
     border: 0;
@@ -594,7 +594,7 @@ export const IngredientForm = styled.form`
     color: #fff;
     background: var(--a);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     white-space: nowrap;
     cursor: pointer;
   }
@@ -639,7 +639,7 @@ export const IngredientListPanel = styled.section`
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(48, 35, 25, 0.035);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   h3 {
     margin: 0;
     font-size: 16px;
@@ -647,7 +647,7 @@ export const IngredientListPanel = styled.section`
   .ingredient-categories {
     min-width: 0;
     padding: 4px 17px 4px 0;
-    border-right: 1px solid #eee7e0;
+    border-right: 1px solid #e5e7eb;
   }
   .ingredient-categories h3 {
     margin: 2px 8px 12px;
@@ -677,7 +677,7 @@ export const IngredientListPanel = styled.section`
       background-color 260ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .ingredient-categories button:hover {
-    background: #faf7f4;
+    background: #f8f9fb;
   }
   .ingredient-categories button.active {
     border-color: color-mix(in srgb, var(--a) 38%, #eee3da);
@@ -718,9 +718,9 @@ export const IngredientListPanel = styled.section`
     align-items: center;
     gap: 7px;
     padding: 0 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
-    background: #fcfbfa;
+    background: #f8f9fb;
   }
   .ingredient-search svg {
     flex: 0 0 auto;
@@ -738,11 +738,11 @@ export const IngredientListPanel = styled.section`
   select {
     min-width: 0;
     height: 48px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 0 8px;
     color: #514a44;
-    background: #fcfbfa;
+    background: #f8f9fb;
     font-size: 12px;
   }
   .view-toggle {
@@ -750,10 +750,10 @@ export const IngredientListPanel = styled.section`
     height: 48px;
     display: grid;
     place-items: center;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     color: #625a53;
-    background: #fcfbfa;
+    background: #f8f9fb;
     cursor: pointer;
     transition:
       color 260ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -778,7 +778,7 @@ export const IngredientListPanel = styled.section`
     align-items: center;
     gap: 16px;
     padding: 16px;
-    border: 1px solid #eee7e0;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fefdfc;
     animation: ingredient-card-enter 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -830,8 +830,8 @@ export const IngredientListPanel = styled.section`
     justify-self: start;
     padding: 4px 7px;
     border-radius: 99px;
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .available {
     color: #166534;
@@ -857,14 +857,14 @@ export const IngredientListPanel = styled.section`
   }
   .ingredient-state small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     white-space: nowrap;
   }
   .ingredient-state > span {
     padding: 4px 6px;
     border-radius: 5px;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .ingredient-actions {
     display: flex;
@@ -883,8 +883,8 @@ export const IngredientListPanel = styled.section`
     padding: 0 9px;
     color: #544b44;
     background: #fff;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       color 240ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -940,10 +940,10 @@ export const IngredientListPanel = styled.section`
     display: grid;
     gap: 2px;
     padding: 5px;
-    border: 1px solid #e4ddd6;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
-    box-shadow: 0 14px 32px rgba(43, 31, 23, 0.16);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     transform-origin: right top;
     animation: ingredient-menu-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -957,7 +957,7 @@ export const IngredientListPanel = styled.section`
     padding: 0 9px;
     color: #413b36;
     background: transparent;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
     text-align: left;
     cursor: pointer;
@@ -1001,7 +1001,7 @@ export const IngredientListPanel = styled.section`
   .ingredient-edit-fields .money-input {
     min-width: 0;
     height: 38px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     background: #fff;
   }
@@ -1016,8 +1016,8 @@ export const IngredientListPanel = styled.section`
   .ingredient-edit-fields .money-input span {
     padding-left: 9px;
     color: var(--a);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .ingredient-edit-fields .money-input input {
     width: 100%;
@@ -1056,7 +1056,7 @@ export const IngredientListPanel = styled.section`
     .ingredient-categories {
       padding: 0 0 12px;
       border-right: 0;
-      border-bottom: 1px solid #eee7e0;
+      border-bottom: 1px solid #e5e7eb;
     }
     .ingredient-categories nav {
       grid-template-columns: repeat(3, minmax(0, 1fr));

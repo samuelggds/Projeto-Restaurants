@@ -38,9 +38,9 @@ export const PrepaymentLayout = styled.div`
     display: grid;
     gap: 16px;
     padding: 20px;
-    border: 1px solid #ebe4dd;
+    border: 1px solid #e5e7eb;
     border-radius: 15px;
-    background: #fffdfb;
+    background: #f8f9fb;
   }
   .rule-heading {
     display: flex;
@@ -63,7 +63,7 @@ export const PrepaymentLayout = styled.div`
   }
   .rule-heading p {
     margin-top: 3px;
-    font-size: 11px;
+    font-size: 12px;
     color: #756d65;
   }
   .limit-field {
@@ -111,7 +111,7 @@ export const PrepaymentLayout = styled.div`
   }
   .example dd {
     margin: 0;
-    font-weight: 800;
+    font-weight: 650;
     white-space: nowrap;
   }
   .example-total {
@@ -120,7 +120,7 @@ export const PrepaymentLayout = styled.div`
   }
   .example small {
     color: #776950;
-    font-size: 11px;
+    font-size: 12px;
   }
   .empty-periods {
     display: grid;
@@ -148,7 +148,7 @@ export const PrepaymentLayout = styled.div`
     display: grid;
     gap: 7px;
     min-width: 0;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
   }
   .times input {
@@ -158,7 +158,7 @@ export const PrepaymentLayout = styled.div`
   }
   .overnight-note {
     margin-top: 10px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.6;
     color: #746b63;
   }

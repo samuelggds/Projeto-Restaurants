@@ -157,7 +157,18 @@ const Wrap = styled.section`
     .nfc-payment-note button { width: 100%; }
   }
 
-`;
+
+  [data-admin-root] & {
+    --nfc-orange: #b94a17; --nfc-border: #e5e7eb; --nfc-ink:#252a31; --nfc-muted:#68717d;
+    .nfc-hero {background:#fff; color:#252a31; border:1px solid #e5e7eb; border-radius:12px; padding:24px; box-shadow:none;}
+    .nfc-hero h2 {color:#252a31;font-size:26px;} .nfc-hero p {color:#68717d;}
+    .nfc-eyebrow {color:#b94a17;} .nfc-trust {color:#555f6b;border-color:#e5e7eb;background:#f7f8fa;}
+    .nfc-hero-icon {color:#b94a17;background:#fff6ef;border-color:#f0e3d9;border-radius:12px;}
+    .nfc-hero-icon svg {color:#b94a17;} .surface {border-radius:12px;box-shadow:none;}
+    label {font-size:13px;font-weight:600;}
+    @media(max-width:600px){.nfc-hero{padding:20px 16px;}.nfc-hero h2{font-size:22px;}}
+  }
+ `;
 type Props = { roleLabel?: string };
 export function NfcRegistrationPanel(props: Props) {
   const [access, setAccess] = useState<'checking' | 'allowed' | 'blocked' | 'error'>('checking');

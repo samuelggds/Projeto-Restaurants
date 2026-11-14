@@ -230,7 +230,7 @@ async function mockAdminApi(page: Page, state: TestState) {
 async function openCourierPayments(page: Page, mobile = false) {
   await page.goto('/admin');
   if (mobile) await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: /^Configurações\s*(?:Ajustes)?$/ }).click();
   await page.getByRole('button', { name: 'Pagamento dos motoqueiros', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pagamento dos motoqueiros' })).toBeVisible();
 }

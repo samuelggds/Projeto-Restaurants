@@ -162,7 +162,7 @@ async function openIngredientCatalog(page: Page, imageSearchFails = false) {
   });
   await mockAuthRefresh(page, 9, 'e2e-admin-token');
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await page.getByRole('navigation', { name: /Navegação (principal do painel|administrativa móvel)/ }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: /Ingredientes \(0\)/ }).click();
 
   return { createdPayloads, updatePayloads };
@@ -425,7 +425,7 @@ test('admin separa ingredientes em categorias dinâmicas e configura cada grupo'
   await mockAuthRefresh(page, 9, 'e2e-admin-token');
   await page.goto('/admin');
 
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await page.getByRole('navigation', { name: /Navegação (principal do painel|administrativa móvel)/ }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: /Ingredientes \(4\)/ }).click();
   await expect(page.getByRole('heading', { name: 'Ingredientes', exact: true })).toBeVisible();
   await expect(

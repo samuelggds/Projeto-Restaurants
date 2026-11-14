@@ -58,7 +58,7 @@ export const Header = styled.header`
   justify-content: space-between;
   gap: 20px;
   border-bottom: 1px solid var(--line);
-  background: #fffefb;
+  background: #f8f9fb;
   .header-actions {
     display: flex;
     align-items: center;
@@ -112,7 +112,7 @@ export const Brand = styled.div`
   }
   > span {
     font-size: 22px;
-    font-weight: 800;
+    font-weight: 650;
     letter-spacing: -0.9px;
   }
   em {
@@ -123,7 +123,7 @@ export const Brand = styled.div`
     display: block;
     margin-top: 2px;
     color: #869180;
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: 1.55px;
   }
@@ -144,7 +144,7 @@ export const Heading = styled.div`
   .eyebrow {
     display: block;
     margin-bottom: 18px;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
     letter-spacing: 1.8px;
     color: #839177;
@@ -228,11 +228,11 @@ export const Receipt = styled.section`
   position: relative;
   padding: 30px;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid #294b3b;
   color: #f6f8ed;
   background: radial-gradient(circle at 105% 5%, #4b694247, transparent 50%), #233f32;
-  box-shadow: 0 12px 32px #203b3210;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .receipt-top {
     display: flex;
     align-items: center;
@@ -249,7 +249,7 @@ export const Receipt = styled.section`
     color: #dfedbb;
   }
   .receipt-top > span:last-child {
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 1.7px;
     color: #d5dfc8;
   }
@@ -392,10 +392,10 @@ export const Receipt = styled.section`
 export const PaymentCard = styled.section`
   min-width: 0;
   padding: 30px;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fffefb;
-  box-shadow: 0 8px 24px #263e2705;
+  background: #f8f9fb;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .payment-heading {
     display: flex;
     align-items: center;
@@ -486,12 +486,12 @@ export const PixGrid = styled.div`
   .qr-column > small {
     display: block;
     margin-top: 11px;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.6;
     color: #8a947f;
   }
   .mini-label {
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 750;
     color: #83916e;
     letter-spacing: 1.25px;
@@ -683,7 +683,7 @@ export const Confirmation = styled.div`
     padding: 10px 16px;
     border: 1px solid var(--line);
     border-radius: 9px;
-    background: #fffefb;
+    background: #f8f9fb;
     color: #596b4f;
     font-size: 13px;
     font-weight: 650;
@@ -716,9 +716,9 @@ export const State = styled.section`
   align-items: center;
   padding: 64px 24px;
   min-height: 320px;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fffefb;
+  background: #f8f9fb;
   text-align: center;
   > svg {
     width: 30px;
@@ -752,7 +752,7 @@ export const Footer = styled.footer`
   }
   .signature {
     margin-left: auto;
-    font-size: 8px;
+    font-size: 12px;
     letter-spacing: 1.6px;
     white-space: nowrap;
     padding-left: 20px;

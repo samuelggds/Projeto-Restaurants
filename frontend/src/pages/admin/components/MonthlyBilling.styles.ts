@@ -42,11 +42,9 @@ export const BillingHero = styled.section`
   padding: clamp(26px, 3.5vw, 42px);
   border: 1px solid #302b27;
   border-radius: 8px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(231, 94, 41, 0.24), transparent 29%),
-    linear-gradient(135deg, #17191b 0%, #24211f 56%, #39251d 100%);
-  box-shadow: 0 22px 56px rgba(45, 31, 22, 0.16);
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   &::before,
   &::after {
@@ -83,6 +81,12 @@ export const BillingHero = styled.section`
     padding: 22px 18px;
     border-radius: 8px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroCopy = styled.div`
@@ -96,9 +100,9 @@ export const HeroCopy = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #ff9a6a;
-    font-size: 10px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.11em;
     text-transform: uppercase;
   }
@@ -111,7 +115,7 @@ export const HeroCopy = styled.div`
   h2 {
     max-width: 680px;
     margin: 12px 0 8px;
-    font-size: clamp(27px, 3.3vw, 40px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.08;
     letter-spacing: 0;
   }
@@ -119,10 +123,16 @@ export const HeroCopy = styled.div`
   > p {
     max-width: 680px;
     margin: 0;
-    color: #c8c3be;
+    color: #68717d;
     font-size: 13px;
     line-height: 1.65;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroFacts = styled.div`
@@ -140,9 +150,9 @@ export const HeroFacts = styled.div`
     column-gap: 8px;
     align-content: center;
     padding: 11px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.11);
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.055);
+    background: #f7f8fa;
   }
 
   svg {
@@ -150,13 +160,13 @@ export const HeroFacts = styled.div`
     align-self: center;
     width: 17px;
     height: 17px;
-    color: #ff9a6a;
+    color: #b94a17;
   }
 
   small {
     overflow: hidden;
     color: #a9a39e;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 650;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -165,7 +175,7 @@ export const HeroFacts = styled.div`
   strong {
     overflow: hidden;
     margin-top: 2px;
-    color: #fff;
+    color: #252a31;
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -175,6 +185,12 @@ export const HeroFacts = styled.div`
     grid-template-columns: 1fr;
     margin-top: 20px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
@@ -184,9 +200,9 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
   justify-content: center;
   align-items: flex-start;
   padding: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background: rgba(8, 9, 10, 0.28);
+  background: #f7f8fa;
   backdrop-filter: blur(8px);
 
   .status-icon {
@@ -207,8 +223,8 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
   > small {
     margin-top: 17px;
     color: #a9a39e;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }
@@ -220,8 +236,8 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
 
   p {
     margin: 7px 0 18px;
-    color: #bdb7b2;
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -233,12 +249,12 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
     justify-content: space-between;
     gap: 10px;
     padding: 0 14px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 11px;
-    font-weight: 800;
+    color: #252a31;
+    background: #f7f8fa;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       background 160ms ease,
@@ -246,14 +262,20 @@ export const HeroStatusPanel = styled.aside<{ $active: boolean }>`
   }
 
   button:hover {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.14);
+    border-color: #68717d;
+    background: #f7f8fa;
   }
 
   button svg {
     width: 16px;
     height: 16px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const Notice = styled.div<{ $tone: 'info' | 'warning' }>`
@@ -288,7 +310,7 @@ export const Notice = styled.div<{ $tone: 'info' | 'warning' }>`
 
   p {
     margin: 3px 0 0;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -320,12 +342,12 @@ export const FeedbackBanner = styled.div<{ $tone: 'success' | 'error' }>`
 
   strong {
     display: block;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   p {
     margin: 3px 0 0;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -372,7 +394,7 @@ export const ViewTabs = styled.div`
     padding: 8px 13px;
     border: 1px solid transparent;
     border-radius: 7px;
-    color: #77706a;
+    color: #68717d;
     background: transparent;
     text-align: left;
     cursor: pointer;
@@ -399,7 +421,7 @@ export const ViewTabs = styled.div`
 
   button small {
     overflow: hidden;
-    font-size: 9px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -412,13 +434,13 @@ export const ViewTabs = styled.div`
     border-radius: 999px;
     color: #fff;
     background: var(--a);
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
 
   button.active {
-    border-color: #eee7e0;
+    border-color: #e5e7eb;
     color: var(--a);
     background: #fff;
     box-shadow: 0 6px 16px rgba(52, 37, 26, 0.08);
@@ -447,7 +469,7 @@ export const ViewTabs = styled.div`
     }
 
     button strong {
-      font-size: 11px;
+      font-size: 12px;
     }
     button > svg {
       width: 16px;
@@ -480,7 +502,7 @@ export const PaymentSummary = styled.div`
   }
   small {
     display: block;
-    font-size: 11px;
+    font-size: 12px;
     color: #756e68;
     margin-bottom: 3px;
   }
@@ -501,10 +523,10 @@ export const PaymentSummary = styled.div`
   }
   .subscription-status {
     margin-left: auto;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     padding: 7px 10px;
-    border-radius: 30px;
+    border-radius: 12px;
     background: #f4f5f2;
     color: #526256;
   }
@@ -563,8 +585,8 @@ export const SectionHeader = styled.header`
 
   > div:first-child > span:last-child > small {
     color: var(--a);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
   }
 
@@ -577,7 +599,7 @@ export const SectionHeader = styled.header`
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -597,7 +619,7 @@ export const ChoiceStatus = styled.div<{ $available: boolean }>`
   border: 1px solid ${({ $available }) => ($available ? '#cde7d7' : '#eadfd4')};
   border-radius: 8px;
   color: ${({ $available }) => ($available ? '#267545' : '#6e6259')};
-  background: ${({ $available }) => ($available ? '#f0faf4' : '#faf7f4')};
+  background: ${({ $available }) => ($available ? '#f0faf4' : '#f8f9fb')};
 
   > svg {
     width: 18px;
@@ -611,12 +633,12 @@ export const ChoiceStatus = styled.div<{ $available: boolean }>`
   }
 
   strong {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   small {
     color: #7a7068;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.35;
   }
 
@@ -670,7 +692,7 @@ export const PlanCard = styled.article<{ $featured?: boolean; $current?: boolean
   &:hover {
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--a) 42%, var(--border));
-    box-shadow: 0 18px 42px rgba(52, 36, 25, 0.1);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   .description {
@@ -700,13 +722,13 @@ export const PlanCard = styled.article<{ $featured?: boolean; $current?: boolean
     display: grid;
     gap: 3px;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
   }
 
   .price small {
     color: #8c7b6e;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 600;
   }
 `;
@@ -743,8 +765,8 @@ export const PlanHeading = styled.div`
 
   small {
     color: #8a7f76;
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
   }
 
@@ -765,8 +787,8 @@ export const PlanTag = styled.span<{ $tone: 'current' | 'recommended' }>`
   border-radius: 999px;
   color: ${({ $tone }) => ($tone === 'current' ? 'var(--a)' : '#fff')};
   background: ${({ $tone }) => ($tone === 'current' ? 'color-mix(in srgb, var(--a) 11%, #fff)' : '#211e1b')};
-  font-size: 9px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
 
   svg {
@@ -790,8 +812,8 @@ export const Benefits = styled.ul`
   > span {
     margin-bottom: 1px;
     color: #312c28;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   li {
@@ -801,7 +823,7 @@ export const Benefits = styled.ul`
     align-items: start;
     gap: 9px;
     color: #595149;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
     overflow-wrap: anywhere;
   }
@@ -838,8 +860,8 @@ export const ChoosePlanButton = styled.button<{ $current: boolean }>`
   border-radius: 12px;
   color: ${({ $current }) => ($current ? 'var(--a)' : '#fff')};
   background: ${({ $current }) => ($current ? 'color-mix(in srgb, var(--a) 7%, #fff)' : 'var(--a)')};
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
   transition:
     filter 160ms ease,
@@ -854,7 +876,7 @@ export const ChoosePlanButton = styled.button<{ $current: boolean }>`
   &:hover:not(:disabled) {
     filter: brightness(0.95);
     transform: translateY(-1px);
-    box-shadow: 0 9px 20px color-mix(in srgb, var(--a) 22%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   &:disabled {
@@ -869,7 +891,7 @@ export const PlanFootnote = styled.div`
   gap: 9px;
   padding: 0 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.45;
 
   svg {

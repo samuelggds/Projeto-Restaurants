@@ -27,7 +27,7 @@ export const productMobileStyles = css`
       overflow-wrap: anywhere;
     }
     .product-copy > span {
-      font-size: 11px;
+      font-size: 12px;
     }
     footer .product-actions {
       position: absolute;

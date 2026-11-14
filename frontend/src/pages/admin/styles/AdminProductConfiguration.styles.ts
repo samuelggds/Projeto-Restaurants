@@ -20,11 +20,11 @@ export const ProductOptionGroupList = styled.div`
     align-items: center;
     gap: 10px;
     padding: 14px 16px;
-    border-bottom: 1px solid #eee8e2;
-    background: #faf7f4;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8f9fb;
   }
   .group-complete > header {
-    background: linear-gradient(90deg, #f4faf6, #faf7f4 58%);
+    background: linear-gradient(90deg, #f4faf6, #f8f9fb 58%);
   }
   .group-number {
     width: 30px;
@@ -34,8 +34,8 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 9px;
     color: #fff;
     background: #263640;
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   header b {
     display: block;
@@ -43,21 +43,21 @@ export const ProductOptionGroupList = styled.div`
   }
   header span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .group-kicker {
     display: block;
     margin-bottom: 3px;
     color: var(--a);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.07em;
   }
   header .group-summary {
     display: block;
     margin-top: 3px;
     color: #76574a;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
   }
   .group-state {
@@ -69,8 +69,8 @@ export const ProductOptionGroupList = styled.div`
     padding: 0 9px;
     color: #7b5b4b;
     background: #efe8e2;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     white-space: nowrap;
   }
   .group-state svg {
@@ -102,13 +102,13 @@ export const ProductOptionGroupList = styled.div`
   }
   .edit-group {
     min-height: 34px;
-    border: 1px solid color-mix(in srgb, var(--a) 35%, #ded7cf);
+    border: 1px solid color-mix(in srgb, var(--a) 35%, #e5e7eb);
     border-radius: 8px;
     padding: 0 11px;
     color: var(--a);
     background: #fff;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .edit-group[aria-expanded='true'] {
@@ -120,7 +120,7 @@ export const ProductOptionGroupList = styled.div`
     height: 30px;
     display: grid;
     place-items: center;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     color: #655c54;
     background: #fff;
@@ -145,13 +145,13 @@ export const ProductOptionGroupList = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    border: 1px solid color-mix(in srgb, var(--a) 35%, #ded7cf);
+    border: 1px solid color-mix(in srgb, var(--a) 35%, #e5e7eb);
     border-radius: 8px;
     padding: 0 9px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 4%, #fff);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .group-options > legend > button:disabled {
@@ -189,9 +189,9 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 50%;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .group-editor-intro > span {
     min-width: 0;
@@ -204,7 +204,7 @@ export const ProductOptionGroupList = styled.div`
   }
   .group-editor-intro small {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .guided-step-heading {
@@ -215,7 +215,7 @@ export const ProductOptionGroupList = styled.div`
     gap: 10px;
     margin: 16px 14px 0;
     padding: 12px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #f8f6f3;
   }
@@ -227,9 +227,9 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 50%;
     color: #fff;
     background: #34464f;
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .guided-step-heading > span {
     min-width: 0;
@@ -242,7 +242,7 @@ export const ProductOptionGroupList = styled.div`
   }
   .guided-step-heading small {
     color: #716860;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .guided-step-heading > em {
@@ -251,9 +251,9 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 5px;
     color: #216440;
     background: #e4f2e8;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 850;
+    font-weight: 650;
     white-space: nowrap;
   }
   .guided-step-heading > em.pending {
@@ -262,7 +262,7 @@ export const ProductOptionGroupList = styled.div`
   }
   .group-fields small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.35;
   }
@@ -273,8 +273,8 @@ export const ProductOptionGroupList = styled.div`
     margin: 12px 14px;
   }
   .choice-mode-field > b {
-    color: #514943;
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
   }
   .choice-mode-field > div {
     display: grid;
@@ -289,15 +289,15 @@ export const ProductOptionGroupList = styled.div`
     align-items: center;
     gap: 9px;
     padding: 9px 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
-    color: #514943;
+    color: #68717d;
     background: #fff;
     text-align: left;
     cursor: pointer;
   }
   .choice-mode-field button.active {
-    border-color: color-mix(in srgb, var(--a) 45%, #ded7cf);
+    border-color: color-mix(in srgb, var(--a) 45%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 6%, white);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 7%, transparent);
@@ -310,9 +310,9 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .choice-mode-field button > span {
     min-width: 0;
@@ -320,11 +320,11 @@ export const ProductOptionGroupList = styled.div`
     gap: 3px;
   }
   .choice-mode-field button b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .choice-mode-field button small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .legacy-category-warning {
     display: grid;
@@ -337,10 +337,10 @@ export const ProductOptionGroupList = styled.div`
     background: #fff8e8;
   }
   .legacy-category-warning b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .legacy-category-warning span {
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .category-change-confirm {
@@ -360,11 +360,11 @@ export const ProductOptionGroupList = styled.div`
     gap: 3px;
   }
   .category-change-confirm b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .category-change-confirm span {
     color: #73584a;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .category-change-confirm button {
@@ -374,8 +374,8 @@ export const ProductOptionGroupList = styled.div`
     padding: 0 10px;
     color: #4b423b;
     background: #fff;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .category-change-confirm .confirm-category-change {
@@ -389,8 +389,8 @@ export const ProductOptionGroupList = styled.div`
     margin: 0 14px 12px;
   }
   .required-choice > b {
-    color: #514943;
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
   }
   .required-choice > div {
     display: grid;
@@ -402,22 +402,22 @@ export const ProductOptionGroupList = styled.div`
     display: grid;
     gap: 3px;
     padding: 10px 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    color: #514943;
+    color: #68717d;
     background: #fff;
     text-align: left;
     cursor: pointer;
   }
   .required-choice button.active {
-    border-color: color-mix(in srgb, var(--a) 45%, #ded7cf);
+    border-color: color-mix(in srgb, var(--a) 45%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 6%, white);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 7%, transparent);
   }
   .required-choice button b,
   .required-choice button small {
-    font-size: 10px;
+    font-size: 12px;
   }
   .required-choice button small {
     color: var(--muted);
@@ -426,9 +426,9 @@ export const ProductOptionGroupList = styled.div`
   .advanced-settings {
     min-width: 0;
     overflow: hidden;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
   .advanced-settings > summary {
     min-height: 42px;
@@ -438,8 +438,8 @@ export const ProductOptionGroupList = styled.div`
     gap: 10px;
     padding: 9px 12px;
     color: #5a514a;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     list-style: none;
     cursor: pointer;
   }
@@ -456,7 +456,7 @@ export const ProductOptionGroupList = styled.div`
     content: '−';
   }
   .advanced-settings[open] > summary {
-    border-bottom: 1px solid #e5ded7;
+    border-bottom: 1px solid #e5e7eb;
     background: #f5f2ee;
   }
   .group-limits {
@@ -488,24 +488,24 @@ export const ProductOptionGroupList = styled.div`
     gap: 3px;
   }
   .rule-heading b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .rule-heading span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .group-rules label {
     display: grid;
     gap: 5px;
-    color: #514943;
-    font-size: 11px;
-    font-weight: 800;
+    color: #68717d;
+    font-size: 12px;
+    font-weight: 650;
   }
   .group-rules input[type='number'] {
     width: 78px;
     height: 36px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     padding: 0 9px;
     background: #fff;
@@ -517,7 +517,7 @@ export const ProductOptionGroupList = styled.div`
     align-items: center;
     gap: 7px !important;
     padding: 0 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     background: #fff;
   }
@@ -531,7 +531,7 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 10px;
     color: #4b5c64;
     background: #f4f8f8;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .customer-rule-summary > svg {
@@ -543,7 +543,7 @@ export const ProductOptionGroupList = styled.div`
     accent-color: var(--a);
   }
   .required-toggle[data-required='true'] {
-    border-color: color-mix(in srgb, var(--a) 35%, #ded7cf);
+    border-color: color-mix(in srgb, var(--a) 35%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 6%, white);
   }
@@ -551,14 +551,14 @@ export const ProductOptionGroupList = styled.div`
     min-width: 0;
     margin: 0 14px 14px;
     padding: 11px;
-    border: 1px solid #e6ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
   }
   .group-options legend {
     padding: 0 5px;
     color: #554d47;
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .group-options-hint {
     margin: 0 0 10px;
@@ -566,7 +566,7 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 8px;
     color: #6e594d;
     background: #f8f2ed;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .source-category-section {
@@ -587,11 +587,11 @@ export const ProductOptionGroupList = styled.div`
   }
   .source-category-section > header b {
     color: #4d443d;
-    font-size: 11px;
+    font-size: 12px;
   }
   .source-category-section > header span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .source-category-section > div {
     display: grid;
@@ -605,7 +605,7 @@ export const ProductOptionGroupList = styled.div`
     color: var(--muted);
     background: #fbf9f7;
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
   }
   .group-options label {
     min-width: 0;
@@ -614,13 +614,13 @@ export const ProductOptionGroupList = styled.div`
     align-items: center;
     gap: 8px;
     padding: 9px;
-    border: 1px solid #e8e1da;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     background: #fff;
     cursor: pointer;
   }
   .group-options label.selected {
-    border-color: color-mix(in srgb, var(--a) 45%, #e8e1da);
+    border-color: color-mix(in srgb, var(--a) 45%, #e5e7eb);
     background: color-mix(in srgb, var(--a) 6%, white);
   }
   .group-options label.inactive {
@@ -639,8 +639,8 @@ export const ProductOptionGroupList = styled.div`
     border-radius: 50%;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .ingredient-option-thumb > span {
     position: absolute;
@@ -663,11 +663,11 @@ export const ProductOptionGroupList = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11px;
+    font-size: 12px;
   }
   .group-options small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   button:focus-visible,
   input:focus-visible,
@@ -778,9 +778,9 @@ export const ProductAdvancedConfiguration = styled.div`
     min-width: 0;
     grid-column: 1 / -1;
     overflow: hidden;
-    border: 1px solid #dfd8d1;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
   > .portion-settings > summary {
     min-height: 46px;
@@ -789,9 +789,9 @@ export const ProductAdvancedConfiguration = styled.div`
     justify-content: space-between;
     gap: 10px;
     padding: 10px 14px;
-    color: #514943;
-    font-size: 11px;
-    font-weight: 850;
+    color: #68717d;
+    font-size: 12px;
+    font-weight: 650;
     list-style: none;
     cursor: pointer;
   }
@@ -800,11 +800,11 @@ export const ProductAdvancedConfiguration = styled.div`
   }
   > .portion-settings > summary > span {
     color: var(--a);
-    font-size: 10px;
+    font-size: 12px;
   }
   > .portion-settings > section {
     border: 0;
-    border-top: 1px solid #dfd8d1;
+    border-top: 1px solid #e5e7eb;
     border-radius: 0;
   }
   .composition-toolbar {
@@ -820,7 +820,7 @@ export const ProductAdvancedConfiguration = styled.div`
     align-items: center;
     gap: 7px;
     padding: 0 11px;
-    border: 1px solid #ddd6cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     background: #fff;
   }
@@ -845,8 +845,8 @@ export const ProductAdvancedConfiguration = styled.div`
     padding: 0 12px;
     color: #fff;
     background: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   > section,
@@ -856,9 +856,9 @@ export const ProductAdvancedConfiguration = styled.div`
     display: grid;
     gap: 12px;
     padding: 15px;
-    border: 1px solid #dfd8d1;
+    border: 1px solid #e5e7eb;
     border-radius: 13px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
   > section > header,
   > .portion-settings > section > header {
@@ -875,8 +875,8 @@ export const ProductAdvancedConfiguration = styled.div`
   > section > header small,
   > .portion-settings > section > header small {
     color: var(--a);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
   > section > header h4,
@@ -888,7 +888,7 @@ export const ProductAdvancedConfiguration = styled.div`
   > .portion-settings > section > header p {
     margin: 0;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.4;
   }
   > section > header > span,
@@ -897,9 +897,9 @@ export const ProductAdvancedConfiguration = styled.div`
     padding: 5px 7px;
     border-radius: 8px;
     color: #665d55;
-    background: #ece7e2;
-    font-size: 10px;
-    font-weight: 800;
+    background: #e5e7eb;
+    font-size: 12px;
+    font-weight: 650;
   }
   .advanced-empty {
     padding: 13px;
@@ -907,7 +907,7 @@ export const ProductAdvancedConfiguration = styled.div`
     border-radius: 9px;
     color: var(--muted);
     background: #fff;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .composition-catalog {
@@ -928,8 +928,8 @@ export const ProductAdvancedConfiguration = styled.div`
   .composition-catalog legend {
     padding: 0 5px;
     color: #665c54;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .composition-catalog fieldset > div {
     display: grid;
@@ -964,8 +964,8 @@ export const ProductAdvancedConfiguration = styled.div`
     border-radius: 50%;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .ingredient-option-thumb > span {
     position: absolute;
@@ -987,19 +987,19 @@ export const ProductAdvancedConfiguration = styled.div`
   }
   .composition-catalog b {
     overflow: hidden;
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .composition-catalog label small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0;
   }
   .composition-catalog .removable-toggle {
     padding-left: 22px;
     color: #745b4d;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
   }
   .feature-switch {
@@ -1008,8 +1008,8 @@ export const ProductAdvancedConfiguration = styled.div`
     align-items: center;
     gap: 6px;
     color: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .feature-switch:has(input:disabled) {
     opacity: 0.45;
@@ -1021,7 +1021,7 @@ export const ProductAdvancedConfiguration = styled.div`
   }
   .portion-admin-grid label > small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.35;
   }
   .portion-observation-toggle {
@@ -1030,11 +1030,11 @@ export const ProductAdvancedConfiguration = styled.div`
     align-items: flex-start;
     gap: 7px;
     padding: 9px;
-    border: 1px solid #e1dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     color: #615850;
     background: #fff;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
     line-height: 1.4;
   }

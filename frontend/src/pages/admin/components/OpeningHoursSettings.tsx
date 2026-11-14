@@ -33,7 +33,7 @@ const StatusOverview = styled.section<{ $open: boolean }>`
   margin: 24px 0;
   padding: 20px;
   border: 1px solid ${({ $open }) => ($open ? '#b9dfc2' : '#ecd5c8')};
-  border-radius: 18px;
+  border-radius:12px;
   background: ${({ $open }) =>
     $open
       ? 'linear-gradient(135deg, #f1fbf3 0%, #ffffff 74%)'
@@ -100,8 +100,8 @@ const StatusBadge = styled.span<{ $open: boolean }>`
   padding: 5px 9px;
   color: ${({ $open }) => ($open ? '#18713a' : '#a34c2b')};
   background: ${({ $open }) => ($open ? '#e8f8ec' : '#fff0e8')};
-  font-size: 11px;
-  font-weight: 800;
+  font-size:12px;
+  font-weight:650;
   letter-spacing: 0.02em;
 `;
 
@@ -112,7 +112,7 @@ const PauseControl = styled.div`
 
   small {
     color: #746c67;
-    font-size: 11px;
+    font-size:12px;
     line-height: 1.4;
   }
 
@@ -138,7 +138,7 @@ const PauseControl = styled.div`
     background: transparent;
     color: #706660;
     font-size: 12px;
-    font-weight: 800;
+    font-weight:650;
     cursor: pointer;
   }
 
@@ -201,18 +201,18 @@ const ScheduleHeader = styled.div`
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border: 1px solid #ded5cd;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     padding: 7px 10px;
     background: #fff;
     color: #5e554f;
-    font-size: 11px;
+    font-size:12px;
     font-weight: 750;
     cursor: pointer;
   }
 
   button:hover {
-    border-color: color-mix(in srgb, var(--a) 35%, #ded5cd);
+    border-color: color-mix(in srgb, var(--a) 35%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 4%, white);
   }
@@ -284,8 +284,8 @@ const DayHeader = styled.div`
     border-radius: 11px;
     background: color-mix(in srgb, var(--a) 9%, white);
     color: var(--a);
-    font-size: 10px;
-    font-weight: 900;
+    font-size:12px;
+    font-weight:650;
     letter-spacing: 0.04em;
   }
 
@@ -299,7 +299,7 @@ const DayHeader = styled.div`
 
   .day-name small {
     color: #928982;
-    font-size: 10px;
+    font-size:12px;
   }
 `;
 
@@ -309,8 +309,8 @@ const DayToggle = styled.label<{ $enabled: boolean }>`
   align-items: center;
   gap: 7px;
   color: ${({ $enabled }) => ($enabled ? '#1b743c' : '#8a817b')};
-  font-size: 11px;
-  font-weight: 800;
+  font-size:12px;
+  font-weight:650;
   cursor: pointer;
 
   input {
@@ -357,8 +357,8 @@ const TimeRange = styled.div`
     display: grid;
     gap: 6px;
     color: #756c66;
-    font-size: 10px;
-    font-weight: 800;
+    font-size:12px;
+    font-weight:650;
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
@@ -385,7 +385,7 @@ const TimeRange = styled.div`
   > span {
     padding-bottom: 13px;
     color: #9a918a;
-    font-size: 11px;
+    font-size:12px;
   }
 
   @media (max-width: 420px) {
@@ -408,7 +408,7 @@ const ClosedDay = styled.div`
   border-radius: 11px;
   color: #887f79;
   background: #f5f2ef;
-  font-size: 11px;
+  font-size:12px;
 
   strong {
     color: #655d58;
@@ -419,7 +419,7 @@ const DayError = styled.small`
   display: block;
   margin-top: 8px;
   color: #b4382e;
-  font-size: 11px;
+  font-size:12px;
   font-weight: 700;
 `;
 
@@ -432,7 +432,7 @@ const ScheduleNote = styled.div`
   border-radius: 12px;
   background: #f7f3ef;
   color: #706660;
-  font-size: 11px;
+  font-size:12px;
   line-height: 1.5;
 
   svg {

@@ -17,12 +17,12 @@ export const MethodBar = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 0 12px;
     color: #4f4944;
     background: #fff;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
   }
   .back svg {
@@ -45,7 +45,7 @@ export const MethodBar = styled.div`
     padding: 0 11px;
     color: #6a625c;
     background: transparent;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
   }
   .methods button.active {
@@ -76,7 +76,7 @@ export const StepBanner = styled.div`
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   .step-icon {
@@ -98,15 +98,15 @@ export const StepBanner = styled.div`
   }
   small {
     color: var(--a);
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   b {
     font-size: 12px;
   }
   span {
     color: #736b64;
-    font-size: 10px;
+    font-size: 12px;
   }
   .step-track {
     display: flex;
@@ -122,9 +122,9 @@ export const StepBanner = styled.div`
     border-radius: 50%;
     color: #796f67;
     background: #fff;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 650;
   }
   .step-track i.active,
   .step-track i.done {
@@ -135,7 +135,7 @@ export const StepBanner = styled.div`
   .step-track em {
     width: 28px;
     height: 1px;
-    background: #ded7d0;
+    background: #e5e7eb;
   }
   @media (max-width: 620px) {
     grid-template-columns: auto minmax(0, 1fr);
@@ -166,7 +166,7 @@ export const SourceCard = styled.form`
   align-content: start;
   gap: 18px;
   padding: 22px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   h3,
@@ -178,7 +178,7 @@ export const SourceCard = styled.form`
   }
   p {
     color: #766f68;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .ifood-mark {
@@ -193,8 +193,8 @@ export const SourceCard = styled.form`
     display: grid;
     gap: 7px;
     color: #413c38;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .url-field {
     height: 44px;
@@ -203,7 +203,7 @@ export const SourceCard = styled.form`
     align-items: center;
     gap: 8px;
     padding: 0 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -220,16 +220,16 @@ export const SourceCard = styled.form`
     height: 100%;
     border: 0;
     outline: 0;
-    font-size: 10px;
+    font-size: 12px;
   }
   .security-note {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 9px;
     padding: 12px;
-    border: 1px solid #ebe4dd;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
   .security-note svg {
     width: 17px;
@@ -241,10 +241,10 @@ export const SourceCard = styled.form`
   }
   .security-note b,
   .security-note small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .security-note small {
-    color: #746d66;
+    color: #68717d;
     line-height: 1.45;
   }
   .submit-import {
@@ -259,8 +259,8 @@ export const SourceCard = styled.form`
     border-radius: 7px;
     color: #fff;
     background: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .submit-import svg {
     width: 15px;
@@ -276,7 +276,7 @@ export const ResultCard = styled.section`
   align-content: start;
   gap: 17px;
   padding: 22px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   > header h3,
@@ -289,7 +289,7 @@ export const ResultCard = styled.section`
   > header p {
     margin-top: 5px;
     color: #766f68;
-    font-size: 10px;
+    font-size: 12px;
   }
 `;
 
@@ -334,7 +334,7 @@ export const StatGrid = styled.div`
   }
   b,
   small {
-    font-size: 9px;
+    font-size: 12px;
   }
   small {
     color: #7c756e;
@@ -363,7 +363,7 @@ export const ImportNotice = styled.div<{ $tone?: 'error' | 'success' }>`
   }
   b,
   small {
-    font-size: 9px;
+    font-size: 12px;
   }
   small {
     color: inherit;
@@ -381,11 +381,11 @@ export const CreatedList = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   > header b,
   > header span {
-    font-size: 9px;
+    font-size: 12px;
   }
   > header span {
     color: #766f68;
@@ -404,8 +404,8 @@ export const CreatedList = styled.div`
     align-items: center;
     gap: 8px;
     padding: 0 12px;
-    border-top: 1px solid #eee8e2;
-    font-size: 10px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
   }
   li svg {
     width: 14px;
@@ -429,12 +429,12 @@ export const PhotoSource = styled.section`
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   h3 {
     margin: 0;
-    font-size: 11px;
+    font-size: 12px;
   }
   .photo-preview,
   .photo-picker {
@@ -457,7 +457,7 @@ export const PhotoSource = styled.section`
     gap: 7px;
     border: 1px dashed color-mix(in srgb, var(--a) 38%, #dcd3ca);
     color: #5e5751;
-    background: #fdfbf9;
+    background: #f8f9fb;
     text-align: center;
   }
   .photo-picker svg {
@@ -467,11 +467,11 @@ export const PhotoSource = styled.section`
   .photo-picker b,
   .photo-picker span,
   .photo-picker small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .photo-picker span,
   .photo-picker small {
-    color: #7a726b;
+    color: #68717d;
   }
   .photo-picker input {
     position: absolute;
@@ -491,11 +491,11 @@ export const PhotoSource = styled.section`
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     color: #4f4944;
     background: #fff;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
   }
   .photo-actions button {
@@ -517,7 +517,7 @@ export const AnalysisCard = styled.section`
   display: grid;
   gap: 15px;
   padding: 18px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: #fff;
   > header {
@@ -563,7 +563,7 @@ export const AnalysisCard = styled.section`
     border-radius: 50%;
     color: #9a9189;
     background: #fff;
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
   }
   .analysis-stages .done i {
@@ -582,7 +582,7 @@ export const AnalysisCard = styled.section`
   }
   .analysis-stages b,
   .analysis-stages small {
-    font-size: 9px;
+    font-size: 12px;
   }
   .analysis-stages small {
     color: #7a736c;
@@ -599,8 +599,8 @@ export const AnalysisCard = styled.section`
     border-radius: 7px;
     color: #fff;
     background: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .analyze-photo svg {
     width: 15px;
@@ -619,7 +619,7 @@ export const AiImageOption = styled.div`
   padding: 15px 16px;
   border: 1px solid #e7dfd6;
   border-radius: 12px;
-  background: linear-gradient(135deg, #fffdfb 0%, #faf7f4 100%);
+  background: linear-gradient(135deg, #f8f9fb 0%, #f8f9fb 100%);
 
   .ai-option-icon {
     width: 40px;
@@ -643,19 +643,19 @@ export const AiImageOption = styled.div`
 
   .ai-option-copy > small {
     color: var(--a);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.06em;
   }
 
   .ai-option-copy > b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .ai-option-copy > p {
     margin: 0;
-    color: #746d66;
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -704,9 +704,9 @@ export const AiImageOption = styled.div`
 
   .ai-switch em {
     color: #7b736c;
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 650;
   }
 
   @media (max-width: 620px) {
@@ -748,19 +748,19 @@ export const ImageBatchCard = styled.div`
 
   .batch-copy small {
     color: #6b4ca3;
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.06em;
   }
 
   .batch-copy b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .batch-copy p {
     margin: 0;
     color: #6e6677;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -775,8 +775,8 @@ export const ImageBatchCard = styled.div`
     border-radius: 8px;
     color: #fff;
     background: #6b4ca3;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   button svg {
@@ -805,7 +805,7 @@ export const ReviewSummary = styled.section`
   gap: 18px;
   align-items: center;
   padding: 18px;
-  border: 1px solid #e5ded7;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   background: linear-gradient(135deg, #fff 0%, #fbf8f5 100%);
 
@@ -821,8 +821,8 @@ export const ReviewSummary = styled.section`
     align-items: center;
     gap: 6px;
     color: var(--a);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.06em;
   }
 
@@ -842,8 +842,8 @@ export const ReviewSummary = styled.section`
 
   p {
     max-width: 620px;
-    color: #746d66;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.5;
   }
 
@@ -872,12 +872,12 @@ export const ReviewGuidance = styled.div`
   }
 
   b {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   small {
     color: #587265;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -894,7 +894,7 @@ export const ReviewItem = styled.article<{ $attention: boolean; $muted: boolean 
     ${({ $attention }) => ($attention ? '#e9c5a4' : '#e7e1da')};
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 10px 24px rgba(53, 38, 27, 0.045);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   opacity: ${({ $muted }) => ($muted ? 0.62 : 1)};
   transition:
     border-color 160ms ease,
@@ -913,7 +913,7 @@ export const ReviewItemHeader = styled.header`
   align-items: center;
   gap: 12px;
   padding: 14px 15px;
-  border-bottom: 1px solid #eee8e2;
+  border-bottom: 1px solid #e5e7eb;
   background: #fdfcfb;
 
   .item-select {
@@ -987,8 +987,8 @@ export const ReviewItemHeader = styled.header`
 
   .item-identity small {
     color: #998f86;
-    font-size: 7px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.07em;
   }
 
@@ -1000,8 +1000,8 @@ export const ReviewItemHeader = styled.header`
   }
 
   .item-identity span {
-    color: #7a726b;
-    font-size: 8px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   .action-field {
@@ -1011,20 +1011,20 @@ export const ReviewItemHeader = styled.header`
 
   .action-field > span {
     color: #7c746d;
-    font-size: 8px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   select {
     width: 100%;
     min-height: 37px;
     padding: 0 30px 0 10px;
-    border: 1px solid #dcd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     outline: 0;
     color: #38332f;
     background: #fff;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
   }
 
@@ -1075,8 +1075,8 @@ export const ReviewField = styled.label<{ $attention?: boolean }>`
 
   > span {
     color: #615a54;
-    font-size: 8px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   input,
@@ -1085,13 +1085,13 @@ export const ReviewField = styled.label<{ $attention?: boolean }>`
     min-width: 0;
     box-sizing: border-box;
     border: 1px solid
-      ${({ $attention }) => ($attention ? '#e1b387' : '#ddd5ce')};
+      ${({ $attention }) => ($attention ? '#e1b387' : '#e5e7eb')};
     border-radius: 8px;
     outline: 0;
     color: #282522;
     background: ${({ $attention }) => ($attention ? '#fffaf5' : '#fff')};
     font: inherit;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   input {
@@ -1113,8 +1113,8 @@ export const ReviewField = styled.label<{ $attention?: boolean }>`
   }
 
   small {
-    color: ${({ $attention }) => ($attention ? '#9a5f2d' : '#817970')};
-    font-size: 7px;
+    color: ${({ $attention }) => ($attention ? '#9a5f2d' : '#68717d')};
+    font-size: 12px;
     line-height: 1.35;
   }
 
@@ -1126,7 +1126,7 @@ export const ReviewField = styled.label<{ $attention?: boolean }>`
     align-items: center;
     overflow: hidden;
     border: 1px solid
-      ${({ $attention }) => ($attention ? '#e1b387' : '#ddd5ce')};
+      ${({ $attention }) => ($attention ? '#e1b387' : '#e5e7eb')};
     border-radius: 8px;
     background: ${({ $attention }) => ($attention ? '#fffaf5' : '#fff')};
   }
@@ -1139,7 +1139,7 @@ export const ReviewField = styled.label<{ $attention?: boolean }>`
   .price-input b {
     padding-left: 10px;
     color: #6f665e;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .price-input input {
@@ -1170,12 +1170,12 @@ export const DuplicateWarning = styled.div`
   }
 
   b {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   small {
     color: #91643f;
-    font-size: 8px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -1192,7 +1192,7 @@ export const PublishBar = styled.div`
   border: 1px solid #d8d0c8;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 40px rgba(49, 35, 24, 0.14);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   backdrop-filter: blur(10px);
 
   > span {
@@ -1203,19 +1203,19 @@ export const PublishBar = styled.div`
 
   small {
     color: var(--a);
-    font-size: 7px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.06em;
   }
 
   b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   p {
     margin: 0;
-    color: #7a726b;
-    font-size: 8px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   button {
@@ -1229,9 +1229,9 @@ export const PublishBar = styled.div`
     border-radius: 8px;
     color: #fff;
     background: var(--a);
-    font-size: 9px;
-    font-weight: 850;
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--a) 20%, transparent);
+    font-size: 12px;
+    font-weight: 650;
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   button svg {

@@ -1,71 +1,39 @@
 import styled from 'styled-components';
+import { adminDesignTokens } from './AdminDesignTokens';
 
 export const Root = styled.div<{
   $primary: string;
   $settings?: boolean;
   $sidebarOpen?: boolean;
 }>`
+  ${adminDesignTokens}
   --a: ${({ $primary }) => $primary};
   --brand: ${({ $primary }) => $primary};
-  --border: #e4ddd5;
-  --muted: #716d68;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #f7f6f2;
-  background-image:
-    linear-gradient(rgba(60, 48, 40, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(60, 48, 40, 0.026) 1px, transparent 1px);
-  background-size: 32px 32px;
-  color: #191816;
-  font-family: 'DM Sans', sans-serif;
-  letter-spacing: 0;
+  background: var(--admin-subtle);
+  color: var(--admin-text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   display: grid;
   grid-template-columns: ${({ $settings, $sidebarOpen }) => {
     const sidebar = $sidebarOpen === false ? '0px' : '248px';
-    return $settings ? `${sidebar} 320px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
+    return $settings ? `${sidebar} 280px minmax(0,1fr)` : `${sidebar} minmax(0,1fr)`;
   }};
-  transition: grid-template-columns 250ms ease;
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
-  h1,
-  h2,
-  h3 {
-    font-family: 'Sora', sans-serif;
-    letter-spacing: 0;
-  }
-  button,
-  input,
-  textarea,
-  select {
-    font: inherit;
-  }
-  button,
-  a,
-  [role='button'],
-  label[for],
-  select,
-  input[type='checkbox'],
-  input[type='radio'],
-  input[type='color'],
-  input[type='file'] {
-    cursor: pointer;
-  }
-  button:disabled,
-  input:disabled,
-  select:disabled,
-  [aria-disabled='true'] {
-    cursor: not-allowed;
+  *, *::before, *::after { box-sizing: border-box; }
+  h1, h2, h3 { font-family: inherit; letter-spacing: -.025em; }
+  button, input, textarea, select { font: inherit; }
+  button, a, [role='button'], label[for], select,
+  input[type='checkbox'], input[type='radio'], input[type='color'], input[type='file'] { cursor: pointer; }
+  button:disabled, input:disabled, select:disabled, [aria-disabled='true'] { cursor: not-allowed; }
+  button:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 3px solid var(--admin-accent); outline-offset: 3px;
   }
   @media (max-width: 1080px) {
-    grid-template-columns: ${({ $sidebarOpen }) =>
-      $sidebarOpen === false ? '0px minmax(0,1fr)' : '232px minmax(0,1fr)'};
+    grid-template-columns: ${({ $sidebarOpen }) => $sidebarOpen === false ? '0px minmax(0,1fr)' : '232px minmax(0,1fr)'};
   }
-  @media (max-width: 820px) {
-    display: block;
-  }
+  @media (max-width: 820px) { display: block; }
 `;
 
 export * from './AdminSettingsNavigation.styles';

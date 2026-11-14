@@ -7,7 +7,7 @@ export const QuoteSection = styled.section`
     overflow: hidden;
     border: 1px solid #e7ded5;
     border-radius: 12px;
-    background: #fffdfb;
+    background: #f8f9fb;
     box-shadow: 0 5px 18px rgba(44, 32, 22, 0.035);
   }
   && button {
@@ -63,13 +63,13 @@ export const QuoteSection = styled.section`
   && .toggle-copy { min-width: 0; display: grid; gap: 4px; }
   && .toggle-copy strong {
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 650;
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
   && .toggle-copy small {
     color: #82766e;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
   }
   && .sandbox-badge {
@@ -78,8 +78,8 @@ export const QuoteSection = styled.section`
     border-radius: 7px;
     color: #8e582c;
     background: #fff7ed;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   && .chevron {
     width: 17px;
@@ -105,13 +105,13 @@ export const QuoteSection = styled.section`
     display: block;
     color: #302823;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 650;
     line-height: 1.4;
   }
   && .quote-overview p {
     margin: 5px 0 0;
     color: #80766e;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   && .thermal-pill {
@@ -125,7 +125,7 @@ export const QuoteSection = styled.section`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
     white-space: nowrap;
   }
@@ -134,13 +134,13 @@ export const QuoteSection = styled.section`
     padding: 14px 16px;
     border: 1px solid #eee4da;
     border-radius: 10px;
-    background: linear-gradient(120deg, #fffdfa, #faf7f2);
+    background: linear-gradient(120deg, #f8f9fb, #faf7f2);
     display: grid;
     gap: 12px;
   }
   && .quote-result--ready {
     border-color: #d7e9dd;
-    background: linear-gradient(110deg, #f7fcf8, #fffdfa);
+    background: linear-gradient(110deg, #f7fcf8, #f8f9fb);
   }
   && .quote-result--approved {
     border-color: #cee4d5;
@@ -152,7 +152,7 @@ export const QuoteSection = styled.section`
     justify-content: space-between;
     gap: 10px;
   }
-  && .result-heading > small { color: #8c8076; font-size: 10px; font-weight: 700; }
+  && .result-heading > small { color: #8c8076; font-size: 12px; font-weight: 700; }
   && .status-badge {
     min-height: 25px;
     padding: 4px 9px;
@@ -162,8 +162,8 @@ export const QuoteSection = styled.section`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   && .status-badge svg { width: 13px; height: 13px; }
   && .quote-result--ready .status-badge,
@@ -178,11 +178,11 @@ export const QuoteSection = styled.section`
     gap: 12px;
   }
   && .price-value { min-width: 0; display: grid; gap: 2px; }
-  && .price-value span { color: #7b7066; font-size: 10px; font-weight: 750; }
+  && .price-value span { color: #7b7066; font-size: 12px; font-weight: 750; }
   && .price-value strong {
     color: #29221c;
     font-size: clamp(22px, 2.7vw, 29px);
-    font-weight: 850;
+    font-weight: 650;
     line-height: 1.14;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
@@ -193,7 +193,7 @@ export const QuoteSection = styled.section`
     justify-items: end;
     gap: 6px;
     color: #71685e;
-    font-size: 11px;
+    font-size: 12px;
     text-align: right;
   }
   && .price-meta span { display: inline-flex; align-items: center; gap: 5px; }
@@ -201,7 +201,7 @@ export const QuoteSection = styled.section`
   && .quote-status-copy {
     margin: 0;
     color: #6f655d;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   && .quote-alert {
@@ -221,18 +221,18 @@ export const QuoteSection = styled.section`
     background: #f1faf3;
   }
   && .quote-alert > svg { flex: 0 0 auto; width: 17px; height: 17px; margin-top: 1px; }
-  && .quote-alert strong { display: block; font-size: 11px; font-weight: 800; line-height: 1.4; }
-  && .quote-alert p { margin: 3px 0 0; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+  && .quote-alert strong { display: block; font-size: 12px; font-weight: 650; line-height: 1.4; }
+  && .quote-alert p { margin: 3px 0 0; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
   && .quote-loading {
     padding: 11px 12px;
     border: 1px solid #e7e2dc;
     border-radius: 9px;
     color: #70675e;
-    background: #faf9f7;
+    background: #f8f9fb;
     display: flex;
     align-items: center;
     gap: 9px;
-    font-size: 11px;
+    font-size: 12px;
   }
   && .quote-loading svg,
   && .quote-action-loading { animation: lalamove-quote-spin 900ms linear infinite; }
@@ -248,8 +248,8 @@ export const QuoteSection = styled.section`
     align-items: center;
     justify-content: center;
     gap: 8px;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     text-align: center;
   }
   && .quote-action svg { width: 15px; height: 15px; }
@@ -268,7 +268,7 @@ export const QuoteSection = styled.section`
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.55;
   }
   && .quote-disclaimer svg { flex: 0 0 auto; width: 14px; height: 14px; margin-top: 1px; }
@@ -281,9 +281,9 @@ export const QuoteSection = styled.section`
   }
   @media (max-width: 480px) {
     && .toggle-copy strong { font-size: 12px; }
-    && .toggle-copy small { font-size: 10px; }
+    && .toggle-copy small { font-size: 12px; }
     && .toggle-icon { flex-basis: 36px; width: 36px; height: 36px; }
-    && .sandbox-badge { padding: 5px 7px; font-size: 9px; }
+    && .sandbox-badge { padding: 5px 7px; font-size: 12px; }
     && .toggle-trailing { gap: 5px; }
     && .quote-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
     && .quote-actions .quote-action { width: 100%; }

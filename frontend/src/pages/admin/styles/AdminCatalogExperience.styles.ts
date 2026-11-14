@@ -21,7 +21,7 @@ export const IngredientPanel = styled.div`
   input {
     height: 42px;
     min-width: 0;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     padding: 0 11px;
     background: #fff;
@@ -39,7 +39,7 @@ export const IngredientPanel = styled.div`
   }
   .ingredient-price {
     color: var(--a);
-    font-weight: 800;
+    font-weight: 650;
   }
   @media (max-width: 600px) {
     .ingredient-form {
@@ -104,7 +104,7 @@ export const IngredientPageHeader = styled.header`
     color: #fff;
     background: var(--a);
     font-size: 14px;
-    font-weight: 850;
+    font-weight: 650;
     cursor: pointer;
     white-space: nowrap;
   }
@@ -142,12 +142,10 @@ export const IngredientHero = styled.section`
   align-items: center;
   gap: 18px;
   padding: 25px 27px;
-  border-radius: 18px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 84% 5%, rgba(255, 126, 65, 0.36), transparent 31%),
-    linear-gradient(125deg, #16242e 0%, #213441 58%, #5c382c 100%);
-  box-shadow: 0 18px 38px rgba(33, 35, 37, 0.12);
+  border-radius: 12px;
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   &::after {
     content: '';
     position: absolute;
@@ -155,7 +153,7 @@ export const IngredientHero = styled.section`
     height: 180px;
     right: -65px;
     bottom: -95px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    border: 1px solid #e5e7eb;
     border-radius: 50%;
   }
   .hero-icon {
@@ -163,29 +161,29 @@ export const IngredientHero = styled.section`
     height: 52px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid #e5e7eb;
     border-radius: 15px;
-    color: #ff7a40;
-    background: rgba(255, 255, 255, 0.08);
+    color: #b94a17;
+    background: #f7f8fa;
   }
   .hero-icon svg {
     width: 25px;
   }
   span {
-    color: #ff9568;
-    font-size: 10px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
   }
   h2 {
     margin: 4px 0;
-    color: #fff;
-    font-size: clamp(20px, 2.2vw, 28px);
+    color: #252a31;
+    font-size: clamp(21px, 2vw, 28px);
   }
   p {
     max-width: 650px;
     margin: 0;
-    color: rgba(255, 255, 255, 0.7);
+    color: #68717d;
     font-size: 13px;
     line-height: 1.5;
   }
@@ -198,19 +196,19 @@ export const IngredientHero = styled.section`
   dl div {
     min-width: 88px;
     padding: 11px 13px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.07);
+    background: #f7f8fa;
   }
   dt {
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
   dd {
     margin: 3px 0 0;
-    color: #fff;
+    color: #252a31;
     font-size: 20px;
-    font-weight: 900;
+    font-weight: 650;
   }
   @media (max-width: 700px) {
     grid-template-columns: auto minmax(0, 1fr);
@@ -225,6 +223,12 @@ export const IngredientHero = styled.section`
     }
     grid-template-columns: 1fr;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const IngredientWorkflowHint = styled.div`
@@ -277,7 +281,7 @@ export const ProductToolbar = styled.div`
     align-items: center;
     gap: 9px;
     padding: 0 13px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -292,12 +296,12 @@ export const ProductToolbar = styled.div`
     border: 0;
     outline: 0;
     background: transparent;
-    font-size: 11px;
+    font-size: 12px;
   }
   select,
   > button {
     height: 44px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     color: #413c38;
     background: #fff;
@@ -305,7 +309,7 @@ export const ProductToolbar = styled.div`
   select {
     min-width: 0;
     padding: 0 12px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
   }
   > button {
@@ -351,7 +355,7 @@ export const NewProductTile = styled.button`
   border-radius: 8px;
   color: #69625c;
   background: rgba(255, 255, 255, 0.56);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   transition:
     color 280ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -424,8 +428,8 @@ export const CategoryTitle = styled.div`
     gap: 7px;
     margin-bottom: 7px;
     color: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -444,7 +448,7 @@ export const CategoryTitle = styled.div`
   p {
     max-width: 580px;
     margin: 7px 0 0;
-    color: #716a64;
+    color: #68717d;
     font-size: 13px;
     line-height: 1.5;
   }
@@ -470,7 +474,7 @@ export const CategorySummary = styled.div`
 
   span {
     color: #827a73;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   i {
@@ -499,8 +503,8 @@ export const CategoryCreator = styled.form`
   align-items: center;
   gap: 26px;
   padding: 17px 0;
-  border-top: 1px solid #e5ded7;
-  border-bottom: 1px solid #e5ded7;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 
   > label {
     display: grid;
@@ -513,8 +517,8 @@ export const CategoryCreator = styled.form`
   }
 
   > label span {
-    color: #817970;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -526,7 +530,7 @@ export const CategoryCreator = styled.form`
     align-items: center;
     gap: 9px;
     padding-left: 13px;
-    border: 1px solid #dcd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
     transition:
@@ -567,8 +571,8 @@ export const CategoryCreator = styled.form`
     border-radius: 7px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
 
@@ -637,7 +641,7 @@ export const CategoryCard = styled.article`
 
   &:hover {
     border-color: #d1c5bb;
-    box-shadow: 0 11px 27px rgba(50, 37, 27, 0.075);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     transform: translateY(-2px);
   }
 
@@ -725,8 +729,8 @@ export const CategoryMedia = styled.div<{ $color: string; $imageCount: number }>
   }
 
   .category-media-empty span {
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -746,8 +750,8 @@ export const CategoryMedia = styled.div<{ $color: string; $imageCount: number }>
     color: #fff;
     background: rgba(32, 27, 23, 0.72);
     backdrop-filter: blur(5px);
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .category-product-count svg {
@@ -774,8 +778,8 @@ export const CategoryCardBody = styled.div`
     color: #746b65;
     background: #f5f0eb;
     box-shadow: 0 1px 0 rgba(50, 37, 27, 0.04);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     pointer-events: none;
   }
 
@@ -819,7 +823,7 @@ export const CategoryCardBody = styled.div`
   p {
     margin: 2px 0 0;
     color: #827a73;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .category-image-actions {
@@ -839,8 +843,8 @@ export const CategoryCardBody = styled.div`
     border-radius: 7px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 5%, #fff);
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       border-color 160ms ease,
@@ -892,8 +896,8 @@ export const CategoryCardBody = styled.div`
     border-radius: 7px;
     color: #514942;
     background: #fff;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       border-color 160ms ease,
@@ -937,7 +941,7 @@ export const CategoryEmptyState = styled.div`
   gap: 7px;
   border: 1px dashed #d9d0c8;
   border-radius: 8px;
-  color: #81786f;
+  color: #68717d;
   background: rgba(255, 255, 255, 0.45);
   text-align: center;
 
@@ -958,6 +962,6 @@ export const CategoryEmptyState = styled.div`
   }
 
   p {
-    font-size: 11px;
+    font-size: 12px;
   }
 `;

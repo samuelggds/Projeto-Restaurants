@@ -40,7 +40,15 @@ const Shell = styled.section`
   .error { color:#b91c1c; font-size:13px; }
   .success { color:#166534; font-size:13px; }
   @media(max-width:600px){.fields{grid-template-columns:1fr;} .panel{padding:15px;} }
-`;
+
+  [data-admin-root] & {
+    --text:#252a31; --text-secondary:#68717d; --surface:#fff; --primary:#b94a17; --border:#e5e7eb;
+    .panel,.item {border-radius:12px;} .panel {padding:24px;}
+    h2 {font-size:20px;font-weight:650;} p {font-size:13px;line-height:1.65;}
+    button {min-height:42px;font-size:13px;} input,select,textarea {border-color:#d5dae1;}
+    @media(max-width:600px){.panel{padding:20px 16px;}}
+  }
+ `;
 const labels: Record<TableReservation['status'], string> = {
   CONFIRMED: 'Confirmada', SEATED: 'Cliente chegou', CANCELED: 'Cancelada',
   NO_SHOW: 'Não compareceu', COMPLETED: 'Concluída',

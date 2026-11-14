@@ -27,7 +27,7 @@ export const Root = styled.section`
   .overview-strip small {
     overflow: hidden;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -77,7 +77,7 @@ export const Root = styled.section`
     align-items: center;
     gap: 3px;
     padding: 3px;
-    border: 1px solid #e5dfd9;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #f3f1ee;
   }
@@ -94,7 +94,7 @@ export const Root = styled.section`
     background: transparent;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
   }
 
   .tabs button svg {
@@ -111,7 +111,7 @@ export const Root = styled.section`
     border-radius: 10px;
     color: #fff;
     background: var(--accent);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .tabs button.active {
@@ -171,7 +171,7 @@ export const Root = styled.section`
     gap: 20px;
     min-height: 82px;
     padding: 17px 21px;
-    border-bottom: 1px solid #ece7e2;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   .panel-heading h3 {
@@ -183,8 +183,8 @@ export const Root = styled.section`
   .toolbar {
     gap: 10px;
     padding: 12px 21px;
-    border-bottom: 1px solid #ece7e2;
-    background: #fcfbfa;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8f9fb;
   }
 
   .search-field {
@@ -225,7 +225,7 @@ export const Root = styled.section`
     padding: 0 10px;
     color: var(--ink);
     background: #fff;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .check-control {
@@ -234,7 +234,7 @@ export const Root = styled.section`
     align-items: center;
     gap: 8px;
     color: #655e58;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
   }
@@ -263,8 +263,8 @@ export const Root = styled.section`
     padding: 0 21px;
     color: #8a8179;
     background: #f8f6f4;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -272,7 +272,7 @@ export const Root = styled.section`
     position: relative;
     min-height: 82px;
     padding: 12px 21px;
-    border-top: 1px solid #eee9e4;
+    border-top: 1px solid #e5e7eb;
   }
 
   .list-head + .list-row {
@@ -334,7 +334,7 @@ export const Root = styled.section`
   .cell > span:not(.status-pill) {
     overflow: hidden;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -349,15 +349,15 @@ export const Root = styled.section`
     border-radius: 50%;
     color: #94462f;
     background: #fff3ee;
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .avatar.small {
     width: 34px;
     height: 34px;
     flex-basis: 34px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .cell {
@@ -372,9 +372,9 @@ export const Root = styled.section`
     max-width: 100%;
     border-radius: 5px;
     padding: 4px 7px;
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
     line-height: 1.2;
     text-transform: uppercase;
     white-space: nowrap;
@@ -396,7 +396,7 @@ export const Root = styled.section`
   }
 
   .status-pill.neutral {
-    color: #716a64;
+    color: #68717d;
     background: #efedeb;
   }
 
@@ -419,8 +419,8 @@ export const Root = styled.section`
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 0;
     margin: 1px -21px -12px;
-    border-top: 1px solid #eee9e4;
-    background: #fbfaf8;
+    border-top: 1px solid #e5e7eb;
+    background: #f8f9fb;
   }
 
   .version-history > span {
@@ -429,20 +429,20 @@ export const Root = styled.section`
     grid-template-columns: auto minmax(0, 1fr);
     gap: 3px 8px;
     padding: 10px 21px;
-    border-right: 1px solid #eee9e4;
+    border-right: 1px solid #e5e7eb;
   }
 
   .version-history b {
     grid-row: 1 / span 2;
     color: var(--accent);
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .version-history small,
   .version-history em {
     overflow: hidden;
     color: #69615a;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -455,8 +455,8 @@ export const Root = styled.section`
   .ledger-summary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    border-bottom: 1px solid #ece7e2;
-    background: #fbfaf8;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8f9fb;
   }
 
   .ledger-summary > span {
@@ -467,12 +467,12 @@ export const Root = styled.section`
   }
 
   .ledger-summary > span + span {
-    border-left: 1px solid #ece7e2;
+    border-left: 1px solid #e5e7eb;
   }
 
   .ledger-summary small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     text-transform: uppercase;
   }
 
@@ -492,7 +492,7 @@ export const Root = styled.section`
 
   .ledger-amount small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     text-transform: uppercase;
   }
 
@@ -550,7 +550,7 @@ export const Root = styled.section`
   .error-state p {
     margin: 0 0 8px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .dialog-backdrop {
@@ -571,7 +571,7 @@ export const Root = styled.section`
     border: 1px solid #d8d0c9;
     border-radius: 8px;
     background: #fff;
-    box-shadow: 0 24px 70px #1d141033;
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   .dialog.wide {
@@ -657,13 +657,13 @@ export const Root = styled.section`
   .field > span:first-child,
   .policy-form legend {
     color: #514a44;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .field > span small {
     color: #8c837b;
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .field > input,
@@ -671,7 +671,7 @@ export const Root = styled.section`
   .field > textarea {
     width: 100%;
     min-width: 0;
-    border: 1px solid #ddd6cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     color: var(--ink);
     background: #fff;
@@ -706,7 +706,7 @@ export const Root = styled.section`
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     overflow: hidden;
-    border: 1px solid #ddd6cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     background: #fff;
   }
@@ -719,8 +719,8 @@ export const Root = styled.section`
     padding: 0 9px;
     border-right: 1px solid #e1dbd5;
     color: #70675f;
-    background: #f7f5f3;
-    font-size: 10px;
+    background: #f8f9fb;
+    font-size: 12px;
   }
 
   .money-input input {
@@ -762,14 +762,14 @@ export const Root = styled.section`
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border: 1px solid #dfd8d1;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 8px;
     color: #5b534c;
     background: #fff;
     cursor: pointer;
     text-align: center;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .model-options button > span {
@@ -821,13 +821,13 @@ export const Root = styled.section`
 
   .rule-lock b,
   .subject-line b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .rule-lock small,
   .subject-line small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .subject-line {
@@ -842,7 +842,7 @@ export const Root = styled.section`
     overflow: hidden;
     border: 1px solid #dfd9d3;
     border-radius: 7px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
 
   .payment-balance {
@@ -865,13 +865,13 @@ export const Root = styled.section`
 
   .payment-balance > span + span,
   .settlement-totals > span + span {
-    border-left: 1px solid #e5dfd9;
+    border-left: 1px solid #e5e7eb;
   }
 
   .payment-balance small,
   .settlement-totals small {
     color: var(--muted);
-    font-size: 8px;
+    font-size: 12px;
     text-transform: uppercase;
   }
 
@@ -887,7 +887,7 @@ export const Root = styled.section`
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0;
-    border-top: 1px solid #ece6e0;
+    border-top: 1px solid #e5e7eb;
   }
 
   .detail-columns > section {
@@ -898,7 +898,7 @@ export const Root = styled.section`
   .detail-columns > section + section {
     margin-left: 18px;
     padding-left: 18px;
-    border-left: 1px solid #ece6e0;
+    border-left: 1px solid #e5e7eb;
   }
 
   .detail-columns section > header {
@@ -919,12 +919,12 @@ export const Root = styled.section`
   }
 
   .detail-columns section > header b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .detail-columns section > header small {
     color: var(--muted);
-    font-size: 8px;
+    font-size: 12px;
   }
 
   .detail-list {
@@ -938,7 +938,7 @@ export const Root = styled.section`
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
-    border-top: 1px solid #eee9e4;
+    border-top: 1px solid #e5e7eb;
   }
 
   .detail-list.payments > span {
@@ -951,9 +951,9 @@ export const Root = styled.section`
     display: grid;
     place-items: center;
     border-radius: 6px;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
 
   .detail-list > span > i.credit {
@@ -979,13 +979,13 @@ export const Root = styled.section`
 
   .detail-list > span > span b,
   .detail-list > span > strong {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .detail-list > span > span small {
     overflow: hidden;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -998,7 +998,7 @@ export const Root = styled.section`
 
   .detail-list > span > em {
     color: #8a8179;
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
     text-transform: uppercase;
   }
@@ -1012,7 +1012,7 @@ export const Root = styled.section`
     margin: 0;
     padding: 24px 0;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     text-align: center;
   }
 

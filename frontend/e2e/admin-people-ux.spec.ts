@@ -231,19 +231,19 @@ test('admin: navegação e configurações conservam a largura ao recolher o men
   ]) {
     await page.getByRole('button', { name: label, exact: true }).first().click();
     const settings = label === 'Configurações';
-    await expectWorkspaceWidth(main, settings ? 568 : 248);
+    await expectWorkspaceWidth(main, settings ? 528 : 248);
     await page.getByRole('button', { name: 'Recolher menu lateral', exact: true }).click();
     await expect(nav).toBeHidden();
-    await expectWorkspaceWidth(main, settings ? 320 : 0);
+    await expectWorkspaceWidth(main, settings ? 280 : 0);
     if (settings) {
       await expect(page.getByLabel('Buscar configuração', { exact: true }).first()).toBeVisible();
       for (const width of [1024, 390, 1440]) {
         await page.setViewportSize({ width, height: 960 });
-        await expectWorkspaceWidth(main, width > 1080 ? 320 : 0);
+        await expectWorkspaceWidth(main, width > 1080 ? 280 : 0);
       }
     }
     await page.getByRole('button', { name: 'Expandir menu lateral', exact: true }).click();
     await expect(nav).toBeVisible();
-    await expectWorkspaceWidth(main, settings ? 568 : 248);
+    await expectWorkspaceWidth(main, settings ? 528 : 248);
   }
 });

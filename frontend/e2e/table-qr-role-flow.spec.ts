@@ -741,7 +741,7 @@ test('admin controla o QR, garçom apenas opera a mesa e cozinha recebe Mesa 1',
   await mockRoleFlowApi(page, state);
 
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: /^Configurações\s*(?:Ajustes)?$/ }).click();
   await page.getByRole('button', { name: 'Cardápio de mesa' }).click();
   await expect(
     page.getByRole('heading', { level: 1, name: 'Cardápio de mesa', exact: true }),
@@ -1083,7 +1083,7 @@ test('impressão individual ocupa uma única folha A4 com QR Code grande', async
   await mockRoleFlowApi(page, state);
 
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: /^Configurações\s*(?:Ajustes)?$/ }).click();
   await page.getByRole('button', { name: 'Cardápio de mesa' }).click();
   const adminTable = page.getByRole('article', { name: 'Mesa 01', exact: true });
   await adminTable.getByRole('button', { name: 'Visualizar QR Code da Mesa 01' }).click();

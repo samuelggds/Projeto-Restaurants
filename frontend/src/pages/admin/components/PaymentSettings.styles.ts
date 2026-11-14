@@ -9,6 +9,7 @@ const providerColors: Record<Provider, { main: string; soft: string }> = {
 };
 
 export const Page = styled.div`
+  container: payment-settings / inline-size;
   display: grid;
   gap: 22px;
   min-width: 0;
@@ -23,23 +24,32 @@ export const Hero = styled.section`
   gap: 28px;
   min-height: 190px;
   padding: 34px;
-  border-radius: 22px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 92% 16%, rgba(255, 255, 255, 0.13) 0 82px, transparent 83px),
-    radial-gradient(circle at 84% 100%, rgba(238, 100, 35, 0.22) 0 130px, transparent 131px),
-    linear-gradient(125deg, #132633 0%, #183443 54%, #6d493a 100%);
-  box-shadow: 0 18px 44px rgba(40, 29, 22, 0.13);
+  border-radius: 12px;
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   @media (max-width: 850px) {
     grid-template-columns: 1fr;
     padding: 26px;
   }
 
+  @container payment-settings (max-width: 960px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 24px;
+  }
+
   @media (max-width: 560px) {
     padding: 22px 17px;
-    border-radius: 17px;
+    border-radius: 12px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroCopy = styled.div`
@@ -55,26 +65,32 @@ export const HeroCopy = styled.div`
   span {
     display: block;
     margin-bottom: 7px;
-    color: #ff8a50;
-    font-size: 10px;
-    font-weight: 850;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.13em;
   }
 
   h2 {
     margin: 0;
     max-width: 580px;
-    font-size: clamp(23px, 3vw, 34px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.08;
   }
 
   p {
     max-width: 630px;
     margin: 11px 0 0;
-    color: #dce6eb;
+    color: #68717d;
     font-size: 13px;
     line-height: 1.55;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroIcon = styled.div`
@@ -83,20 +99,26 @@ export const HeroIcon = styled.div`
   height: 52px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.17);
+  border: 1px solid #e5e7eb;
   border-radius: 15px;
-  background: rgba(255, 255, 255, 0.09);
+  background: #f7f8fa;
   box-shadow: inset 0 1px rgba(255, 255, 255, 0.12);
 
   svg {
     width: 25px;
     height: 25px;
-    color: #ff7c3b;
+    color: #b94a17;
   }
 
   @media (max-width: 560px) {
     display: none;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const Summary = styled.div`
@@ -113,9 +135,9 @@ export const Summary = styled.div`
     align-content: center;
     gap: 3px;
     padding: 12px 15px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid #e5e7eb;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.08);
+    background: #f7f8fa;
     backdrop-filter: blur(8px);
   }
 
@@ -124,14 +146,20 @@ export const Summary = styled.div`
   }
 
   span {
-    color: #dce6eb;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   @media (max-width: 850px) {
     min-width: 0;
     max-width: 460px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const ReadyStatus = styled.div<{ $ready: boolean }>`
@@ -141,18 +169,18 @@ export const ReadyStatus = styled.div<{ $ready: boolean }>`
     grid-template-columns: auto 1fr;
     align-items: center;
     gap: 8px;
-    border-color: ${({ $ready }) => ($ready ? 'rgba(99, 226, 164, 0.33)' : 'rgba(255, 186, 128, 0.33)')};
-    background: ${({ $ready }) => ($ready ? 'rgba(19, 126, 82, 0.24)' : 'rgba(180, 89, 33, 0.22)')};
+    border-color: ${({ $ready }) => ($ready ? '#bde5cd' : '#eed9bd')};
+    background: ${({ $ready }) => ($ready ? '#eefaf2' : '#fff8ed')};
   }
 
   svg {
     width: 17px;
     height: 17px;
-    color: ${({ $ready }) => ($ready ? '#7be3ae' : '#ffb17d')};
+    color: ${({ $ready }) => ($ready ? '#166b3a' : '#92521d')};
   }
 
   span {
-    color: #fff;
+    color: ${({ $ready }) => ($ready ? '#166b3a' : '#92521d')};
     font-weight: 750;
   }
 `;
@@ -164,7 +192,7 @@ export const Guide = styled.section`
   gap: 24px;
   padding: 21px 24px;
   border: 1px solid #e8dfd7;
-  border-radius: 18px;
+  border-radius: 12px;
   background: linear-gradient(125deg, #fff 0%, #fffaf6 100%);
 
   ol {
@@ -196,7 +224,7 @@ export const Guide = styled.section`
     border-radius: 8px;
     color: #c9512f;
     background: #fff0e9;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   li div {
@@ -207,17 +235,25 @@ export const Guide = styled.section`
 
   li strong {
     color: #211d19;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   li span {
     color: #716961;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
+  }
+
+  @container payment-settings (max-width: 960px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @container payment-settings (max-width: 600px) {
+    ol { grid-template-columns: minmax(0, 1fr); }
   }
 
   @media (max-width: 670px) {
@@ -232,8 +268,8 @@ export const Guide = styled.section`
 export const GuideTitle = styled.div`
   span {
     color: #cd5734;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.12em;
   }
 
@@ -260,7 +296,7 @@ export const SectionHeading = styled.header`
     color: #c94f2d;
     background: #fff0e9;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 650;
   }
 
   h3 {
@@ -271,26 +307,22 @@ export const SectionHeading = styled.header`
 
   p {
     margin: 3px 0 0;
-    color: #746d66;
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
   }
 `;
 
 export const MethodGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
   gap: 16px;
-
-  @media (max-width: 850px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 export const MethodCard = styled.section<{ $enabled: boolean }>`
   min-width: 0;
   overflow: hidden;
   border: 1px solid ${({ $enabled }) => ($enabled ? '#e5d2c6' : '#e8e4df')};
-  border-radius: 19px;
+  border-radius: 12px;
   background: ${({ $enabled }) => ($enabled ? '#fff' : '#fbfaf9')};
   box-shadow: ${({ $enabled }) => ($enabled ? '0 12px 30px rgba(55, 37, 24, 0.06)' : 'none')};
   transition: 180ms ease;
@@ -298,34 +330,40 @@ export const MethodCard = styled.section<{ $enabled: boolean }>`
 
 export const MethodHeader = styled.header`
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: 13px;
   min-height: 116px;
   padding: 19px 20px;
-  border-bottom: 1px solid #eee7e0;
-  background: linear-gradient(135deg, #fff 0%, #fffaf7 100%);
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #fff 0%, #f8f9fb 100%);
 
   > div:nth-child(2) {
     min-width: 0;
   }
 
+  > label {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
   > div > span {
     color: #cf5935;
-    font-size: 8px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.11em;
   }
 
   h3 {
     margin: 4px 0 2px;
     font-size: 19px;
+    line-height: 1.35;
   }
 
   p {
     margin: 0;
     color: #756e67;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -363,7 +401,7 @@ export const SwitchLabel = styled.label`
 
   span {
     color: #5e5750;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
   }
 
@@ -429,8 +467,8 @@ export const Field = styled.label<{ $full?: boolean }>`
 
   > span {
     color: #332e2a;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   input,
@@ -438,13 +476,13 @@ export const Field = styled.label<{ $full?: boolean }>`
     width: 100%;
     min-width: 0;
     height: 47px;
-    border: 1px solid #ddd5ce;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     outline: 0;
     padding: 0 12px;
     color: #28231f;
     background: #fff;
-    font-size: 11px;
+    font-size: 12px;
     transition:
       border-color 160ms ease,
       box-shadow 160ms ease;
@@ -476,7 +514,7 @@ export const Field = styled.label<{ $full?: boolean }>`
   small {
     min-height: 27px;
     color: #7d756e;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 1.45;
   }
@@ -512,25 +550,21 @@ export const OpenFinanceStatus = styled.div<{ $ready: boolean }>`
   }
 
   strong {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   small {
     min-height: 0;
     color: inherit;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.4;
   }
 `;
 
 export const ProviderGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 14px;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 export const ProviderCard = styled.section<{ $selected: boolean }>`
@@ -540,7 +574,7 @@ export const ProviderCard = styled.section<{ $selected: boolean }>`
   gap: 11px;
   padding: 19px;
   border: 1px solid ${({ $selected }) => ($selected ? '#dcc6b8' : '#e8e3df')};
-  border-radius: 18px;
+  border-radius: 12px;
   background: ${({ $selected }) => ($selected ? '#fff' : '#faf9f8')};
   box-shadow: ${({ $selected }) => ($selected ? '0 10px 26px rgba(57, 37, 22, 0.06)' : 'none')};
   opacity: ${({ $selected }) => ($selected ? 1 : 0.78)};
@@ -554,8 +588,8 @@ export const ProviderCard = styled.section<{ $selected: boolean }>`
   > p {
     min-height: 47px;
     margin: 0;
-    color: #716a64;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.5;
   }
 
@@ -599,8 +633,8 @@ export const ConnectionBadge = styled.span<{ $connected: boolean }>`
   border-radius: 999px;
   color: ${({ $connected }) => ($connected ? '#166b3a' : '#9a4f33')};
   background: ${({ $connected }) => ($connected ? '#eefaf2' : '#fff6f0')};
-  font-size: 8px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
 
   svg {
@@ -618,7 +652,7 @@ export const UsedFor = styled.div<{ $selected: boolean }>`
   border-radius: 10px;
   color: ${({ $selected }) => ($selected ? '#42382f' : '#837c76')};
   background: ${({ $selected }) => ($selected ? '#f7f2ee' : '#f1efed')};
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
 
   svg {
@@ -645,8 +679,8 @@ export const ConnectButton = styled.button<{ $provider: Provider }>`
   padding: 8px 12px;
   color: #fff;
   background: ${({ $provider }) => providerColors[$provider].main};
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
   transition:
     transform 160ms ease,
@@ -681,8 +715,8 @@ export const DisconnectButton = styled.button`
   padding: 8px 12px;
   color: #9a332c;
   background: #fff8f7;
-  font-size: 9px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
 
   svg {
@@ -710,7 +744,7 @@ export const InactiveHint = styled.div`
   padding: 8px 12px;
   color: #817a74;
   background: #fff;
-  font-size: 9px;
+  font-size: 12px;
   text-align: center;
 `;
 
@@ -736,11 +770,11 @@ export const ErrorAlert = styled.div`
   }
 
   strong {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   span {
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -773,13 +807,13 @@ export const SecurityNotes = styled.section`
     gap: 3px;
     margin: 0;
     color: #617067;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.5;
   }
 
   strong {
     color: #254633;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   @media (max-width: 680px) {
@@ -800,7 +834,7 @@ export const CurrentChoice = styled.footer`
   span {
     margin-right: 3px;
     color: #756e68;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 750;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -811,7 +845,7 @@ export const CurrentChoice = styled.footer`
     border-radius: 8px;
     color: #4a413a;
     background: #f5f1ed;
-    font-size: 9px;
+    font-size: 12px;
   }
 `;
 

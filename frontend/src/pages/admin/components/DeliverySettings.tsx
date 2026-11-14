@@ -41,7 +41,7 @@ const FeeModeSection = styled.div`
 
   > small {
     color: var(--muted);
-    font-size: 11px;
+    font-size:12px;
     line-height: 1.5;
   }
 `;
@@ -89,7 +89,7 @@ const FeeModeButton = styled.button<{ $active: boolean }>`
 
   span {
     color: var(--muted);
-    font-size: 11px;
+    font-size:12px;
     line-height: 1.45;
   }
 `;
@@ -124,7 +124,7 @@ const DistancePanel = styled.div`
   .distance-heading small,
   .distance-help {
     color: var(--muted);
-    font-size: 11px;
+    font-size:12px;
     line-height: 1.5;
   }
 
@@ -156,8 +156,8 @@ const RangeRow = styled.div`
 
   .range-field span {
     color: #5e5751;
-    font-size: 10px;
-    font-weight: 800;
+    font-size:12px;
+    font-weight:650;
   }
 
   input[type='number'] {
@@ -202,7 +202,7 @@ const ActiveControl = styled.label`
   align-items: center;
   gap: 7px;
   color: #5e5751;
-  font-size: 11px;
+  font-size:12px;
   font-weight: 700;
   white-space: nowrap;
 
@@ -241,7 +241,7 @@ const AddRangeButton = styled.button`
   border-radius: 9px;
   background: #fff;
   color: var(--a);
-  font-weight: 800;
+  font-weight:650;
   cursor: pointer;
 
   &:hover:not(:disabled) {
@@ -259,7 +259,7 @@ const DeliveryAreaSummary = styled.div`
   border-radius: 10px;
   background: color-mix(in srgb, var(--a) 7%, white);
   color: #534c46;
-  font-size: 11px;
+  font-size:12px;
   line-height: 1.5;
 
   b {

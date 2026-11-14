@@ -351,8 +351,8 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
       fontFamily: styles.fontFamily,
     };
   });
-  expect(adminShellStyles.backgroundImage).toContain('linear-gradient');
-  expect(adminShellStyles.fontFamily).toContain('DM Sans');
+  expect(adminShellStyles.backgroundImage).toBe('none');
+  expect(adminShellStyles.fontFamily).toContain('Segoe UI');
   const desktopNavigation = page.getByRole('navigation', {
     name: 'Navegação principal do painel',
   });
@@ -424,7 +424,7 @@ test('central financeira mantém navegação e layout mobile', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Visão geral', exact: true })).toBeVisible();
   await expect(page.locator('section[aria-labelledby="overview-summary-title"]')).toHaveCSS(
     'border-radius',
-    '8px',
+    '0px',
   );
   await mobileNavigation.getByRole('button', { name: 'Abrir menu administrativo' }).click();
   await page.getByRole('button', { name: 'Cobranças e assinaturas' }).click();

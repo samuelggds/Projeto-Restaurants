@@ -10,16 +10,16 @@ export const Root = styled.section`
 export const Hero = styled.header`
   padding: 27px 29px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: linear-gradient(135deg, #fff7f1, #fffdfb 65%);
-  box-shadow: 0 12px 35px rgba(79, 47, 23, 0.06);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   span {
     display: flex;
     align-items: center;
     gap: 8px;
     color: var(--a);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     text-transform: uppercase;
     letter-spacing: 0.08em;
   }
@@ -28,7 +28,7 @@ export const Hero = styled.header`
   }
   h2 {
     margin: 12px 0 7px;
-    font-size: clamp(24px, 3vw, 32px);
+    font-size: clamp(21px, 2vw, 28px);
   }
   p {
     margin: 0;
@@ -36,6 +36,12 @@ export const Hero = styled.header`
     color: var(--muted);
     line-height: 1.55;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 export const Guide = styled.div`
   display: grid;
@@ -53,7 +59,7 @@ export const Guide = styled.div`
   article.open {
     grid-column: span 2;
     border-color: color-mix(in srgb, var(--a) 34%, var(--border));
-    box-shadow: 0 10px 26px rgba(72, 43, 22, 0.07);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
   article > button {
     width: 100%;
@@ -94,7 +100,7 @@ export const Guide = styled.div`
   }
   small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   article > button > svg {
     margin-left: auto;
@@ -146,8 +152,8 @@ export const Guide = styled.div`
     border-radius: 50%;
     background: var(--a);
     color: #fff;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     box-shadow: 0 3px 8px rgba(184, 69, 19, 0.22);
   }
   @media (max-width: 650px) {
@@ -172,7 +178,7 @@ export const SettingsGroup = styled.section`
     border-color 180ms ease;
   &.open {
     border-color: color-mix(in srgb, var(--a) 34%, var(--border));
-    box-shadow: 0 10px 26px rgba(72, 43, 22, 0.07);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
   > button {
     width: 100%;
@@ -213,7 +219,7 @@ export const SettingsGroup = styled.section`
   }
   > button small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   > button > svg {
     margin-left: auto;
@@ -270,10 +276,10 @@ export const SettingsGroup = styled.section`
 
 export const ReportCard = styled.section`
   padding: 25px 28px;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: #fff;
-  box-shadow: 0 12px 35px rgba(79, 47, 23, 0.05);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .heading {
     display: flex;
     align-items: flex-start;
@@ -283,7 +289,7 @@ export const ReportCard = styled.section`
   .refresh-issues {
     min-height: 34px;
     padding: 0 11px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     background: #fff;
     color: #493e38;
@@ -331,9 +337,9 @@ export const ReportCard = styled.section`
   select,
   textarea {
     width: 100%;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
-    background: #fcfbf9;
+    background: #f8f9fb;
     color: #25211e;
     padding: 11px 12px;
     outline: 0;
@@ -381,7 +387,7 @@ export const ReportCard = styled.section`
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    box-shadow: 0 8px 16px color-mix(in srgb, var(--a) 18%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     cursor: pointer;
   }
   footer button:disabled {
@@ -399,7 +405,7 @@ export const ReportCard = styled.section`
     margin-top: 10px;
     border: 1px solid #eadfd7;
     border-radius: 10px;
-    background: #fffaf7;
+    background: #f8f9fb;
   }
   .employee-issue b {
     color: #493e38;
@@ -443,9 +449,9 @@ export const ReportCard = styled.section`
     margin: 0 0 18px;
     padding: 14px;
     overflow-y: auto;
-    border: 1px solid #e5ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 14px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .platform-conversation article {
     width: min(78%, 720px);
@@ -474,7 +480,7 @@ export const ReportCard = styled.section`
   }
   .platform-conversation article time {
     color: #887d73;
-    font-size: 10px;
+    font-size: 12px;
   }
   .platform-conversation article p {
     color: #514840;
@@ -487,8 +493,8 @@ export const ReportCard = styled.section`
     border-radius: 999px;
     background: #e8f5eb;
     color: #24733a;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .platform-empty {
     display: flex;
@@ -511,7 +517,7 @@ export const ReportCard = styled.section`
     font-size: 13px;
   }
   .platform-empty small {
-    font-size: 11px;
+    font-size: 12px;
   }
   @media (max-width: 650px) {
     padding: 20px;

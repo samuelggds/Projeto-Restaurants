@@ -12,7 +12,7 @@ export const Validation = styled.div`
   padding: 14px 16px;
   color: #8d2d24;
   background: #fff5f2;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
   b {
     display: block;
@@ -33,12 +33,10 @@ export const Hero = styled.section`
   gap: 22px;
   padding: 26px;
   border: 1px solid #27414f;
-  border-radius: 20px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 88% 18%, #e7653561, transparent 31%),
-    linear-gradient(130deg, #142733, #223c49 58%, #654033);
-  box-shadow: 0 18px 38px #2e1d1517;
+  border-radius: 12px;
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   &::after {
     content: '';
     position: absolute;
@@ -55,20 +53,20 @@ export const Hero = styled.section`
     z-index: 1;
   }
   .eyebrow {
-    color: #ff9b6c;
-    font-size: 10px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.13em;
   }
   h2 {
     margin: 7px 0;
-    font-size: clamp(23px, 3vw, 31px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.08;
   }
   p {
     max-width: 720px;
     margin: 0;
-    color: #dbe5ea;
+    color: #68717d;
     font-size: 13px;
     line-height: 1.55;
   }
@@ -85,8 +83,8 @@ export const Hero = styled.section`
     display: block;
   }
   .status span {
-    color: #cdd9df;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
   .status b {
     margin-top: 4px;
@@ -99,6 +97,12 @@ export const Hero = styled.section`
       min-width: 0;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const Grid = styled.div`
@@ -113,10 +117,10 @@ export const Grid = styled.div`
 export const Card = styled.section`
   min-width: 0;
   border: 1px solid #e8ded5;
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 22px;
   background: #fff;
-  box-shadow: 0 12px 28px #35211409;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   > header {
     display: flex;
     align-items: flex-start;
@@ -134,7 +138,7 @@ export const Card = styled.section`
   header p {
     margin-top: 4px;
     color: #766d66;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   @media (max-width: 520px) {
@@ -171,7 +175,7 @@ export const ToggleList = styled.div`
   .row span {
     margin-top: 3px;
     color: #7f746c;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.35;
   }
   input[type='checkbox'] {
@@ -189,18 +193,18 @@ export const Fields = styled.div`
     display: grid;
     gap: 7px;
     color: #39332e;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   input,
   select {
     width: 100%;
     height: 46px;
-    border: 1px solid #ddd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     padding: 0 12px;
     outline: 0;
-    background: #fcfbfa;
+    background: #f8f9fb;
     color: #25211d;
     font: inherit;
   }
@@ -210,7 +214,7 @@ export const Fields = styled.div`
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 11%, transparent);
   }
   small {
-    color: #81776f;
+    color: #68717d;
     font-weight: 500;
     line-height: 1.35;
   }
@@ -233,7 +237,7 @@ export const Windows = styled.div`
     border: 1px solid #eadfd6;
     border-radius: 14px;
     padding: 14px;
-    background: #fffaf7;
+    background: #f8f9fb;
   }
   .window.invalid {
     border-color: #e7a89e;
@@ -245,8 +249,8 @@ export const Windows = styled.div`
     justify-content: space-between;
     gap: 10px;
     margin-bottom: 11px;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .days {
     display: flex;
@@ -262,8 +266,8 @@ export const Windows = styled.div`
     color: #665c54;
     background: #fff;
     font: inherit;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .days button.active {
@@ -279,7 +283,7 @@ export const Windows = styled.div`
   .times input {
     width: 100%;
     height: 42px;
-    border: 1px solid #ddd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     padding: 0 10px;
     background: #fff;
@@ -288,7 +292,7 @@ export const Windows = styled.div`
     display: block;
     margin-top: 8px;
     color: #a83b31;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
   }
   @media (max-width: 390px) {
@@ -310,8 +314,8 @@ export const Button = styled.button<{ $danger?: boolean }>`
   color: ${({ $danger }) => ($danger ? '#b5342c' : 'var(--a)')};
   background: ${({ $danger }) => ($danger ? '#fff6f4' : '#fff')};
   font: inherit;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 650;
   cursor: pointer;
   &:disabled {
     cursor: not-allowed;
@@ -348,8 +352,8 @@ export const SessionCard = styled.article`
     padding: 5px 8px;
     color: #176b39;
     background: #eaf7ef;
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .numbers {
     display: grid;
@@ -368,7 +372,7 @@ export const SessionCard = styled.article`
   }
   .numbers span {
     color: #80756d;
-    font-size: 9px;
+    font-size: 12px;
   }
   .numbers b {
     margin-top: 3px;
@@ -376,7 +380,7 @@ export const SessionCard = styled.article`
   }
   .meta {
     color: #7d736b;
-    font-size: 10px;
+    font-size: 12px;
   }
   @media (max-width: 520px) {
     .numbers {
@@ -412,7 +416,7 @@ export const Detail = styled.section`
   }
   .detail-section h5 {
     margin: 0;
-    font-size: 11px;
+    font-size: 12px;
   }
   .item,
   .payment {
@@ -424,7 +428,7 @@ export const Detail = styled.section`
     border-radius: 10px;
     padding: 9px 10px;
     background: #fff;
-    font-size: 10px;
+    font-size: 12px;
   }
   .item span,
   .payment span {
@@ -453,7 +457,7 @@ export const Empty = styled.div`
   border-radius: 14px;
   padding: 26px;
   color: #796f67;
-  background: #fdfbf9;
+  background: #f8f9fb;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
 `;

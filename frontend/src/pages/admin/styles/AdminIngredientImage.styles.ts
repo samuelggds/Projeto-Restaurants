@@ -12,7 +12,7 @@ export const ingredientImageStyles = css`
     color: var(--a);
     background: color-mix(in srgb, var(--a) 10%, white);
     font-size: 18px;
-    font-weight: 900;
+    font-weight: 650;
   }
   .ingredient-avatar > span {
     position: absolute;
@@ -41,13 +41,13 @@ export const ingredientImageStyles = css`
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 0 9px;
     color: #574f48;
     background: #fff;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .edit-image-actions button {

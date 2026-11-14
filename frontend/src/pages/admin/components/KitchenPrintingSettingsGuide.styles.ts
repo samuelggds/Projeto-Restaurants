@@ -41,7 +41,7 @@ export const Root = styled.section`
     margin-bottom: 5px;
     color: var(--a);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     letter-spacing: 0;
     text-transform: uppercase;
   }
@@ -64,7 +64,7 @@ export const Root = styled.section`
   .status-summary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    border: 1px solid #e8e1da;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -80,7 +80,7 @@ export const Root = styled.section`
   }
 
   .status-summary > div + div {
-    border-left: 1px solid #e8e1da;
+    border-left: 1px solid #e5e7eb;
   }
 
   .status-summary > div > span:last-child {
@@ -97,7 +97,7 @@ export const Root = styled.section`
 
   .status-summary small {
     overflow: hidden;
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -118,7 +118,7 @@ export const Root = styled.section`
     display: grid;
     place-items: center;
     border-radius: 7px;
-    background: #f4f2ef;
+    background: #f8f9fb;
   }
 
   .success .status-icon {
@@ -167,7 +167,7 @@ export const Root = styled.section`
 
   .next-number {
     font-size: 18px;
-    font-weight: 800;
+    font-weight: 650;
   }
 
   .next-action div {
@@ -207,7 +207,7 @@ export const Root = styled.section`
 
   .step-card,
   .history {
-    border: 1px solid #e5ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -221,7 +221,7 @@ export const Root = styled.section`
   }
 
   .step-card.locked {
-    background: #fcfbfa;
+    background: #f8f9fb;
     box-shadow: none;
   }
 
@@ -241,7 +241,7 @@ export const Root = styled.section`
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
     font-size: 14px;
-    font-weight: 850;
+    font-weight: 650;
   }
 
   .step-card.locked .step-number {
@@ -257,7 +257,7 @@ export const Root = styled.section`
 
   .step-header p {
     margin: 0;
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
     line-height: 1.45;
   }
@@ -269,7 +269,7 @@ export const Root = styled.section`
     border-left: 3px solid #d7d2cd;
     padding: 8px 12px;
     color: #6f6862;
-    background: #f7f5f3;
+    background: #f8f9fb;
   }
 
   .activation-note.active {
@@ -343,7 +343,7 @@ export const Root = styled.section`
     gap: 16px;
     margin-top: 18px;
     padding-top: 18px;
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
   }
 
   fieldset {
@@ -361,7 +361,7 @@ export const Root = styled.section`
     border: 1px solid #e7e0d8;
     border-radius: 8px;
     padding: 14px;
-    background: #fcfbfa;
+    background: #f8f9fb;
   }
 
   .toggle-line div {
@@ -408,7 +408,7 @@ export const Root = styled.section`
     border: 1px solid #e5ded6;
     border-radius: 8px;
     padding: 13px 13px 13px 40px;
-    background: #fcfbfa;
+    background: #f8f9fb;
     cursor: pointer;
     transition:
       border-color 150ms ease,
@@ -437,7 +437,7 @@ export const Root = styled.section`
   }
 
   .choice small {
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
     line-height: 1.45;
   }
@@ -448,8 +448,8 @@ export const Root = styled.section`
     padding: 3px 6px;
     color: #1f6943;
     background: #eaf7ef;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -491,7 +491,7 @@ export const Root = styled.section`
   .device-name input {
     width: 100%;
     height: 42px;
-    border: 1px solid #dcd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 0 12px;
     color: #302c28;
@@ -519,7 +519,7 @@ export const Root = styled.section`
     border: 1px dashed #dcd5ce;
     border-radius: 7px;
     padding: 13px;
-    color: #77706a;
+    color: #68717d;
     background: #f8f6f4;
   }
 
@@ -560,7 +560,7 @@ export const Root = styled.section`
 
   .save-strip span {
     color: #756d65;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -634,10 +634,10 @@ export const Root = styled.section`
     justify-items: start;
     gap: 12px;
     margin-top: 17px;
-    border: 1px solid #e8e1da;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 15px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
 
   .desktop-download b {
@@ -647,7 +647,7 @@ export const Root = styled.section`
 
   .desktop-download p {
     margin: 5px 0 0;
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
     line-height: 1.5;
   }
@@ -687,7 +687,7 @@ export const Root = styled.section`
 
   .download-unavailable small {
     color: #766d64;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -698,7 +698,7 @@ export const Root = styled.section`
     border-radius: 7px;
     padding: 13px;
     color: #625d57;
-    background: #f4f2ef;
+    background: #f8f9fb;
   }
 
   .agent-state.online {
@@ -747,7 +747,7 @@ export const Root = styled.section`
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    border: 1px solid #e8e1da;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 11px;
   }
@@ -761,8 +761,8 @@ export const Root = styled.section`
     border-radius: 7px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 8%, white);
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .pairing-guide li div {
@@ -776,7 +776,7 @@ export const Root = styled.section`
 
   .pairing-guide small {
     color: #7a736c;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -843,14 +843,14 @@ export const Root = styled.section`
     display: block;
     margin-top: 9px;
     color: #4f6757;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
   .agent-details {
     display: grid;
     gap: 12px;
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
     padding-top: 15px;
   }
 
@@ -867,12 +867,12 @@ export const Root = styled.section`
     gap: 4px;
     border-radius: 7px;
     padding: 10px;
-    background: #f7f5f3;
+    background: #f8f9fb;
   }
 
   .facts dt {
     color: #78716a;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .facts dd {
@@ -940,27 +940,27 @@ export const Root = styled.section`
 
   .history summary p {
     margin: 0;
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
   }
 
   .history summary > span {
     flex: 0 0 auto;
-    color: #77706a;
+    color: #68717d;
     font-size: 12px;
     font-weight: 700;
   }
 
   .jobs-list,
   .jobs-empty {
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
     margin: 0 20px;
   }
 
   .history-toolbar {
     display: flex;
     padding: 14px 20px;
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
   }
 
   .history-search {
@@ -969,7 +969,7 @@ export const Root = styled.section`
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    border: 1px solid #dcd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     background: #fff;
   }
@@ -983,7 +983,7 @@ export const Root = styled.section`
     width: 17px;
     height: 17px;
     margin-left: 13px;
-    color: #817970;
+    color: #68717d;
   }
 
   .history-search input {
@@ -1004,7 +1004,7 @@ export const Root = styled.section`
     display: grid;
     place-items: center;
     border: 0;
-    color: #716a64;
+    color: #68717d;
     background: transparent;
     cursor: pointer;
   }
@@ -1020,7 +1020,7 @@ export const Root = styled.section`
     grid-template-columns: 90px minmax(0, 1fr) 90px auto;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid #eee8e2;
+    border-bottom: 1px solid #e5e7eb;
     padding: 9px 0;
   }
 
@@ -1034,8 +1034,8 @@ export const Root = styled.section`
     padding: 5px 8px;
     color: #645d56;
     background: #f0eeeb;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .job-status.pending,
@@ -1068,7 +1068,7 @@ export const Root = styled.section`
   .job-attempts,
   .jobs-empty {
     color: #77716b;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .history-pagination {
@@ -1078,11 +1078,11 @@ export const Root = styled.section`
     justify-content: space-between;
     gap: 14px;
     margin: 0 20px;
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
   }
 
   .history-pagination > span {
-    color: #716a64;
+    color: #68717d;
     font-size: 12px;
     font-weight: 700;
   }
@@ -1146,7 +1146,7 @@ export const Root = styled.section`
     }
 
     .status-summary > div + div {
-      border-top: 1px solid #e8e1da;
+      border-top: 1px solid #e5e7eb;
       border-left: 0;
     }
 

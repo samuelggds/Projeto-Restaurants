@@ -31,8 +31,8 @@ export const Dialog = styled.form`
   flex-direction: column;
   border-radius: 16px;
   color: #28231f;
-  background: #fbfaf8;
-  box-shadow: 0 30px 90px rgba(20, 17, 15, 0.3);
+  background: #f8f9fb;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   transform-origin: center;
   animation: ingredient-dialog-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
   @keyframes ingredient-dialog-enter {
@@ -62,7 +62,7 @@ export const Dialog = styled.form`
     justify-content: space-between;
     gap: 12px;
     padding: 20px 24px;
-    border-bottom: 1px solid #e1dad3;
+    border-bottom: 1px solid #e5e7eb;
     background: #fff;
   }
   .wizard-header h2 {
@@ -78,7 +78,7 @@ export const Dialog = styled.form`
   .header-actions small {
     color: #756d66;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
   }
   .header-actions button {
     width: 40px;
@@ -158,7 +158,7 @@ export const Dialog = styled.form`
     align-content: start;
     gap: 20px;
     padding: 26px 22px;
-    border-left: 1px solid #ebe4dd;
+    border-left: 1px solid #e5e7eb;
     border-radius: 8px;
     background: linear-gradient(180deg, #fafbf9 0%, #f8faf7 100%);
   }
@@ -234,7 +234,7 @@ export const Dialog = styled.form`
   .aside-benefits small,
   .aside-tip b,
   .aside-tip small {
-    font-size: 11px;
+    font-size: 12px;
   }
   .aside-benefits small,
   .aside-tip small {
@@ -265,7 +265,7 @@ export const Dialog = styled.form`
     align-items: center;
     gap: 9px;
     padding: 11px;
-    border: 1px solid #ded7d0;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     color: #4f4842;
     background: #fff;
@@ -288,12 +288,12 @@ export const Dialog = styled.form`
   .category-options b,
   .category-options small {
     overflow: hidden;
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .category-options small {
-    color: #81776f;
+    color: #68717d;
   }
   .locked-category {
     min-width: 0;
@@ -317,7 +317,7 @@ export const Dialog = styled.form`
   }
   .locked-category b,
   .locked-category small {
-    font-size: 10px;
+    font-size: 12px;
   }
   .locked-category small {
     color: #587261;
@@ -328,13 +328,13 @@ export const Dialog = styled.form`
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    border: 1px solid color-mix(in srgb, var(--a) 35%, #ddd6cf);
+    border: 1px solid color-mix(in srgb, var(--a) 35%, #e5e7eb);
     border-radius: 9px;
     padding: 0 11px;
     color: var(--a);
     background: #fff;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 650;
     cursor: pointer;
   }
   .new-category-action svg {
@@ -348,7 +348,7 @@ export const Dialog = styled.form`
     color: var(--a);
     background: transparent;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     cursor: pointer;
   }
   .new-category-field,
@@ -358,7 +358,7 @@ export const Dialog = styled.form`
     gap: 6px;
     color: #5d554e;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 650;
   }
   .new-category-field input,
   .primary-field > input,
@@ -376,8 +376,8 @@ export const Dialog = styled.form`
   }
   .new-category-field small,
   .primary-field > small {
-    color: #81776f;
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
     font-weight: 500;
   }
   .price-choice {
@@ -387,11 +387,11 @@ export const Dialog = styled.form`
   }
   .price-choice button {
     min-height: 50px;
-    border: 1px solid #ddd5ce;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     color: #4d4640;
     background: #fff;
-    font-weight: 800;
+    font-weight: 650;
     cursor: pointer;
   }
   .price-choice button.active {
@@ -448,7 +448,7 @@ export const Dialog = styled.form`
   }
   .image-search-error b,
   .image-search-error small {
-    font-size: 10px;
+    font-size: 12px;
   }
   .image-search-error small {
     color: #7d6b56;
@@ -459,7 +459,7 @@ export const Dialog = styled.form`
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    border: 1px solid #ded7d0;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     background: #fff;
   }
@@ -482,7 +482,7 @@ export const Dialog = styled.form`
   .recommended-image > div small,
   .recommended-image > div a {
     color: #7b7168;
-    font-size: 11px;
+    font-size: 12px;
   }
   .recommended-image > div a {
     text-decoration: underline;
@@ -498,8 +498,8 @@ export const Dialog = styled.form`
     padding: 0 11px;
     color: var(--a);
     background: #fff;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .recommended-image > button.selected {
@@ -515,8 +515,8 @@ export const Dialog = styled.form`
   }
   .other-images > span {
     color: #625a53;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .other-images > div {
     display: flex;
@@ -531,7 +531,7 @@ export const Dialog = styled.form`
     border: 2px solid transparent;
     border-radius: 8px;
     padding: 0;
-    background: #eee8e2;
+    background: #e5e7eb;
     cursor: pointer;
   }
   .other-images button.previewing {
@@ -565,13 +565,13 @@ export const Dialog = styled.form`
     align-items: center;
     justify-content: center;
     gap: 6px;
-    border: 1px solid #ddd5ce;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 0 10px;
-    color: #514943;
+    color: #68717d;
     background: #fff;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .image-actions svg {
@@ -587,7 +587,7 @@ export const Dialog = styled.form`
   .pexels-credit {
     justify-self: start;
     color: #776e66;
-    font-size: 11px;
+    font-size: 12px;
     text-decoration: underline;
   }
   .money-field {
@@ -616,7 +616,7 @@ export const Dialog = styled.form`
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .price-example strong {
     padding-top: 7px;
@@ -628,7 +628,7 @@ export const Dialog = styled.form`
     align-items: center;
     gap: 14px;
     padding: 17px;
-    border: 1px solid #ded7d0;
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
     background: #fff;
   }
@@ -660,7 +660,7 @@ export const Dialog = styled.form`
   }
   .ingredient-summary p {
     color: #766d65;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.6;
   }
   .success-step {
@@ -679,7 +679,7 @@ export const Dialog = styled.form`
   }
   .success-step p {
     color: #756c64;
-    font-size: 11px;
+    font-size: 12px;
   }
   .success-step > div {
     display: flex;
@@ -694,7 +694,7 @@ export const Dialog = styled.form`
     text-align: left;
   }
   .success-step .ingredient-summary > span {
-    font-weight: 900;
+    font-weight: 650;
   }
   .success-step .ingredient-summary > strong {
     color: #29241f;
@@ -707,12 +707,12 @@ export const Dialog = styled.form`
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border: 1px solid #ddd6cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     padding: 0 18px;
     background: #fff;
     font-size: 13px;
-    font-weight: 850;
+    font-weight: 650;
     cursor: pointer;
   }
   .success-step button svg,
@@ -735,7 +735,7 @@ export const Dialog = styled.form`
     justify-content: space-between;
     gap: 10px;
     padding: 13px 24px max(13px, env(safe-area-inset-bottom));
-    border-top: 1px solid #e1dad3;
+    border-top: 1px solid #e5e7eb;
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 -8px 22px rgba(48, 35, 25, 0.05);
   }

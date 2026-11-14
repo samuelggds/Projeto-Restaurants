@@ -35,7 +35,7 @@ export const InvoiceOverview = styled.div`
 
   small {
     color: var(--muted);
-    font-size: 8px;
+    font-size: 12px;
   }
 
   strong {
@@ -89,7 +89,7 @@ export const ChargeMetric = styled.article<{ $tone: BillingTone }>`
 
   small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
   }
 
@@ -102,7 +102,7 @@ export const ChargeMetric = styled.article<{ $tone: BillingTone }>`
 
   em {
     color: ${({ $tone }) => toneColors[$tone].color};
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
     font-weight: 750;
   }
@@ -119,7 +119,7 @@ export const BillingCard = styled.article`
   border: 1px solid var(--border);
   border-radius: 8px;
   background: linear-gradient(140deg, #fff 0%, #fffaf5 100%);
-  box-shadow: 0 14px 34px rgba(43, 31, 22, 0.07);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   &::after {
     content: '';
@@ -145,8 +145,8 @@ export const BillingCardHeader = styled.div`
     align-items: center;
     gap: 7px;
     color: var(--a);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
     text-transform: uppercase;
   }
@@ -165,7 +165,7 @@ export const BillingCardHeader = styled.div`
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .cycle {
@@ -186,8 +186,8 @@ export const BillingCardHeader = styled.div`
   .cycle small {
     grid-column: 1 / 3;
     color: #bdb6b0;
-    font-size: 8px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
 
@@ -198,7 +198,7 @@ export const BillingCardHeader = styled.div`
 
   .cycle span {
     color: #c6c0bb;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   @media (max-width: 560px) {
@@ -223,7 +223,7 @@ export const BillingTimeline = styled.div`
     right: 9%;
     top: 22px;
     height: 2px;
-    background: #e6dfd8;
+    background: #e5e7eb;
   }
 
   > div {
@@ -265,7 +265,7 @@ export const BillingTimeline = styled.div`
 
   .current {
     border-color: #efc9b7;
-    background: #fffaf7;
+    background: #f8f9fb;
   }
 
   .current .step-icon {
@@ -286,7 +286,7 @@ export const BillingTimeline = styled.div`
   small {
     margin-top: 9px;
     color: var(--muted);
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 700;
   }
 
@@ -294,7 +294,7 @@ export const BillingTimeline = styled.div`
     overflow: hidden;
     max-width: 100%;
     margin-top: 4px;
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -302,7 +302,7 @@ export const BillingTimeline = styled.div`
   em {
     margin-top: 3px;
     color: #987047;
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
   }
 
@@ -345,9 +345,9 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
   gap: 13px;
   align-items: center;
   padding: 16px;
-  border: 1px solid ${({ $available }) => ($available ? '#cde7d7' : '#e4ddd6')};
+  border: 1px solid ${({ $available }) => ($available ? '#cde7d7' : '#e5e7eb')};
   border-radius: 8px;
-  background: ${({ $available }) => ($available ? '#f2faf5' : '#f7f5f2')};
+  background: ${({ $available }) => ($available ? '#f2faf5' : '#f8f9fb')};
 
   .payment-icon {
     width: 45px;
@@ -366,9 +366,9 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
   }
 
   small {
-    color: ${({ $available }) => ($available ? '#247344' : '#77706a')};
-    font-size: 8px;
-    font-weight: 900;
+    color: ${({ $available }) => ($available ? '#247344' : '#68717d')};
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.09em;
   }
 
@@ -381,7 +381,7 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
     max-width: 670px;
     margin: 0;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -396,8 +396,8 @@ export const BillingPayment = styled.div<{ $available: boolean }>`
     border-radius: 11px;
     color: #fff;
     background: ${({ $available }) => ($available ? '#237246' : '#77716b')};
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       filter 160ms ease,
@@ -435,7 +435,7 @@ export const HistorySection = styled.section`
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(52, 36, 25, 0.055);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 `;
 
 export const HistoryHeader = styled.header`
@@ -446,7 +446,7 @@ export const HistoryHeader = styled.header`
   gap: 16px;
   padding: 17px 20px;
   border-bottom: 1px solid var(--border);
-  background: #fdfbf9;
+  background: #f8f9fb;
 
   > div {
     min-width: 0;
@@ -479,7 +479,7 @@ export const HistoryHeader = styled.header`
   p {
     margin: 0;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   > strong {
@@ -488,7 +488,7 @@ export const HistoryHeader = styled.header`
     border-radius: 999px;
     color: #706861;
     background: #fff;
-    font-size: 9px;
+    font-size: 12px;
     white-space: nowrap;
   }
 
@@ -549,7 +549,7 @@ export const InvoiceRow = styled.article<{ $tone: BillingTone }>`
     overflow: hidden;
     margin: 0;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -567,8 +567,8 @@ export const InvoiceRow = styled.article<{ $tone: BillingTone }>`
     border-radius: 10px;
     color: #fff;
     background: #211e1b;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
     transition:
       background 160ms ease,
@@ -632,8 +632,8 @@ export const InvoiceStatus = styled.span<{ $status: string }>`
   border-radius: 999px;
   color: ${({ $status }) => toneColors[$status === 'PAGO' ? 'success' : $status === 'PENDENTE' ? 'warning' : 'danger'].color};
   background: ${({ $status }) => toneColors[$status === 'PAGO' ? 'success' : $status === 'PENDENTE' ? 'warning' : 'danger'].background};
-  font-size: 8px;
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 650;
   text-transform: uppercase;
   white-space: nowrap;
 `;
@@ -652,7 +652,7 @@ export const PaidMark = styled.span`
 
 export const InvoiceUnavailable = styled.span`
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 `;
@@ -674,7 +674,7 @@ export const Empty = styled.div`
     place-items: center;
     margin-bottom: 11px;
     border-radius: 8px;
-    color: #77706a;
+    color: #68717d;
     background: #f1eeeb;
   }
 
@@ -690,7 +690,7 @@ export const Empty = styled.div`
 
   p {
     margin: 5px 0 0;
-    font-size: 10px;
+    font-size: 12px;
   }
 `;
 
@@ -722,7 +722,7 @@ export const Loading = styled.div`
   }
 
   small {
-    font-size: 10px;
+    font-size: 12px;
   }
 `;
 
@@ -744,9 +744,9 @@ export const PixModal = styled.div`
   overflow: auto;
   padding: 27px;
   border: 1px solid #ede4dd;
-  border-radius: 23px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 30px 90px rgba(20, 14, 10, 0.34);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   text-align: center;
 
   .qr-frame svg {
@@ -826,7 +826,7 @@ export const PixModal = styled.div`
     padding-top: 15px;
     border-top: 1px solid #e4e8de;
     color: #67715f;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.6;
   }
   .payment-confirmation button {
@@ -875,8 +875,8 @@ export const PixModal = styled.div`
     border-radius: 999px;
     color: #167b68;
     background: #ecf8f4;
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -896,7 +896,7 @@ export const PixModal = styled.div`
     margin: 0 auto;
     max-width: 340px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
 
@@ -908,9 +908,9 @@ export const PixModal = styled.div`
     margin: 18px auto 13px;
     padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 18px;
+    border-radius: 12px;
     background: #fff;
-    box-shadow: 0 8px 24px rgba(35, 28, 22, 0.07);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   img {
@@ -922,8 +922,8 @@ export const PixModal = styled.div`
 
   .amount-label {
     color: #8b8179;
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
   }
 
@@ -931,7 +931,7 @@ export const PixModal = styled.div`
     margin: 4px 0 14px;
     color: var(--a);
     font-size: 26px;
-    font-weight: 900;
+    font-weight: 650;
     letter-spacing: 0;
   }
 
@@ -946,7 +946,7 @@ export const PixModal = styled.div`
     border-radius: 12px;
     color: #fff;
     background: #191816;
-    font-weight: 850;
+    font-weight: 650;
     cursor: pointer;
     transition:
       background 160ms ease,
@@ -966,7 +966,7 @@ export const PixModal = styled.div`
   .copy-feedback {
     display: block;
     margin-top: 9px;
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
@@ -985,7 +985,7 @@ export const PixModal = styled.div`
     gap: 6px;
     margin-top: 11px;
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     line-height: 1.4;
   }
 
