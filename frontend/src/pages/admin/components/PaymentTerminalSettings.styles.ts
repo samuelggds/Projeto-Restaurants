@@ -4,9 +4,9 @@ export const Section = styled.section`
   margin-top: 28px;
   padding: 24px;
   border: 1px solid #e2e8f0;
-  border-radius: 20px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 `;
 
 export const Header = styled.div`
@@ -32,7 +32,7 @@ export const Header = styled.div`
   > div > span {
     color: #d64d08;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
 
@@ -49,7 +49,7 @@ export const SyncButton = styled.button`
   border-radius: 12px;
   background: #0f172a;
   color: #fff;
-  font-weight: 800;
+  font-weight: 650;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -110,8 +110,8 @@ export const Badge = styled.span<{ $ok: boolean }>`
   border-radius: 999px;
   background: ${({ $ok }) => ($ok ? '#ecfdf3' : '#f1f5f9')};
   color: ${({ $ok }) => ($ok ? '#15803d' : '#64748b')};
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
 `;
 
@@ -139,7 +139,7 @@ export const Field = styled.label`
   gap: 7px;
   color: #475569;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 650;
 
   select {
     width: 100%;

@@ -27,13 +27,13 @@ export const employeeCompensationResponsiveStyles = css`
     .person {
       grid-column: 1 / -1;
       padding-bottom: 10px;
-      border-bottom: 1px solid #eee9e4;
+      border-bottom: 1px solid #e5e7eb;
     }
 
     .row-actions {
       grid-column: 1 / -1;
       padding-top: 10px;
-      border-top: 1px solid #eee9e4;
+      border-top: 1px solid #e5e7eb;
     }
 
     .version-history {
@@ -150,7 +150,7 @@ export const employeeCompensationResponsiveStyles = css`
 
     .ledger-summary > span + span {
       border-left: 0;
-      border-top: 1px solid #ece7e2;
+      border-top: 1px solid #e5e7eb;
     }
 
     .form-grid.two-columns,
@@ -168,7 +168,7 @@ export const employeeCompensationResponsiveStyles = css`
     .detail-columns > section + section {
       margin: 15px 0 0;
       padding: 15px 0 0;
-      border-top: 1px solid #ece6e0;
+      border-top: 1px solid #e5e7eb;
       border-left: 0;
     }
 
@@ -178,7 +178,7 @@ export const employeeCompensationResponsiveStyles = css`
     }
 
     .settlement-totals > span + span {
-      border-top: 1px solid #e5dfd9;
+      border-top: 1px solid #e5e7eb;
       border-left: 0;
     }
   }

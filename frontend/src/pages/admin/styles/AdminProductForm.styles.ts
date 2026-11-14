@@ -19,7 +19,7 @@ export const ProductFormDrawer = styled.form`
       color-mix(in srgb, var(--a) 7%, transparent),
       transparent 20%
     ),
-    #f7f5f2;
+    #f8f9fb;
   border-radius: 0;
   box-shadow: none;
   /* The product wizard must be immediately actionable and have stationary
@@ -48,15 +48,15 @@ export const ProductFormDrawer = styled.form`
     padding: 20px 28px 18px;
     border-bottom: 1px solid rgba(218, 209, 201, 0.82);
     /* Opaque surfaces avoid WebKit backdrop recomposition while scrolling. */
-    background: #fffdfa;
+    background: #f8f9fb;
   }
   .drawer-title > span {
     display: flex;
     align-items: center;
     gap: 6px;
     color: var(--a);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.11em;
   }
   .drawer-title > span svg {
@@ -118,7 +118,7 @@ export const ProductFormDrawer = styled.form`
   .basic-fields label > small {
     margin-top: -3px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     text-align: right;
   }
@@ -129,7 +129,7 @@ export const ProductFormDrawer = styled.form`
     padding: 12px;
     border: 1px solid #e2d9d1;
     border-radius: 16px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .image-preview {
     position: relative;
@@ -154,11 +154,11 @@ export const ProductFormDrawer = styled.form`
     color: var(--a);
   }
   .image-preview > div > b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .image-preview > div > span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .image-preview > img {
     width: 100%;
@@ -182,18 +182,18 @@ export const ProductFormDrawer = styled.form`
   .preview-caption small {
     grid-column: 1 / -1;
     color: #f2b08d;
-    font-size: 11px;
+    font-size: 12px;
   }
   .preview-caption b {
     overflow: hidden;
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .preview-caption strong {
     color: #fff;
-    font-size: 11px;
+    font-size: 12px;
     white-space: nowrap;
   }
   .image-upload-action {
@@ -226,11 +226,11 @@ export const ProductFormDrawer = styled.form`
     gap: 2px;
   }
   .image-upload-action b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .image-upload-action small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .image-upload-action input {
     position: absolute;
@@ -252,7 +252,7 @@ export const ProductFormDrawer = styled.form`
   }
   .field-title {
     color: #4b433d;
-    font-size: 11px;
+    font-size: 12px;
   }
   .stock-mode-cards {
     display: grid;
@@ -266,16 +266,16 @@ export const ProductFormDrawer = styled.form`
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 9px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
     padding: 11px;
-    color: #514943;
-    background: #fcfbfa;
+    color: #68717d;
+    background: #f8f9fb;
     text-align: left;
     cursor: pointer;
   }
   .stock-mode-cards button.active {
-    border-color: color-mix(in srgb, var(--a) 45%, #ded7cf);
+    border-color: color-mix(in srgb, var(--a) 45%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 6%, white);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 7%, transparent);
@@ -292,18 +292,18 @@ export const ProductFormDrawer = styled.form`
     gap: 3px;
   }
   .stock-mode-cards b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .stock-mode-cards small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
   }
   .product-review-card {
     overflow: hidden;
     border: 1px solid #ded5cd;
     border-radius: 14px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .product-review-card > header {
     display: flex;
@@ -322,11 +322,11 @@ export const ProductFormDrawer = styled.form`
     gap: 2px;
   }
   .product-review-card header b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .product-review-card header span {
     color: rgba(255, 255, 255, 0.72);
-    font-size: 11px;
+    font-size: 12px;
   }
   .product-review-card ul {
     list-style: none;
@@ -354,10 +354,10 @@ export const ProductFormDrawer = styled.form`
     place-items: center;
     border-radius: 8px;
     color: #81756b;
-    background: #ece7e2;
-    font-size: 11px;
+    background: #e5e7eb;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .product-review-card li.complete > i {
     color: #16703a;
@@ -372,12 +372,12 @@ export const ProductFormDrawer = styled.form`
     gap: 2px;
   }
   .product-review-card li b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .product-review-card li small {
     overflow: hidden;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -392,7 +392,7 @@ export const ProductFormDrawer = styled.form`
     margin: 0 -28px;
     padding: 14px 28px max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid rgba(213, 202, 193, 0.9);
-    background: #fffdfa;
+    background: #f8f9fb;
     box-shadow: 0 -12px 30px rgba(48, 35, 25, 0.07);
   }
   .footer-summary {
@@ -422,13 +422,13 @@ export const ProductFormDrawer = styled.form`
   .footer-summary b {
     overflow: hidden;
     max-width: 330px;
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .footer-summary small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   .footer-actions {
     display: flex;
@@ -440,12 +440,12 @@ export const ProductFormDrawer = styled.form`
     align-items: center;
     justify-content: center;
     gap: 7px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     padding: 0 18px;
     background: #fff;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .footer-actions button svg {
@@ -457,7 +457,7 @@ export const ProductFormDrawer = styled.form`
     border-color: var(--a);
     color: #fff;
     background: var(--a);
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--a) 25%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
   .drawer-footer button:disabled {
     opacity: 0.6;
@@ -609,7 +609,7 @@ export const ProductFormError = styled.div`
   border-radius: 11px;
   color: #991b1b;
   background: #fff1f0;
-  box-shadow: 0 8px 20px rgba(123, 25, 25, 0.08);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   font-size: 12px;
   font-weight: 700;
   @media (max-width: 600px) {
@@ -637,7 +637,7 @@ export const ProductCustomizationEmpty = styled.div`
   p {
     margin: 4px 0 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -654,15 +654,15 @@ export const ProductSaleModeSelector = styled.div`
     align-items: center;
     gap: 11px;
     padding: 13px 14px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
-    color: #514943;
+    color: #68717d;
     background: #fff;
     text-align: left;
     cursor: pointer;
   }
   > button.active {
-    border-color: color-mix(in srgb, var(--a) 52%, #ded7cf);
+    border-color: color-mix(in srgb, var(--a) 52%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 5%, #fff);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--a) 7%, transparent);
@@ -683,12 +683,12 @@ export const ProductSaleModeSelector = styled.div`
   }
   small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   em {
     color: #766c64;
-    font-size: 10px;
+    font-size: 12px;
     font-style: normal;
     line-height: 1.35;
   }
@@ -721,7 +721,7 @@ export const ProductSimpleMode = styled.div`
   p {
     margin: 0;
     color: #4e6c5a;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   label {
@@ -734,7 +734,7 @@ export const ProductSimpleMode = styled.div`
     border-radius: 9px;
     color: #8b3b22;
     background: #fff7f3;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 750;
     line-height: 1.4;
   }
@@ -752,10 +752,10 @@ export const ProductPresetGrid = styled.div`
     align-items: start;
     gap: 11px;
     padding: 14px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    color: #514943;
-    background: #fcfbfa;
+    color: #68717d;
+    background: #f8f9fb;
     text-align: left;
     cursor: pointer;
   }
@@ -774,7 +774,7 @@ export const ProductPresetGrid = styled.div`
     background: color-mix(in srgb, var(--a) 9%, white);
     font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   > button > span {
     min-width: 0;
@@ -786,12 +786,12 @@ export const ProductPresetGrid = styled.div`
   }
   small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   em {
     color: #8a5a45;
-    font-size: 10px;
+    font-size: 12px;
     font-style: normal;
     font-weight: 750;
     line-height: 1.35;
@@ -850,7 +850,7 @@ export const ProductTemplateLibrary = styled.section`
   > header b,
   > header small,
   > header > span {
-    font-size: 10px;
+    font-size: 12px;
   }
   > header small,
   > header > span {
@@ -882,7 +882,7 @@ export const ProductTemplateLibrary = styled.section`
   .template-list b,
   .template-list small {
     overflow: hidden;
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -896,8 +896,8 @@ export const ProductTemplateLibrary = styled.section`
     padding: 0 10px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 4%, #fff);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .template-list .delete-template {
@@ -922,8 +922,8 @@ export const ProductTemplateLibrary = styled.section`
     display: grid;
     gap: 5px;
     color: #615850;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .save-template input {
     width: 100%;
@@ -940,8 +940,8 @@ export const ProductTemplateLibrary = styled.section`
     padding: 0 12px;
     color: #fff;
     background: var(--a);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .save-template button:disabled,
@@ -962,7 +962,7 @@ export const ProductCustomerPreview = styled.aside`
   border: 1px solid #d7d0c9;
   border-radius: 8px;
   background: #fff;
-  box-shadow: 0 14px 34px rgba(49, 36, 26, 0.09);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   > header {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -983,20 +983,20 @@ export const ProductCustomerPreview = styled.aside`
     gap: 2px;
   }
   > header b {
-    font-size: 11px;
+    font-size: 12px;
   }
   > header span {
     color: #7d756e;
-    font-size: 10px;
+    font-size: 12px;
   }
   > header > em {
     padding: 5px 7px;
     border-radius: 5px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 9%, white);
-    font-size: 8px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .customer-preview-screen {
     max-height: min(560px, calc(100vh - 330px));
@@ -1012,7 +1012,7 @@ export const ProductCustomerPreview = styled.aside`
     display: grid;
     place-items: center;
     color: var(--a);
-    background: #eee8e2;
+    background: #e5e7eb;
   }
   .customer-preview-cover > img {
     position: absolute;
@@ -1032,20 +1032,20 @@ export const ProductCustomerPreview = styled.aside`
     border-radius: 5px;
     color: #fff;
     background: rgba(31, 27, 24, 0.82);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .customer-preview-product {
     display: grid;
     gap: 4px;
     padding: 13px 14px 15px;
-    border-bottom: 1px solid #e5ddd6;
+    border-bottom: 1px solid #e5e7eb;
     background: #fff;
   }
   .customer-preview-product > small {
     color: var(--a);
-    font-size: 8px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .customer-preview-product > b {
     overflow-wrap: anywhere;
@@ -1057,7 +1057,7 @@ export const ProductCustomerPreview = styled.aside`
     overflow: hidden;
     margin: 0;
     color: #756d66;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1085,13 +1085,13 @@ export const ProductCustomerPreview = styled.aside`
   .customer-preview-intro span,
   .customer-preview-intro > small {
     color: #7e766f;
-    font-size: 9px;
+    font-size: 12px;
   }
   .customer-preview-intro > small {
     padding: 4px 6px;
     border-radius: 5px;
     background: #e9e3dd;
-    font-weight: 800;
+    font-weight: 650;
   }
   .customer-preview-steps {
     min-width: 0;
@@ -1124,18 +1124,18 @@ export const ProductCustomerPreview = styled.aside`
   }
   .customer-preview-steps > section > header span {
     color: var(--a);
-    font-size: 7px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
   .customer-preview-steps > section > header b {
     overflow-wrap: anywhere;
     color: #312c28;
-    font-size: 11px;
+    font-size: 12px;
   }
   .customer-preview-steps > section > header p {
     margin: 1px 0 0;
-    color: #7a726b;
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.35;
   }
   .customer-preview-steps > section > header em {
@@ -1144,9 +1144,9 @@ export const ProductCustomerPreview = styled.aside`
     border-radius: 4px;
     color: #736b64;
     background: #eeeae6;
-    font-size: 7px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
     text-transform: uppercase;
   }
   .customer-preview-steps > section > header em.required {
@@ -1159,14 +1159,14 @@ export const ProductCustomerPreview = styled.aside`
     gap: 8px;
     padding: 0 11px 8px;
     color: #746c65;
-    font-size: 8px;
+    font-size: 12px;
   }
   .customer-selection-rule > span {
-    font-weight: 800;
+    font-weight: 650;
   }
   .customer-option-list {
     display: grid;
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
   }
   .customer-option-list > div {
     min-width: 0;
@@ -1198,17 +1198,17 @@ export const ProductCustomerPreview = styled.aside`
   .customer-option-list b {
     overflow: hidden;
     color: #3b3530;
-    font-size: 9px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .customer-option-list small {
     color: #827a73;
-    font-size: 8px;
+    font-size: 12px;
   }
   .customer-option-list strong {
     color: #5c544d;
-    font-size: 8px;
+    font-size: 12px;
     white-space: nowrap;
   }
   .customer-options-empty {
@@ -1216,7 +1216,7 @@ export const ProductCustomerPreview = styled.aside`
     padding: 10px;
     color: #9a6249;
     background: #fff8f3;
-    font-size: 9px;
+    font-size: 12px;
   }
   .customer-preview-footer {
     position: sticky;
@@ -1241,14 +1241,14 @@ export const ProductCustomerPreview = styled.aside`
   }
   .customer-preview-footer b,
   .customer-preview-footer strong {
-    font-size: 10px;
+    font-size: 12px;
   }
   .customer-preview-note {
     display: flex;
     align-items: flex-start;
     gap: 8px;
     padding: 10px 12px;
-    border-top: 1px solid #e5ddd6;
+    border-top: 1px solid #e5e7eb;
     background: #fff;
   }
   .customer-preview-note > svg {
@@ -1261,11 +1261,11 @@ export const ProductCustomerPreview = styled.aside`
     gap: 2px;
   }
   .customer-preview-note b {
-    font-size: 9px;
+    font-size: 12px;
   }
   .customer-preview-note small {
     color: #7f776f;
-    font-size: 8px;
+    font-size: 12px;
     line-height: 1.35;
   }
   @media (max-width: 880px) {

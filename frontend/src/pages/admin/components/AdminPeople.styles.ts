@@ -21,18 +21,12 @@ export const PeopleHero = styled.section`
   position: relative;
   min-height: 218px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 30px;
-  color: #fff;
-  background:
-    radial-gradient(
-      circle at 90% 12%,
-      color-mix(in srgb, var(--a) 44%, transparent),
-      transparent 33%
-    ),
-    linear-gradient(118deg, #142722 0%, #17342c 52%, #54362b 100%);
-  box-shadow: 0 24px 58px rgba(27, 38, 33, 0.16);
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.55fr);
   gap: 32px;
@@ -43,7 +37,7 @@ export const PeopleHero = styled.section`
     content: '';
     position: absolute;
     z-index: -1;
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid #e5e7eb;
     border-radius: 50%;
   }
 
@@ -70,6 +64,12 @@ export const PeopleHero = styled.section`
     min-height: 0;
     padding: 23px 20px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroCopy = styled.div`
@@ -79,9 +79,9 @@ export const HeroCopy = styled.div`
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    color: #ff9a68;
-    font-size: 10px;
-    font-weight: 850;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.13em;
     text-transform: uppercase;
   }
@@ -94,14 +94,14 @@ export const HeroCopy = styled.div`
   h2 {
     max-width: 690px;
     margin: 12px 0 0;
-    font-size: clamp(27px, 3vw, 39px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.04;
   }
 
   p {
     max-width: 690px;
     margin: 12px 0 0;
-    color: rgba(255, 255, 255, 0.7);
+    color: #68717d;
     font-size: 14px;
     line-height: 1.55;
   }
@@ -116,21 +116,21 @@ export const HeroCopy = styled.div`
   .hero-status span {
     min-height: 31px;
     padding: 0 11px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    border: 1px solid #e5e7eb;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.83);
+    background: #f7f8fa;
+    color: #68717d;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
   }
 
   .hero-status svg {
     width: 13px;
     height: 13px;
-    color: #ff9664;
+    color: #b94a17;
   }
 
   @media (max-width: 480px) {
@@ -142,37 +142,43 @@ export const HeroCopy = styled.div`
       font-size: 13px;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroAside = styled.aside`
   min-width: 0;
   align-self: stretch;
   padding-left: 27px;
-  border-left: 1px solid rgba(255, 255, 255, 0.13);
+  border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   justify-content: center;
 
   > small {
-    color: rgba(255, 255, 255, 0.56);
-    font-size: 9px;
-    font-weight: 800;
+    color: #68717d;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   > strong {
     margin-top: 7px;
-    color: #fff;
-    font-family: 'Sora', sans-serif;
-    font-size: clamp(25px, 2.4vw, 34px);
+    color: #252a31;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.1;
   }
 
   > span {
     margin-top: 8px;
-    color: rgba(255, 255, 255, 0.66);
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -182,15 +188,15 @@ export const HeroAside = styled.aside`
     padding: 0 15px;
     border: 0;
     border-radius: 8px;
-    color: #fff;
+    color: #252a31;
     background: var(--a);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--a) 30%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
     transition:
       filter 160ms ease,
       transform 160ms ease;
@@ -208,7 +214,7 @@ export const HeroAside = styled.aside`
 
   @media (max-width: 820px) {
     padding: 20px 0 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.13);
+    border-top: 1px solid #e5e7eb;
     border-left: 0;
   }
 
@@ -221,6 +227,12 @@ export const HeroAside = styled.aside`
       transform: none;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const PeopleMetrics = styled.section`
@@ -240,11 +252,11 @@ export const PeopleMetrics = styled.section`
 export const PeopleMetric = styled.article`
   min-width: 0;
   min-height: 126px;
-  border: 1px solid #e5dfd8;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 18px;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 9px 25px rgba(48, 35, 25, 0.045);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: flex;
   align-items: flex-start;
   gap: 13px;
@@ -254,8 +266,8 @@ export const PeopleMetric = styled.article`
     transform 180ms ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--a) 25%, #e5dfd8);
-    box-shadow: 0 13px 31px rgba(48, 35, 25, 0.075);
+    border-color: color-mix(in srgb, var(--a) 25%, #e5e7eb);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     transform: translateY(-2px);
   }
 
@@ -301,7 +313,7 @@ export const PeopleMetric = styled.article`
 
   .metric-copy > small {
     color: #766f69;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
   }
 
@@ -317,7 +329,7 @@ export const PeopleMetric = styled.article`
 
   .metric-copy > em {
     color: #8b837d;
-    font-size: 10px;
+    font-size: 12px;
     font-style: normal;
     line-height: 1.35;
   }
@@ -363,11 +375,11 @@ export const PeopleMetric = styled.article`
 export const DirectoryPanel = styled.section`
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #e5dfd8;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 22px;
   background: #fff;
-  box-shadow: 0 12px 34px rgba(48, 35, 25, 0.055);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   @media (max-width: 560px) {
     padding: 17px 14px;
@@ -405,8 +417,8 @@ export const DirectoryHeader = styled.header`
 
   small {
     color: #928981;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -424,13 +436,13 @@ export const DirectoryHeader = styled.header`
     border-radius: 8px;
     color: #fff;
     background: var(--a);
-    box-shadow: 0 8px 20px color-mix(in srgb, var(--a) 22%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   > button svg {
@@ -475,8 +487,8 @@ export const DirectoryToolbar = styled.div`
 
   label > span {
     color: #5e5751;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .control {
@@ -498,11 +510,11 @@ export const DirectoryToolbar = styled.div`
   select {
     width: 100%;
     height: 44px;
-    border: 1px solid #e4ddd6;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     outline: 0;
     color: #302c28;
-    background: #faf9f7;
+    background: #f8f9fb;
     font-size: 12px;
     transition:
       border-color 160ms ease,
@@ -551,8 +563,8 @@ export const ResultCount = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   white-space: nowrap;
 
   @media (max-width: 900px) {
@@ -574,7 +586,7 @@ export const PeopleList = styled.div`
 export const CustomerRow = styled.article`
   min-width: 0;
   min-height: 86px;
-  border: 1px solid #e8e2dc;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 14px 16px;
   background: #fff;
@@ -588,8 +600,8 @@ export const CustomerRow = styled.article`
     transform 160ms ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--a) 24%, #e8e2dc);
-    background: #fffdfb;
+    border-color: color-mix(in srgb, var(--a) 24%, #e5e7eb);
+    background: #f8f9fb;
     transform: translateY(-1px);
   }
 
@@ -601,8 +613,8 @@ export const CustomerRow = styled.article`
     background: color-mix(in srgb, var(--a) 10%, #fff);
     display: grid;
     place-items: center;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .identity,
@@ -624,7 +636,7 @@ export const CustomerRow = styled.article`
   .customer-stat small {
     overflow: hidden;
     color: #8a817a;
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -678,7 +690,7 @@ export const CustomerRow = styled.article`
 export const EmployeeRow = styled.article`
   min-width: 0;
   min-height: 94px;
-  border: 1px solid #e8e2dc;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 14px 16px;
   background: #fff;
@@ -692,8 +704,8 @@ export const EmployeeRow = styled.article`
     transform 160ms ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--a) 24%, #e8e2dc);
-    background: #fffdfb;
+    border-color: color-mix(in srgb, var(--a) 24%, #e5e7eb);
+    background: #f8f9fb;
     transform: translateY(-1px);
   }
 
@@ -705,8 +717,8 @@ export const EmployeeRow = styled.article`
     background: color-mix(in srgb, var(--a) 10%, #fff);
     display: grid;
     place-items: center;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .identity,
@@ -729,7 +741,7 @@ export const EmployeeRow = styled.article`
   .role span {
     overflow: hidden;
     color: #8a817a;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -745,8 +757,8 @@ export const EmployeeRow = styled.article`
     gap: 6px;
     color: #277348;
     background: #edf8f1;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     white-space: nowrap;
   }
 
@@ -777,7 +789,7 @@ export const EmployeeRow = styled.article`
   .edit,
   .toggle-access {
     min-height: 38px;
-    border: 1px solid #e4ddd6;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     color: #605851;
     background: #fff;
@@ -785,8 +797,8 @@ export const EmployeeRow = styled.article`
     align-items: center;
     justify-content: center;
     gap: 6px;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     transition:
       border-color 160ms ease,
       color 160ms ease,
@@ -803,7 +815,7 @@ export const EmployeeRow = styled.article`
   }
 
   .edit:hover {
-    border-color: color-mix(in srgb, var(--a) 35%, #e4ddd6);
+    border-color: color-mix(in srgb, var(--a) 35%, #e5e7eb);
     color: var(--a);
     background: color-mix(in srgb, var(--a) 6%, #fff);
   }
@@ -901,8 +913,8 @@ export const EmptyState = styled.div`
   margin-top: 18px;
   border: 1px dashed #dcd5ce;
   border-radius: 8px;
-  color: #777069;
-  background: #fbfaf8;
+  color: #68717d;
+  background: #f8f9fb;
   display: grid;
   place-items: center;
   text-align: center;
@@ -918,17 +930,17 @@ export const EmptyState = styled.div`
   svg {
     width: 30px;
     height: 30px;
-    color: color-mix(in srgb, var(--a) 75%, #777069);
+    color: color-mix(in srgb, var(--a) 75%, #68717d);
   }
 
   strong {
     color: #342f2b;
-    font-family: 'Sora', sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 15px;
   }
 
   span {
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
 `;
@@ -937,21 +949,21 @@ export const LoadMoreButton = styled.button`
   min-height: 42px;
   margin: 14px auto 0;
   padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--a) 26%, #dfd8d1);
+  border: 1px solid color-mix(in srgb, var(--a) 26%, #e5e7eb);
   border-radius: 8px;
   color: color-mix(in srgb, var(--a) 86%, #342a24);
   background: color-mix(in srgb, var(--a) 5%, #fff);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   transition:
     border-color 160ms ease,
     background 160ms ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--a) 45%, #dfd8d1);
+    border-color: color-mix(in srgb, var(--a) 45%, #e5e7eb);
     background: color-mix(in srgb, var(--a) 9%, #fff);
   }
 `;

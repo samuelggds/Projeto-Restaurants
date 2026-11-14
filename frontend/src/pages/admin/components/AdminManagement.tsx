@@ -6,6 +6,7 @@ import type {
   AdminProduct,
   AdminSection,
   AdminSettings,
+  SettingsSection,
 } from '../types';
 import { AdminOverview } from './AdminOverview';
 import { AdminOrders } from './AdminOrders';
@@ -32,7 +33,9 @@ type Props = {
   operationalSettings?: Pick<AdminSettings, 'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'>;
   openSupportCount: number | null;
   onSupportUpdated: () => void;
-  onNavigate: (area: 'orders' | 'catalog' | 'customers') => void;
+  onNavigate: (area: AdminSection) => void;
+  onOpenSettings?: (section: SettingsSection) => void;
+  onViewStore?: () => void;
   onUpdateOrderStatus: (id: number, status: string) => Promise<void>;
   onConfirmOrderPayment: (id: number) => Promise<void>;
   onCancelOrder: (id: number) => Promise<void>;
@@ -66,6 +69,8 @@ export function AdminManagement(props: Props) {
         operationalSettings={props.operationalSettings}
         money={money}
         onNavigate={props.onNavigate}
+        onOpenSettings={props.onOpenSettings}
+        onViewStore={props.onViewStore}
         onCancelOrder={props.onCancelOrder}
       />
     );

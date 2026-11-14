@@ -21,7 +21,7 @@ export const Hero = styled.div`
   align-items: center;
   padding: 22px;
   border: 1px solid #e7e8ec;
-  border-radius: 18px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #fff 0%, #fff7f1 100%);
 
   h2 {
@@ -39,7 +39,7 @@ export const Hero = styled.div`
     border-radius: 12px;
     padding: 12px 16px;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 650;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -73,9 +73,9 @@ export const Grid = styled.div`
 export const Card = styled.article`
   overflow: hidden;
   border: 1px solid #e8e9ed;
-  border-radius: 18px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 10px 28px rgba(30, 34, 45, 0.06);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   .image {
     aspect-ratio: 16 / 10;
@@ -103,8 +103,8 @@ export const Card = styled.article`
       border-radius: 999px;
       background: rgba(17, 24, 39, 0.84);
       color: #fff;
-      font-size: 11px;
-      font-weight: 800;
+      font-size: 12px;
+      font-weight: 650;
       backdrop-filter: blur(8px);
     }
   }
@@ -131,7 +131,7 @@ export const Card = styled.article`
   }
   .price {
     font-size: 19px;
-    font-weight: 900;
+    font-weight: 650;
     color: #17191f;
   }
   .groups {
@@ -149,7 +149,7 @@ export const Card = styled.article`
     padding: 10px 12px;
     background: #fff;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 650;
   }
   button.primary {
     background: #17191f;
@@ -163,7 +163,7 @@ export const Card = styled.article`
 
 export const Empty = styled.div`
   border: 1px dashed #cfd3da;
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 42px 24px;
   text-align: center;
   background: #fafbfc;
@@ -185,7 +185,7 @@ export const Overlay = styled.div<{ $brand: string }>`
   /* Keep the modal above the admin assistant, below confirmation dialogs. */
   z-index: 9400;
   display: grid;
-  background: #fbfaf8;
+  background: #f8f9fb;
   color: #2e2925;
 `;
 
@@ -195,7 +195,7 @@ export const Editor = styled.form`
   height: 100dvh;
   min-width: 0;
   min-height: 0;
-  background: #fbfaf8;
+  background: #f8f9fb;
   overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -203,7 +203,7 @@ export const Editor = styled.form`
 
   .head {
     background: #fff;
-    border-bottom: 1px solid #e6ded7;
+    border-bottom: 1px solid #e5e7eb;
     padding: 20px 32px;
     display: flex;
     justify-content: space-between;
@@ -214,8 +214,8 @@ export const Editor = styled.form`
     display: block;
     margin-bottom: 6px;
     color: var(--brand);
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
   .head h2 {
@@ -231,8 +231,8 @@ export const Editor = styled.form`
     flex: 0 0 auto;
     display: grid;
     place-items: center;
-    border: 1px solid #e6ded7;
-    background: #fcfbf9;
+    border: 1px solid #e5e7eb;
+    background: #f8f9fb;
     border-radius: 10px;
     width: 44px;
     height: 44px;
@@ -259,7 +259,7 @@ export const Editor = styled.form`
   }
   .section {
     min-width: 0;
-    border: 1px solid #e6ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 14px;
     padding: 20px;
     display: grid;
@@ -292,8 +292,8 @@ export const Editor = styled.form`
     display: grid;
     gap: 6px;
     font-size: 12px;
-    font-weight: 800;
-    color: #514943;
+    font-weight: 650;
+    color: #68717d;
   }
   input,
   textarea,
@@ -301,7 +301,7 @@ export const Editor = styled.form`
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     padding: 11px 12px;
     background: #fff;
@@ -328,7 +328,7 @@ export const Editor = styled.form`
   }
   .product-warning {
     color: #a33;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 750;
   }
   .photo {
@@ -363,7 +363,7 @@ export const Editor = styled.form`
     padding: 10px 12px;
     background: #fff;
     cursor: pointer;
-    font-weight: 800;
+    font-weight: 650;
     display: inline-flex;
     gap: 8px;
     align-items: center;
@@ -391,7 +391,7 @@ export const Editor = styled.form`
   }
   .footer {
     background: #fff;
-    border-top: 1px solid #e6ded7;
+    border-top: 1px solid #e5e7eb;
     padding: 14px 32px max(14px, env(safe-area-inset-bottom));
     display: flex;
     align-items: center;
@@ -404,19 +404,19 @@ export const Editor = styled.form`
     margin-right: auto;
   }
   .footer-summary span {
-    font-size: 11px;
+    font-size: 12px;
     color: #7a7067;
   }
   .footer-summary strong {
     color: var(--brand);
     font-size: 20px;
-    font-weight: 850;
+    font-weight: 650;
   }
   .footer button {
     min-height: 44px;
     border-radius: 9px;
     padding: 11px 16px;
-    font-weight: 800;
+    font-weight: 650;
     cursor: pointer;
   }
   .footer .secondary {
@@ -460,14 +460,14 @@ export const Editor = styled.form`
     border-radius: 999px;
     background: #fff2e8;
     color: #b84f1c;
-    font-size: 10px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
 
   label > small {
     color: #7a8089;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.35;
   }
@@ -500,7 +500,7 @@ export const Editor = styled.form`
   }
   .toggle-card small {
     color: #7b818a;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     line-height: 1.35;
   }
@@ -512,7 +512,7 @@ export const Editor = styled.form`
     padding: 0 14px;
     background: var(--brand, #d64d08);
     color: #fff;
-    font-weight: 900;
+    font-weight: 650;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -555,7 +555,7 @@ export const Editor = styled.form`
     text-overflow: ellipsis;
     white-space: nowrap;
     color: #7d838c;
-    font-size: 11px;
+    font-size: 12px;
   }
   .empty-products {
     display: flex;
@@ -595,7 +595,7 @@ export const Editor = styled.form`
   }
   .combo-example p {
     margin: 0;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .choice-groups {
@@ -625,7 +625,7 @@ export const Editor = styled.form`
     background: color-mix(in srgb, var(--brand) 12%, #fff);
     color: var(--brand);
     font-size: 13px;
-    font-weight: 900;
+    font-weight: 650;
   }
   .choice-group-head strong,
   .choice-group-head span {
@@ -638,7 +638,7 @@ export const Editor = styled.form`
   .choice-group-head span {
     margin-top: 2px;
     color: #7b818a;
-    font-size: 11px;
+    font-size: 12px;
   }
   .choice-group-settings {
     display: grid;
@@ -688,7 +688,7 @@ export const Editor = styled.form`
     border-radius: 10px;
     background: #eefbf4;
     color: #176b45;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .choice-group-summary svg {

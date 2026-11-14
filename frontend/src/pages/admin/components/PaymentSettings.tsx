@@ -47,25 +47,21 @@ type Props = {
 const providers: Array<{
   id: Provider;
   name: string;
-  logoUrl: string;
   description: string;
 }> = [
   {
     id: 'MERCADO_PAGO',
     name: 'Mercado Pago',
-    logoUrl: 'https://www.mercadopago.com.br/favicon.ico',
     description: 'Conecte a conta do restaurante sem copiar senhas ou códigos de acesso.',
   },
   {
     id: 'PAGARME',
     name: 'Pagar.me',
-    logoUrl: 'https://www.pagar.me/favicon.ico',
     description: 'Integração preparada para uso futuro. Temporariamente indisponível.',
   },
   {
     id: 'ASAAS',
     name: 'Asaas',
-    logoUrl: 'https://www.asaas.com/favicon.ico',
     description: 'Integração preparada para uso futuro. Temporariamente indisponível.',
   },
 ];
@@ -593,7 +589,7 @@ export function PaymentSettings({
             <PS.ProviderCard key={provider.id} $selected={selected}>
               <PS.ProviderTop>
                 <PS.ProviderLogo $provider={provider.id}>
-                  <img src={provider.logoUrl} alt="" aria-hidden="true" loading="lazy" />
+                  <Landmark size={24} aria-hidden="true" />
                 </PS.ProviderLogo>
                 <PS.ConnectionBadge $connected={ready}>
                   {ready ? <Check /> : <KeyRound />}

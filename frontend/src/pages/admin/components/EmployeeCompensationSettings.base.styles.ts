@@ -6,7 +6,7 @@ export const employeeCompensationBaseStyles = css`
   --muted: #746e68;
   --border: #e2ddd7;
   --surface: #ffffff;
-  --soft: #f7f5f2;
+  --soft: #f8f9fb;
   --accent: #b74d31;
   display: grid;
   gap: 18px;
@@ -55,8 +55,8 @@ export const employeeCompensationBaseStyles = css`
   .eyebrow,
   .section-kicker {
     color: var(--accent);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0;
     text-transform: uppercase;
   }
@@ -118,8 +118,8 @@ export const employeeCompensationBaseStyles = css`
 
   .month-control small {
     color: var(--muted);
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -131,7 +131,7 @@ export const employeeCompensationBaseStyles = css`
     background: transparent;
     outline: 0;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 650;
   }
 
   .icon-button,
@@ -145,8 +145,8 @@ export const employeeCompensationBaseStyles = css`
     gap: 7px;
     border-radius: 7px;
     cursor: pointer;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .icon-button {

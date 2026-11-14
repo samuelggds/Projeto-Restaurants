@@ -7,8 +7,8 @@ export const Card = styled.section`
     margin-bottom: 22px;
   }
   .eyebrow {
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.12em;
     color: #726353;
   }
@@ -42,9 +42,9 @@ export const Card = styled.section`
     gap: 34px;
     padding: clamp(22px, 3vw, 36px);
     border: 1px solid #deded5;
-    border-radius: 18px;
-    background: #fffefb;
-    box-shadow: 0 8px 30px #30281905;
+    border-radius: 12px;
+    background: #f8f9fb;
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
   .card-copy {
     min-width: 0;
@@ -69,10 +69,10 @@ export const Card = styled.section`
     border: 1px solid #d8e5d8;
     background: #f2f7ef;
     color: #355d3f;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     padding: 5px 10px;
-    border-radius: 30px;
+    border-radius: 12px;
   }
   h3 {
     margin: 0 0 10px;
@@ -120,7 +120,7 @@ export const Card = styled.section`
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: 12px;
     color: #7b7b72;
   }
   .security svg {
@@ -136,7 +136,7 @@ export const Card = styled.section`
     background: #f5f5ef;
   }
   .payment-preview > small {
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: #7c7c70;
@@ -150,11 +150,11 @@ export const Card = styled.section`
     border-radius: 12px;
     color: #fff;
     background: linear-gradient(130deg, #243f33, #49614d);
-    box-shadow: 0 10px 20px #1a312519;
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
   .preview-card > span {
     text-align: right;
-    font-size: 10px;
+    font-size: 12px;
     align-self: center;
   }
   .preview-card strong {
@@ -165,7 +165,7 @@ export const Card = styled.section`
   .preview-card small {
     grid-column: 1 / -1;
     color: #d6e1d9;
-    font-size: 10px;
+    font-size: 12px;
   }
   .current-method {
     font-size: 12px;
@@ -206,7 +206,7 @@ export const Card = styled.section`
     font-weight: 650;
   }
   .pix-toggle small {
-    font-size: 11px;
+    font-size: 12px;
     color: #878178;
   }
   .expanded {
@@ -329,11 +329,11 @@ export const Modal = styled.form`
   max-height: calc(100dvh - 32px);
   overflow: hidden;
   margin: 0;
-  border-radius: 18px;
+  border-radius: 12px;
   border: 1px solid #e5e4dd;
   background: #fffefa;
   color: #272d25;
-  box-shadow: 0 24px 90px #0005;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .dialog-header {
     flex-shrink: 0;
     padding: 24px 24px 20px;
@@ -462,7 +462,7 @@ export const Modal = styled.form`
     align-items: flex-start;
     gap: 7px;
     margin-top: 12px;
-    font-size: 11px;
+    font-size: 12px;
   }
   .security svg {
     flex-shrink: 0;
@@ -513,7 +513,7 @@ export const Modal = styled.form`
     color: #51564b;
     cursor: pointer;
     font: inherit;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 12px;
     font-weight: 650;
   }

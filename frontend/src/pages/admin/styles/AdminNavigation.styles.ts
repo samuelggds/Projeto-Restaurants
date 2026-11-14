@@ -34,10 +34,10 @@ export const Brand = styled.div`
     display: grid;
     place-items: center;
     color: #fff;
-    background: #ff4b4b;
+    background: #e46d30;
     font-family: 'Sora', sans-serif;
     font-size: 15px;
-    font-weight: 800;
+    font-weight: 650;
   }
   > span svg { width: 19px; height: 19px; stroke-width: 2.4; }
   > b {
@@ -52,7 +52,7 @@ export const Brand = styled.div`
   > small {
     align-self: start;
     color: #9b918b;
-    font-size: 8px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -63,11 +63,10 @@ export const MainNav = styled.nav`
   align-content: start;
   gap: 0;
   margin-top: 16px;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  flex-shrink: 0;
   .nav-group { display: grid; gap: 2px; min-width: 0; }
   .nav-group + .nav-group { border-top: 1px solid #393939; margin-top: 10px; padding-top: 10px; }
-  .nav-group h2 { margin: 0 0 5px; padding: 0 11px; color: #888; font-family: inherit; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+  .nav-group h2 { margin: 0 0 5px; padding: 0 11px; color: #888; font-family: inherit; font-size: 12px; font-weight: 650; letter-spacing: .08em; }
   .item-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   button {
     width: 100%;
@@ -95,11 +94,11 @@ export const MainNav = styled.nav`
   }
   button.active {
     color: #fff;
-    font-weight: 800;
+    font-weight: 650;
     background: rgba(255, 255, 255, 0.09);
-    box-shadow: inset 3px 0 #ff4b4b;
+    box-shadow: inset 3px 0 #e46d30;
   }
-  button:focus-visible { outline: 2px solid #ff7777; outline-offset: -2px; }
+  button:focus-visible { outline: 2px solid #ffad7a; outline-offset: -2px; }
   .support-badge, .support-sync-error {
     min-width: 21px;
     height: 21px;
@@ -110,8 +109,8 @@ export const MainNav = styled.nav`
     place-items: center;
     background: #c45117;
     color: #fff;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     line-height: 1;
     font-variant-numeric: tabular-nums;
   }
@@ -160,8 +159,8 @@ export const SideFooter = styled.div`
     background: #e64a19;
     display: grid;
     place-items: center;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     line-height: 1;
   }
 `;
@@ -224,7 +223,7 @@ export const SidebarUser = styled.div`
     color: #fff;
     background: color-mix(in srgb, var(--brand) 26%, #282320);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 650;
   }
   > span:not(.avatar) {
     min-width: 0;
@@ -240,7 +239,7 @@ export const SidebarUser = styled.div`
   }
   small {
     color: #908680;
-    font-size: 9px;
+    font-size: 12px;
   }
   button {
     width: 34px;
@@ -274,7 +273,7 @@ export const MobileBottomNav = styled.nav`
     grid-template-columns: repeat(5, minmax(0, 1fr));
     border-top: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.98);
-    box-shadow: 0 -8px 24px rgba(38, 28, 22, 0.09);
+    box-shadow: 0 -2px 8px rgba(25, 35, 45, 0.04);
     button {
       min-width: 0;
       padding: 0 3px;
@@ -284,10 +283,10 @@ export const MobileBottomNav = styled.nav`
       place-items: center;
       align-content: center;
       gap: 3px;
-      color: #7d7068;
+      color: #68717d;
       background: transparent;
-      font-size: 9px;
-      font-weight: 750;
+      font-size: 12px;
+      font-weight: 650;
     }
     button.active {
       color: color-mix(in srgb, var(--brand) 82%, #2a211c);
@@ -321,9 +320,9 @@ export const MobileBottomNav = styled.nav`
       color: #fff;
       display: grid;
       place-items: center;
-      font-size: 9px;
+      font-size: 12px;
       font-style: normal;
-      font-weight: 850;
+      font-weight: 650;
       line-height: 1;
       font-variant-numeric: tabular-nums;
     }
@@ -386,8 +385,8 @@ export const MobileMoreSheet = styled.section`
       border-radius: 8px;
       color: #fff;
       background: var(--brand);
-      font-size: 11px;
-      font-weight: 800;
+      font-size: 12px;
+      font-weight: 650;
     }
     header > span:not(.avatar),
     > button > span {
@@ -399,7 +398,7 @@ export const MobileMoreSheet = styled.section`
     > button b,
     .mobile-nav-group > button b {
       overflow: hidden;
-      color: #2b2521;
+      color: #252a31;
       font-size: 12px;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -408,7 +407,7 @@ export const MobileMoreSheet = styled.section`
     > button small,
     .mobile-nav-group > button small {
       color: var(--muted);
-      font-size: 9px;
+      font-size: 12px;
     }
     .mobile-nav-group {
       display: grid;
@@ -419,9 +418,9 @@ export const MobileMoreSheet = styled.section`
     .mobile-nav-group h2 {
       margin: 0 0 3px;
       padding: 0 6px;
-      color: #80756f;
-      font-size: 10px;
-      font-weight: 800;
+      color: #68717d;
+      font-size: 12px;
+      font-weight: 650;
       letter-spacing: .08em;
     }
     > button, .mobile-nav-group > button {
@@ -433,8 +432,8 @@ export const MobileMoreSheet = styled.section`
       grid-template-columns: 20px minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
-      color: #51453e;
-      background: #fbf9f7;
+      color: #555f6b;
+      background: #f8f9fb;
       text-align: left;
     }
     > button.active, .mobile-nav-group > button.active {
@@ -455,7 +454,7 @@ export const MobileMoreSheet = styled.section`
     }
     > button > svg:last-child, .mobile-nav-group > button > svg:last-child {
       width: 15px;
-      color: #a89e97;
+      color: #89929c;
     }
     .unread-badge {
       min-width: 20px;
@@ -463,8 +462,8 @@ export const MobileMoreSheet = styled.section`
       border-radius: 999px;
       color: #fff;
       background: #c83f31;
-      font-size: 8px;
-      font-weight: 800;
+      font-size: 12px;
+      font-weight: 650;
       text-align: center;
     }
   }

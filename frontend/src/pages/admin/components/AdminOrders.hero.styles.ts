@@ -4,7 +4,7 @@ export const OrdersHero = styled.section`
   position: relative;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 16px 20px;
   color: #1d2823;
@@ -21,7 +21,7 @@ export const OrdersHero = styled.section`
     content: '';
     position: absolute;
     z-index: -1;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid #e5e7eb;
     border-radius: 50%;
   }
 
@@ -48,6 +48,12 @@ export const OrdersHero = styled.section`
     padding: 23px 20px;
     border-radius: 8px;
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const HeroCopy = styled.div`
@@ -58,8 +64,8 @@ export const HeroCopy = styled.div`
     align-items: center;
     gap: 7px;
     color: #c25130;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.13em;
     text-transform: uppercase;
   }
@@ -72,7 +78,7 @@ export const HeroCopy = styled.div`
   h2 {
     max-width: 680px;
     margin: 12px 0 0;
-    font-size: clamp(20px, 2.1vw, 27px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.04;
     letter-spacing: 0;
   }
@@ -95,21 +101,21 @@ export const HeroCopy = styled.div`
   .hero-pulse span {
     min-height: 31px;
     padding: 0 11px;
-    border: 1px solid rgba(255, 255, 255, 0.13);
+    border: 1px solid #e5e7eb;
     border-radius: 999px;
-    color: rgba(255, 255, 255, 0.84);
-    background: rgba(255, 255, 255, 0.06);
+    color: #68717d;
+    background: #f7f8fa;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
   }
 
   .hero-pulse svg {
     width: 13px;
     height: 13px;
-    color: #ff9664;
+    color: #b94a17;
   }
 
   @media (max-width: 480px) {
@@ -121,25 +127,31 @@ export const HeroCopy = styled.div`
       font-size: 13px;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const PriorityCard = styled.aside`
   min-width: 0;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.07);
+  background: #f7f8fa;
   display: flex;
   flex-direction: column;
   justify-content: center;
 
   .priority-label {
-    color: #ffad84;
+    color: #b94a17;
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }
@@ -151,7 +163,7 @@ export const PriorityCard = styled.aside`
 
   > strong {
     margin-top: 12px;
-    color: #fff;
+    color: #252a31;
     font-size: 19px;
     line-height: 1.2;
     letter-spacing: 0;
@@ -159,8 +171,8 @@ export const PriorityCard = styled.aside`
 
   > p {
     margin: 8px 0 0;
-    color: rgba(255, 255, 255, 0.65);
-    font-size: 11px;
+    color: #68717d;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -171,15 +183,15 @@ export const PriorityCard = styled.aside`
     padding: 0 14px;
     border: 1px solid var(--a);
     border-radius: 11px;
-    color: #fff;
+    color: #252a31;
     background: var(--a);
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--a) 28%, transparent);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 7px;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     transition:
       background 160ms ease,
       border-color 160ms ease,
@@ -200,15 +212,15 @@ export const PriorityCard = styled.aside`
   > small {
     margin-top: 12px;
     overflow: hidden;
-    color: rgba(255, 255, 255, 0.45);
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   @media (max-width: 860px) {
-    background: rgba(255, 255, 255, 0.055);
+    background: #f7f8fa;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -220,4 +232,10 @@ export const PriorityCard = styled.aside`
       transform: none;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;

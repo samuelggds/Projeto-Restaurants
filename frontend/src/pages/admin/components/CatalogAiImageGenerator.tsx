@@ -139,10 +139,10 @@ const Panel = styled.section`
   }
   .copy svg { width: 18px; height: 18px; }
   strong { color: #261f1b; font-size: 13px; }
-  p { margin: 3px 0 0; color: #81756d; font-size: 10px; line-height: 1.45; }
+  p { margin: 3px 0 0; color: #81756d; font-size:12px; line-height: 1.45; }
   .status { display: grid; text-align: center; }
   .status b { color: #261f1b; font-size: 18px; }
-  .status span { color: #8f8279; font-size: 8px; text-transform: uppercase; font-weight: 800; }
+  .status span { color: #8f8279; font-size:12px; text-transform: uppercase; font-weight:650; }
   > button {
     min-height: 40px;
     padding: 0 13px;
@@ -154,8 +154,8 @@ const Panel = styled.section`
     gap: 7px;
     background: #1f2022;
     color: #fff;
-    font-size: 10px;
-    font-weight: 800;
+    font-size:12px;
+    font-weight:650;
     cursor: pointer;
   }
   > button:disabled { opacity: .55; cursor: not-allowed; }
@@ -177,8 +177,8 @@ const Result = styled.div`
   padding-top: 11px;
   border-top: 1px solid #eadfd8;
   color: #5d6a57;
-  font-size: 9px;
-  font-weight: 800;
+  font-size:12px;
+  font-weight:650;
 
   span { display: inline-flex; align-items: center; gap: 5px; }
   svg { width: 14px; }

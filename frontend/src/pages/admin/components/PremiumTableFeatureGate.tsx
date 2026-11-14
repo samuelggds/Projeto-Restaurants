@@ -4,8 +4,8 @@ import styled from 'styled-components';
 import tablesService from '../../../Services/tablesService';
 
 const Shell = styled.section`
-  border: 1px solid #eadbcf;
-  border-radius: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius:12px;
   overflow: hidden;
   background: #fff;
   box-shadow: 0 18px 45px rgba(72, 47, 29, 0.08);
@@ -13,10 +13,8 @@ const Shell = styled.section`
 
 const Hero = styled.div`
   padding: clamp(28px, 5vw, 52px);
-  color: #fff;
-  background:
-    radial-gradient(circle at 88% 16%, rgba(255, 188, 120, 0.32), transparent 28%),
-    linear-gradient(135deg, #1f2937, #243b49 58%, #6b3d2b);
+  color:#252a31;
+  background:#fff;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
@@ -28,11 +26,11 @@ const Hero = styled.div`
     gap: 7px;
     width: fit-content;
     padding: 7px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid #e5e7eb;
     border-radius: 999px;
-    color: #ffd5ac;
-    font-size: 11px;
-    font-weight: 800;
+    color: #b94a17;
+    font-size:12px;
+    font-weight:650;
     letter-spacing: 0.08em;
   }
 
@@ -45,15 +43,15 @@ const Hero = styled.div`
   p {
     max-width: 720px;
     margin: 0;
-    color: #e3e8ec;
+    color: #68717d;
     line-height: 1.65;
   }
 
   .icon {
     width: 88px;
     height: 88px;
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 26px;
+    border: 1px solid #e5e7eb;
+    border-radius:12px;
     display: grid;
     place-items: center;
     background: rgba(255, 255, 255, 0.08);
@@ -68,6 +66,8 @@ const Hero = styled.div`
     grid-template-columns: 1fr;
     .icon { display: none; }
   }
+
+ border-bottom:1px solid #e5e7eb; padding:24px; h2 {font-size:24px;} .icon {color:#b94a17;background:#fff6ef;}
 `;
 
 const Body = styled.div`
@@ -90,7 +90,7 @@ const Body = styled.div`
     gap: 10px;
     min-height: 52px;
     padding: 12px 14px;
-    border: 1px solid #eee5dd;
+    border: 1px solid #e5e7eb;
     border-radius: 14px;
     background: #fffaf6;
     color: #433b35;
@@ -131,7 +131,7 @@ const Body = styled.div`
     gap: 8px;
     background: #b45309;
     color: white;
-    font-weight: 800;
+    font-weight:650;
     text-decoration: none;
     cursor: pointer;
   }
@@ -145,8 +145,8 @@ const Body = styled.div`
 
 const Status = styled.div`
   min-height: 220px;
-  border: 1px solid #eadbcf;
-  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius:12px;
   background: #fff;
   display: grid;
   place-items: center;

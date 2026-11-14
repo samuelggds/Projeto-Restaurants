@@ -25,12 +25,10 @@ export const Hero = styled.section`
   align-items: center;
   gap: 18px;
   padding: 26px 28px;
-  border-radius: 20px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 90% 3%, rgba(255, 137, 79, 0.35), transparent 34%),
-    linear-gradient(126deg, #172732 0%, #253943 58%, #6b3d2d 100%);
-  box-shadow: 0 20px 42px rgba(30, 33, 35, 0.14);
+  border-radius: 12px;
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   &::after {
     content: '';
@@ -39,7 +37,7 @@ export const Hero = styled.section`
     bottom: -115px;
     width: 220px;
     height: 220px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid #e5e7eb;
     border-radius: 50%;
   }
 
@@ -48,10 +46,10 @@ export const Hero = styled.section`
     height: 54px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid #e5e7eb;
     border-radius: 16px;
-    color: #ff8a54;
-    background: rgba(255, 255, 255, 0.08);
+    color: #b94a17;
+    background: #f7f8fa;
   }
 
   .hero-icon svg {
@@ -60,23 +58,23 @@ export const Hero = styled.section`
   }
 
   .eyebrow {
-    color: #ff9a6d;
-    font-size: 10px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.11em;
   }
 
   h2 {
     margin: 5px 0 4px;
-    color: #fff;
-    font-size: clamp(22px, 2.3vw, 30px);
+    color: #252a31;
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.12;
   }
 
   p {
     max-width: 610px;
     margin: 0;
-    color: rgba(255, 255, 255, 0.7);
+    color: #68717d;
     font-size: 13px;
     line-height: 1.55;
   }
@@ -91,21 +89,21 @@ export const Hero = styled.section`
   dl div {
     min-width: 92px;
     padding: 12px 13px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border: 1px solid #e5e7eb;
     border-radius: 13px;
-    background: rgba(255, 255, 255, 0.07);
+    background: #f7f8fa;
   }
 
   dt {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   dd {
     margin: 4px 0 0;
-    color: #fff;
+    color: #252a31;
     font-size: 21px;
-    font-weight: 900;
+    font-weight: 650;
   }
 
   @media (max-width: 860px) {
@@ -140,13 +138,19 @@ export const Hero = styled.section`
     }
 
     dt {
-      font-size: 8px;
+      font-size: 12px;
     }
 
     dd {
       font-size: 18px;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const Tabs = styled.div`
@@ -159,7 +163,7 @@ export const Tabs = styled.div`
   border: 1px solid #e7dfd7;
   border-radius: 14px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(42, 31, 23, 0.04);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   scrollbar-width: thin;
 
   button {
@@ -174,7 +178,7 @@ export const Tabs = styled.div`
     color: #6d645d;
     background: transparent;
     font-size: 12px;
-    font-weight: 850;
+    font-weight: 650;
     cursor: pointer;
   }
 
@@ -206,7 +210,7 @@ export const LoadState = styled.div<{ $tone?: 'error' | 'loading' }>`
   align-items: center;
   gap: 11px;
   padding: 13px 15px;
-  border: 1px solid ${({ $tone }) => ($tone === 'error' ? '#efb5b5' : '#e3ddd6')};
+  border: 1px solid ${({ $tone }) => ($tone === 'error' ? '#efb5b5' : '#e5e7eb')};
   border-radius: 12px;
   color: ${({ $tone }) => ($tone === 'error' ? '#991b1b' : '#514941')};
   background: ${({ $tone }) => ($tone === 'error' ? '#fff4f4' : '#fff')};
@@ -227,7 +231,7 @@ export const LoadState = styled.div<{ $tone?: 'error' | 'loading' }>`
     border: 0;
     color: var(--a);
     background: transparent;
-    font-weight: 850;
+    font-weight: 650;
   }
 `;
 
@@ -235,9 +239,9 @@ export const Panel = styled.section`
   min-width: 0;
   padding: 23px;
   border: 1px solid #e9e2db;
-  border-radius: 18px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 12px 32px rgba(49, 36, 27, 0.045);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
 
   @media (max-width: 600px) {
     padding: 17px 14px;
@@ -280,7 +284,7 @@ export const PanelHeader = styled.header`
   p {
     margin: 4px 0 0;
     color: #756e68;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -336,8 +340,8 @@ export const Field = styled.label`
   align-content: start;
   gap: 7px;
   color: #423b35;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 12px;
+  font-weight: 650;
 
   > span {
     display: flex;
@@ -355,10 +359,10 @@ export const Field = styled.label`
   textarea {
     min-width: 0;
     width: 100%;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     color: #241f1b;
-    background: #fcfbfa;
+    background: #f8f9fb;
     outline: 0;
     font-weight: 450;
     transition: 170ms ease;
@@ -393,12 +397,12 @@ export const SwitchRow = styled.label`
   justify-content: space-between;
   gap: 12px;
   padding: 9px 12px;
-  border: 1px solid #e6dfd8;
+  border: 1px solid #e5e7eb;
   border-radius: 11px;
   color: #403933;
-  background: #fcfbfa;
-  font-size: 11px;
-  font-weight: 850;
+  background: #f8f9fb;
+  font-size: 12px;
+  font-weight: 650;
 
   input {
     appearance: none;
@@ -452,8 +456,8 @@ export const PreviewCard = styled.aside`
 
   > small {
     color: var(--a);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.1em;
   }
 
@@ -490,8 +494,8 @@ export const PreviewCard = styled.aside`
     border-radius: 999px;
     color: #fff;
     background: #d84522;
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     text-overflow: ellipsis;
     white-space: nowrap;
     box-shadow: 0 5px 13px rgba(155, 45, 20, 0.24);
@@ -516,20 +520,20 @@ export const PreviewCard = styled.aside`
 
   .old-price {
     color: #8b837c;
-    font-size: 11px;
+    font-size: 12px;
     text-decoration: line-through;
   }
 
   .new-price {
     color: var(--a);
     font-size: 18px;
-    font-weight: 900;
+    font-weight: 650;
   }
 
   .preview-help {
     margin: 0;
     color: #7b736c;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -541,7 +545,7 @@ export const CouponPreview = styled(PreviewCard)`
     display: grid;
     gap: 12px;
     padding: 18px;
-    border: 1px dashed color-mix(in srgb, var(--a) 50%, #ded7cf);
+    border: 1px dashed color-mix(in srgb, var(--a) 50%, #e5e7eb);
     border-radius: 14px;
     background: #fff;
   }
@@ -576,8 +580,8 @@ export const CouponPreview = styled(PreviewCard)`
 
   .coupon-code {
     color: var(--a);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.08em;
   }
 
@@ -589,7 +593,7 @@ export const CouponPreview = styled(PreviewCard)`
   .coupon-ticket p {
     margin: 0;
     color: #716961;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -605,12 +609,12 @@ export const FormActions = styled.div`
     min-height: 43px;
     border-radius: 10px;
     padding: 0 17px;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .secondary {
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     color: #514941;
     background: #fff;
   }
@@ -651,7 +655,7 @@ export const Feedback = styled.div<{ $tone: 'success' | 'error' }>`
   border-radius: 11px;
   color: ${({ $tone }) => ($tone === 'success' ? '#166534' : '#991b1b')};
   background: ${({ $tone }) => ($tone === 'success' ? '#f0f9f2' : '#fff3f3')};
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 750;
 `;
 
@@ -670,7 +674,7 @@ export const ListHeader = styled.header`
   p {
     margin: 4px 0 0;
     color: #766e67;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .filters {
@@ -684,10 +688,10 @@ export const ListHeader = styled.header`
   select {
     min-width: 0;
     height: 42px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     padding: 0 11px;
-    background: #fcfbfa;
+    background: #f8f9fb;
     outline: 0;
   }
 
@@ -728,7 +732,7 @@ export const CampaignCard = styled.article`
   align-items: center;
   gap: 13px;
   padding: 13px;
-  border: 1px solid #ebe4dd;
+  border: 1px solid #e5e7eb;
   border-radius: 14px;
   background: #fefdfc;
 
@@ -775,8 +779,8 @@ export const CampaignCard = styled.article`
   }
 
   .campaign-meta {
-    color: #746d66;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   .campaign-meta strong {
@@ -796,13 +800,13 @@ export const CampaignCard = styled.article`
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     padding: 0 10px;
     color: #514941;
     background: #fff;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .actions button svg {
@@ -861,8 +865,8 @@ export const Status = styled.span<{ $tone: 'active' | 'scheduled' | 'inactive' |
         : $tone === 'expired'
           ? '#fff0f0'
           : '#eceff1'};
-  font-size: 9px;
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 650;
 `;
 
 export const EmptyState = styled.div`
@@ -872,9 +876,9 @@ export const EmptyState = styled.div`
   align-content: center;
   gap: 8px;
   padding: 24px;
-  border: 1px dashed #ded7cf;
+  border: 1px dashed #e5e7eb;
   border-radius: 14px;
-  color: #77706a;
+  color: #68717d;
   text-align: center;
 
   svg {
@@ -889,7 +893,7 @@ export const EmptyState = styled.div`
   p {
     max-width: 410px;
     margin: 0;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -924,7 +928,7 @@ export const LoyaltyFlow = styled.section`
     border-radius: 50%;
     color: var(--a);
     background: #f9f8f5;
-    font-weight: 900;
+    font-weight: 650;
     transform: translateY(-50%);
   }
 
@@ -936,8 +940,8 @@ export const LoyaltyFlow = styled.section`
     border-radius: 9px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   b {
@@ -947,7 +951,7 @@ export const LoyaltyFlow = styled.section`
   p {
     margin: 0;
     color: #776f68;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 

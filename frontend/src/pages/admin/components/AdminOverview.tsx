@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   CircleOff,
   Clock3,
-  PackageCheck,
+  ExternalLink,
+  Headphones,
+  Settings2,
+  TicketPercent,
   ReceiptText,
   Search,
   ShoppingBag,
-  Sparkles,
   TrendingUp,
   Users,
   UtensilsCrossed,
@@ -20,23 +23,37 @@ import {
   Undo2,
 } from 'lucide-react';
 import * as S from './AdminOverview.styles';
-import type { AdminOrder, AdminProduct, AdminSettings } from '../types';
+import type {
+  AdminOrder,
+  AdminProduct,
+  AdminSettings,
+  AdminSection,
+  SettingsSection,
+} from '../types';
+import AdminSetupGuide from './AdminSetupGuide';
 import { getRestaurantAvailability } from '../domain/businessHours';
 import { useRestaurantAvailabilityClock } from '../../Home/hooks/useHomePageRuntime';
 import ordersService, { type OrderOverview } from '../../../Services/ordersService';
 import { useAdminOrdersPage, type LoadAdminOrdersPage } from '../hooks/useAdminOrdersPage';
 import { useAdminOrderCancellation } from '../hooks/useAdminOrderCancellation';
-import { canCancelAdminOrder, getPaymentMethodLabel, isOrderWaitingForCapacity } from '../domain/adminOrders';
-
-type OverviewDestination = 'orders' | 'catalog' | 'customers';
+import {
+  canCancelAdminOrder,
+  getPaymentMethodLabel,
+  isOrderWaitingForCapacity,
+} from '../domain/adminOrders';
 
 type AdminOverviewProps = {
   orders: AdminOrder[];
   products: AdminProduct[];
   restaurantName: string;
-  operationalSettings?: Pick<AdminSettings, 'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'>;
+  operationalSettings?: Pick<
+    AdminSettings,
+    'businessHours' | 'businessHoursConfigured' | 'isOpenForOrders'
+  >;
   money: (value: number) => string;
-  onNavigate: (destination: OverviewDestination) => void;
+  onNavigate: (destination: AdminSection) => void;
+  onOpenSettings?: (section: SettingsSection) => void;
+  onViewStore?: () => void;
   onCancelOrder?: (id: number) => Promise<void>;
   loadOrdersPage?: LoadAdminOrdersPage;
   loadOverview?: () => Promise<OrderOverview>;
@@ -90,11 +107,12 @@ function paymentMethodForOverview(order: AdminOrder) {
   return getPaymentMethodLabel(method);
 }
 
-function getTodayLabel() {
+function getTodayLabel(timeZone: string) {
   const value = new Intl.DateTimeFormat('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
+    timeZone,
   }).format(new Date());
   return value.charAt(0).toLocaleUpperCase('pt-BR') + value.slice(1);
 }
@@ -106,6 +124,8 @@ export function AdminOverview({
   operationalSettings,
   money,
   onNavigate,
+  onOpenSettings,
+  onViewStore,
   onCancelOrder,
   loadOrdersPage,
   loadOverview = loadLiveOverview,
@@ -189,7 +209,7 @@ export function AdminOverview({
   }, [products, productSearch, productStatus]);
   const visibleOrders = orderPage.orders;
   const visibleProducts = filteredProducts.slice(0, visibleProductLimit);
-  const metricText = (value: number | string) => metricsStatus === 'ready' ? value : '—';
+  const metricText = (value: number | string) => (metricsStatus === 'ready' ? value : '—');
 
   const clearOrderFilters = () => {
     setOrderSearch('');
@@ -207,9 +227,9 @@ export function AdminOverview({
       <S.Hero aria-labelledby="overview-summary-title">
         <S.HeroCopy>
           <span className="eyebrow">
-            <Sparkles aria-hidden="true" /> Resumo de hoje
+            <CalendarDays aria-hidden="true" /> {getTodayLabel(metrics.timezone)}
           </span>
-          <h2 id="overview-summary-title">Tudo pronto para os próximos pedidos.</h2>
+          <h2 id="overview-summary-title">Vamos cuidar do seu restaurante?</h2>
           <p>
             {availability
               ? `O restaurante ${restaurantName} está ${availability.isOpen ? 'aberto' : 'fechado'} para novos pedidos. ${availability.detail}.`
@@ -217,7 +237,8 @@ export function AdminOverview({
           </p>
           <div className="hero-buttons">
             <button type="button" className="primary" onClick={() => onNavigate('orders')}>
-              <ArrowRight aria-hidden="true" /> Acompanhar pedidos
+              <ShoppingBag aria-hidden="true" /> Acompanhar pedidos{' '}
+              <ArrowRight aria-hidden="true" />
             </button>
             <button type="button" onClick={() => onNavigate('catalog')}>
               <UtensilsCrossed aria-hidden="true" /> Gerenciar cardápio
@@ -225,44 +246,21 @@ export function AdminOverview({
           </div>
         </S.HeroCopy>
         <S.HeroAside>
-          <small>Operação agora · {getTodayLabel()}</small>
-          <span className="hero-operating-state" role="status">
+          <span className="hero-operating-state">
+            <span className={availability?.isOpen ? 'status-dot open' : 'status-dot'} />
             {availability ? availability.label : 'Situação a confirmar'}
           </span>
-          <div className="hero-quick-metrics">
-            <span><ReceiptText aria-hidden="true" /><b>{metricText(metrics.todayOrders)}</b>{' '}<small>pedidos hoje</small></span>
-            <span><Clock3 aria-hidden="true" /><b>{metricText(metrics.preparingOrders)}</b>{' '}<small>em preparo</small></span>
-            <span><PackageCheck aria-hidden="true" /><b>{products.length ? `${productAvailability}%` : '—'}</b><small>cardápio disponível</small></span>
-          </div>
+          <span className="daily-count">
+            {metricText(metrics.todayOrders)} pedidos hoje · {metricText(metrics.preparingOrders)}{' '}
+            em preparo
+          </span>
+          {onViewStore && (
+            <button type="button" onClick={onViewStore}>
+              <ExternalLink aria-hidden="true" /> Ver minha loja
+            </button>
+          )}
         </S.HeroAside>
       </S.Hero>
-
-      <section className="overview-assistant-strip" aria-label="Resumo operacional">
-        <div className="assistant-intro">
-          <span className="assistant-title"><Sparkles aria-hidden="true" /> Assistente do restaurante</span>
-          <strong>Prioridades do momento</strong>
-          <p>{orderPage.summary?.awaitingPayment
-            ? `${orderPage.summary.awaitingPayment} pedido(s) aguardando pagamento. Verifique os recebimentos antes de avançar o preparo.`
-            : metricsStatus === 'ready' && metrics.preparingOrders > 0
-              ? `${metrics.preparingOrders} pedido(s) em preparo. Acompanhe a fila operacional.`
-              : 'Consulte os indicadores e acompanhe os próximos pedidos.'}</p>
-          <small><RefreshCw aria-hidden="true" /> Resumo com dados atuais do restaurante</small>
-        </div>
-        <div className="assistant-summary">
-          <div className="assistant-summary-heading"><strong>Resumo operacional</strong><span>Hoje</span></div>
-          <div className="assistant-summary-cards">
-            <div><WalletCards aria-hidden="true" /><span>Vendas registradas<small>Pedidos criados hoje</small></span>
-              <b>{metricsStatus === 'ready' && metrics.registeredSalesTotal !== undefined
-                ? money(metrics.registeredSalesTotal) : '—'}</b></div>
-            <div><CheckCircle2 aria-hidden="true" /><span>Pagamentos confirmados<small>Hoje</small></span>
-              <b>{metricText(metrics.confirmedPaymentsToday ?? '—')}</b></div>
-            <div><CircleAlert aria-hidden="true" /><span>Cancelamentos / estornos<small>Criados hoje / devolvidos hoje</small></span>
-              <b>{metricsStatus === 'ready' && metrics.cancelledOrdersCreatedToday !== undefined &&
-                metrics.refundedOrdersToday !== undefined
-                ? `${metrics.cancelledOrdersCreatedToday} / ${metrics.refundedOrdersToday}` : '—'}</b></div>
-          </div>
-        </div>
-      </section>
 
       <S.Metrics aria-label="Indicadores de hoje">
         <S.Metric>
@@ -292,7 +290,13 @@ export function AdminOverview({
           <span className="metric-copy">
             <small>Ticket médio</small>
             <strong>{metricText(money(metrics.averageTicket))}</strong>
-            <em>{metrics.sales > 0 ? 'Média dos pedidos pagos hoje' : 'Aguardando pagamentos'}</em>
+            <em>
+              {metricsStatus !== 'ready'
+                ? 'Média dos pedidos pagos hoje'
+                : metrics.sales > 0
+                  ? 'Média dos pedidos pagos hoje'
+                  : 'Aguardando pagamentos'}
+            </em>
           </span>
         </S.Metric>
         <S.Metric>
@@ -308,6 +312,133 @@ export function AdminOverview({
           </span>
         </S.Metric>
       </S.Metrics>
+
+      {onOpenSettings && (
+        <AdminSetupGuide
+          onNavigate={onNavigate}
+          onOpenSettings={onOpenSettings}
+          onViewStore={onViewStore}
+        />
+      )}
+
+      <S.QuickAccess aria-labelledby="overview-routines-title">
+        <div className="routines-heading">
+          <div>
+            <h2 id="overview-routines-title">No dia a dia</h2>
+            <p>Encontre o que você precisa para administrar seu restaurante.</p>
+          </div>
+          <button type="button" className="all-settings" onClick={() => onNavigate('settings')}>
+            Todas as configurações <ArrowRight aria-hidden="true" />
+          </button>
+        </div>
+        <div className="routine-links">
+          {[
+            {
+              area: 'employees' as const,
+              Icon: Users,
+              title: 'Equipe',
+              description: 'Funcionários e acessos',
+            },
+            {
+              area: 'coupons' as const,
+              Icon: TicketPercent,
+              title: 'Cupons',
+              description: 'Promoções para clientes',
+            },
+            {
+              area: 'reservations' as const,
+              Icon: CalendarDays,
+              title: 'Reservas',
+              description: 'Agenda do seu salão',
+            },
+            {
+              area: 'support' as const,
+              Icon: Headphones,
+              title: 'Atendimento',
+              description: 'Conversas sobre pedidos',
+            },
+            {
+              area: 'subscriptions' as const,
+              Icon: WalletCards,
+              title: 'Meu plano',
+              description: 'Assinatura e mensalidades',
+            },
+            {
+              area: 'help' as const,
+              Icon: Settings2,
+              title: 'Preciso de ajuda',
+              description: 'Orientações e suporte',
+            },
+          ].map(({ area, Icon, title, description }) => (
+            <button type="button" key={area} onClick={() => onNavigate(area)}>
+              <Icon aria-hidden="true" />
+              <span>
+                <strong>{title}</strong>
+                <small>{description}</small>
+              </span>
+              <ArrowRight className="routine-arrow" aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      </S.QuickAccess>
+
+      <section className="overview-assistant-strip" aria-label="Resumo operacional">
+        <div className="assistant-intro">
+          <span className="assistant-title">
+            <Clock3 aria-hidden="true" /> Acompanhe a operação
+          </span>
+          <strong>O que precisa de atenção</strong>
+          <p>
+            {orderPage.summary?.awaitingPayment
+              ? `${orderPage.summary.awaitingPayment} pedido(s) aguardando pagamento. Verifique os recebimentos antes de avançar o preparo.`
+              : metricsStatus === 'ready' && metrics.preparingOrders > 0
+                ? `${metrics.preparingOrders} pedido(s) em preparo. Acompanhe a fila operacional.`
+                : 'Consulte os indicadores e acompanhe os próximos pedidos.'}
+          </p>
+          <small>
+            <RefreshCw aria-hidden="true" /> Resumo com dados atuais do restaurante
+          </small>
+        </div>
+        <div className="assistant-summary">
+          <div className="assistant-summary-heading">
+            <strong>Detalhes dos recebimentos</strong>
+            <span>Hoje</span>
+          </div>
+          <div className="assistant-summary-cards">
+            <div>
+              <WalletCards aria-hidden="true" />
+              <span>
+                Vendas registradas<small>Pedidos criados hoje</small>
+              </span>
+              <b>
+                {metricsStatus === 'ready' && metrics.registeredSalesTotal !== undefined
+                  ? money(metrics.registeredSalesTotal)
+                  : '—'}
+              </b>
+            </div>
+            <div>
+              <CheckCircle2 aria-hidden="true" />
+              <span>
+                Pagamentos confirmados<small>Hoje</small>
+              </span>
+              <b>{metricText(metrics.confirmedPaymentsToday ?? '—')}</b>
+            </div>
+            <div>
+              <CircleAlert aria-hidden="true" />
+              <span>
+                Cancelamentos / estornos<small>Criados hoje / devolvidos hoje</small>
+              </span>
+              <b>
+                {metricsStatus === 'ready' &&
+                metrics.cancelledOrdersCreatedToday !== undefined &&
+                metrics.refundedOrdersToday !== undefined
+                  ? `${metrics.cancelledOrdersCreatedToday} / ${metrics.refundedOrdersToday}`
+                  : '—'}
+              </b>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <S.AdminGrid>
         <S.Panel>
@@ -361,7 +492,7 @@ export function AdminOverview({
             </label>
           </S.OverviewFilters>
           {orderPage.error && <p role="alert">{orderPage.error}</p>}
-          <S.DataList aria-live="polite">
+          <S.DataList aria-live="polite" aria-busy={orderPage.loading}>
             {visibleOrders.map((order) => {
               const status = isOrderWaitingForCapacity(order)
                 ? { label: 'Aguardando vaga', tone: 'warning' as const }
@@ -372,9 +503,15 @@ export function AdminOverview({
                     <ShoppingBag />
                   </span>
                   <div className="row-copy">
-                    <b>{order.id} <span>•</span> {order.customerName}</b>
-                    <small>{formatOrderType(order.type)} <span aria-hidden="true">·</span>{' '}
-                      <span className="payment-method" aria-label={`Pagamento: ${paymentMethodForOverview(order)}`}>
+                    <b>
+                      {order.id} <span>•</span> {order.customerName}
+                    </b>
+                    <small>
+                      {formatOrderType(order.type)} <span aria-hidden="true">·</span>{' '}
+                      <span
+                        className="payment-method"
+                        aria-label={`Pagamento: ${paymentMethodForOverview(order)}`}
+                      >
                         {paymentMethodForOverview(order)}
                       </span>
                     </small>
@@ -407,14 +544,22 @@ export function AdminOverview({
                 </div>
               );
             })}
-            {!visibleOrders.length && (
+            {!visibleOrders.length && !orderPage.error && (
               <S.OverviewEmpty>
                 <span aria-hidden="true">
                   <Search />
                 </span>
-                <strong>Nenhum pedido encontrado</strong>
-                <p>Tente outro termo ou limpe os filtros aplicados.</p>
-                {(orderSearch || orderStatus !== 'ALL') && (
+                <strong>
+                  {orderPage.loading ? 'Carregando pedidos...' : 'Nenhum pedido encontrado'}
+                </strong>
+                <p>
+                  {orderPage.loading
+                    ? 'Buscando os pedidos do restaurante.'
+                    : orderSearch || orderStatus !== 'ALL'
+                      ? 'Tente outro termo ou limpe os filtros aplicados.'
+                      : 'Os novos pedidos do restaurante aparecerão aqui.'}
+                </p>
+                {!orderPage.loading && (orderSearch || orderStatus !== 'ALL') && (
                   <button type="button" onClick={clearOrderFilters}>
                     Limpar filtros
                   </button>
@@ -424,9 +569,13 @@ export function AdminOverview({
           </S.DataList>
           <S.OverviewPagination>
             <span>
-              {orderPage.total
-                ? `${visibleOrders.length} de ${orderPage.total} pedidos`
-                : '0 resultados'}
+              {orderPage.loading
+                ? 'Carregando...'
+                : orderPage.error
+                  ? 'Lista indisponível'
+                  : orderPage.total
+                    ? `${visibleOrders.length} de ${orderPage.total} pedidos`
+                    : '0 resultados'}
             </span>
             <div>
               {visibleOrders.length > LIST_BATCH_SIZE && (
@@ -611,21 +760,29 @@ export function AdminOverview({
         <div>
           <small>Próximo passo recomendado</small>
           <strong>
-            {unavailableProducts > 0
-              ? `Revise ${unavailableProducts} ${unavailableProducts === 1 ? 'produto indisponível' : 'produtos indisponíveis'}`
-              : 'Seu cardápio está totalmente disponível'}
+            {!products.length
+              ? 'Comece pelo seu primeiro produto'
+              : unavailableProducts > 0
+                ? `Revise ${unavailableProducts} ${unavailableProducts === 1 ? 'produto indisponível' : 'produtos indisponíveis'}`
+                : 'Seu cardápio está totalmente disponível'}
           </strong>
           <p>
-            {unavailableProducts > 0
-              ? 'Confirme estoque e disponibilidade para não perder oportunidades de venda.'
-              : 'Continue acompanhando pedidos e estoque para manter a operação fluindo.'}
+            {!products.length
+              ? 'Adicione os produtos, as fotos e os preços que seus clientes vão encontrar no cardápio.'
+              : unavailableProducts > 0
+                ? 'Confirme estoque e disponibilidade para não perder oportunidades de venda.'
+                : 'Continue acompanhando pedidos e estoque para manter a operação fluindo.'}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => onNavigate(unavailableProducts ? 'catalog' : 'orders')}
+          onClick={() => onNavigate(!products.length || unavailableProducts ? 'catalog' : 'orders')}
         >
-          {unavailableProducts ? 'Revisar cardápio' : 'Ver pedidos'}
+          {!products.length
+            ? 'Montar cardápio'
+            : unavailableProducts
+              ? 'Revisar cardápio'
+              : 'Ver pedidos'}
           <ArrowRight aria-hidden="true" />
         </button>
       </S.BottomInsight>

@@ -15,15 +15,15 @@ export const Panel = styled.section`
     align-items: flex-start;
     div { display: grid; gap: 3px; }
     strong { color: #17231d; font-size: 13px; }
-    small { color: #6d7872; font-size: 10px; line-height: 1.4; }
+    small { color: #6d7872; font-size: 12px; line-height: 1.4; }
     b { color: #17231d; font-size: 13px; white-space: nowrap; }
   }
   &[data-compact='true'] {
     margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; gap: 8px;
-    .head strong { font-size: 11px; font-weight: 550; }
+    .head strong { font-size: 12px; font-weight: 550; }
     .head b { font-size: 12px; }
   }
-  .compact-payment-hint { color: #7b897f; font-size: 9px; line-height: 1.5; }
+  .compact-payment-hint { color: #7b897f; font-size: 12px; line-height: 1.5; }
 `;
 
 export const Methods = styled.div`
@@ -47,15 +47,15 @@ export const Methods = styled.div`
     &:disabled { cursor: not-allowed; opacity: .6; }
     &:focus-visible { outline: 2px solid #22573f; outline-offset: 2px; }
     svg { width: 18px; height: 18px; }
-    strong { font-size: 11px; }
-    small { color: #76817b; font-size: 9px; }
+    strong { font-size: 12px; }
+    small { color: #76817b; font-size: 12px; }
   }
   @media (max-width: 620px) { grid-template-columns: 1fr; }
   &[data-compact='true'] {
     grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
     button { min-width: 0; min-height: 52px; padding: 8px 3px; justify-items: center; align-content: center; text-align: center; border-radius: 6px; gap: 5px; }
     button svg { width: 14px; height: 14px; color: #809286; }
-    button strong { font-size: 10px; font-weight: 500; }
+    button strong { font-size: 12px; font-weight: 500; }
     button.active { border-color: #204e39; background: #eaf4ee; box-shadow: none; color: #204e39; }
     button.active svg { color: #204e39; }
   }
@@ -65,7 +65,7 @@ export const TerminalSelect = styled.label`
   display: grid;
   gap: 5px;
   color: #5f6b64;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   select { width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid #dce2de; border-radius: 9px; background: #fff; }
   small { font-weight: 400; line-height: 1.5; }
@@ -95,7 +95,7 @@ export const Status = styled.div<{ $paid?: boolean }>`
   border-radius: 10px;
   color: ${({ $paid }) => ($paid ? '#166534' : '#7c5b14')};
   background: ${({ $paid }) => ($paid ? '#effaf2' : '#fff8e8')};
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
 `;
 
@@ -114,8 +114,8 @@ export const Actions = styled.div`
     border-radius: 10px;
     color: #243029;
     background: #fff;
-    font-weight: 800;
-    font-size: 10px;
+    font-weight: 650;
+    font-size: 12px;
     cursor: pointer;
     &.primary { color: #fff; border-color: #2563eb; background: #2563eb; }
     &.cash { color: #164e2e; border-color: #b9dfc7; background: #effaf3; }
@@ -123,7 +123,7 @@ export const Actions = styled.div`
     &:focus-visible { outline: 2px solid #22573f; outline-offset: 2px; }
   }
   &[data-compact='true'] {
-    button { width: 100%; min-height: 39px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+    button { width: 100%; min-height: 39px; border-radius: 6px; font-size: 12px; font-weight: 500; }
     button.cash, button.primary { color: #fff; background: #ff4b4b; border-color: #ff4b4b; }
     button svg { width: 14px; height: 14px; padding: 0; background: transparent; }
   }
@@ -132,6 +132,6 @@ export const Actions = styled.div`
 
 export const Error = styled.div`
   color: #b42318;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.4;
 `;

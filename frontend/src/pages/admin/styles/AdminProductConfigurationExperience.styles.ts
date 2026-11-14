@@ -3,7 +3,7 @@ import styled from 'styled-components';
 export const ProductOptionConfiguration = styled.section`
   margin: 0 14px 14px;
   overflow: hidden;
-  border: 1px solid #ddd6cf;
+  border: 1px solid #e5e7eb;
   border-radius: 13px;
   background: #fff;
   > header {
@@ -23,7 +23,7 @@ export const ProductOptionConfiguration = styled.section`
   > header b,
   > header span,
   > header small {
-    font-size: 11px;
+    font-size: 12px;
   }
   > header span,
   > header small {
@@ -33,7 +33,7 @@ export const ProductOptionConfiguration = styled.section`
     display: grid;
     gap: 10px;
     padding: 11px;
-    background: #f7f5f2;
+    background: #f8f9fb;
   }
   .configured-option-list > article {
     min-width: 0;
@@ -53,7 +53,7 @@ export const ProductOptionConfiguration = styled.section`
     justify-content: space-between;
     gap: 10px;
     padding-bottom: 9px;
-    border-bottom: 1px solid #eee8e2;
+    border-bottom: 1px solid #e5e7eb;
   }
   .configured-option-title > span {
     min-width: 0;
@@ -65,15 +65,15 @@ export const ProductOptionConfiguration = styled.section`
   }
   .configured-option-title small {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
   }
   .active-option-toggle {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     color: #176a39;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .pricing-mode {
     display: grid;
@@ -83,8 +83,8 @@ export const ProductOptionConfiguration = styled.section`
   .advanced-question {
     grid-column: 1 / -1;
     color: #5d554e;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .pricing-mode button {
     min-width: 0;
@@ -92,9 +92,9 @@ export const ProductOptionConfiguration = styled.section`
     display: grid;
     gap: 2px;
     padding: 7px 9px;
-    border: 1px solid #dfd8d1;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
-    color: #514943;
+    color: #68717d;
     background: #fff;
     text-align: left;
     cursor: pointer;
@@ -106,7 +106,7 @@ export const ProductOptionConfiguration = styled.section`
   }
   .pricing-mode b,
   .pricing-mode small {
-    font-size: 10px;
+    font-size: 12px;
   }
   .pricing-mode small {
     color: var(--muted);
@@ -115,9 +115,9 @@ export const ProductOptionConfiguration = styled.section`
     min-width: 0;
     display: grid;
     gap: 5px;
-    color: #514943;
-    font-size: 10px;
-    font-weight: 800;
+    color: #68717d;
+    font-size: 12px;
+    font-weight: 650;
   }
   .option-price-field > span {
     height: 50px;
@@ -126,18 +126,18 @@ export const ProductOptionConfiguration = styled.section`
     align-items: center;
     gap: 7px;
     padding: 0 10px;
-    border: 1px solid #ddd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
     color: #71675f;
     background: #fff;
-    font-size: 11px;
+    font-size: 12px;
   }
   .option-price-field input {
     min-width: 0;
     height: 100%;
     border: 0;
     outline: 0;
-    font-weight: 800;
+    font-weight: 650;
   }
   .option-behavior {
     grid-column: 1 / -1;
@@ -151,9 +151,9 @@ export const ProductOptionConfiguration = styled.section`
     align-items: flex-start;
     gap: 7px;
     padding: 9px;
-    border: 1px solid #e5ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 9px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
   .option-behavior span {
     min-width: 0;
@@ -162,7 +162,7 @@ export const ProductOptionConfiguration = styled.section`
   }
   .option-behavior b,
   .option-behavior small {
-    font-size: 10px;
+    font-size: 12px;
   }
   .option-behavior small {
     color: var(--muted);
@@ -176,19 +176,19 @@ export const ProductOptionConfiguration = styled.section`
     padding: 10px;
     border: 1px solid #dfd9d2;
     border-radius: 9px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .quantity-rules label {
     display: grid;
     gap: 4px;
     color: #615850;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .quantity-rules input {
     width: 100%;
     height: 36px;
-    border: 1px solid #dcd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 0 8px;
     background: #fff;
@@ -264,11 +264,11 @@ export const ProductConfigurationLayout = styled.div`
   }
   .group-selection-summary small {
     color: #847b73;
-    font-size: 8px;
+    font-size: 12px;
   }
   .group-selection-summary span {
     color: #3f3934;
-    font-size: 8px;
+    font-size: 12px;
     white-space: nowrap;
   }
   .group-option-preview {
@@ -281,11 +281,11 @@ export const ProductConfigurationLayout = styled.div`
     overflow: hidden;
     max-width: 74px;
     padding: 5px 7px;
-    border: 1px solid #e8e1da;
+    border: 1px solid #e5e7eb;
     border-radius: 5px;
     color: #615a54;
     background: #fff;
-    font-size: 8px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -293,7 +293,7 @@ export const ProductConfigurationLayout = styled.div`
     min-height: 26px;
     border-radius: 5px;
     padding: 0 7px;
-    font-size: 8px;
+    font-size: 12px;
   }
   .configuration-list .group-order-actions {
     display: none;

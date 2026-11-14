@@ -3,8 +3,8 @@ import styled from 'styled-components';
 export const Root = styled.section`
   container: courier-compensation / inline-size;
   --courier-ink: #28231f;
-  --courier-muted: #746d66;
-  --courier-border: #e3ddd6;
+  --courier-muted: #68717d;
+  --courier-border: #e5e7eb;
   display: grid;
   gap: 18px;
   min-width: 0;
@@ -31,8 +31,8 @@ export const Root = styled.section`
   .eyebrow,
   .section-kicker {
     color: var(--a);
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -125,7 +125,7 @@ export const Root = styled.section`
   .overview-strip small {
     overflow: hidden;
     color: var(--courier-muted);
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -168,9 +168,9 @@ export const Root = styled.section`
     align-items: center;
     gap: 3px;
     padding: 3px;
-    border: 1px solid #e5dfd9;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
-    background: #f4f2ef;
+    background: #f8f9fb;
   }
 
   .tabs button {
@@ -185,7 +185,7 @@ export const Root = styled.section`
     background: transparent;
     cursor: pointer;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 650;
   }
 
   .tabs button > svg {
@@ -202,7 +202,7 @@ export const Root = styled.section`
     border-radius: 10px;
     color: #fff;
     background: var(--a);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .tabs button.active {
@@ -236,7 +236,7 @@ export const Root = styled.section`
     gap: 11px;
     margin-bottom: 19px;
     padding-bottom: 16px;
-    border-bottom: 1px solid #ece6e0;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   .panel-header.compact {
@@ -268,8 +268,8 @@ export const Root = styled.section`
     border-radius: 6px;
     color: #347363;
     background: #f2f8f6;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
   }
 
@@ -290,8 +290,8 @@ export const Root = styled.section`
   .range-heading > span {
     margin-bottom: 7px;
     color: #4a433d;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .model-selector {
@@ -309,7 +309,7 @@ export const Root = styled.section`
     align-items: start;
     gap: 7px;
     padding: 10px;
-    border: 1px solid #dfd8d1;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     color: #574f48;
     background: #fff;
@@ -331,12 +331,12 @@ export const Root = styled.section`
   }
 
   .model-selector b {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .model-selector small {
     color: #827970;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.35;
   }
 
@@ -367,7 +367,7 @@ export const Root = styled.section`
   .field-help {
     margin: 7px 0 0;
     color: #827a72;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -391,7 +391,7 @@ export const Root = styled.section`
   select,
   textarea {
     width: 100%;
-    border: 1px solid #ddd3ca;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     padding: 0 11px;
     color: #302923;
@@ -416,7 +416,7 @@ export const Root = styled.section`
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    border: 1px solid #ddd3ca;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
     background: #fff;
   }
@@ -430,9 +430,9 @@ export const Root = styled.section`
   .money-input > span,
   .timezone-field svg {
     margin-left: 11px;
-    color: #81776f;
-    font-size: 10px;
-    font-weight: 800;
+    color: #68717d;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .timezone-field {
@@ -459,7 +459,7 @@ export const Root = styled.section`
 
   .range-heading small {
     color: #857c74;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .range {
@@ -468,9 +468,9 @@ export const Root = styled.section`
     gap: 8px;
     align-items: end;
     padding: 9px;
-    border: 1px solid #e6dfd8;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
-    background: #faf9f7;
+    background: #f8f9fb;
   }
 
   .range-number {
@@ -482,7 +482,7 @@ export const Root = styled.section`
     border-radius: 6px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 8%, #fff);
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .panel-actions {
@@ -493,14 +493,14 @@ export const Root = styled.section`
     gap: 12px;
     margin: 20px -20px -20px;
     padding: 10px 20px;
-    border-top: 1px solid #ece6e0;
-    background: #fcfbfa;
+    border-top: 1px solid #e5e7eb;
+    background: #f8f9fb;
   }
 
   .panel-actions > span {
     margin-right: auto;
-    color: #817970;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   .primary,
@@ -514,8 +514,8 @@ export const Root = styled.section`
     border-radius: 7px;
     padding: 0 13px;
     cursor: pointer;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .primary svg,
@@ -531,7 +531,7 @@ export const Root = styled.section`
     background: #d65b35;
   }
   .secondary {
-    border: 1px solid #ddd3ca;
+    border: 1px solid #e5e7eb;
     color: #453d37;
     background: #fff;
   }
@@ -577,7 +577,7 @@ export const Root = styled.section`
     gap: 9px;
     margin-bottom: 16px;
     padding: 10px;
-    border: 1px solid #e3ddd6;
+    border: 1px solid #e5e7eb;
     border-radius: 7px;
   }
 
@@ -593,11 +593,11 @@ export const Root = styled.section`
   }
 
   .rule-state b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .rule-state small {
     color: #7d746c;
-    font-size: 10px;
+    font-size: 12px;
   }
   .rule-state.inherited {
     color: #786125;
@@ -623,15 +623,15 @@ export const Root = styled.section`
     gap: 12px;
     margin-bottom: 8px;
     color: #7e756d;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .orders-toolbar button {
     border: 0;
     color: var(--a);
     background: transparent;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
 
@@ -711,7 +711,7 @@ export const Root = styled.section`
     align-items: center;
     gap: 4px;
     color: #827970;
-    font-size: 10px;
+    font-size: 12px;
   }
   .order-copy small svg {
     width: 10px;
@@ -726,14 +726,14 @@ export const Root = styled.section`
 
   .order-values small {
     color: #827970;
-    font-size: 9px;
+    font-size: 12px;
   }
   .order-values strong {
     font-size: 12px;
   }
   .order-values em {
     color: #a44b3e;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
   }
 
@@ -767,11 +767,11 @@ export const Root = styled.section`
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-    font-size: 11px;
+    font-size: 12px;
   }
 
   .financial-summary > div + div {
-    border-top: 1px solid #eee9e4;
+    border-top: 1px solid #e5e7eb;
   }
   .financial-summary span {
     color: #756d65;
@@ -808,11 +808,11 @@ export const Root = styled.section`
     gap: 2px;
   }
   .balance-direction b {
-    font-size: 10px;
+    font-size: 12px;
   }
   .balance-direction small {
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .balance-direction.pay {
     color: #2d725f;
@@ -839,8 +839,8 @@ export const Root = styled.section`
     justify-content: center;
     gap: 5px;
     margin: 8px 0 0;
-    color: #81786f;
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   .confirmation-note svg {
@@ -871,7 +871,7 @@ export const Root = styled.section`
     font-size: 12px;
   }
   .empty-state span {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .history-panel {
@@ -889,8 +889,8 @@ export const Root = styled.section`
   }
 
   .history-header > span {
-    color: #81786f;
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
   }
 
   .settlements {
@@ -907,7 +907,7 @@ export const Root = styled.section`
   }
 
   .settlement + .settlement {
-    border-top: 1px solid #eee8e2;
+    border-top: 1px solid #e5e7eb;
   }
 
   .settlement-courier {
@@ -939,14 +939,14 @@ export const Root = styled.section`
   }
   .settlement-courier b {
     overflow: hidden;
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .settlement-courier small,
   .settlement-total small {
-    color: #81786f;
-    font-size: 9px;
+    color: #68717d;
+    font-size: 12px;
   }
   .settlement-total {
     display: grid;
@@ -964,8 +964,8 @@ export const Root = styled.section`
     min-height: 24px;
     border-radius: 6px;
     padding: 0 8px;
-    font-size: 9px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .status.warning {

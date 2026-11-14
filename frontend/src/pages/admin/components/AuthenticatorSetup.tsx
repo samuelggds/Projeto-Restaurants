@@ -1,3 +1,4 @@
+import styled from 'styled-components';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import authService from '../../../Services/authService';
@@ -62,10 +63,7 @@ export function AuthenticatorSetup() {
   };
 
   return (
-    <section aria-label="Aplicativo autenticador" style={{
-      padding: 18, border: '1px solid #ded5cd', borderRadius: 14, display: 'grid',
-      gap: 10, background: 'var(--card, #fff)',
-    }}>
+    <AuthenticatorCard aria-label="Aplicativo autenticador">
       <h3 style={{ margin: 0 }}>Aplicativo autenticador</h3>
       <p style={{ margin: 0, fontSize: 13 }}>
         Gere códigos no celular, mesmo sem receber e-mails pelo Outlook.
@@ -103,6 +101,16 @@ export function AuthenticatorSetup() {
           </p>
         </>
       )}
-    </section>
+    </AuthenticatorCard>
   );
 }
+
+const AuthenticatorCard = styled.section`
+  padding:22px; border:1px solid #e5e7eb; border-radius:12px; display:grid; gap:12px; background:#fff;
+  h3 {font-size:17px; font-weight:650;} p {line-height:1.65; color:#68717d;}
+  label {font-size:13px;font-weight:600;}
+  input {width:100%;min-width:0;min-height:44px;border:1px solid #d5dae1;border-radius:8px;padding:10px 12px;background:#fff;font:inherit;}
+  button {justify-self:start;min-height:42px;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#b94a17;font:inherit;font-size:13px;font-weight:600;}
+  button:disabled {opacity:.5;cursor:not-allowed;}
+  @media(max-width:520px){padding:18px 16px;button{width:100%;}}
+`;

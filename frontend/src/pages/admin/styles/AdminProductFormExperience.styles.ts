@@ -8,7 +8,7 @@ export const ProductFormSection = styled.section`
   border: 1px solid #e2dbd4;
   border-radius: 16px;
   background: #fff;
-  box-shadow: 0 10px 25px rgba(44, 34, 27, 0.035);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .section-heading {
     min-width: 0;
     display: grid;
@@ -25,7 +25,7 @@ export const ProductFormSection = styled.section`
     color: var(--a);
     background: color-mix(in srgb, var(--a) 11%, white);
     font-size: 12px;
-    font-weight: 900;
+    font-weight: 650;
   }
   .section-heading h3 {
     margin: 0;
@@ -33,14 +33,14 @@ export const ProductFormSection = styled.section`
   }
   .section-heading > div > small {
     color: var(--a);
-    font-size: 11px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.09em;
   }
   .section-heading p {
     margin: 3px 0 0;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .customization-heading {
@@ -57,8 +57,8 @@ export const ProductFormSection = styled.section`
     padding: 0 12px;
     color: #fff;
     background: var(--a);
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .add-group svg {
@@ -74,9 +74,9 @@ export const ProductFormSection = styled.section`
     align-items: center;
     gap: 10px;
     padding: 13px 14px;
-    border: 1px solid #e6ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 13px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .group-guidance > div {
     min-width: 0;
@@ -93,9 +93,9 @@ export const ProductFormSection = styled.section`
     border-radius: 8px;
     color: var(--a);
     background: color-mix(in srgb, var(--a) 10%, white);
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .group-guidance > div > span {
     min-width: 0;
@@ -103,11 +103,11 @@ export const ProductFormSection = styled.section`
     gap: 2px;
   }
   .group-guidance b {
-    font-size: 11px;
+    font-size: 12px;
   }
   .group-guidance small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.35;
   }
   .group-guidance > svg {

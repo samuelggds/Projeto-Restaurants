@@ -23,7 +23,7 @@ export const DataList = styled.div`
   }
   .data-row span,
   .data-row small {
-    font-size: 10px;
+    font-size: 12px;
     color: var(--muted);
   }
   .data-row strong {
@@ -93,7 +93,7 @@ export const DataList = styled.div`
       height: 32px;
       padding: 0 6px;
       border-radius: 9px;
-      font-size: 11px;
+      font-size: 12px;
     }
   }
 `;

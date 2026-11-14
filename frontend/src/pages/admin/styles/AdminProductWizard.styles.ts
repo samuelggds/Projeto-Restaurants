@@ -28,7 +28,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     align-items: flex-start;
     gap: 12px;
     padding: 18px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
     cursor: pointer;
     background: #fff;
@@ -106,11 +106,11 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .guided-money-input > span {
     display: grid;
     place-items: center;
-    border-right: 1px solid #e8e1da;
+    border-right: 1px solid #e5e7eb;
     color: #554c45;
-    background: #faf8f5;
+    background: #f8f9fb;
     font-size: 13px;
-    font-weight: 800;
+    font-weight: 650;
     line-height: 1;
     user-select: none;
   }
@@ -143,7 +143,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     width: 100%;
     min-width: 0;
     padding: 14px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
     background: #fff;
     display: grid;
@@ -196,14 +196,14 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .featured-setting-copy small {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.45;
   }
   .featured-setting > em {
     color: #8b8782;
-    font-size: 9px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 800;
+    font-weight: 650;
     text-transform: uppercase;
   }
   .featured-setting.selected > em {
@@ -229,7 +229,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     align-items: center;
     gap: 12px;
     padding: 12px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -253,7 +253,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .appearance-card-preview small {
     overflow: hidden;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -273,11 +273,11 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .ingredient-examples span {
     padding: 6px 9px;
-    border: 1px solid #e2dad3;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     color: #635950;
-    background: #faf8f5;
-    font-size: 10px;
+    background: #f8f9fb;
+    font-size: 12px;
     font-weight: 750;
   }
   .review-product-heading {
@@ -287,9 +287,9 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     align-items: center;
     gap: 14px;
     padding: 15px;
-    border: 1px solid #ddd6cf;
+    border: 1px solid #e5e7eb;
     border-radius: 13px;
-    background: #faf8f5;
+    background: #f8f9fb;
   }
   .review-product-heading > img,
   .review-product-heading > svg {
@@ -315,7 +315,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .review-product-heading small {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
   }
   .review-product-heading strong {
     color: var(--a);
@@ -326,8 +326,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     border-radius: 8px;
     color: #315061;
     background: #e7eff2;
-    font-size: 10px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
   }
   .review-sections {
     display: grid;
@@ -340,7 +340,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     align-items: start;
     gap: 10px;
     padding: 12px;
-    border: 1px solid #e5ded7;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     background: #fff;
   }
@@ -356,7 +356,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .review-sections b,
   .review-sections span,
   .review-sections li {
-    font-size: 11px;
+    font-size: 12px;
   }
   .review-sections span,
   .review-sections li {
@@ -371,13 +371,13 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .review-sections button,
   .customer-preview-toggle {
     min-height: 34px;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 0 10px;
     color: var(--a);
     background: #fff;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .customer-preview-toggle {
@@ -418,7 +418,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .customer-product-preview small,
   .customer-product-preview strong,
   .customer-product-preview li span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .customer-product-preview small,
   .customer-product-preview li span {
@@ -445,8 +445,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     gap: 12px;
     padding: 10px 12px;
     color: #34464f;
-    font-size: 11px;
-    font-weight: 850;
+    font-size: 12px;
+    font-weight: 650;
     list-style: none;
     cursor: pointer;
   }
@@ -455,7 +455,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .advanced-template-settings > summary > span {
     color: var(--a);
-    font-size: 10px;
+    font-size: 12px;
   }
   .advanced-template-settings > section {
     border: 0;
@@ -469,8 +469,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     align-items: center;
     gap: 24px;
     padding: 16px 18px;
-    border-top: 1px solid #e4ddd6;
-    border-bottom: 1px solid #e4ddd6;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
     background: #f8f6f3;
   }
   .customization-overview > header {
@@ -482,8 +482,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .customization-start > header small,
   .customization-actions > div > small {
     color: var(--a);
-    font-size: 10px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.07em;
   }
   .customization-overview h4,
@@ -496,7 +496,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   .customization-start p {
     margin: 0;
     color: #726a63;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .customization-steps {
@@ -528,9 +528,9 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     border-radius: 50%;
     color: #766e67;
     background: #fff;
-    font-size: 11px;
+    font-size: 12px;
     font-style: normal;
-    font-weight: 900;
+    font-weight: 650;
   }
   .customization-steps i svg {
     width: 15px;
@@ -542,12 +542,12 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .customization-steps b {
     color: #5d554e;
-    font-size: 11px;
+    font-size: 12px;
   }
   .customization-steps small {
     overflow-wrap: anywhere;
     color: #8a827a;
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.35;
   }
   .customization-steps > li.active i {
@@ -572,7 +572,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     display: grid;
     gap: 15px;
     padding: 18px;
-    border: 1px solid #ded7d0;
+    border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: #fff;
   }
@@ -588,8 +588,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     padding-top: 2px;
   }
   .customization-start-footer > span {
-    color: #7a726b;
-    font-size: 10px;
+    color: #68717d;
+    font-size: 12px;
   }
   .customization-start-footer > button {
     min-height: 34px;
@@ -598,8 +598,8 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
     padding: 0 11px;
     color: #554c45;
     background: #fff;
-    font-size: 10px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
     cursor: pointer;
   }
   .customization-prerequisite {
@@ -624,7 +624,7 @@ export const ProductWizardStepSection = styled(ProductFormSection)`
   }
   .customization-actions span {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
   }
   @media (max-width: 600px) {

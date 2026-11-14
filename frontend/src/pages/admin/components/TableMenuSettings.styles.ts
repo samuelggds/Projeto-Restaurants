@@ -8,13 +8,11 @@ export const Hero = styled.section`
   position: relative;
   overflow: hidden;
   border: 1px solid #263f4e;
-  border-radius: 20px;
+  border-radius: 12px;
   padding: 26px;
-  color: #fff;
-  background:
-    radial-gradient(circle at 90% 18%, #d95d3052, transparent 31%),
-    linear-gradient(128deg, #142733, #243b49 62%, #54382f);
-  box-shadow: 0 18px 38px #2e1d1517;
+  color: #252a31;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -35,19 +33,19 @@ export const Hero = styled.section`
     max-width: 700px;
   }
   .eyebrow {
-    color: #ff9a68;
-    font-size: 10px;
-    font-weight: 900;
+    color: #b94a17;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.13em;
   }
   h2 {
     margin: 7px 0;
-    font-size: clamp(23px, 3vw, 31px);
+    font-size: clamp(21px, 2vw, 28px);
     line-height: 1.08;
   }
   p {
     margin: 0;
-    color: #d7e0e5;
+    color: #68717d;
     font-size: 13px;
     line-height: 1.55;
   }
@@ -57,8 +55,8 @@ export const Hero = styled.section`
     width: 78px;
     height: 78px;
     border: 1px solid #ffffff29;
-    border-radius: 22px;
-    color: #ff8a51;
+    border-radius: 12px;
+    color: #b94a17;
     background: #ffffff12;
     display: grid;
     place-items: center;
@@ -88,6 +86,12 @@ export const Hero = styled.section`
       display: none;
     }
   }
+
+  color: #252a31;
+  box-shadow: none;
+  &::before, &::after { display: none; }
+  button { background: var(--admin-accent, #b94a17); color: #fff; border: 1px solid transparent; min-height: 42px; }
+  button:hover { background: #9e3c10; color: #fff; }
 `;
 
 export const ServiceModeGrid = styled.div`
@@ -111,7 +115,7 @@ export const ServiceModeOption = styled.label<{ $selected: boolean }>`
   div { display: grid; gap: 5px; min-width: 0; }
   strong { color: #1f2937; font-size: 14px; line-height: 1.3; }
   span { color: #626c78; font-size: 12px; line-height: 1.45; }
-  small { color: #965120; font-size: 11px; font-weight: 700; }
+  small { color: #965120; font-size: 12px; font-weight: 700; }
   &:has(input:disabled) { cursor: not-allowed; background: #f7f7f7; border-color: #e5e7eb; }
   &:focus-within { outline: 2px solid #d64d08; outline-offset: 2px; }
 `;
@@ -127,10 +131,10 @@ export const SetupGrid = styled.div`
 
 export const CreateCard = styled.section`
   border: 1px solid var(--border);
-  border-radius: 17px;
+  border-radius: 12px;
   padding: 22px;
   background: #fff;
-  box-shadow: 0 12px 28px #3320130a;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: grid;
   align-content: start;
   gap: 16px;
@@ -159,7 +163,7 @@ export const CreateCard = styled.section`
   p {
     margin-top: 4px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   form {
@@ -167,8 +171,8 @@ export const CreateCard = styled.section`
     gap: 9px;
   }
   label {
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .form-row {
     display: grid;
@@ -178,11 +182,11 @@ export const CreateCard = styled.section`
   input {
     min-width: 0;
     height: 46px;
-    border: 1px solid #ddd4cc;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
     padding: 0 13px;
     outline: none;
-    background: #fcfbfa;
+    background: #f8f9fb;
     font: inherit;
   }
   input:focus {
@@ -191,7 +195,7 @@ export const CreateCard = styled.section`
   }
   .hint {
     color: #806d61;
-    font-size: 10px;
+    font-size: 12px;
   }
   @media (max-width: 480px) {
     padding: 18px;
@@ -210,13 +214,13 @@ export const PrimaryButton = styled.button`
   background: var(--a);
   font: inherit;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 650;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   cursor: pointer;
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--a) 20%, transparent);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   &:hover:not(:disabled) {
     filter: brightness(0.96);
     transform: translateY(-1px);
@@ -233,9 +237,9 @@ export const PrimaryButton = styled.button`
 
 export const GuideCard = styled.section`
   border: 1px solid #eadcd2;
-  border-radius: 17px;
+  border-radius: 12px;
   padding: 22px;
-  background: linear-gradient(145deg, #fffdfb, #fff7f1);
+  background: linear-gradient(145deg, #f8f9fb, #fff7f1);
   display: grid;
   gap: 14px;
   h3,
@@ -247,7 +251,7 @@ export const GuideCard = styled.section`
   }
   > p {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   ol {
@@ -263,7 +267,7 @@ export const GuideCard = styled.section`
     align-items: start;
     gap: 9px;
     color: #514840;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
   li > span {
@@ -275,7 +279,7 @@ export const GuideCard = styled.section`
     box-shadow: 0 3px 9px #5f321211;
     display: grid;
     place-items: center;
-    font-weight: 900;
+    font-weight: 650;
   }
   li b {
     display: block;
@@ -293,7 +297,7 @@ export const Notice = styled.div<{ $tone?: 'error' | 'success' }>`
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
   svg {
     width: 17px;
@@ -303,10 +307,10 @@ export const Notice = styled.div<{ $tone?: 'error' | 'success' }>`
 
 export const TablesPanel = styled.section`
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 22px;
   background: #fff;
-  box-shadow: 0 14px 32px #3320130a;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   display: grid;
   gap: 18px;
   > header {
@@ -325,7 +329,7 @@ export const TablesPanel = styled.section`
   header p {
     margin-top: 4px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
   }
   @media (max-width: 650px) {
     padding: 17px;
@@ -347,13 +351,13 @@ export const TableMetrics = styled.div`
     border: 1px solid #eee4dc;
     border-radius: 12px;
     padding: 12px 13px;
-    background: #fdfbf9;
+    background: #f8f9fb;
     display: grid;
     gap: 3px;
   }
   small {
     color: var(--muted);
-    font-size: 9px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
@@ -366,7 +370,7 @@ export const TableMetrics = styled.div`
       padding: 10px;
     }
     small {
-      font-size: 8px;
+      font-size: 12px;
     }
     b {
       font-size: 17px;
@@ -393,7 +397,7 @@ export const TableCard = styled.article`
   grid-template-columns: minmax(0, 1fr) 82px;
   gap: 14px;
   align-items: center;
-  box-shadow: 0 8px 20px #3c26100a;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   .info {
     min-width: 0;
     display: grid;
@@ -408,7 +412,7 @@ export const TableCard = styled.article`
   }
   p {
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     line-height: 1.4;
   }
   .badges {
@@ -425,8 +429,8 @@ export const TableCard = styled.article`
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 9px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
   .badge.open {
     color: #9a491e;
@@ -483,8 +487,8 @@ export const SecondaryButton = styled.button`
   color: #3d332d;
   background: #fff;
   font: inherit;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -493,7 +497,7 @@ export const SecondaryButton = styled.button`
   &:hover:not(:disabled) {
     border-color: #d6a78e;
     color: var(--a);
-    background: #fffaf7;
+    background: #f8f9fb;
   }
   &:disabled {
     cursor: not-allowed;
@@ -509,8 +513,8 @@ export const DeleteButton = styled.button`
   color: #ad4536;
   background: #fff8f6;
   font: inherit;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 650;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -532,7 +536,7 @@ export const EmptyState = styled.div`
   border-radius: 14px;
   padding: 22px;
   color: var(--muted);
-  background: #fdfbf9;
+  background: #f8f9fb;
   text-align: center;
   display: grid;
   place-content: center;
@@ -551,7 +555,7 @@ export const EmptyState = styled.div`
   }
   span {
     max-width: 380px;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 `;
@@ -573,10 +577,10 @@ export const QrDialog = styled.section`
   max-height: calc(100dvh - 36px);
   overflow-y: auto;
   border: 1px solid #e8dbd2;
-  border-radius: 22px;
+  border-radius: 12px;
   padding: 27px;
   background: #fff;
-  box-shadow: 0 30px 90px #0006;
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   text-align: center;
   display: grid;
   justify-items: center;
@@ -596,8 +600,8 @@ export const QrDialog = styled.section`
   }
   .eyebrow {
     color: var(--a);
-    font-size: 9px;
-    font-weight: 900;
+    font-size: 12px;
+    font-weight: 650;
     letter-spacing: 0.12em;
   }
   h2,
@@ -611,7 +615,7 @@ export const QrDialog = styled.section`
   p {
     max-width: 340px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .qr-large {
@@ -619,7 +623,7 @@ export const QrDialog = styled.section`
     aspect-ratio: 1;
     margin: 8px 0;
     border: 1px solid #e9ddd5;
-    border-radius: 18px;
+    border-radius: 12px;
     padding: 17px;
     background: #fff;
     display: grid;
@@ -637,7 +641,7 @@ export const QrDialog = styled.section`
   }
   @media (max-width: 420px) {
     padding: 24px 17px 17px;
-    border-radius: 18px;
+    border-radius: 12px;
     .dialog-actions {
       grid-template-columns: 1fr;
     }

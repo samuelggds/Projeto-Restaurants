@@ -34,7 +34,7 @@ export const Manager = styled.div`
   .add-banner,
   .image-action,
   .icon-action {
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     background: #fff;
     color: #2b2723;
     cursor: pointer;
@@ -91,15 +91,15 @@ export const Manager = styled.div`
 
 export const BannerCard = styled.article`
   border: 1px solid #e5ded6;
-  border-radius: 18px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 10px 28px rgba(51, 35, 22, 0.055);
+  box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   overflow: hidden;
 
   .banner-header {
     min-height: 64px;
     padding: 12px 16px 12px 20px;
-    border-bottom: 1px solid #eee8e2;
+    border-bottom: 1px solid #e5e7eb;
     background: #fcfaf8;
   }
 
@@ -174,7 +174,7 @@ export const BannerCard = styled.article`
     border-radius: 15px;
     background: #211d19;
     color: #fff;
-    box-shadow: 0 12px 28px rgba(31, 22, 15, 0.18);
+    box-shadow: 0 2px 8px rgba(25, 35, 45, 0.05);
   }
 
   .preview::after {
@@ -227,7 +227,7 @@ export const BannerCard = styled.article`
     color:#fff;
     font-family:'Gabarito','Inter',system-ui,sans-serif;
     font-size: clamp(19px, 2.2vw, 32px);
-    font-weight:900;
+    font-weight: 650;
     line-height: 1.02;
     letter-spacing:-0.02em;
     text-shadow:0 2px 8px rgba(0,0,0,.48);
@@ -259,8 +259,8 @@ export const BannerCard = styled.article`
     border-radius: 10px;
     background: var(--a);
     padding: 8px 14px;
-    font-size: 11px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .image-actions {
@@ -292,7 +292,7 @@ export const BannerCard = styled.article`
     display: block;
     margin-top: 8px;
     color: var(--muted);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.45;
   }
 
@@ -328,9 +328,9 @@ export const BannerCard = styled.article`
   .field input,
   .field textarea {
     width: 100%;
-    border: 1px solid #ded7cf;
+    border: 1px solid #e5e7eb;
     border-radius: 11px;
-    background: #fcfbf9;
+    background: #f8f9fb;
     color: #1f1c19;
     outline: 0;
     padding: 0 13px;
@@ -366,14 +366,14 @@ export const BannerCard = styled.article`
     justify-content: space-between;
     gap: 8px;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 550;
   }
 
   .field-error,
   .image-error {
     color: #a43a31;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 650;
   }
 

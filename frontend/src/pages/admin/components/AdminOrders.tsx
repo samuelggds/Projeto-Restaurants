@@ -210,7 +210,7 @@ export function AdminOrders({
   return (
     <S.OrdersWorkspace>
       <header className="orders-command-header">
-        <div><h1>Gestão de pedidos</h1><p>Acompanhe a operação em tempo real e mantenha o salão fluindo.</p></div>
+        <div><h2>Gestão de pedidos</h2><p>Acompanhe a operação em tempo real e mantenha o salão fluindo.</p></div>
         <div className="command-context"><span><Activity aria-hidden="true" />Operação em acompanhamento</span><span><ShoppingBag aria-hidden="true" />{restaurantName}</span></div>
       </header>
       <section className="orders-metrics" aria-label="Indicadores operacionais">

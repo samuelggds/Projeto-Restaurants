@@ -20,6 +20,8 @@ import { createRestaurantMonogram } from '../../utils/restaurantMonogram';
 import { EmployeeDrawer } from './components/EmployeeDrawer';
 import { BrandSettings } from './components/BrandSettings';
 import { AdminSettingsContent } from './components/AdminSettingsContent';
+import { AdminSectionGuide } from './components/AdminSectionGuide';
+import { adminAreaGuides, adminSettingsGuides } from './config/adminScreenGuides';
 import { PromotionsSettings } from './components/PromotionsSettings';
 const AdminManagement = lazy(() =>
   import('./components/AdminManagement').then((module) => ({ default: module.AdminManagement })),
@@ -68,7 +70,7 @@ const EmployeeList = lazy(() =>
 );
 
 type PendingNavigation =
-  { kind: 'area'; area: AdminSection } | { kind: 'section'; section: SettingsSection };
+  { kind: 'area'; area: AdminSection; settingsSection?: SettingsSection } | { kind: 'section'; section: SettingsSection };
 type PendingChangesSource = 'settings' | 'product';
 
 
@@ -504,19 +506,24 @@ export function AdminPage({
       setSection(navigation.section);
       return;
     }
+    if (navigation.settingsSection) setSection(navigation.settingsSection);
     if (navigation.area === 'settings' && onOpenSettings) onOpenSettings();
     else setArea(navigation.area);
     if (navigation.area === 'help') clearUnreadEmployeeIssues();
     setMobile(false);
   };
 
-  const changeArea = (nextArea: AdminSection) => {
+  const changeArea = (nextArea: AdminSection, settingsSection?: SettingsSection) => {
     if (nextArea === area) {
+      if (nextArea === 'settings' && settingsSection) {
+        changeSettingsSection(settingsSection);
+        return;
+      }
       if (nextArea === 'catalog') setCatalogImportOpen(false);
       setMobile(false);
       return;
     }
-    const navigation: PendingNavigation = { kind: 'area', area: nextArea };
+    const navigation: PendingNavigation = { kind: 'area', area: nextArea, settingsSection };
     if (editingProduct !== undefined) {
       if (productDrawerRef.current?.hasUnsavedChanges()) {
         setPendingChangesSource('product');
@@ -605,6 +612,7 @@ export function AdminPage({
   return (
     <S.Root
       data-admin-root
+      data-admin-area={area}
       $primary={settings.primaryColor}
       $settings={area === 'settings'}
       $sidebarOpen={sidebarOpen}
@@ -742,29 +750,17 @@ export function AdminPage({
           <div>
             <small>
               PAINEL &nbsp;/&nbsp;{' '}
-              {area === 'overview' ? 'OVERVIEW' : area === 'customers' || area === 'employees' || area === 'coupons'
-                ? title.toLocaleUpperCase('pt-BR')
-                : area.toUpperCase()}
+              {title.toLocaleUpperCase('pt-BR')}
             </small>
             <h1>{title}</h1>
             <p>
               {area === 'overview'
                 ? `Acompanhe e gerencie a operação do ${settings.restaurantName} em um só lugar.`
-                : area === 'support'
-                  ? 'Atenda clientes, acompanhe conversas e resolva solicitações dos pedidos.'
-                : area === 'employees'
-                ? 'Somente o administrador cria e edita funcionários.'
-                : area === 'subscriptions'
-                  ? 'Troque seu plano e acompanhe o pagamento das mensalidades.'
-                  : area === 'managed-service'
-                    ? 'Acompanhe sua implantação ou solicite atualizações para a equipe GastroNexa.'
-                    : area === 'settings'
-                      ? 'Personalize e gerencie as informações do restaurante.'
-                      : area === 'catalog' && catalogImportOpen
-                        ? 'Use um link público do iFood ou uma foto nítida do seu cardápio.'
-                        : area === 'catalog'
-                          ? 'Gerencie produtos, combos, ingredientes e categorias.'
-                          : 'Acompanhe e gerencie a operação em um só lugar.'}
+                : area === 'settings'
+                  ? adminSettingsGuides[section].description
+                  : area === 'catalog' && catalogImportOpen
+                    ? 'Importe produtos de um link público do iFood ou de uma foto do seu cardápio.'
+                    : adminAreaGuides[area].description}
             </p>
           </div>
           <S.TopActions>
@@ -832,6 +828,7 @@ export function AdminPage({
             area === 'managed-service'
           }
         >
+          <AdminSectionGuide area={area} section={section} onOpenSettings={(destination) => changeArea('settings', destination)} />
           <Suspense
             fallback={
               <S.Card role="status">
@@ -1003,6 +1000,8 @@ export function AdminPage({
                 openSupportCount={openSupportCount}
                 onSupportUpdated={refreshSupportCount}
                 onNavigate={(destination) => void changeArea(destination)}
+                onOpenSettings={(destination) => changeArea('settings', destination)}
+                onViewStore={onViewStore}
                 onUpdateOrderStatus={async (id, status) => {
                   await onUpdateOrderStatus?.(id, status);
                 }}
