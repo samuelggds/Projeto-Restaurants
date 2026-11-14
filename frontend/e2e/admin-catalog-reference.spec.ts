@@ -119,7 +119,7 @@ for (const width of [1440, 390]) {
     });
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/admin');
-    await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+    await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
     await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
     const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
     // Mounting the editor must not depend on a lazy module arriving after click.
@@ -233,7 +233,7 @@ test('cadastro mobile mantém o rodapé acessível ao rolar o conteúdo', async 
   await mockCatalog(page);
   await page.setViewportSize({ width: 390, height: 500 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação administrativa móvel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: 'Novo produto', exact: true }).first().click();
   const editor = page.getByRole('dialog', { name: 'Novo produto', exact: true });
   const body = editor.locator('.drawer-body');
@@ -437,7 +437,7 @@ test('Cardápio mantém grade e categorias responsivas na referência visual', a
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação administrativa móvel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Cardápio', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Importar cardápio' })).toBeVisible();
@@ -491,7 +491,7 @@ test('Ingredientes e wizard mantêm layout e retornam ao catálogo', async ({ pa
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   await page.getByRole('button', { name: 'Ingredientes (7)' }).click();
   await expect(page.getByText('Como funciona?')).toBeVisible();
@@ -517,7 +517,7 @@ test('Ingredientes e wizard mantêm layout e retornam ao catálogo', async ({ pa
   await expect(ingredientWizard.getByText('Ingrediente pronto para ser reutilizado')).toBeVisible();
   await waitForTransientAnimations(ingredientWizard);
   const wizardDialog = ingredientWizard.locator('form');
-  await expect(wizardDialog).toHaveCSS('background-color', 'rgb(251, 250, 248)');
+  await expect(wizardDialog).toHaveCSS('background-color', 'rgb(248, 249, 251)');
   await expect(wizardDialog).toHaveCSS('opacity', '1');
   const wizardBox = await wizardDialog.boundingBox();
   expect(Number(wizardBox?.width)).toBeGreaterThan(900);
@@ -558,7 +558,7 @@ test('Editor de pizza mantém escolhas e prévia do cliente', async ({ page }, t
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
@@ -619,7 +619,7 @@ test('Editor do produto sem opções permite configurar a primeira etapa', async
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
@@ -664,7 +664,7 @@ test('Importação iFood atualiza produtos sem causar overflow', async ({ page }
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   const productCards = page.locator('article').filter({ has: page.locator('.product-mode') });
   await expect(productCards).toHaveCount(5);
@@ -702,7 +702,7 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
   await mockCatalog(page);
   await page.setViewportSize({ width: 1365, height: 768 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: 'Categorias', exact: true }).click();
 
   const cards = page.locator('[data-category-card]');
@@ -761,7 +761,7 @@ test('admin reorganiza categorias pelo próprio card e salva a ordem', async ({ 
 test('trocar de aba com produto alterado exige salvar ou descartar', async ({ page }) => {
   await mockCatalog(page);
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
 
   const openProductAndChangeName = async (name: string) => {
     const productCard = page
@@ -791,7 +791,7 @@ test('trocar de aba com produto alterado exige salvar ou descartar', async ({ pa
   await expect(editor).toHaveCount(0, { timeout: 7000 });
   await expect(page.getByRole('heading', { name: 'Gestão de pedidos' })).toBeVisible({ timeout: 7000 });
 
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).first().click();
+  await page.getByRole('navigation', { name: 'Navegação principal do painel' }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   editor = await openProductAndChangeName('Macarrão salvo antes de navegar');
   await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
   navigationDialog = page.getByRole('dialog', {
