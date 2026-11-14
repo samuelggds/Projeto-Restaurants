@@ -633,11 +633,11 @@ function ManagedRestaurantWorkspaceContent({ restaurantId, onClose }: WorkspaceP
             <h2>{data?.restaurant.name || `Restaurante #${restaurantId}`}</h2>
             <p>
               {data?.restaurant.plan === 'GESTAO_TOTAL'
-                ? 'Gestão Total'
+                ? 'Avançado (contrato anterior)'
                 : data?.restaurant.plan === 'PREMIUM'
-                  ? 'Premium'
+                  ? 'Avançado'
                   : data?.restaurant.plan === 'BASICO'
-                    ? 'Básico'
+                    ? 'Entrada'
                     : data?.restaurant.plan || 'Plano não identificado'} • alterações auditadas
             </p>
           </div>
