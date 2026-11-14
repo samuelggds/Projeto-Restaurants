@@ -145,7 +145,7 @@ test('admin monta combo por etapas e envia as escolhas configuradas', async ({ p
 
   await page.setViewportSize({ width: 1365, height: 900 });
   await page.goto('/admin');
-  await page.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await page.getByRole('navigation', { name: /Navegação (principal do painel|administrativa móvel)/ }).getByRole('button', { name: 'Cardápio', exact: true }).click();
   await page.getByRole('button', { name: 'Combos', exact: true }).click();
   await page.getByRole('button', { name: 'Novo combo', exact: true }).click();
 
