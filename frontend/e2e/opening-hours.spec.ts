@@ -173,7 +173,7 @@ test('admin configura os sete dias e alterna entre pausa manual e agenda', async
   await mockAdminApi(page, state);
   await page.goto('/admin');
 
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: /^Configurações\s*(?:Ajustes)?$/ }).click();
   await page.getByRole('button', { name: 'Horários', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Horários e recebimento de pedidos' }),
