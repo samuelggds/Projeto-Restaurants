@@ -449,7 +449,19 @@ test('admin agenda plano e abre o pagamento Pix pela cobrança atual', async ({ 
   await page.getByRole('tab', { name: /^Planos/ }).click();
 
   const basicPlan = page.locator('article[aria-label^="Plano Básico"]');
-  await basicPlan.getByRole('button', { name: 'Escolher para o próximo ciclo' }).click();
+  const chooseBasicPlan = basicPlan.getByRole('button', {
+    name: 'Escolher para o próximo ciclo',
+  });
+  await expect(chooseBasicPlan).toBeEnabled();
+  // In WebKit, the button may be only a few pixels inside the viewport after
+  // automatic scrolling. Center it before a real pointer click so the action
+  // targets the button rather than the adjacent content at the viewport edge.
+  await chooseBasicPlan.evaluate((button) => {
+    button.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+  });
+  await expect(chooseBasicPlan).toBeInViewport({ ratio: 1 });
+  await chooseBasicPlan.click();
+  // Do not mock out or bypass the action: the POST must still reach the API mock.
   await expect.poll(() => state.requestedPlan).toBe('BASICO');
   await expect(page.getByText('Troca de plano agendada', { exact: true })).toBeVisible();
 
