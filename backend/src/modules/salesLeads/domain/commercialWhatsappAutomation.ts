@@ -51,6 +51,14 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
   if (!INBOUND_AUTO_REPLY_KINDS.has(kind)) return null;
   if (!input.automationEnabled) return 'automation_disabled';
 
+  // Form leads may receive their initial greeting 24/7 only with AI enabled.
+  // Never override a conversation taken over by a human or explicitly closed.
+  if (kind === 'FORM_GREETING' && input.aiEnabled === true) {
+    if (input.mode === 'HUMAN') return 'human_mode';
+    if (input.mode === 'CLOSED') return 'conversation_closed';
+    return null;
+  }
+
   // AI and timeout follow-up run 24/7 in BOT. HUMAN is never auto-
   // overridden here; only an explicitly timed customer handoff may expire.
   if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT') {
