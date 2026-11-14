@@ -16,7 +16,7 @@ export async function premiumNfcPlanMiddleware(req: Request, res: Response, next
     if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
         code: 'PREMIUM_NFC_PLAN_REQUIRED',
-        error: 'Cartões NFC disponíveis apenas nos planos Premium e Gestão Total com assinatura ativa ou em teste.',
+        error: 'Cartões NFC disponíveis no plano Avançado com assinatura ativa ou em teste, sujeitos à homologação financeira.',
       });
     }
     return next();
@@ -38,7 +38,7 @@ export async function premiumNfcGuestPlanMiddleware(req: Request, res: Response,
     if (!hasNfcCardAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
         code: 'PREMIUM_NFC_PLAN_REQUIRED',
-        error: 'Acesso NFC disponível somente nos planos Premium e Gestão Total ativos ou em teste.',
+        error: 'Acesso NFC disponível no plano Avançado ativo ou em teste, sujeito à homologação financeira.',
       });
     }
     return next();
