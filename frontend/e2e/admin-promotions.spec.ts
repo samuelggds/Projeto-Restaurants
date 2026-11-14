@@ -195,8 +195,8 @@ test('visão geral administrativa mantém leitura e ações em desktop e mobile'
   await page.goto('/admin');
 
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Tudo pronto para os próximos pedidos.' })).toBeVisible();
-  await expect(page.getByText('Resumo de hoje')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vamos cuidar do seu restaurante?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No dia a dia' })).toBeVisible();
   await expect(page.getByText('Saúde do cardápio')).toBeVisible();
   await expect(page.getByRole('button', { name: /Acompanhar pedidos/i })).toBeVisible();
 
@@ -210,7 +210,7 @@ test('visão geral administrativa mantém leitura e ações em desktop e mobile'
 
   await assertNoHorizontalOverflow();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('heading', { name: 'Tudo pronto para os próximos pedidos.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Vamos cuidar do seu restaurante?' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Gerenciar cardápio/i })).toBeVisible();
   await assertNoHorizontalOverflow();
 
@@ -229,7 +229,7 @@ test('admin cadastra desconto em Configurações e fidelidade em Gestão de Cupo
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
   await captureReadmeScreenshot(page, 'admin-dashboard.png', { fullPage: true });
 
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: 'Configurações' }).last().click();
   await page.getByRole('button', { name: 'Descontos de produtos' }).click();
   await expect(page.getByRole('heading', { name: 'Descontos nos produtos' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Cupons de Fidelidade' })).toHaveCount(0);
@@ -327,7 +327,7 @@ test('seletor de configurações e campanhas ficam contidos no celular', async (
   await page.goto('/admin');
 
   await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: 'Configurações' }).last().click();
   const settingsNav = page.getByRole('navigation', { name: 'Seções das configurações' });
   await expect(settingsNav).toBeVisible();
   await settingsNav.getByRole('button', { name: 'Descontos de produtos' }).click();
