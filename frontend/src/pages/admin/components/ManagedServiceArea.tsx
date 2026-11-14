@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   CheckCircle2,
   Clock3,
@@ -117,9 +117,7 @@ export default function ManagedServiceArea() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const planName = useMemo(() => {
-    return data?.plan ? displayCommercialPlan(data.plan) : 'Não identificado';
-  }, [data?.plan]);
+  const planName = data?.plan ? displayCommercialPlan(data.plan) : 'Não identificado';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
