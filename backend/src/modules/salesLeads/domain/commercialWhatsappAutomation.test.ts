@@ -49,24 +49,31 @@ test('mantém o bot silencioso fora do horário e durante atendimento humano', (
   );
 });
 
-test('saudação automática de lead também respeita horário e estado da conversa', () => {
+test('saudação de lead funciona 24h com IA habilitada, mas respeita consentimento operacional e modo humano', () => {
+  const base = { kind: 'FORM_GREETING', mode: 'BOT', automationEnabled: true };
   assert.equal(
-    commercialWhatsappAutoReplySuppressionReason({
-      kind: 'FORM_GREETING',
-      mode: 'BOT',
-      automationEnabled: true,
-      open: false,
-    }),
+    commercialWhatsappAutoReplySuppressionReason({ ...base, open: false, aiEnabled: false }),
     'outside_hours',
   );
   assert.equal(
-    commercialWhatsappAutoReplySuppressionReason({
-      kind: 'FORM_GREETING',
-      mode: 'BOT',
-      automationEnabled: true,
-      open: true,
-    }),
+    commercialWhatsappAutoReplySuppressionReason({ ...base, open: false, aiEnabled: true }),
     null,
+  );
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({ ...base, open: true, aiEnabled: false }),
+    null,
+  );
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({ ...base, mode: 'HUMAN', open: false, aiEnabled: true }),
+    'human_mode',
+  );
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({ ...base, mode: 'CLOSED', open: false, aiEnabled: true }),
+    'conversation_closed',
+  );
+  assert.equal(
+    commercialWhatsappAutoReplySuppressionReason({ ...base, automationEnabled: false, open: false, aiEnabled: true }),
+    'automation_disabled',
   );
 });
 

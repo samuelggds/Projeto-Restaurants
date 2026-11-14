@@ -12,6 +12,8 @@ A implementação não configura, contrata nem requer a WhatsApp Business Platfo
 - Para homologar, configurar `OPENAI_API_KEY` em secret de backend, `COMMERCIAL_WHATSAPP_AI_MODEL=gpt-6.1-sol`, e habilitar a flag **somente em homologação**; nenhuma chave entra no frontend ou no Git.
 - O Docker de produção propaga apenas as variáveis explícitas de ambiente para backend/worker. Reiniciar/deployar os serviços para aplicar nova configuração.
 - O switch do Super Admin `commercialWhatsappEnabled`, o horário configurado e os modos BOT/HUMAN/CLOSED continuam valendo; a IA não responde quando a automação estiver desligada nem substitui um humano.
+- A saudação ao contato do formulário, quando há consentimento, pode ser enfileirada fora do horário humano **somente** com IA comercial habilitada. Sem IA, respeita o horário de atendimento. O worker confirma o estado da conversa, da automação e da conexão antes do envio; recebimento do e-mail não comprova entrega no WhatsApp.
+- O backend registra motivos seguros quando a saudação do formulário não entra na fila e erros técnicos sem armazenar telefone, e-mail ou mensagem nos logs. A outbox mantém suas regras de idempotência e de não repetição de entregas incertas.
 - Há um atraso de 15 segundos e reserva compartilhada entre workers; a resposta é gerada na fase de entrega, não no webhook, para permitir suprimir mensagens substituídas.
 - Uma pergunta comercial, recebida no modo BOT e durante o horário, consulta o catálogo público **ativo** via `PlatformPlanCatalogService.list({ activeOnly:true })` a cada resposta. Não utiliza dados de faturas/assinaturas de restaurante nem de outras entidades privadas.
 
