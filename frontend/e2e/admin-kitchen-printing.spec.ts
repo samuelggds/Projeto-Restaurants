@@ -129,7 +129,7 @@ async function mockAdminApi(page: Page, state: TestState) {
 async function openPrintingSettings(page: Page, mobile = false) {
   await page.goto('/admin');
   if (mobile) await page.getByRole('button', { name: 'Abrir menu administrativo' }).click();
-  await page.getByRole('button', { name: 'Configurações' }).click();
+  await page.getByRole('button', { name: /^Configurações\s*(?:Ajustes)?$/ }).click();
   await page.getByRole('button', { name: 'Impressora da cozinha', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Comandas impressas sem complicação' }),
