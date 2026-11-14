@@ -16,7 +16,7 @@ export async function premiumAiPlanMiddleware(req: Request, res: Response, next:
 
     if (!hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) {
       return res.status(403).json({
-        error: 'Os recursos de IA estão disponíveis nos planos Premium e Gestão Total.',
+        error: 'Os recursos de IA estão disponíveis no plano Avançado com assinatura ativa ou em teste.',
         code: 'PREMIUM_AI_PLAN_REQUIRED',
       });
     }

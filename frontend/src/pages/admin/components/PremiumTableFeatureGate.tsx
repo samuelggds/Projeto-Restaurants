@@ -246,7 +246,7 @@ export function PremiumTableFeatureGate({ children }: { children: ReactNode }) {
       <Hero>
         <div>
           <span className="badge">
-            <Sparkles size={14} /> RECURSO AVANÇADO
+            <Sparkles size={14} /> QR CODE DE MESA
           </span>
           <h2>Sistema de mesas disponível no Entrada e Avançado</h2>
           <p>

@@ -147,20 +147,21 @@ async function mockAdminApi(page: Page, state: BillingTestState) {
         body: JSON.stringify([
           {
             plan: 'BASICO',
-            name: 'Básico',
-            monthlyFee: 99.9,
+            name: 'Entrada',
+            monthlyFee: 79.9,
             trialDays: 7,
-            features: ['Sistema de delivery', 'Suporte padrão'],
+            features: ['Sistema de delivery', 'Cardápio digital com QR Code de mesa', 'Suporte padrão'],
           },
           {
             plan: 'PREMIUM',
-            name: 'Premium',
-            monthlyFee: 199.9,
+            name: 'Avançado',
+            monthlyFee: 149.9,
             trialDays: 15,
             features: [
               'Sistema de delivery',
               'Cardápio digital com QR Code de mesa',
               'Implantação inicial assistida',
+              'Gestão assistida contínua sob solicitação',
               'Suporte prioritário',
             ],
           },
@@ -371,18 +372,18 @@ test('central financeira mantém leitura clara e responsiva em desktop e mobile'
     'border-radius',
     '8px',
   );
-  await expect(page.locator('article[aria-label^="Plano Básico"]')).toHaveCSS(
+  await expect(page.locator('article[aria-label^="Plano Entrada"]')).toHaveCSS(
     'border-radius',
     '8px',
   );
   const planCards = page.locator('article[aria-label^="Plano "]');
-  await expect(planCards).toHaveCount(3);
-  await expect(planCards.nth(0)).toHaveAttribute('aria-label', /Plano Básico/);
-  await expect(planCards.nth(1)).toHaveAttribute('aria-label', /Plano Premium/);
-  await expect(planCards.nth(2)).toHaveAttribute('aria-label', /Plano Gestão Total/);
-  const managedPlan = page.locator('article[aria-label^="Plano Gestão Total"]');
-  await expect(managedPlan).toBeVisible();
-  await expect(managedPlan).toContainText('299,90');
+  await expect(planCards).toHaveCount(2);
+  await expect(planCards.nth(0)).toHaveAttribute('aria-label', /Plano Entrada/);
+  await expect(planCards.nth(1)).toHaveAttribute('aria-label', /Plano Avançado/);
+  const advancedPlan = page.locator('article[aria-label^="Plano Avançado"]');
+  await expect(advancedPlan).toBeVisible();
+  await expect(advancedPlan).toContainText('149,90');
+  await expect(page.getByRole('article', { name: /Plano Gestão Total/ })).toHaveCount(0);
   await expect(page.getByText('Troca disponível')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
@@ -448,7 +449,7 @@ test('admin agenda plano e abre o pagamento Pix pela cobrança atual', async ({ 
   await openBilling(page, state);
   await page.getByRole('tab', { name: /^Planos/ }).click();
 
-  const basicPlan = page.locator('article[aria-label^="Plano Básico"]');
+  const basicPlan = page.locator('article[aria-label^="Plano Entrada"]');
   const chooseBasicPlan = basicPlan.getByRole('button', {
     name: 'Escolher para o próximo ciclo',
   });

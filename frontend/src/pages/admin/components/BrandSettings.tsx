@@ -243,11 +243,11 @@ export function BrandSettings({
             <small>
               {landingAllowed
                 ? settings.customDomainRequested
-                  ? 'Exclusiva do Gestão Total. O domínio principal mostra a página do restaurante e o cardápio pode usar cardapio.seudominio.com.br.'
+                  ? 'Disponível no Avançado. O domínio principal mostra a página do restaurante e o cardápio pode usar cardapio.seudominio.com.br.'
                   : 'Primeiro escolha usar domínio próprio para liberar a página personalizada.'
-                : normalizedPlan === 'GESTAO_TOTAL'
-                  ? 'Aguardando a assinatura Gestão Total ficar ativa.'
-                  : 'A página personalizada do restaurante é exclusiva do plano Gestão Total.'}
+                : normalizedPlan === 'BASICO'
+                  ? 'Disponível no plano Avançado. No Entrada, use o endereço GastroNexa /slug.'
+                  : 'Aguardando uma assinatura Avançado ativa.'}
             </small>
           </S.Field>
         </S.FormGrid>

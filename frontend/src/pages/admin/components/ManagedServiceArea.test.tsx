@@ -63,7 +63,7 @@ describe('ManagedServiceArea', () => {
     expect(container.textContent).not.toContain('Seu plano inclui a implantação inicial');
   });
 
-  it('Básico mostra implantação única de até 50 produtos sem gestão contínua', async () => {
+  it('Entrada mostra implantação única de até 50 produtos sem gestão contínua', async () => {
     mocks.get.mockResolvedValue({
       data: {
         plan: 'BASICO',
@@ -81,12 +81,13 @@ describe('ManagedServiceArea', () => {
     await act(async () => root.render(<ManagedServiceArea />));
     await flush();
 
+    expect(container.textContent).toContain('Entrada');
     expect(container.textContent).toContain('Até 50 produtos');
     expect(container.textContent).toContain('Seu plano inclui a implantação inicial');
     expect(container.querySelector('form')).toBeNull();
   });
 
-  it('Gestão Total envia solicitação sem permitir restaurantId no payload', async () => {
+  it('Contrato anterior conserva gestão contínua sem enviar restaurantId no payload', async () => {
     mocks.get.mockResolvedValue({
       data: {
         plan: 'GESTAO_TOTAL',
@@ -105,6 +106,7 @@ describe('ManagedServiceArea', () => {
     await act(async () => root.render(<ManagedServiceArea />));
     await flush();
 
+    expect(container.textContent).toContain('Avançado (contrato anterior)');
     expect(container.textContent).toContain('Produtos ilimitados na implantação inicial');
 
     const inputs = container.querySelectorAll('input');

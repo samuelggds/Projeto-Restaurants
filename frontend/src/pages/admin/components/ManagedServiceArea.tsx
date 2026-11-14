@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   CheckCircle2,
   Clock3,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import api from '../../../Services/api';
 import * as S from './ManagedServiceArea.styles';
+import { displayCommercialPlan } from '../../../utils/commercialPlanPresentation';
 
 type ManagedRequest = {
   id: string;
@@ -116,12 +117,7 @@ export default function ManagedServiceArea() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const planName = useMemo(() => {
-    if (data?.plan === 'GESTAO_TOTAL') return 'Gestão Total';
-    if (data?.plan === 'PREMIUM') return 'Avançado';
-    if (data?.plan === 'BASICO') return 'Entrada';
-    return data?.plan || 'Não identificado';
-  }, [data?.plan]);
+  const planName = data?.plan ? displayCommercialPlan(data.plan) : 'Não identificado';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -183,8 +179,9 @@ export default function ManagedServiceArea() {
             <b>{implementationStatus[data.implementation?.status || ''] || 'Preparando implantação'}</b>
           </div>
           <p>
-            A equipe GastroNexa organiza a configuração inicial do restaurante. No Básico e no Premium,
-            esse serviço acontece uma única vez; no Gestão Total, a gestão pode continuar por solicitações.
+            A equipe GastroNexa organiza a implantação inicial dos planos Entrada e Avançado.
+            O Entrada inclui uma implantação única de até 50 produtos. O Avançado também inclui
+            gestão assistida contínua, com solicitações de atualizações após a implantação.
           </p>
           {data.implementation ? (
             <div className="meta">
@@ -203,8 +200,9 @@ export default function ManagedServiceArea() {
         <S.Upgrade>
           <ShieldCheck aria-hidden="true" />
           <div>
-            <strong>Implantação assistida disponível a partir do Premium</strong>
-            <p>No Básico, o próprio restaurante configura e mantém seu cardápio.</p>
+            <strong>Implantação inicial assistida nos planos Entrada e Avançado</strong>
+            <p>No Entrada, a implantação inicial pode ser assistida uma única vez; depois,
+              o administrador gerencia o cardápio. O Avançado inclui gestão contínua.</p>
           </div>
         </S.Upgrade>
       )}

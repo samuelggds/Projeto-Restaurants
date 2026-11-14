@@ -28,6 +28,7 @@ import monthlyBillingService, {
   type PlanCode,
   type Subscription,
 } from '../../../Services/monthlyBillingService';
+import { displayCommercialPlan, isOfferedCommercialPlan } from '../../../utils/commercialPlanPresentation';
 import { clearSystemBlockState, findBlockingInvoice } from '../../../Services/systemBlock';
 import { adminErrorMessage } from '../utils/adminErrorMessage';
 import * as S from './MonthlyBilling.styles';
@@ -46,6 +47,7 @@ const benefits: Record<PlanCode, string[]> = {
   BASICO: [
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
+    'Gestão de pedidos e mesas',
     'Implantação inicial assistida uma única vez',
     'Cadastro inicial de até 50 produtos, além de categorias, combos, banners e configurações',
     'Após a implantação, o próprio ADMIN gerencia o cardápio e as configurações',
@@ -53,23 +55,25 @@ const benefits: Record<PlanCode, string[]> = {
     'Suporte padrão',
   ],
   PREMIUM: [
+    'Tudo do Plano Entrada',
     'Sistema de delivery',
     'Cardápio digital com QR Code de mesa',
+    'Cartões NFC com comandas individuais (sujeito à homologação financeira)',
     'Implantação inicial assistida',
-    'Cadastro inicial de até 100 produtos',
-    'Suporte prioritário',
-    'GastroNexa IA com US$ 2,00 de créditos iniciais',
-    'Gestão assistida contínua sob solicitação',
-    'Página personalizada opcional no domínio próprio',
-  ],
-  GESTAO_TOTAL: [
-    'Tudo do Plano Premium',
-    'Implantação inicial assistida',
+    'Cadastro assistido de produtos, categorias e combos sem limite de quantidade',
     'Gestão assistida contínua, inclusive com atualizações diárias sob solicitação',
     'Atualizações de produtos, preços, categorias, combos, banners e configurações',
+    'Endereço público GastroNexa com /slug',
+    'Domínio próprio opcional com gestão técnica pela GastroNexa',
+    'Página personalizada do restaurante opcional no domínio próprio',
+    'Cardápio em subdomínio quando a página personalizada estiver ativa',
     'Solicitações de atualização ilimitadas',
     'Suporte prioritário',
-    'GastroNexa IA',
+    'GastroNexa IA com US$ 2,00 de créditos iniciais',
+  ],
+  GESTAO_TOTAL: [
+    // Historical contracts retain their original API plan and entitlements.
+    'Gestão assistida contínua sob contrato anterior',
   ],
 };
 
@@ -88,19 +92,12 @@ const fallbackPlans: BillingPlan[] = [
     trialDays: 15,
     features: benefits.PREMIUM,
   },
-  {
-    plan: 'GESTAO_TOTAL',
-    name: 'Gestão Total',
-    monthlyFee: 299.9,
-    trialDays: 15,
-    features: benefits.GESTAO_TOTAL,
-  },
 ];
 
 const planDescriptions: Record<PlanCode, string> = {
-  BASICO: 'O essencial para receber e gerenciar pedidos de delivery.',
-  PREMIUM: 'Operação completa com implantação inicial assistida para começar pronto.',
-  GESTAO_TOTAL: 'Tudo do Premium com gestão contínua sob solicitação da equipe GastroNexa.',
+  BASICO: 'Delivery, pedidos e atendimento por QR Code de mesa.',
+  PREMIUM: 'Tudo do Entrada, com NFC, IA, domínio próprio opcional e gestão assistida contínua.',
+  GESTAO_TOTAL: 'Contrato anterior com gestão assistida contínua.',
 };
 
 const planIcons = { BASICO: Zap, PREMIUM: Sparkles, GESTAO_TOTAL: ShieldCheck };
@@ -269,13 +266,17 @@ export function MonthlyBilling({
   };
   const displayedPlans = useMemo(
     () =>
-      [...(plans.length ? plans : fallbackPlans)].sort(
-        (a, b) => PLAN_ORDER[a.plan] - PLAN_ORDER[b.plan],
-      ),
+      [...(plans.length ? plans : fallbackPlans)]
+        .filter((plan) => isOfferedCommercialPlan(plan.plan))
+        .sort((a, b) => PLAN_ORDER[a.plan] - PLAN_ORDER[b.plan]),
     [plans],
   );
   const active = subscription?.status === 'ATIVA' || subscription?.status === 'TESTE';
   const currentPlan = displayedPlans.find((plan) => plan.plan === subscription?.plan);
+  // A historical GESTAO_TOTAL subscription is not offered to new customers.
+  // Preserve its billed amount from the invoice, never substitute the current Avançado tariff.
+  const historicalPlan = subscription?.plan === 'GESTAO_TOTAL';
+  const currentPlanName = subscription?.plan ? displayCommercialPlan(subscription.plan) : 'Não definido';
   const scheduledPlan = displayedPlans.find((plan) => plan.plan === subscription?.scheduledPlan);
   const planChoice = subscription?.planChangeEligibility;
   const currentInvoice =
@@ -323,13 +324,13 @@ export function MonthlyBilling({
             </span>
             <span>
               <small>Seu plano</small>
-              <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
+              <strong>{currentPlanName}</strong>
             </span>
           </div>
           <div>
             <span>
               <small>Mensalidade</small>
-              <strong>{currentPlan ? money(currentPlan.monthlyFee) : 'A definir'}</strong>
+              <strong>{currentPlan ? money(currentPlan.monthlyFee) : historicalPlan ? 'Conforme contrato e fatura' : 'A definir'}</strong>
             </span>
           </div>
           <div>
@@ -357,12 +358,12 @@ export function MonthlyBilling({
               <span>
                 <Layers3 aria-hidden="true" />
                 <small>Plano</small>
-                <strong>{currentPlan?.name || subscription?.plan || 'Não definido'}</strong>
+                <strong>{currentPlanName}</strong>
               </span>
               <span>
                 <WalletCards aria-hidden="true" />
                 <small>Mensalidade</small>
-                <strong>{currentPlan ? money(currentPlan.monthlyFee) : 'A definir'}</strong>
+                <strong>{currentPlan ? money(currentPlan.monthlyFee) : historicalPlan ? 'Conforme contrato e fatura' : 'A definir'}</strong>
               </span>
               <span>
                 <CalendarDays aria-hidden="true" />
@@ -433,7 +434,7 @@ export function MonthlyBilling({
           <div>
             <strong>Troca de plano agendada</strong>
             <p>
-              O plano muda para <b>{scheduledPlan.name}</b> em{' '}
+              O plano muda para <b>{displayCommercialPlan(scheduledPlan.plan)}</b> em{' '}
               {String(subscription?.scheduledPlanEffectiveMonth).padStart(2, '0')}/
               {subscription?.scheduledPlanEffectiveYear}. Até lá, o plano atual continua ativo.
             </p>
@@ -498,9 +499,9 @@ export function MonthlyBilling({
               return (
                 <S.PlanCard
                   key={plan.plan}
-                  $featured={plan.plan === 'GESTAO_TOTAL'}
+                  $featured={plan.plan === 'PREMIUM'}
                   $current={current}
-                  aria-label={`Plano ${plan.name}${current ? ', plano atual' : ''}`}
+                  aria-label={`Plano ${displayCommercialPlan(plan.plan)}${current ? ', plano atual' : ''}`}
                 >
                   <S.PlanCardTop>
                     <S.PlanHeading>
@@ -509,20 +510,16 @@ export function MonthlyBilling({
                       </span>
                       <div>
                         <small>
-                          {plan.plan === 'GESTAO_TOTAL'
-                            ? 'GESTÃO CONTÍNUA'
-                            : plan.plan === 'PREMIUM'
-                              ? 'IMPLANTAÇÃO ASSISTIDA'
-                              : 'PARA COMEÇAR'}
+                          {plan.plan === 'PREMIUM' ? 'GESTÃO ASSISTIDA CONTÍNUA' : 'PARA COMEÇAR'}
                         </small>
-                        <h3>{plan.name}</h3>
+                        <h3>{displayCommercialPlan(plan.plan)}</h3>
                       </div>
                     </S.PlanHeading>
                     {current ? (
                       <S.PlanTag $tone="current">
                         <BadgeCheck aria-hidden="true" /> Atual
                       </S.PlanTag>
-                    ) : plan.plan === 'GESTAO_TOTAL' ? (
+                    ) : plan.plan === 'PREMIUM' ? (
                       <S.PlanTag $tone="recommended">Mais completo</S.PlanTag>
                     ) : null}
                   </S.PlanCardTop>
