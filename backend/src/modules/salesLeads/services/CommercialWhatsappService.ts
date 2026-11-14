@@ -720,15 +720,18 @@ export async function enqueueLeadWhatsappGreeting(leadId: string) {
       timezone: true,
     },
   });
-  if (!settings?.commercialWhatsappEnabled) return { queued: false, reason: 'disabled' } as const;
-  if (
-    !isCommercialWhatsappHumanServiceOpen(
-      settings.commercialWhatsappHours,
-      settings.timezone,
-    )
-  ) {
-    return { queued: false, reason: 'outside_hours' } as const;
-  }
+  // Use the same queue and delivery policy: form greetings are 24h only
+  // while commercial AI is enabled. Otherwise they follow human business hours.
+  const queueBlockReason = commercialWhatsappAutoReplySuppressionReason({
+    kind: 'FORM_GREETING',
+    mode: 'BOT',
+    automationEnabled: settings?.commercialWhatsappEnabled === true,
+    open: settings
+      ? isCommercialWhatsappHumanServiceOpen(settings.commercialWhatsappHours, settings.timezone)
+      : false,
+    aiEnabled: commercialWhatsappAiEnabled(),
+  });
+  if (queueBlockReason) return { queued: false, reason: queueBlockReason } as const;
 
   const whatsappPhone = normalizeBrazilWhatsappNumber(lead.phone);
   const conversation = await prisma.salesLeadWhatsappConversation.upsert({
