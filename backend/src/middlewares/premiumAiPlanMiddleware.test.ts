@@ -72,7 +72,7 @@ test('permite IA durante teste do Premium', async () => {
   assert.equal(nextCalled, true);
 });
 
-test('bloqueia IA e créditos para plano Básico', async () => {
+test('bloqueia IA e créditos para plano Entrada', async () => {
   prisma.subscription.findUnique = async () => ({ plan: 'BASICO', status: 'ATIVA' });
 
   const req = { user: { restaurantId: 7 } };
@@ -86,7 +86,7 @@ test('bloqueia IA e créditos para plano Básico', async () => {
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.code, 'PREMIUM_AI_PLAN_REQUIRED');
-  assert.match(res.body.error, /Premium e Gestão Total/i);
+  assert.match(res.body.error, /plano Avançado/i);
 });
 
 test('bloqueia Premium expirado ou cancelado', async () => {
