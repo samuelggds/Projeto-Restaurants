@@ -251,11 +251,11 @@ export function ManagedServicePage() {
                       <p>
                         #{item.restaurant.id} •{' '}
                         {item.restaurant.plan === 'GESTAO_TOTAL'
-                          ? 'Gestão Total'
+                          ? 'Avançado (contrato anterior)'
                           : item.restaurant.plan === 'PREMIUM'
-                            ? 'Premium'
+                            ? 'Avançado'
                             : item.restaurant.plan === 'BASICO'
-                              ? 'Básico'
+                              ? 'Entrada'
                               : item.restaurant.plan || 'Plano não identificado'}{' '}
                         • {item.restaurant.slug}
                       </p>
