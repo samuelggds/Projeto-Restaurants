@@ -47,6 +47,10 @@ export function parseCommercialWhatsappInboundContent(body: RecordValue): Commer
     template.selectedDisplayText,
     data.text,
   ].map(value).find(Boolean) || '';
+  if (Object.keys(record(message.audioMessage)).length > 0 ||
+      Object.keys(record(message.pttMessage)).length > 0) {
+    return { text: '[Áudio recebido, não transcrito]', kind: 'AUDIO', needsFixedReply: true };
+  }
   // Ads may arrive as image/extended-text referral metadata without
   // conversation text. Do not pass externalAdReply.title/body/URL to AI.
   const ctx = [
@@ -72,9 +76,5 @@ export function parseCommercialWhatsappInboundContent(body: RecordValue): Commer
     };
   }
   if (authoredText) return { text: authoredText, kind: 'TEXT', needsFixedReply: false };
-  if (Object.keys(record(message.audioMessage)).length > 0 ||
-      Object.keys(record(message.pttMessage)).length > 0) {
-    return { text: '[Áudio recebido, não transcrito]', kind: 'AUDIO', needsFixedReply: true };
-  }
   return { text: '', kind: 'UNSUPPORTED', needsFixedReply: false };
 }
