@@ -113,6 +113,8 @@ export function buildPublicCommercialWhatsappCatalog(plans: readonly PublicPlanF
 
 export function redactCommercialWhatsappHistoryText(value: string) {
   return redactCommercialWhatsappPersonalData(String(value || '').slice(0, 900))
+    // Ad tracking links, shared URLs and short links are never model context.
+    .replace(/(?:https?:\/\/|www\.)[^\s<>"']+/giu, '[link omitido]')
     .replace(/\b[\w.%+-]+@[\w.-]+\.[A-Z]{2,}\b/giu, '[e-mail omitido]')
     .replace(/\b(?:sk-[a-z0-9_-]{10,}|gh[pousr]_[a-z0-9_-]{12,}|APP_USR-[a-z0-9_-]+)\b/giu, '[credencial omitida]')
     .replace(/\b(?:senha|password|token|api[_ -]?key|segredo)\s*[:=]\s*\S+/giu, '[credencial omitida]')
