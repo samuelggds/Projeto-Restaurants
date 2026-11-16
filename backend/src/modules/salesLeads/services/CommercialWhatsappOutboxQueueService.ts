@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import prisma from '../../../config/prisma.js';
 import { commercialWhatsappAutoReplyAvailableAt } from '../domain/commercialWhatsappAutomation.js';
 
-export const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY', 'AI_TIMEOUT'];
+export const AUTOMATIC_REPLY_KINDS = ['GREETING', 'HANDOFF', 'FORM_GREETING', 'AWAY', 'AI_REPLY', 'AI_TIMEOUT', 'MEDIA_FALLBACK'];
 
 export async function suppressPendingAutomaticReplies(
   db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
@@ -28,7 +28,7 @@ export async function enqueueAutoReply(
   db: Pick<typeof prisma, 'salesLeadWhatsappOutbox'>,
   conversationId: string,
   phone: string,
-  kind: 'GREETING' | 'HANDOFF' | 'AI_REPLY',
+  kind: 'GREETING' | 'HANDOFF' | 'AI_REPLY' | 'MEDIA_FALLBACK',
   body: string,
   sourceMessageKey: string,
 ) {
@@ -60,7 +60,7 @@ export async function enqueueAutoReply(
       where: {
         conversationId,
         status: 'PENDING',
-        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY', 'AI_TIMEOUT'] : ['GREETING', 'AI_REPLY', 'AI_TIMEOUT'] },
+        kind: { in: kind === 'HANDOFF' ? ['GREETING', 'HANDOFF', 'AI_REPLY', 'AI_TIMEOUT', 'MEDIA_FALLBACK'] : ['GREETING', 'AI_REPLY', 'AI_TIMEOUT', 'MEDIA_FALLBACK'] },
       },
       data: {
         status: 'SUPPRESSED',
