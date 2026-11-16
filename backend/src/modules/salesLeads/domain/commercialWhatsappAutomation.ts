@@ -61,7 +61,13 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
 
   // AI and timeout follow-up run 24/7 in BOT. HUMAN is never auto-
   // overridden here; only an explicitly timed customer handoff may expire.
-  if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT' || kind === 'MEDIA_FALLBACK') {
+  if (kind === 'MEDIA_FALLBACK') {
+    if (input.mode === 'HUMAN') return 'human_mode';
+    if (input.mode === 'CLOSED') return 'conversation_closed';
+    if (!input.open && !input.aiEnabled) return 'outside_hours';
+    return null;
+  }
+  if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT') {
     if (input.aiEnabled === false) return 'ai_disabled';
     if (input.mode === 'HUMAN') return 'human_mode';
     if (input.mode === 'CLOSED') return 'conversation_closed';
