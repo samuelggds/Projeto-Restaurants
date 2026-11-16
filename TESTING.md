@@ -78,3 +78,18 @@ Esses testes de regras puras **não** substituem a suíte de isolamento multi-te
 o teste de integração com PostgreSQL nem os testes de webhook do provedor.
 
 Veja [QUALITY.md](QUALITY.md) para critérios de evolução sem alterar a regra de negócio.
+
+## Contratos HTTP dos middlewares de equipe
+
+Os arquivos `backend/src/middlewares/waiterMiddleware.test.ts` e
+`attendantMiddleware.test.ts` testam as respostas HTTP reais dos respectivos
+guards Express (200/401/403). A identidade é inserida **antes** do middleware
+no aplicativo de teste, isolando a política de papel da validação de JWT.
+
+```bash
+npm --prefix backend run typecheck:strict:roles
+npm --prefix backend test
+```
+
+Isso não garante isolamento entre restaurantes sem a execução das suítes
+`test:e2e:tenant` e `test:e2e:rls`, que permanecem obrigatórias.

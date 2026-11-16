@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "files": [
+    "src/middlewares/security/roleAccessTestHarness.ts",
+    "src/middlewares/waiterMiddleware.ts",
+    "src/middlewares/attendantMiddleware.ts",
+    "src/middlewares/waiterMiddleware.test.ts",
+    "src/middlewares/attendantMiddleware.test.ts",
+    "src/types/express.d.ts"
+  ],
+  "include": []
+}

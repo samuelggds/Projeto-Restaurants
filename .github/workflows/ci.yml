@@ -128,6 +128,8 @@ jobs:
         run: npm --prefix backend run typecheck
       - name: Strict typecheck financial domain (incremental)
         run: npm --prefix backend run typecheck:strict:finance
+      - name: Strict typecheck operational roles (incremental)
+        run: npm --prefix backend run typecheck:strict:roles
       - name: Validate Prisma schema
         working-directory: backend
         env:

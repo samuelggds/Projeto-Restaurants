@@ -44,4 +44,25 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Operational role middlewares and HTTP test harness are strictly typed.
+    files: [
+      'src/middlewares/security/roleAccessTestHarness.ts',
+      'src/middlewares/waiterMiddleware.ts',
+      'src/middlewares/attendantMiddleware.ts',
+      'src/middlewares/waiterMiddleware.test.ts',
+      'src/middlewares/attendantMiddleware.test.ts',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-nocheck': true, 'ts-ignore': true, 'ts-expect-error': 'allow-with-description' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
+  },
 ]);
