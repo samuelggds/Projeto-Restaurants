@@ -4,10 +4,11 @@ import { commercialWhatsappAiEnabled, generateCommercialWhatsappAiReply } from '
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import { resumeUnansweredCustomerHandoffs } from './CommercialWhatsappHandoffRecoveryService.js';
 import { botReplyForMessage } from '../domain/commercialWhatsappMenu.js';
+import { parseCommercialWhatsappInboundContent } from '../domain/commercialWhatsappInboundContent.js';
 import {
-  parseCommercialWhatsappInboundContent,
-  COMMERCIAL_WHATSAPP_AUDIO_REPLY,
-} from '../domain/commercialWhatsappInboundContent.js';
+  transcribeCommercialWhatsappAudio,
+  COMMERCIAL_WHATSAPP_AUDIO_RETRY_TEXT,
+} from './CommercialWhatsappAudioTranscriptionService.js';
 import { AUTOMATIC_REPLY_KINDS, enqueueAutoReply, suppressPendingAutomaticReplies } from './CommercialWhatsappOutboxQueueService.js';
 import {
   decryptCredential,
@@ -532,7 +533,7 @@ export async function processPlatformEvolutionInbound(
   const phone = digitsOnly(meta.remoteJid.split('@')[0]);
   if (!/^\d{10,15}$/u.test(phone)) return { accepted: true, queued: false } as const;
   const inbound = parseCommercialWhatsappInboundContent(body);
-  const text = inbound.text;
+  let text = inbound.text;
   // Outgoing voice, image, document and sticker messages are still human
   // activity even when their WhatsApp payload contains no text.
   if (!text && !meta.fromMe) return { accepted: true, queued: false } as const;
@@ -625,6 +626,45 @@ export async function processPlatformEvolutionInbound(
     }),
   ]);
 
+  // Do not incur a transcription request for replayed webhooks, paused
+  // conversations or disabled automation. The transaction below remains the
+  // authoritative guard if the operator changes mode during transcription.
+  let audioUnderstood = false;
+  if (inbound.kind === 'AUDIO' && commercialWhatsappAiEnabled() &&
+      settings?.commercialWhatsappEnabled === true) {
+    const [alreadySeen, existingConversation] = await Promise.all([
+      prisma.salesLeadWhatsappMessage.findUnique({
+        where: { providerMessageId: meta.providerMessageId },
+        select: { id: true },
+      }),
+      prisma.salesLeadWhatsappConversation.findUnique({
+        where: { phone }, select: { automationMode: true },
+      }),
+    ]);
+    if (alreadySeen) return { accepted: true, queued: false, reason: 'duplicate_inbound' } as const;
+    if (!existingConversation || existingConversation.automationMode === 'BOT') {
+      try {
+        const transcript = await transcribeCommercialWhatsappAudio({
+          instanceName: row.externalInstanceId,
+          instanceApiKey: connectionToken(row),
+          evolutionBaseUrl: evolutionBaseUrl(),
+          providerMessage: inboundData(body),
+          openAiApiKey: env('OPENAI_API_KEY'),
+        });
+        if (transcript) {
+          text = transcript;
+          audioUnderstood = true;
+        }
+      } catch {
+        // Never log raw audio, transcription, provider payload, contact or keys.
+        // A single safe text reply is still possible without exposing data.
+      }
+    }
+  }
+  if (inbound.kind === 'AUDIO' && !audioUnderstood) {
+    text = '[Áudio não processado]';
+  }
+
   // Persist the inbound message and its reply intent in ONE transaction.
   // ON CONFLICT DO NOTHING serializes concurrent webhook deliveries by the
   // provider ID, without producing a 500 or a second outbox entry.
@@ -676,8 +716,8 @@ export async function processPlatformEvolutionInbound(
       tx,
       conversation.id,
       phone,
-      inbound.kind === 'AUDIO' ? 'MEDIA_FALLBACK' : aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
-      inbound.kind === 'AUDIO' ? COMMERCIAL_WHATSAPP_AUDIO_REPLY : aiEnabled ? 'AI_PENDING' : botReply!.body,
+      inbound.kind === 'AUDIO' && !audioUnderstood ? 'MEDIA_FALLBACK' : aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
+      inbound.kind === 'AUDIO' && !audioUnderstood ? COMMERCIAL_WHATSAPP_AUDIO_RETRY_TEXT : aiEnabled ? 'AI_PENDING' : botReply!.body,
       meta.providerMessageId,
     );
     return {
