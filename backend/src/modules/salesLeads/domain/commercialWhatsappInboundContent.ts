@@ -66,8 +66,24 @@ export function parseCommercialWhatsappInboundContent(body: RecordValue): Commer
     Object.keys(record(data.adReply)).length > 0;
   // A tracking link alone is not a question; greet visitors who entered
   // from GastroNexa campaigns without copying any URL into the model.
-  const onlyLinks = /^(?:(?:https?:\/\/|www\.)[^\s]+\s*)+$/iu.test(authoredText);
-  const gastronexaLink = /(?:https?:\/\/)?(?:www\.)?gastronexa\.com\.br(?:\/|\b)/iu.test(authoredText);
+  // Avoid nested regex repetition on untrusted webhook text (CodeQL js/redos).
+  // Parsing bounded tokens is linear; this never fetches customer-supplied URLs.
+  const tokens = authoredText.split(/\s+/u).filter(Boolean);
+  const onlyLinks = tokens.length > 0 && tokens.length <= 20 &&
+    tokens.every((token) => {
+      const lower = token.toLowerCase();
+      return lower.startsWith('https://') ||
+        lower.startsWith('http://') || lower.startsWith('www.');
+    });
+  const gastronexaLink = onlyLinks && tokens.some((token) => {
+    try {
+      const parsed = new URL(token.toLowerCase().startsWith('www.') ? `https://${token}` : token);
+      return parsed.hostname.toLowerCase() === 'gastronexa.com.br' ||
+        parsed.hostname.toLowerCase() === 'www.gastronexa.com.br';
+    } catch {
+      return false;
+    }
+  });
   if ((hasAd && (!authoredText || onlyLinks)) || (onlyLinks && gastronexaLink)) {
     return {
       text: 'Olá! Vim por um anúncio e gostaria de conhecer a GastroNexa.',
