@@ -66,9 +66,22 @@ export async function transcribeCommercialWhatsappAudio(input: {
   // Cap response bytes prior to JSON parsing to avoid huge media payloads.
   const sizeHeader = Number(mediaRequest.headers.get('content-length') || 0);
   if (sizeHeader > MAX_AUDIO_BASE64_CHARS * 2) return null;
-  const responseText = await mediaRequest.text();
-  if (responseText.length > MAX_AUDIO_BASE64_CHARS * 2) return null;
-  const payload = object(JSON.parse(responseText) as unknown);
+  if (!mediaRequest.body) return null;
+  const reader = mediaRequest.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > MAX_AUDIO_BASE64_CHARS * 2) return null;
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const payload = object(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
   const base64Raw = String(payload.base64 || object(payload.data).base64 || '');
   const base64 = base64Raw.replace(/^data:[^,]{0,100},/iu, '');
   if (!base64 || base64.length > MAX_AUDIO_BASE64_CHARS ||
