@@ -22,6 +22,7 @@ describe('política de autorização de rotas', () => {
       '/pizzaria/admin',
       '/orders/42/tracking',
       '/orders/42/chat',
+      '/orders/42/delivered',
       '/pizzaria/pedidos',
       '/pizzaria/termos',
       '/pizzaria/privacidade',
@@ -44,7 +45,11 @@ describe('política de autorização de rotas', () => {
       });
     }
 
-    for (const path of ['/orders/qualquer/tracking', '/orders/qualquer/chat']) {
+    for (const path of [
+      '/orders/qualquer/tracking',
+      '/orders/qualquer/chat',
+      '/orders/qualquer/delivered',
+    ]) {
       expect(authorizeRoute(path, null)).toEqual({
         allowed: false,
         redirectTo: TENANT_LOGIN_REDIRECT,
@@ -103,6 +108,15 @@ describe('política de autorização de rotas', () => {
       expect(authorizeRoute(path, null)).toEqual({ allowed: true });
       expect(authorizeRoute(path, { role: 'CLIENTE' })).toEqual({ allowed: true });
     }
+  });
+
+  it('permite ao cliente concluir o recebimento sem redirecionar para a mesma rota', () => {
+    expect(authorizeRoute('/orders/601/delivered', { role: 'CLIENTE' })).toEqual({ allowed: true });
+    expect(authorizeRoute('/orders/601/delivered', null)).toEqual({ allowed: true });
+    expect(authorizeRoute('/orders/601/delivered', { role: 'MOTOQUEIRO' })).toEqual({
+      allowed: false,
+      redirectTo: '/courier',
+    });
   });
 
   it('limita CLIENTE ao tenant público, perfil, tracking e chat do pedido', () => {

@@ -88,6 +88,7 @@ export function isPublicRoute(pathname: string, allowCustomDomainRootPaths = fal
   const path = normalizePath(pathname);
   const deliveryTracking = /^\/orders\/\d+\/tracking$/u.test(path);
   const deliveryChat = /^\/orders\/\d+\/chat$/u.test(path);
+  const deliveryCompleted = /^\/orders\/\d+\/delivered$/u.test(path);
 
   return (
     path === '/system-maintenance' ||
@@ -95,6 +96,7 @@ export function isPublicRoute(pathname: string, allowCustomDomainRootPaths = fal
     path === TENANT_REQUIRED_PATH ||
     deliveryTracking ||
     deliveryChat ||
+    deliveryCompleted ||
     isPublicRestaurantRoute(path, allowCustomDomainRootPaths)
   );
 }

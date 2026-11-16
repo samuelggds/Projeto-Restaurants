@@ -1,0 +1,71 @@
+1
+00:00:00,450 --> 00:00:03,162
+Olha como é simples pedir pelo GastroNexa.
+
+2
+00:00:03,825 --> 00:00:06,602
+Aqui, o cliente entra na hamburgueria, vê as
+
+3
+00:00:06,612 --> 00:00:09,487
+ofertas, os cupons e escolhe o que vai pedir.
+
+4
+00:00:10,150 --> 00:00:12,590
+Abre o hambúrguer, deixa uma observação e
+
+5
+00:00:12,600 --> 00:00:14,975
+adiciona batata e bebida para acompanhar.
+
+6
+00:00:15,638 --> 00:00:18,375
+No carrinho, confere os itens e o valor.
+
+7
+00:00:19,038 --> 00:00:23,812
+Depois, coloca o CEP, preenche o número da casa e confirma o endereço.
+
+8
+00:00:24,475 --> 00:00:26,463
+Para pagar, escolhe Pix.
+
+9
+00:00:27,125 --> 00:00:30,962
+É só copiar o código e fazer o pagamento pelo aplicativo do banco.
+
+10
+00:00:31,625 --> 00:00:35,450
+Assim que o pagamento é confirmado, o pedido segue para a cozinha.
+
+11
+00:00:36,113 --> 00:00:38,675
+E o cliente acompanha cada etapa por aqui.
+
+12
+00:00:39,338 --> 00:00:43,250
+Quando fica pronto, o motoboy retira o pedido e sai para a entrega.
+
+13
+00:00:43,912 --> 00:00:48,412
+Agora, o cliente consegue ver o motoboy se movimentando no Google Maps,
+
+14
+00:00:48,500 --> 00:00:51,775
+acompanhar a rota e conferir quanto tempo falta para chegar.
+
+15
+00:00:52,438 --> 00:00:54,338
+Pronto, pedido entregue!
+
+16
+00:00:55,000 --> 00:00:58,450
+Tudo acompanhado do começo ao fim, na mesma experiência.
+
+17
+00:00:59,113 --> 00:01:01,463
+Quer um delivery assim na sua hamburgueria?
+
+18
+00:01:02,125 --> 00:01:03,850
+Conheça o GastroNexa.
