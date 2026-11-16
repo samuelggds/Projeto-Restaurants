@@ -4,6 +4,10 @@ import { commercialWhatsappAiEnabled, generateCommercialWhatsappAiReply } from '
 import { realtimePublisher } from '../../../realtime/realtimePublisher.js';
 import { resumeUnansweredCustomerHandoffs } from './CommercialWhatsappHandoffRecoveryService.js';
 import { botReplyForMessage } from '../domain/commercialWhatsappMenu.js';
+import {
+  parseCommercialWhatsappInboundContent,
+  COMMERCIAL_WHATSAPP_AUDIO_REPLY,
+} from '../domain/commercialWhatsappInboundContent.js';
 import { AUTOMATIC_REPLY_KINDS, enqueueAutoReply, suppressPendingAutomaticReplies } from './CommercialWhatsappOutboxQueueService.js';
 import {
   decryptCredential,
@@ -444,19 +448,6 @@ function inboundData(body: JsonRecord) {
     : {};
 }
 
-function inboundText(body: JsonRecord) {
-  const data = inboundData(body);
-  const message =
-    data.message && typeof data.message === 'object' ? (data.message as JsonRecord) : {};
-  return String(
-    message.conversation ||
-      (message.extendedTextMessage as JsonRecord | undefined)?.text ||
-      data.text ||
-      '',
-  )
-    .trim()
-    .slice(0, 4000);
-}
 
 function inboundMeta(body: JsonRecord) {
   const data = inboundData(body);
@@ -540,7 +531,8 @@ export async function processPlatformEvolutionInbound(
 
   const phone = digitsOnly(meta.remoteJid.split('@')[0]);
   if (!/^\d{10,15}$/u.test(phone)) return { accepted: true, queued: false } as const;
-  const text = inboundText(body);
+  const inbound = parseCommercialWhatsappInboundContent(body);
+  const text = inbound.text;
   // Outgoing voice, image, document and sticker messages are still human
   // activity even when their WhatsApp payload contains no text.
   if (!text && !meta.fromMe) return { accepted: true, queued: false } as const;
@@ -684,8 +676,8 @@ export async function processPlatformEvolutionInbound(
       tx,
       conversation.id,
       phone,
-      aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
-      aiEnabled ? 'AI_PENDING' : botReply!.body,
+      inbound.kind === 'AUDIO' ? 'MEDIA_FALLBACK' : aiEnabled ? 'AI_REPLY' : botReply!.handoff ? 'HANDOFF' : 'GREETING',
+      inbound.kind === 'AUDIO' ? COMMERCIAL_WHATSAPP_AUDIO_REPLY : aiEnabled ? 'AI_PENDING' : botReply!.body,
       meta.providerMessageId,
     );
     return {
