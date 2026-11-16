@@ -4,7 +4,7 @@ export const COMMERCIAL_WHATSAPP_HUMAN_HANDOFF_TIMEOUT_MS = 10 * 60 * 1_000;
 
 export type CommercialWhatsappConversationMode = 'BOT' | 'HUMAN' | 'CLOSED';
 
-const INBOUND_AUTO_REPLY_KINDS = new Set(['GREETING', 'HANDOFF', 'FORM_GREETING', 'AI_REPLY', 'AI_TIMEOUT']);
+const INBOUND_AUTO_REPLY_KINDS = new Set(['GREETING', 'HANDOFF', 'FORM_GREETING', 'AI_REPLY', 'AI_TIMEOUT', 'MEDIA_FALLBACK']);
 
 export function commercialWhatsappAutoReplyAvailableAt(now = new Date()) {
   return new Date(now.getTime() + COMMERCIAL_WHATSAPP_AUTO_REPLY_DELAY_MS);
@@ -61,7 +61,7 @@ export function commercialWhatsappAutoReplySuppressionReason(input: {
 
   // AI and timeout follow-up run 24/7 in BOT. HUMAN is never auto-
   // overridden here; only an explicitly timed customer handoff may expire.
-  if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT') {
+  if (kind === 'AI_REPLY' || kind === 'AI_TIMEOUT' || kind === 'MEDIA_FALLBACK') {
     if (input.aiEnabled === false) return 'ai_disabled';
     if (input.mode === 'HUMAN') return 'human_mode';
     if (input.mode === 'CLOSED') return 'conversation_closed';
