@@ -39,4 +39,24 @@ export default defineConfig([
       '@typescript-eslint/no-explicit-any': 'off',
     },
   },
+  {
+    // Keep the migrated utilities strict while larger page modules are modernized.
+    files: [
+      'src/utils/adminAiArea.ts',
+      'src/utils/adminAiArea.test.ts',
+      'src/utils/commercialPlanPresentation.ts',
+      'src/utils/commercialPlanPresentation.test.ts',
+      'src/utils/deliveryTime.ts',
+      'src/utils/deliveryTime.test.ts',
+      'src/utils/restaurantMonogram.ts',
+      'src/utils/restaurantMonogram.test.ts',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-nocheck': true, 'ts-ignore': true, 'ts-expect-error': 'allow-with-description' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
 ]);

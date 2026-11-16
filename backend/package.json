@@ -27,6 +27,7 @@
     "start:worker": "node dist/worker.js",
     "bootstrap:superadmin": "node dist/bootstrapSuperAdmin.js",
     "typecheck": "tsc --noEmit",
+    "typecheck:strict:finance": "tsc -p tsconfig.strict-finance.json --noEmit",
     "lint": "eslint .",
     "lint:ci": "eslint . --max-warnings 0",
     "test:ingredients": "node ./scripts/runTsxWithOsUserInfoFallback.cjs --test src/modules/ingredients/services/IngredientServices.integration.test.ts",

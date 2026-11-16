@@ -36,7 +36,7 @@ Controllers não devem conter regras de negócio. Services não devem conhecer d
 
 ## Limites práticos
 
-- Evitar arquivos acima de 500 linhas; acima disso, revisar responsabilidades.
+- **Meta de design:** preferir módulos abaixo de 500 linhas; ao ultrapassar esse valor, revisar as responsabilidades. **Controle atual de CI:** limite padrão de 1.200 linhas, com teto congelado para arquivos legados maiores. A meta de 500 linhas ainda não é uma regra global bloqueante.
 - Componentes de página apenas compõem seções e hooks.
 - Um arquivo não deve importar diretamente detalhes internos de outra funcionalidade.
 - Toda extração deve preservar a API pública do módulo durante a migração.
@@ -63,3 +63,24 @@ Os critérios e comandos completos estão em `TESTING.md`.
 5. Só então remover as implementações antigas.
 
 Essa estratégia permite evoluir a arquitetura sem uma reescrita arriscada e sem interromper o funcionamento atual.
+
+## Tipagem estrita incremental
+
+O código existente mantém `strict: false` nos projetos TypeScript principais por compatibilidade
+com módulos legados. A migração é incremental e verificável, sem usar `@ts-nocheck`
+para ocultar erros no código migrado:
+
+- **Backend:** `backend/tsconfig.strict-finance.json` verifica contratos, regras, alocações
+  financeiras e seus testes com `strict: true`.
+- **Frontend:** `frontend/tsconfig.strict-utils.json` verifica utilitários de apresentação
+  e seus testes com `strict: true`.
+- **ESLint:** esses arquivos têm regras explícitas que proíbem `@ts-nocheck`,
+  `@ts-ignore` e `any` explícito, inclusive em testes.
+- **CI:** além dos typechecks atuais, a job de Type Check executa ambos os
+  subconjuntos estritos. Nunca remover um arquivo desse escopo para silenciar erro.
+
+Para ampliar o escopo: corrigir os erros reais de um módulo, acrescentar seus arquivos
+e testes ao respectivo `tsconfig.strict-*.json`, manter a verificação de lint e
+só então ativar regras mais rigorosas em um escopo maior.
+
+Os detalhes de evidência e os comandos estão em [QUALITY.md](QUALITY.md).

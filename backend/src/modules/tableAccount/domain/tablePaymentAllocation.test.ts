@@ -100,3 +100,50 @@ test('rejeita alocações concorrentes que ultrapassem o preço da unidade', () 
     /ultrapassam/,
   );
 });
+
+test('reserva no instante exato do vencimento não consome saldo', () => {
+  const now = new Date('2026-08-26T10:00:00.000Z');
+  const ledger = calculateTableBillItemLedger({
+    unitPriceCents: 250,
+    projectedStatus: 'RESERVED',
+    allocations: [{ amountCents: 250, intentStatus: 'RESERVED', expiresAt: now }],
+    now,
+  });
+
+  assert.equal(ledger.reservedCents, 0);
+  assert.equal(ledger.availableCents, 250);
+  assert.equal(ledger.projectedStatus, 'UNPAID');
+});
+
+test('prazo de reserva inválido não pode bloquear saldo indefinidamente', () => {
+  const ledger = calculateTableBillItemLedger({
+    unitPriceCents: 100,
+    projectedStatus: 'PROCESSING',
+    allocations: [{ amountCents: 100, intentStatus: 'PROCESSING', expiresAt: 'invalid-date' }],
+    now: new Date('2026-08-26T10:00:00.000Z'),
+  });
+
+  assert.equal(ledger.processingCents, 0);
+  assert.equal(ledger.availableCents, 100);
+});
+
+test('unidade cancelada nunca expõe saldo para uma cobrança nova', () => {
+  const ledger = calculateTableBillItemLedger({
+    unitPriceCents: 1_200,
+    projectedStatus: 'UNPAID',
+    allocations: [{ amountCents: 1_200, intentStatus: 'PAID' }],
+    canceled: true,
+  });
+
+  assert.equal(ledger.paidCents, 0);
+  assert.equal(ledger.availableCents, 0);
+  assert.equal(ledger.projectedStatus, 'UNPAID');
+});
+
+test('alocação valida centavos inteiros e recusa saldo insuficiente', () => {
+  const items = [{ id: 1, publicId: 'unit-1', availableCents: 100 }];
+
+  assert.throws(() => allocateCentsAcrossTableBillItems(items, 0), /maior que zero/);
+  assert.throws(() => allocateCentsAcrossTableBillItems(items, 0.5), /inteiro não negativo/);
+  assert.throws(() => allocateCentsAcrossTableBillItems(items, 101), /saldo disponível/);
+});

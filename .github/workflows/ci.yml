@@ -126,6 +126,8 @@ jobs:
         run: npm --prefix print-agent ci
       - name: Typecheck backend
         run: npm --prefix backend run typecheck
+      - name: Strict typecheck financial domain (incremental)
+        run: npm --prefix backend run typecheck:strict:finance
       - name: Validate Prisma schema
         working-directory: backend
         env:
@@ -138,6 +140,8 @@ jobs:
         run: npx prisma migrate deploy
       - name: Typecheck frontend
         run: npm --prefix frontend run typecheck
+      - name: Strict typecheck frontend utilities (incremental)
+        run: npm --prefix frontend run typecheck:strict:utils
       - name: Typecheck Print Agent
         run: npm --prefix print-agent run typecheck
 

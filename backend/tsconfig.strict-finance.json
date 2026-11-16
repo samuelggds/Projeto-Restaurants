@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "files": [
+    "src/modules/tableAccount/domain/tableAccountContracts.ts",
+    "src/modules/tableAccount/domain/tableAccountRules.ts",
+    "src/modules/tableAccount/domain/tablePaymentAllocation.ts",
+    "src/modules/tableAccount/domain/tablePaymentAllocation.test.ts"
+  ],
+  "include": []
+}

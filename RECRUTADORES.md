@@ -55,3 +55,27 @@ Para visualizar telas e a jornada do produto, consulte o [README visual](README.
 **Contato profissional:** [GitHub](https://github.com/samuelggds) · [LinkedIn](https://www.linkedin.com/in/samuel-gomes08/)
 
 > Este documento descreve escopo e evidências disponíveis para revisão. A existência dos testes e das configurações no repositório não substitui executar a suíte e auditar a implantação.
+
+## Qualidade de código: evidências reproduzíveis
+
+A estratégia adotada não promete que todo o monorepo já esteja em modo `strict`.
+A migração de tipagem começou em fronteiras de domínio específicas e possui barreiras
+de regressão no CI:
+
+- [Política de qualidade e evolução](QUALITY.md) — escopo atual, comandos e limites;
+- [TypeScript estrito no backend](backend/tsconfig.strict-finance.json);
+- [TypeScript estrito no frontend](frontend/tsconfig.strict-utils.json);
+- [Testes de alocação financeira](backend/src/modules/tableAccount/domain/tablePaymentAllocation.test.ts);
+- [CI Type Check](.github/workflows/ci.yml).
+
+Para avaliar localmente com dependências instaladas, executar:
+
+```bash
+npm --prefix backend run typecheck:strict:finance
+npm --prefix frontend run typecheck:strict:utils
+npm --prefix backend run test:table-account
+```
+
+Os comandos acima verificam subconjuntos definidos e não representam cobertura
+integral ou aprovação de produção. Resultados atuais das execuções devem ser
+consultados na aba [Actions](https://github.com/samuelggds/Projeto-Restaurants/actions).
