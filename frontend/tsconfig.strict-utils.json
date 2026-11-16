@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "files": [
+    "src/utils/adminAiArea.ts",
+    "src/utils/adminAiArea.test.ts",
+    "src/utils/commercialPlanPresentation.ts",
+    "src/utils/commercialPlanPresentation.test.ts",
+    "src/utils/deliveryTime.ts",
+    "src/utils/deliveryTime.test.ts",
+    "src/utils/restaurantMonogram.ts",
+    "src/utils/restaurantMonogram.test.ts"
+  ],
+  "include": [],
+  "references": []
+}

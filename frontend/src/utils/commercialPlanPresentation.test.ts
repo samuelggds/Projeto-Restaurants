@@ -11,7 +11,8 @@ describe('commercial plan presentation', () => {
 
   it('preserves legacy subscriptions without offering a third plan', () => {
     expect(displayCommercialPlan('GESTAO_TOTAL')).toBe('Avançado (contrato anterior)');
-    expect(isOfferedCommercialPlan('GESTAO_TOTAL')).toBe(false);
     expect(displayCommercialPlan('')).toBe('Plano não identificado');
+    expect(displayCommercialPlan(null)).toBe('Plano não identificado');
+    expect(isOfferedCommercialPlan('GESTAO_TOTAL')).toBe(false);
   });
 });

@@ -21,6 +21,11 @@ describe('formatDeliveryTime', () => {
     expect(formatDeliveryTime('Entrega em 35-45')).toBe('35-45 min');
   });
 
+  it('normaliza espaços e o separador longo mantendo o valor original', () => {
+    expect(formatDeliveryTime('  Entrega em 30 — 40  ')).toBe('30-40 min');
+    expect(formatDeliveryTime(' 20 minutos ')).toBe('20 minutos');
+  });
+
   it('preserva textos não numéricos e trata vazio', () => {
     expect(formatDeliveryTime('A confirmar')).toBe('A confirmar');
     expect(formatDeliveryTime('')).toBe('');

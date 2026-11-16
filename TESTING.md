@@ -60,3 +60,21 @@ Testes backend são descobertos automaticamente em `src/**/*.test.ts` por `npm r
 O frontend começa com limites globais de cobertura de 35% para linhas, funções e statements e 25%
 para branches. Esses valores são um piso, não uma meta; aumente-os conforme as áreas administrativas
 e os serviços HTTP recebam testes.
+
+## Regressão e tipagem incremental
+
+Além de `npm test`, `npm run typecheck` e das suítes de integração/E2E:
+
+- `npm --prefix backend run typecheck:strict:finance` valida o domínio de alocação
+  financeira e seus testes com `strict: true`;
+- `npm --prefix frontend run typecheck:strict:utils` faz a mesma validação em
+  utilitários de apresentação e seus testes;
+- `npm run lint` continua aplicando as regras gerais e impede supressões de
+  TypeScript nos escopos migrados.
+
+Os casos de regressão no cálculo financeiro incluem reservas vencidas, limite exato
+de expiração, dados inválidos, cancelamento de unidade e saldo insuficiente.
+Esses testes de regras puras **não** substituem a suíte de isolamento multi-tenant,
+o teste de integração com PostgreSQL nem os testes de webhook do provedor.
+
+Veja [QUALITY.md](QUALITY.md) para critérios de evolução sem alterar a regra de negócio.

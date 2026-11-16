@@ -8,6 +8,10 @@ describe('sigla do restaurante', () => {
   it('ignora conectores formados apenas por símbolos', () => {
     expect(createRestaurantMonogram('Sabor & Casa')).toBe('SC');
   });
+  it('não transforma símbolo ou ausência de nome em sigla inválida', () => {
+    expect(createRestaurantMonogram(' & ')).toBe('RE');
+    expect(createRestaurantMonogram(null)).toBe('RE');
+  });
   it('usa as duas primeiras letras quando existe uma palavra', () => {
     expect(createRestaurantMonogram('Pizzaria')).toBe('PI');
   });

@@ -24,4 +24,24 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': 'off',
     },
   },
+  {
+    // Migrated financial domain: no file-level TypeScript suppression or explicit any.
+    files: [
+      'src/modules/tableAccount/domain/tableAccountContracts.ts',
+      'src/modules/tableAccount/domain/tableAccountRules.ts',
+      'src/modules/tableAccount/domain/tablePaymentAllocation.ts',
+      'src/modules/tableAccount/domain/tablePaymentAllocation.test.ts',
+    ],
+    rules: {
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-nocheck': true, 'ts-ignore': true, 'ts-expect-error': 'allow-with-description' },
+      ],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
+  },
 ]);
