@@ -84,3 +84,10 @@ e testes ao respectivo `tsconfig.strict-*.json`, manter a verificação de lint 
 só então ativar regras mais rigorosas em um escopo maior.
 
 Os detalhes de evidência e os comandos estão em [QUALITY.md](QUALITY.md).
+
+## Fronteira de autorização operacional
+
+O guard de garçom e o guard de atendente permanecem pequenos e de responsabilidade
+única. Suas decisões de autorização são testadas via HTTP real com tipos Express,
+sem alterar a autenticação existente. A segunda ilha de tipagem estrita do backend
+está em `backend/tsconfig.strict-roles.json`.

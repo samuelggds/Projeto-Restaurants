@@ -1,72 +1,54 @@
-// @ts-nocheck
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
+import type { Request } from 'express';
 import { attendantMiddleware } from './attendantMiddleware.js';
+import { probeRoleAccess } from './security/roleAccessTestHarness.js';
 
-function invoke(user) {
-  let statusCode = 200;
-  let body;
-  let nextCalled = false;
-  const req = { user };
-  const res = {
-    status(code) {
-      statusCode = code;
-      return this;
-    },
-    json(payload) {
-      body = payload;
-      return this;
-    },
-  };
+type Identity = NonNullable<Request['user']>;
 
-  attendantMiddleware(req, res, () => {
-    nextCalled = true;
-  });
-
-  return { statusCode, body, nextCalled };
-}
-
-test('autoriza somente funcionário ATENDENTE com restaurante identificado', () => {
-  const result = invoke({
+function identity(overrides: Partial<Identity> = {}): Identity {
+  return {
     id: 7,
     role: UserRole.FUNCIONARIO,
     subRole: FuncionarioSubRole.ATENDENTE,
     restaurantId: 11,
-  });
+    ...overrides,
+  };
+}
 
-  assert.equal(result.nextCalled, true);
-  assert.equal(result.statusCode, 200);
+test('ATENDENTE autenticado pode acessar a rota operacional', async () => {
+  const result = await probeRoleAccess(attendantMiddleware, identity());
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, { ok: true });
 });
 
-test('nega acesso anônimo, administrativo e aos demais perfis operacionais', () => {
-  assert.equal(invoke(undefined).statusCode, 401);
+test('ausência de autenticação retorna 401', async () => {
+  const result = await probeRoleAccess(attendantMiddleware, undefined);
+  assert.equal(result.status, 401);
+  assert.deepEqual(result.body, { error: 'Não autenticado' });
+});
 
-  const deniedUsers = [
-    { role: UserRole.ADMIN, restaurantId: 11 },
-    { role: UserRole.SUPER_ADMIN, restaurantId: null },
-    { role: UserRole.CLIENTE, restaurantId: 11 },
-    { role: UserRole.MOTOQUEIRO, restaurantId: 11 },
-    {
-      role: UserRole.FUNCIONARIO,
-      subRole: FuncionarioSubRole.COZINHA,
-      restaurantId: 11,
-    },
-    {
-      role: UserRole.FUNCIONARIO,
-      subRole: FuncionarioSubRole.GARCOM,
-      restaurantId: 11,
-    },
-    {
-      role: UserRole.FUNCIONARIO,
-      subRole: FuncionarioSubRole.ATENDENTE,
-      restaurantId: null,
-    },
+test('ADMIN, SUPER_ADMIN, CLIENTE e outros funcionários não assumem perfil ATENDENTE', async () => {
+  const denied: Identity[] = [
+    identity({ role: UserRole.ADMIN, subRole: null }),
+    identity({ role: UserRole.SUPER_ADMIN, subRole: null, restaurantId: null }),
+    identity({ role: UserRole.CLIENTE, subRole: null }),
+    identity({ role: UserRole.MOTOQUEIRO, subRole: null }),
+    identity({ subRole: FuncionarioSubRole.COZINHA }),
+    identity({ subRole: FuncionarioSubRole.GARCOM }),
   ];
+  for (const user of denied) {
+    const result = await probeRoleAccess(attendantMiddleware, user);
+    assert.equal(result.status, 403);
+    assert.match(JSON.stringify(result.body), /atendentes cadastrados/i);
+  }
+});
 
-  for (const user of deniedUsers) {
-    const result = invoke(user);
-    assert.equal(result.statusCode, 403, JSON.stringify(user));
-    assert.equal(result.nextCalled, false, JSON.stringify(user));
+test('ATENDENTE sem restaurante válido recebe 403', async () => {
+  for (const restaurantId of [null, 0, -1]) {
+    const result = await probeRoleAccess(attendantMiddleware, identity({ restaurantId }));
+    assert.equal(result.status, 403);
+    assert.match(JSON.stringify(result.body), /Restaurante não identificado/i);
   }
 });

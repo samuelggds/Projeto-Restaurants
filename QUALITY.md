@@ -59,3 +59,19 @@ uma execução concorrente real, uma auditoria de segurança ou a análise de lo
 
 O status de conclusão deve vir das verificações executadas, não da presença
 isolada de um teste ou workflow no repositório.
+
+## Segunda etapa: autorização operacional tipada
+
+Os testes dos middlewares `waiterMiddleware` e `attendantMiddleware` deixam
+de utilizar `@ts-nocheck` e passam por uma aplicação Express com HTTP local.
+As identidades são injetadas na requisição apenas para testar a camada de
+autorização, sem simular que houve validação real de JWT.
+
+- `npm --prefix backend run typecheck:strict:roles` verifica guardas, testes
+  e harness com `strict: true`.
+- A job de CI executa a verificação estrita adicional e o lint proíbe
+  supressão de tipos nos arquivos migrados.
+- Casos cobertos: autenticação ausente, perfis autorizados, perfis proibidos
+  e ausência de restaurante válido.
+- Os middlewares de produção permanecem intocados. Os testes não substituem
+  o E2E multi-tenant nem o teste de autenticação real.

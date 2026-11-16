@@ -1,67 +1,54 @@
-// @ts-nocheck
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FuncionarioSubRole, UserRole } from '@prisma/client';
+import type { Request } from 'express';
 import { waiterMiddleware } from './waiterMiddleware.js';
+import { probeRoleAccess } from './security/roleAccessTestHarness.js';
 
-function invoke(user) {
-  let statusCode = 200;
-  let body;
-  let nextCalled = false;
-  const req = { user };
-  const res = {
-    status(code) {
-      statusCode = code;
-      return this;
-    },
-    json(payload) {
-      body = payload;
-      return this;
-    },
+type Identity = NonNullable<Request['user']>;
+
+function identity(overrides: Partial<Identity> = {}): Identity {
+  return {
+    id: 1,
+    role: UserRole.FUNCIONARIO,
+    subRole: FuncionarioSubRole.GARCOM,
+    restaurantId: 7,
+    ...overrides,
   };
-  waiterMiddleware(req, res, () => {
-    nextCalled = true;
-  });
-  return { statusCode, body, nextCalled };
 }
 
-test('autoriza somente admin ou funcionário GARCOM do restaurante autenticado', () => {
-  assert.equal(
-    invoke({ id: 1, role: UserRole.ADMIN, restaurantId: 7 }).nextCalled,
-    true,
-  );
-  assert.equal(
-    invoke({
-      id: 2,
-      role: UserRole.FUNCIONARIO,
-      subRole: FuncionarioSubRole.GARCOM,
-      restaurantId: 7,
-    }).nextCalled,
-    true,
-  );
+test('garçom e ADMIN autenticados acessam a rota protegida', async () => {
+  for (const user of [identity(), identity({ role: UserRole.ADMIN, subRole: null })]) {
+    const result = await probeRoleAccess(waiterMiddleware, user);
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, { ok: true });
+  }
 });
 
-test('nega cozinha, motoqueiro e token sem restaurantId', () => {
-  const kitchen = invoke({
-    id: 2,
-    role: UserRole.FUNCIONARIO,
-    subRole: FuncionarioSubRole.COZINHA,
-    restaurantId: 7,
-  });
-  assert.equal(kitchen.statusCode, 403);
-  assert.match(kitchen.body.error, /garçons cadastrados/i);
+test('ausência de autenticação retorna 401 antes de avaliar perfil', async () => {
+  const result = await probeRoleAccess(waiterMiddleware, undefined);
+  assert.equal(result.status, 401);
+  assert.deepEqual(result.body, { error: 'Não autenticado' });
+});
 
-  assert.equal(
-    invoke({ id: 3, role: UserRole.MOTOQUEIRO, restaurantId: 7 }).statusCode,
-    403,
-  );
-  assert.equal(
-    invoke({
-      id: 2,
-      role: UserRole.FUNCIONARIO,
-      subRole: FuncionarioSubRole.GARCOM,
-      restaurantId: null,
-    }).statusCode,
-    403,
-  );
+test('COZINHA, ATENDENTE, MOTOQUEIRO e CLIENTE não operam como GARCOM', async () => {
+  const denied: Identity[] = [
+    identity({ subRole: FuncionarioSubRole.COZINHA }),
+    identity({ subRole: FuncionarioSubRole.ATENDENTE }),
+    identity({ role: UserRole.MOTOQUEIRO, subRole: null }),
+    identity({ role: UserRole.CLIENTE, subRole: null }),
+  ];
+  for (const user of denied) {
+    const result = await probeRoleAccess(waiterMiddleware, user);
+    assert.equal(result.status, 403);
+    assert.match(JSON.stringify(result.body), /administrador ou garçons cadastrados/i);
+  }
+});
+
+test('identidade autorizada sem restaurante válido não ultrapassa a proteção', async () => {
+  for (const restaurantId of [null, 0, -1]) {
+    const result = await probeRoleAccess(waiterMiddleware, identity({ restaurantId }));
+    assert.equal(result.status, 403);
+    assert.match(JSON.stringify(result.body), /Restaurante não identificado/i);
+  }
 });

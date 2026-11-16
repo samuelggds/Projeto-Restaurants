@@ -79,3 +79,12 @@ npm --prefix backend run test:table-account
 Os comandos acima verificam subconjuntos definidos e não representam cobertura
 integral ou aprovação de produção. Resultados atuais das execuções devem ser
 consultados na aba [Actions](https://github.com/samuelggds/Projeto-Restaurants/actions).
+
+## Evidências de autorização operacional
+
+- [Testes HTTP tipados do garçom](backend/src/middlewares/waiterMiddleware.test.ts)
+- [Testes HTTP tipados do atendente](backend/src/middlewares/attendantMiddleware.test.ts)
+- [Typecheck estrito de middlewares](backend/tsconfig.strict-roles.json)
+
+Os testes usam identidade injetada para avaliar a política de acesso. A
+autenticação real e a separação de dados entre restaurantes têm suítes próprias.
