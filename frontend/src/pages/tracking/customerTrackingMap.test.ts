@@ -18,4 +18,18 @@ describe('customerTrackingMap', () => {
     expect(east).toBeGreaterThan(80);
     expect(east).toBeLessThan(100);
   });
+
+  it('usa o deslocamento quando o GPS retorna heading nulo', () => {
+    const heading = resolveCourierHeading([
+      { latitude: -3.73, longitude: -38.52 },
+      { latitude: -3.73, longitude: -38.51, heading: null },
+    ]);
+    expect(heading).toBeGreaterThan(80);
+    expect(heading).toBeLessThan(100);
+  });
+
+  it('mostra o personagem voltado para o lado correto nas rotas horizontais', () => {
+    expect(getCourierSpriteFrame(2)).toEqual({ column: 2, row: 1, name: 'right' });
+    expect(getCourierSpriteFrame(6)).toEqual({ column: 2, row: 0, name: 'left' });
+  });
 });

@@ -18,7 +18,7 @@ export function bearingBetweenPoints(from: CourierRoutePoint, to: CourierRoutePo
 
 export function resolveCourierHeading(points: CourierRoutePoint[]) {
   const latest = points[points.length - 1];
-  const heading = Number(latest?.heading);
+  const heading = latest?.heading == null ? Number.NaN : Number(latest.heading);
   if (Number.isFinite(heading) && heading >= 0) return normalizeHeading(heading);
   if (points.length < 2) return 0;
   return bearingBetweenPoints(points[points.length - 2], latest);
@@ -30,5 +30,7 @@ export function getCourierDirectionIndex(headingDegrees: number) {
 
 export function getCourierSpriteFrame(directionIndex: number) {
   const index = ((Math.round(directionIndex) % 8) + 8) % 8;
-  return { column: index % 4, row: index >= 4 ? 1 : 0, name: COURIER_DIRECTION_NAMES[index] };
+  // The sheet's horizontal side views are west in the upper row and east below.
+  const spriteIndex = index === 2 ? 6 : index === 6 ? 2 : index;
+  return { column: spriteIndex % 4, row: spriteIndex >= 4 ? 1 : 0, name: COURIER_DIRECTION_NAMES[index] };
 }
