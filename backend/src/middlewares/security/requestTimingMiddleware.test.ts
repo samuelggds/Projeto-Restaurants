@@ -61,3 +61,64 @@ test('falhas sao registradas com rota parametrizada e sem parametros sensiveis',
     });
   }
 });
+
+
+test('sucesso lento gera telemetria segura e sucesso rapido nao produz aviso', async () => {
+  const previousThreshold = process.env.SLOW_REQUEST_THRESHOLD_MS;
+  process.env.SLOW_REQUEST_THRESHOLD_MS = '100';
+
+  const app = express();
+  app.use(requestIdMiddleware);
+  app.use(requestTimingMiddleware);
+  app.get('/reports/:reportId', (req, res) => {
+    if (req.query.slow === '1') {
+      setTimeout(() => res.status(200).json({ ok: true }), 160);
+      return;
+    }
+    res.status(200).json({ ok: true });
+  });
+
+  const entries: unknown[][] = [];
+  const previousWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    entries.push(args);
+  };
+  const server = app.listen(0, '127.0.0.1');
+
+  try {
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const port = (server.address() as AddressInfo).port;
+
+    const fast = await fetch(
+      `http://127.0.0.1:${port}/reports/customer-id?token=secret`,
+    );
+    assert.equal(fast.status, 200);
+    await fast.text();
+    assert.equal(entries.length, 0, 'resposta rapida 200 nao deve gerar warning');
+
+    const slow = await fetch(
+      `http://127.0.0.1:${port}/reports/private-customer?slow=1&token=secret`,
+    );
+    assert.equal(slow.status, 200);
+    await slow.text();
+
+    assert.equal(entries.length, 1, 'resposta lenta 200 deve gerar um registro');
+    assert.equal(entries[0][0], '[API_REQUEST_TIMING]');
+    const detail = entries[0][1] as Record<string, unknown>;
+    assert.equal(detail.path, '/reports/:reportId');
+    assert.equal(detail.method, 'GET');
+    assert.equal(detail.statusCode, 200);
+    assert.ok(Number(detail.durationMs) >= 100);
+    assert.equal(detail.requestId, slow.headers.get('x-request-id'));
+    assert.equal(JSON.stringify(detail).includes('private-customer'), false);
+    assert.equal(JSON.stringify(detail).includes('customer-id'), false);
+    assert.equal(JSON.stringify(detail).includes('secret'), false);
+  } finally {
+    console.warn = previousWarn;
+    if (previousThreshold === undefined) delete process.env.SLOW_REQUEST_THRESHOLD_MS;
+    else process.env.SLOW_REQUEST_THRESHOLD_MS = previousThreshold;
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
