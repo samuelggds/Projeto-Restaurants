@@ -1,3 +1,4 @@
+import { calculateLoadRps } from '../src/metrics/loadTestThroughput.js';
 import dotenv from 'dotenv';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -318,7 +319,8 @@ async function run() {
   const sorted = [...latencies].sort((a, b) => a - b);
   const sum = sorted.reduce((acc, value) => acc + value, 0);
   const avg = sorted.length ? sum / sorted.length : 0;
-  const throughput = (sent / durationMs) * 1000;
+  const throughput = calculateLoadRps(sent, durationMs);
+  const successfulThroughput = calculateLoadRps(ok, durationMs);
   const errorRate = sent ? (failed / sent) * 100 : 0;
 
   const report = {
@@ -331,7 +333,8 @@ async function run() {
     ok,
     failed,
     errorRatePercent: Number(errorRate.toFixed(3)),
-    throughputRps: Number(throughput.toFixed(3)),
+    throughputRps: throughput,
+    successfulThroughputRps: successfulThroughput,
     latencyMs: {
       avg: Number(avg.toFixed(2)),
       p50: percentile(sorted, 50),
