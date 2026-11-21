@@ -304,13 +304,23 @@ function normalizeContentType(value: string | undefined) {
 }
 
 const defaultHttpRequester: IfoodHttpRequester = async (url, addresses) => {
+  // Revalidate at the HTTP sink as well as before DNS resolution and after
+  // redirects, so a future direct caller cannot bypass the allowlist.
+  const approvedUrl = assertAllowedIfoodUrl(url);
   const selectedAddress = addresses[0];
+  if (
+    !selectedAddress ||
+    isIP(selectedAddress.address) !== selectedAddress.family ||
+    !isPublicNetworkAddress(selectedAddress.address)
+  ) {
+    throw new Error('O domínio informado resolve para uma rede privada ou não permitida.');
+  }
   const agent = new https.Agent({
     autoSelectFamily: false,
     family: selectedAddress.family,
     keepAlive: false,
     maxSockets: 1,
-    lookup: createPinnedLookup(url.hostname, selectedAddress),
+    lookup: createPinnedLookup(approvedUrl.hostname, selectedAddress),
   });
 
   try {
