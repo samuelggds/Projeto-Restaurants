@@ -43,7 +43,16 @@ export function codeqlBlockers(sarif) {
       if (!Number.isFinite(score) || score < 0 || score > 10)
         throw new Error(`Invalid security severity: ${rule.id}`);
       const level = result.level || rule.defaultConfiguration?.level || 'warning';
-      if (score >= 7 || level === 'error') blockers.push({ ruleId: rule.id, score, level });
+      if (score >= 7 || level === 'error') {
+        const location = result.locations?.[0]?.physicalLocation;
+        blockers.push({
+          ruleId: rule.id,
+          score,
+          level,
+          file: location?.artifactLocation?.uri || 'unknown',
+          line: location?.region?.startLine ?? null,
+        });
+      }
     }
   }
   return blockers;

@@ -87,3 +87,15 @@ test('aceita somente resposta HTML nao vazia e retorna URL final validada', asyn
     /conteúdo HTML/,
   );
 });
+
+
+test('bloqueia URLs enganadoras e mantém subdomínios oficiais', () => {
+  for (const url of [
+    'https://www.ifood.com.br.evil.example/menu',
+    'https://www.ifood.com.br@127.0.0.1/menu',
+    'https://ifood.com.br:444/menu',
+  ]) {
+    assert.throws(() => assertAllowedIfoodUrl(url));
+  }
+  assert.equal(assertAllowedIfoodUrl('https://pedido.ifood.com.br/menu').hostname, 'pedido.ifood.com.br');
+});

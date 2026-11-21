@@ -54,3 +54,25 @@ test('passes completed reports with no alerts or only lower severity', () => {
     [],
   );
 });
+
+
+test('reports source location of blocking CodeQL findings for actionable remediation', () => {
+  const sarif = report(
+    { driver: { rules: [high] } },
+    [{
+      ruleId: high.id,
+      locations: [{ physicalLocation: {
+        artifactLocation: { uri: 'backend/src/services/synthetic.ts' },
+        region: { startLine: 42 },
+      } }],
+    }],
+  );
+  const [finding] = codeqlBlockers(sarif);
+  assert.deepEqual(finding, {
+    ruleId: high.id,
+    score: 7.5,
+    level: 'warning',
+    file: 'backend/src/services/synthetic.ts',
+    line: 42,
+  });
+});

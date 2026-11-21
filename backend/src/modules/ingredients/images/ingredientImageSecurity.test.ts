@@ -107,3 +107,19 @@ test('não segue redirect retornado pelo provedor', async () => {
   );
   assert.equal(requests, 1);
 });
+
+
+test('rejeita host parecido, credenciais e porta externa na imagem', () => {
+  for (const url of [
+    'https://images.pexels.com.evil.example/photo.jpg',
+    'https://images.pexels.com@127.0.0.1/photo.jpg',
+    'https://images.pexels.com:444/photo.jpg',
+    'https://images.pexels.com.evil.example/photo.jpg?source=images.pexels.com',
+  ]) {
+    assert.throws(() => assertAllowedProviderImageUrl(url), /não permitido/);
+  }
+  assert.equal(
+    assertAllowedProviderImageUrl('https://images.pexels.com/photos/42.jpg?auto=compress').hostname,
+    'images.pexels.com',
+  );
+});
