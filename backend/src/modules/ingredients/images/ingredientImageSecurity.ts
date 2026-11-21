@@ -183,16 +183,26 @@ async function resolvePublicAddresses(hostname: string, resolver: IngredientImag
 
 const defaultHttpRequester: IngredientImageHttpRequester = (url, address) =>
   new Promise((resolve, reject) => {
+    // Defence in depth at the actual network sink: even an accidental future
+    // direct caller cannot replace the fixed, approved HTTPS origin.
+    const approvedUrl = assertAllowedProviderImageUrl(url);
+    if (isIP(address.address) !== address.family || !isPublicNetworkAddress(address.address)) {
+      reject(new Error('O endereço da imagem sugerida resolve para uma rede não permitida.'));
+      return;
+    }
     const agent = new https.Agent({
       autoSelectFamily: false,
       family: address.family,
       keepAlive: false,
       maxSockets: 1,
-      lookup: createPinnedLookup(url.hostname, address),
+      lookup: createPinnedLookup(ALLOWED_PROVIDER_IMAGE_HOST, address),
     });
     const request = https.get(
-      url,
       {
+        protocol: 'https:',
+        hostname: ALLOWED_PROVIDER_IMAGE_HOST,
+        port: 443,
+        path: approvedUrl.pathname + approvedUrl.search,
         agent,
         headers: {
           Accept: 'image/jpeg,image/png,image/webp',
