@@ -350,8 +350,11 @@ const defaultHttpRequester: IfoodHttpRequester = async (url, addresses) => {
       };
 
       const request = https.request(
-        url,
         {
+          protocol: 'https:',
+          hostname: approvedUrl.hostname,
+          port: 443,
+          path: approvedUrl.pathname + approvedUrl.search,
           method: 'GET',
           agent,
           family: selectedAddress.family,
