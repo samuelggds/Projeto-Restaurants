@@ -68,12 +68,11 @@
   padding: 0;
   text-align: start;
   font: inherit;
-  cursor: zoom-in;
+  cursor: pointer;
 }
 
 .gx-storefronts__open:focus-visible,
-.gx-storefronts__close:focus-visible,
-.gx-storefronts__scroll:focus-visible {
+.gx-storefronts__close:focus-visible {
   outline: 3px solid #982e3e;
   outline-offset: 3px;
 }
@@ -171,7 +170,7 @@
 .gx-storefronts__open:hover .gx-storefronts__expand { background: var(--store-ink); color: var(--store-paper); }
 
 dialog.gx-storefronts__dialog {
-  width: min(28rem, calc(100% - 2rem));
+  width: min(34rem, calc(100% - 1.5rem));
   max-height: calc(100dvh - 2rem);
   margin: auto;
   border: 0;
@@ -183,14 +182,17 @@ dialog.gx-storefronts__dialog {
 }
 
 .gx-storefronts__dialog::backdrop { background: rgb(32 15 27 / .8); }
-.gx-storefronts__sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem); }
+.gx-storefronts__sheet { display: flex; flex-direction: column; height: min(53rem, calc(100dvh - 2rem)); }
 .gx-storefronts__dialog-header { padding: .8rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
 .gx-storefronts__dialog-header h3 { font-size: 1.45rem; line-height: 1.2; letter-spacing: -.04em; margin: 0; }
 .gx-storefronts__dialog-header p { font-size: .9rem; color: #684b53; margin: .15rem 0 0; }
 .gx-storefronts button.gx-storefronts__close { width: 2.75rem; height: 2.75rem; padding: 0; cursor: pointer; }
-.gx-storefronts__scroll { overflow: auto; overscroll-behavior: contain; min-height: 0; }
-.gx-storefronts__scroll:focus-visible { outline-offset: -3px; }
-.gx-storefronts__scroll img { display: block; width: 100%; height: auto; }
+.gx-storefronts__dialog-header { flex: none; border-bottom: 1px solid #e1d2c1; }
+.gx-storefronts__dialog-header p { line-height: 1.25; }
+@media (max-width: 450px) {
+  dialog.gx-storefronts__dialog { width: 100%; max-width: 100%; max-height: 100dvh; border-radius: 0; }
+  .gx-storefronts__sheet { height: 100dvh; }
+}
 
 @media (max-width: 800px) {
   .gx-storefronts__header { display: block; }

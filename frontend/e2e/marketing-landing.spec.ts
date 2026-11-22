@@ -192,11 +192,19 @@ test('galeria, implantação e benefícios aprovados são exibidos',async ({page
 test('cada vitrine abre o cardápio correto e a equipe troca de painel', async ({page}) => {
   await page.setViewportSize({width:390,height:844});
   await page.goto('/');
-  for (const name of ['Forno Alto', 'Braseiro Burger', 'Açaí da Mata', 'Sálvia Trattoria']) {
-    const opener = page.getByRole('button', {name: new RegExp('Ampliar cardápio de ' + name)});
+  for (const [name, product] of [
+    ['Forno Alto', 'Margherita da casa'],
+    ['Braseiro Burger', 'Brasa Bacon'],
+    ['Açaí da Mata', 'Açaí com frutas'],
+    ['Sálvia Trattoria', 'Tagliatelle ao ragù'],
+  ]) {
+    const opener = page.getByRole('button', {name: new RegExp('Experimentar cardápio de ' + name)});
     await opener.click();
     const dialog = page.getByRole('dialog', {name});
-    await expect(dialog.getByRole('img', {name: new RegExp(name)})).toBeVisible();
+    const menu = dialog.getByRole('region', {name: 'Cardápio de ' + name});
+    await menu.getByRole('button', {name: /Especial da casa/}).click();
+    await expect(menu.getByRole('heading', {name: product})).toBeVisible();
+    await expect(menu.getByRole('button', {name: /Adicionar à sacola/})).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
@@ -208,6 +216,74 @@ test('cada vitrine abre o cardápio correto e a equipe troca de painel', async (
     await expect(button).toHaveAttribute('aria-pressed','true');
     await expect(team.locator('figure img')).toBeVisible();
   }
+});
+
+test('vitrine conclui um pedido fictício com cupom, endereço, Pix e percurso de entrega', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(new Date('2026-01-10T12:00:00Z'));
+  await page.goto('/');
+  await page.getByRole('button', { name: /Experimentar cardápio de Braseiro Burger/ }).click();
+  const store = page.getByRole('dialog', { name: 'Braseiro Burger' });
+  const nav = store.getByRole('navigation', { name: 'Navegação da vitrine' });
+  await nav.getByRole('button', { name: 'Conta' }).click();
+  await expect(store.getByLabel('E-mail de exemplo')).toHaveValue('marina@example.test');
+  await store.getByRole('button', { name: 'Entrar com a conta de exemplo' }).click();
+  await expect(store.getByRole('heading', { name: 'Minha conta' })).toBeVisible();
+  await nav.getByRole('button', { name: 'Início' }).click();
+  await store.getByRole('button', { name: /Especial da casa/ }).click();
+  await store.getByRole('button', { name: 'Aumentar quantidade' }).click();
+  await store.getByRole('button', { name: /Adicionar à sacola/ }).click();
+  await nav.getByRole('button', { name: 'Sacola, 2 itens' }).click();
+  await store.getByRole('button', { name: 'Escolher cupom' }).click();
+  await store.getByRole('button', { name: 'Aplicar cupom' }).click();
+  await store.getByRole('button', { name: 'Ver minha sacola' }).click();
+  const recap = store.getByRole('region', { name: 'Resumo do pedido' });
+  await expect(recap).toContainText('59,80');
+  await expect(recap).toContainText('5,98');
+  await expect(recap).toContainText('58,82');
+  await store.getByRole('button', { name: 'Escolher endereço' }).click();
+  await store.getByLabel('Rua ou avenida').fill('Rua da Vitrine');
+  await store.getByLabel('Número').fill('42');
+  await store.getByRole('button', { name: 'Salvar endereço' }).click();
+  await expect(store.getByRole('radio', { name: /Pix/ })).toBeChecked();
+  await store.getByRole('button', { name: 'Simular pagamento Pix' }).click();
+  const tracking = store.getByRole('region', { name: 'Acompanhamento de entrega' });
+  await expect(tracking).toContainText('Rua da Vitrine, 42');
+  await expect(tracking.getByRole('img', { name: /Mapa ilustrativo/ })).toBeVisible();
+  const currentStage = tracking.getByRole('list', { name: 'Etapas da entrega' }).locator('[aria-current="step"]');
+  await expect(currentStage).toHaveText('Em preparo');
+  await tracking.getByRole('button', { name: 'Iniciar entrega' }).click();
+  await expect(currentStage).toHaveText('A caminho');
+  await tracking.getByRole('button', { name: 'Pausar rota' }).click();
+  await tracking.getByRole('button', { name: 'Retomar rota' }).click();
+  await tracking.getByRole('button', { name: 'Concluir entrega' }).click();
+  await expect(currentStage).toHaveText('Entregue');
+  await tracking.getByRole('button', { name: 'Voltar aos pedidos' }).click();
+  const order = store.getByRole('listitem').filter({ hasText: 'Pedido simulado' });
+  await expect(order).toContainText('2 × Brasa Bacon');
+  await expect(order).toContainText('58,82');
+  await expect(order).toContainText('Entregue');
+  await nav.getByRole('button', { name: 'Sacola, 0 itens' }).click();
+  await expect(store.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
+});
+
+test('cada restaurante conserva a própria sacola ao alternar entre vitrines', async ({ page }) => {
+  await page.goto('/');
+  const openPizza = page.getByRole('button', { name: /Experimentar cardápio de Forno Alto/ });
+  await openPizza.click();
+  const pizza = page.getByRole('dialog', { name: 'Forno Alto' });
+  await pizza.getByRole('button', { name: /Especial da casa/ }).click();
+  await pizza.getByRole('button', { name: /Adicionar à sacola/ }).click();
+  await pizza.getByRole('button', { name: 'Fechar vitrine' }).click();
+  await page.getByRole('button', { name: /Experimentar cardápio de Açaí da Mata/ }).click();
+  const acai = page.getByRole('dialog', { name: 'Açaí da Mata' });
+  await acai.getByRole('button', { name: 'Sacola, 0 itens', exact: true }).click();
+  await expect(acai.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await openPizza.click();
+  await pizza.getByRole('button', { name: /^Sacola, 1 item/ }).click();
+  await pizza.getByRole('button', { name: 'Remover Margherita da casa' }).click();
+  await expect(pizza.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
 });
 
 test('formulário preserva dados após falha, repete a chave e confirma recebimento', async ({

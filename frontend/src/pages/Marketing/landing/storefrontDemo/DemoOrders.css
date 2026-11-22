@@ -1,0 +1,199 @@
+.gx-demo-orders {
+  --order-ink: #30222a;
+  --order-muted: #64585c;
+  --order-accent: #823a27;
+  padding: 1rem;
+  color: var(--order-ink);
+  background: #fffaf3;
+  text-align: left;
+}
+.gx-demo-orders h3 {
+  font-size: clamp(1.3rem, 4vw, 1.6rem);
+  line-height: 1.12;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.04em;
+  color: var(--order-ink);
+}
+.gx-demo-orders p {
+  margin: 0.45rem 0 0.8rem;
+  line-height: 1.45;
+}
+.gx-demo-orders small {
+  font-size: 0.84rem;
+  line-height: 1.3;
+  color: var(--order-muted);
+}
+.gx-demo-order-list {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0;
+  margin: 0.9rem 0;
+  list-style: none;
+}
+.gx-demo-order-list > li {
+  border: 1px solid #ddcec3;
+  border-radius: 0.8rem;
+  background: #fff;
+  padding: 0.9rem;
+}
+.gx-demo-order-list p {
+  font-size: 1rem;
+  color: #4c3940;
+}
+.gx-demo-order-top,
+.gx-demo-order-bottom,
+.gx-demo-order-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.gx-demo-order-top {
+  margin-bottom: 0.25rem;
+}
+.gx-demo-order-status {
+  padding: 0.25rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.15;
+  background: #e4efdf;
+  color: #294937;
+  font-weight: 700;
+}
+.gx-demo-order-bottom {
+  padding-top: 0.35rem;
+  border-top: 1px solid #e9e1d9;
+}
+.gx-demo-orders button,
+.gx-demo-orders summary {
+  min-height: 44px;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  font-weight: 650;
+  color: var(--order-accent);
+}
+.gx-demo-order-bottom button,
+.gx-demo-order-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0;
+}
+.gx-demo-order-heading {
+  color: var(--order-accent);
+}
+.gx-demo-order-heading h3 {
+  margin: 0.2rem 0 0;
+}
+.gx-demo-orders .gx-demo-order-message {
+  margin: 0.55rem 0 0.9rem;
+}
+.gx-demo-map-panel {
+  margin: 0;
+  background: #fff;
+  border: 1px solid #d4cec0;
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+.gx-demo-orders .gx-route-map {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.gx-route-bike,
+.gx-route-traveled {
+  transition:
+    transform 180ms linear,
+    stroke-dashoffset 180ms linear;
+}
+.gx-demo-map-panel figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-top: 1px solid #d4cec0;
+}
+.gx-demo-map-panel figcaption > svg {
+  flex: none;
+  color: #3e6049;
+}
+.gx-demo-map-panel figcaption span {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.gx-demo-map-panel figcaption strong {
+  font-size: 0.93rem;
+  overflow-wrap: anywhere;
+}
+.gx-demo-route-stages {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  list-style: none;
+  margin: 1rem 0 0.9rem;
+  padding: 0;
+}
+.gx-demo-route-stages li {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: #6a6160;
+  font-size: 0.84rem;
+  font-weight: 560;
+  border-top: 3px solid #d9d5d0;
+  padding-top: 0.42rem;
+}
+.gx-demo-route-stages li[data-complete='true'] {
+  color: #2a543c;
+  border-color: #648168;
+}
+.gx-demo-route-stages li[aria-current='step'] {
+  font-weight: 750;
+}
+.gx-demo-route-stages li svg {
+  flex: none;
+}
+.gx-demo-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.gx-demo-order-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  background: #fff8eb;
+  border: 1px solid #ceb5a2;
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.75rem;
+}
+.gx-demo-orders .gx-demo-route-note {
+  color: var(--order-muted);
+  margin: 0.45rem 0 1rem;
+  font-size: 0.84rem;
+}
+.gx-demo-order-summary {
+  padding: 0.15rem 0.7rem;
+  background: #fff;
+  border: 1px solid #e1d7cd;
+  border-radius: 0.55rem;
+}
+.gx-demo-order-summary summary {
+  cursor: pointer;
+  align-content: center;
+  padding: 0.5rem 0;
+}
+.gx-demo-order-summary ul {
+  margin: 0.1rem 0;
+  padding-left: 1.3rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gx-route-bike,
+  .gx-route-traveled {
+    transition: none;
+  }
+}
