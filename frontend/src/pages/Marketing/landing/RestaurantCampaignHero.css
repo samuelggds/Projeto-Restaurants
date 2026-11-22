@@ -1,0 +1,266 @@
+@font-face {
+  font-family: "Gabarito GastroNexa";
+  src: url("/marketing-vitrines/Gabarito.ttf") format("truetype");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.gx-campaign-intro {
+  --gx-display-font: "Gabarito GastroNexa", "Segoe UI", sans-serif;
+  --gx-display-serif: Georgia, "Times New Roman", serif;
+  font-family: var(--gx-display-font);
+  scroll-margin-top: 4.75rem;
+}
+
+.gx-campaign-cover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #fff6e2;
+  background: radial-gradient(ellipse at 48% 16%, #941d23 0%, #661421 40%, #4b0e1c 86%);
+}
+
+.gx-campaign-cover-photo {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 auto;
+  width: 92%;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 29%);
+}
+
+.gx-campaign-cover-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% 58%;
+}
+
+.gx-campaign-cover::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, #530f1e 2%, #530f1eea 19%, #65101cb3 31%, transparent 60%);
+}
+
+.gx-campaign-cover-inner {
+  width: min(80rem, calc(100% - clamp(3rem, 9vw, 9rem)));
+  min-height: clamp(30.75rem, 39vw, 40.25rem);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.gx-campaign-pitch {
+  padding: clamp(3.3rem, 6vw, 6rem) 0 clamp(3.85rem, 6vw, 6rem);
+  width: min(48%, 39rem);
+}
+
+.gx-campaign-pitch h1,
+.gx-campaign-contact-story h2 {
+  margin: 0;
+  color: #fff6e2;
+  font-family: var(--gx-display-font);
+  font-size: clamp(3.4rem, 5.65vw, 6rem);
+  font-weight: 690;
+  letter-spacing: -.065em;
+  line-height: .99;
+}
+
+.gx-campaign-pitch h1 em,
+.gx-campaign-contact-story h2 em {
+  color: #ffe68a;
+  font-family: var(--gx-display-serif);
+  font-weight: 400;
+  letter-spacing: -.071em;
+  line-height: 1.07;
+}
+
+.gx-campaign-pitch p {
+  max-width: 26rem;
+  margin: 1.5rem 0 1.8rem;
+  color: #fff4e7;
+  font-size: clamp(1.075rem, 1.35vw, 1.3rem);
+  line-height: 1.45;
+}
+
+.gx-campaign-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+
+.gx-campaign-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  min-height: 3rem;
+  border: 1px solid transparent;
+  padding: .78rem 1.25rem;
+  border-radius: 1.8rem;
+  text-decoration: none;
+  font: 680 1rem/1.18 var(--gx-display-font);
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+.gx-campaign-actions .gx-campaign-primary {
+  background: #ffe681;
+  color: #321629;
+}
+.gx-campaign-actions .gx-campaign-primary:hover { background: #fff3b7; }
+.gx-campaign-actions .gx-campaign-secondary {
+  color: #fff6e2;
+  border-color: #fbd3bcba;
+  background: #411325a6;
+}
+.gx-campaign-actions .gx-campaign-secondary:hover {
+  background: #fff6e2;
+  border-color: #fff6e2;
+  color: #391727;
+}
+.gx-campaign-actions a:focus-visible,
+.gx-campaign-contact-story a:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+.gx-campaign-ticket {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  position: absolute;
+  right: 2%;
+  bottom: 9%;
+  color: #331828;
+  background: #fff4da;
+  border: 1px solid #d7b998;
+  padding: .67rem 1.05rem;
+  border-radius: .42rem;
+  box-shadow: .2rem .35rem 0 #29132243;
+  transform: rotate(-5deg);
+}
+.gx-campaign-ticket > svg { color: #a13729; }
+.gx-campaign-ticket small,
+.gx-campaign-ticket strong { display: block; }
+.gx-campaign-ticket small { font-size: .77rem; line-height: 1.24; color: #684c4c; }
+.gx-campaign-ticket strong { font-size: 1rem; letter-spacing: -.02em; }
+
+.gx-campaign-contact {
+  scroll-margin-top: 4.75rem;
+  padding: clamp(3rem, 6vw, 6rem) clamp(1.25rem, 4vw, 4.5rem);
+  background: #f4e6cf;
+}
+.gx-campaign-contact-layout {
+  display: grid;
+  grid-template-columns: minmax(0,.9fr) minmax(0,1.15fr);
+  gap: clamp(1.4rem, 3.4vw, 4rem);
+  max-width: 76rem;
+  margin: 0 auto;
+  align-items: start;
+}
+.gx-campaign-contact-story {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  min-height: 30rem;
+  aspect-ratio: 4/5;
+  padding: clamp(1.7rem, 3.3vw, 3.4rem);
+  color: #fff6e2;
+  background: #401c25;
+  border-radius: 1.45rem;
+}
+.gx-campaign-contact-story > img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.gx-campaign-contact-story::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(0deg, #291322fa 1%, #291322d6 29%, #2913223b 64%, transparent);
+}
+.gx-campaign-contact-story h2 { font-size: clamp(2.5rem, 4.5vw, 4.8rem); }
+.gx-campaign-contact-story p { max-width: 24rem; font-size: 1.1rem; line-height: 1.48; color: #fff4e3; margin: 1.1rem 0; }
+.gx-campaign-contact-story a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: #ffe68a;
+  font-weight: 680;
+  font-size: 1.075rem;
+  text-decoration: underline;
+  text-underline-offset: .26em;
+}
+.gx-campaign-contact-form { min-width: 0; }
+.gx-campaign-contact-form > div {
+  background: #fffaf0;
+  border: 1px solid #d3bdad;
+  border-radius: 1.45rem;
+  box-shadow: none;
+}
+.gx-campaign-contact-form h3 { font-family: var(--gx-display-font); font-size: 1.65rem; letter-spacing: -.035em; }
+.gx-campaign-contact-form label, .gx-campaign-contact-form legend, .gx-campaign-contact-form summary,
+.gx-campaign-contact-form h3 + p { font-size: .9rem; }
+.gx-campaign-contact-form form input:not([type="checkbox"]),
+.gx-campaign-contact-form form textarea, .gx-campaign-contact-form form select { font-size: 1rem; }
+.gx-campaign-contact-form form button[type="submit"] { background: #552039; border-color: #552039; }
+.gx-campaign-contact-form form button[type="submit"]:hover { background: #371528; }
+
+@media (max-width: 1000px) and (min-width: 761px) {
+  .gx-campaign-cover-inner { width: calc(100% - 3.75rem); min-height: 30rem; }
+  .gx-campaign-pitch { width: 53%; }
+  .gx-campaign-contact-layout { grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); }
+}
+
+@media (max-width: 760px) {
+  .gx-campaign-cover {
+    --gx-photo-height: clamp(13rem, 54vw, 22rem);
+    padding-bottom: var(--gx-photo-height);
+    background: linear-gradient(130deg,#531021,#73121f 75%);
+  }
+  .gx-campaign-cover::after { content: none; }
+  .gx-campaign-cover-photo {
+    inset: auto 0 0;
+    width: 100%;
+    height: calc(var(--gx-photo-height) + 1.15rem);
+    mask-image: linear-gradient(180deg, transparent, #000 17%);
+  }
+  .gx-campaign-cover-photo img { object-position: 50% 56%; }
+  .gx-campaign-cover-inner { min-height: auto; width: calc(100% - 2.5rem); }
+  .gx-campaign-pitch { width: 100%; padding: 2.3rem 0 1.25rem; }
+  .gx-campaign-pitch h1 { font-size: clamp(3.1rem, 10.5vw, 4.6rem); }
+  .gx-campaign-pitch p { font-size: 1.09rem; margin: 1.08rem 0 1.25rem; max-width: 29rem; }
+  .gx-campaign-actions { gap: .5rem; }
+  .gx-campaign-actions a { padding: .7rem 1rem; font-size: .975rem; min-height: 2.8rem; }
+  .gx-campaign-ticket { right: 1%; bottom: calc(-1 * var(--gx-photo-height) + 1rem); }
+  .gx-campaign-contact { padding: 2rem 1.1rem; }
+  .gx-campaign-contact-layout { grid-template-columns: minmax(0,1fr); gap: 1rem; }
+  .gx-campaign-contact-story { min-height: 0; aspect-ratio: auto; padding: 1.7rem; }
+  .gx-campaign-contact-story > img { object-position: 50% 38%; }
+  .gx-campaign-contact-story::before { background: linear-gradient(90deg,#291322f5 5%,#291322d6 46%,#29132270); }
+  .gx-campaign-contact-story h2 { font-size: 2.5rem; }
+  .gx-campaign-contact-story p { max-width: 23rem; margin: .8rem 0 .3rem; font-size: 1rem; }
+}
+
+@media (max-width: 360px) {
+  .gx-campaign-actions a { padding-inline: .75rem; }
+  .gx-campaign-actions .gx-campaign-secondary > svg { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx-campaign-actions a { transition: none; }
+}

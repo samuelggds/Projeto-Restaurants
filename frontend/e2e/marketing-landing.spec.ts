@@ -107,7 +107,7 @@ for (const viewport of [
       'Seu restaurante',
     );
 
-    const heroImage = page.locator('.desktop-device').first();
+    const heroImage = page.getByRole('img', { name: 'Pizza, hambúrguer, açaí e um prato feito brasileiro.' });
     await expect(heroImage).toBeVisible();
 
     await page.evaluate(() => document.fonts.ready);
@@ -151,6 +151,7 @@ test('menu mobile representa a navegação comercial atual', async ({ page }) =>
   await expect(navigation).toBeVisible();
 
   for (const [label, anchor] of [
+    ['Cardápios', '#vitrines'],
     ['Funcionalidades', '#funcionalidades'],
     ['A plataforma', '#plataforma'],
     ['Como funciona', '#como-funciona'],
@@ -181,11 +182,32 @@ test('planos utilizam catálogo público real e selecionam interesse',async ({pa
 
 test('galeria, implantação e benefícios aprovados são exibidos',async ({page})=>{
  await page.goto('/');
- await expect(page.locator('#apresentacao')).toContainText('Tudo conectado');
+ await expect(page.locator('#apresentacao')).toContainText('Quatro painéis');
  await expect(page.locator('#funcionalidades')).toContainText('Menos complicação');
  await expect(page.locator('#como-funciona')).toContainText('deixar tudo pronto');
  await expect(page.locator('#plataforma')).toBeVisible();
  await expect(page.locator('.official-gx').first()).toBeVisible();
+});
+
+test('cada vitrine abre o cardápio correto e a equipe troca de painel', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  for (const name of ['Forno Alto', 'Braseiro Burger', 'Açaí da Mata', 'Sálvia Trattoria']) {
+    const opener = page.getByRole('button', {name: new RegExp('Ampliar cardápio de ' + name)});
+    await opener.click();
+    const dialog = page.getByRole('dialog', {name});
+    await expect(dialog.getByRole('img', {name: new RegExp(name)})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  }
+  const team = page.locator('#apresentacao');
+  for (const name of ['Atendente','Garçom','Motoboy','Administrador']) {
+    const button = team.getByRole('button', {name,exact:true});
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed','true');
+    await expect(team.locator('figure img')).toBeVisible();
+  }
 });
 
 test('formulário preserva dados após falha, repete a chave e confirma recebimento', async ({

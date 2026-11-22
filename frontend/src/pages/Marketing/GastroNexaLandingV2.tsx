@@ -1,36 +1,23 @@
-import { useCallback, useEffect, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { approvedLandingMarkup } from './GastroNexaApprovedMarkup';
 import { ApprovedPage } from './GastroNexaApprovedPage.styles';
 import { SalesContactForm } from './landing/SalesContactForm';
 import { ApprovedMarketingPlans } from './landing/ApprovedMarketingPlans';
 import { GastroNexaInteractiveDemo } from './landing/GastroNexaInteractiveDemo';
+import { RestaurantCampaignHero } from './landing/RestaurantCampaignHero';
+import { StorefrontShowcase } from './landing/StorefrontShowcase';
+import { RestaurantTeamPanels } from './landing/RestaurantTeamPanels';
+import './landing/RestaurantCampaign.css';
+import './landing/RestaurantCommercial.css';
 
 type PlanCode = 'BASICO' | 'PREMIUM' | 'GESTAO_TOTAL' | 'UNDECIDED';
-type MountTargets = { lead: Element; plans: Element; demo: Element };
+type MountTargets = { hero: Element; roles: Element; plans: Element; demo: Element };
 
 // Keep the dangerouslySetInnerHTML prop referentially stable. React updates
 // innerHTML when this object is replaced; recreating it after setMounts()
-// would detach both portal targets, leaving the form and plans invisible.
+// would detach the portal targets, including the live form and plan catalog.
 const stableApprovedMarkup = { __html: approvedLandingMarkup };
-
-const descriptions: Record<string, { title: string; desc: string; note: string }> = {
-  cardapio: {
-    title: 'Um cardápio que valoriza seu negócio.',
-    desc: 'Seu cliente escolhe produtos, personaliza o pedido e navega por um cardápio que respeita a identidade do seu restaurante.',
-    note: 'Navegação prática no celular',
-  },
-  pedidos: {
-    title: 'Cada pedido no lugar certo.',
-    desc: 'Acompanhe o fluxo da operação e organize as etapas do atendimento, do recebimento à conclusão.',
-    note: 'Fluxo visual para a equipe',
-  },
-  gestao: {
-    title: 'Visão clara para decidir melhor.',
-    desc: 'Reúna informações comerciais e operacionais para entender o movimento do restaurante.',
-    note: 'Indicadores da sua operação',
-  },
-};
 
 export default function GastroNexaLandingV2() {
   const [mounts, setMounts] = useState<MountTargets | null>(null);
@@ -45,18 +32,22 @@ export default function GastroNexaLandingV2() {
   // the targets before mounting the live form and catalog components.
   const attachApprovedMarkup = useCallback((element: HTMLDivElement | null) => {
     if (!element) return;
-    const lead = element.querySelector('#gx-lead-root');
+    const hero = element.querySelector('#gx-hero-root');
+    const roles = element.querySelector('#gx-roles-root');
     const plans = element.querySelector('#gx-pricing-root');
     const demo = element.querySelector('#gx-interactive-demo-root');
-    if (!lead || !plans || !demo) return;
+    if (!hero || !roles || !plans || !demo) return;
     setMounts((previous) =>
-      previous?.lead === lead && previous.plans === plans && previous.demo === demo
-        ? previous : { lead, plans, demo },
+      previous?.hero === hero && previous.roles === roles && previous.plans === plans && previous.demo === demo
+        ? previous : { hero, roles, plans, demo },
     );
   }, []);
 
-  // Delegated React events keep the mobile navigation and preview tabs live
-  // without manipulating a separate copy of the approved static markup.
+  useEffect(() => {
+    if (mounts && location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+  }, [mounts]);
+
+  // The header is part of the static presentation markup.
   const handleMarkupClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!(event.target instanceof Element)) return;
     const container = event.currentTarget;
@@ -76,46 +67,38 @@ export default function GastroNexaLandingV2() {
       toggle?.setAttribute('aria-label', 'Abrir menu');
     }
 
-    const tab = event.target.closest<HTMLButtonElement>('[data-tab]');
-    if (!tab) return;
-    const name = tab.dataset.tab ?? 'cardapio';
-    const description = descriptions[name];
-    if (!description) return;
+  };
 
-    container.querySelectorAll<HTMLElement>('[data-tab]').forEach((button) => {
-      const active = button.dataset.tab === name;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', String(active));
-    });
-    container.querySelectorAll<HTMLElement>('[data-pane]').forEach((pane) => {
-      pane.classList.toggle('active', pane.dataset.pane === name);
-    });
-    const title = container.querySelector('#tab-title');
-    const desc = container.querySelector('#tab-desc');
-    const note = container.querySelector('#tab-note');
-    if (title) title.textContent = description.title;
-    if (desc) desc.textContent = description.desc;
-    if (note) note.textContent = description.note;
+  const handleMenuKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return;
+    const toggle = event.currentTarget.querySelector<HTMLButtonElement>('#mobile-toggle');
+    if (toggle?.getAttribute('aria-expanded') !== 'true') return;
+    toggle.click();
+    toggle.focus();
   };
 
   return (
-    <ApprovedPage>
+    <ApprovedPage className="gx-campaign">
       {/* Static, first-party presentation markup only. User input and plan data stay inside React. */}
       <div
         ref={attachApprovedMarkup}
         onClick={handleMarkupClick}
+        onKeyDown={handleMenuKey}
         dangerouslySetInnerHTML={stableApprovedMarkup}
       />
       {mounts
         ? createPortal(
-            <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />,
-            mounts.lead,
+            <RestaurantCampaignHero showcase={<StorefrontShowcase />}>
+              <SalesContactForm initialPlan={initialPlan} onPlanChange={setInitialPlan} />
+            </RestaurantCampaignHero>,
+            mounts.hero,
           )
         : null}
       {mounts
         ? createPortal(<ApprovedMarketingPlans onSelectPlan={setInitialPlan} />, mounts.plans)
         : null}
       {mounts ? createPortal(<GastroNexaInteractiveDemo />, mounts.demo) : null}
+      {mounts ? createPortal(<RestaurantTeamPanels />, mounts.roles) : null}
     </ApprovedPage>
   );
 }

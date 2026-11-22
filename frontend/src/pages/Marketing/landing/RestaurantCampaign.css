@@ -1,0 +1,57 @@
+.gx-campaign.gx-campaign {
+  --ink: #291322;
+  --muted: #6c515a;
+  --light: #fff7e7;
+  font-family: 'Gabarito GastroNexa', 'Segoe UI', sans-serif;
+}
+.gx-campaign :where(section, aside, #plataforma, #contato)[id] { scroll-margin-top: 5.5rem; }
+.gx-campaign.gx-campaign .site-header {
+  position: relative;
+  height: 4.5rem;
+  background: #fff7e7;
+  color: #291322;
+  border-bottom: 1px solid #d7c5b2;
+  box-shadow: none;
+}
+.gx-campaign .site-header .brand .official-gx,
+.gx-campaign .site-header .brand .brand-name { color: #291322 !important; }
+.gx-campaign .site-header .brand .brand-name span { color: #97401d !important; }
+.gx-campaign .site-header .header-nav a { color: #422b33; }
+.gx-campaign .site-header .header-nav a:hover { color: #944123; }
+.gx-campaign .site-header .header-actions .main-btn { background: #291322; color: #fff6e2; box-shadow: none; border-color: #291322; }
+.gx-campaign .site-header .mobile-toggle { background: #fff6e2; color: #291322; }
+.gx-campaign .site-header .header-nav.open { background: #fff7e7; color: #291322; }
+.gx-campaign :focus-visible { outline: 3px solid #008390; outline-offset: 4px; }
+.gx-campaign .gx-team { background: #291322; color: #fff6e2; padding: clamp(3.25rem, 7vw, 6.25rem) 0; }
+.gx-team-inner { width: min(74rem, 92%); margin: auto; display: grid; grid-template-columns: .86fr 1.22fr; gap: clamp(2rem, 6vw, 6rem); align-items: center; }
+.gx-team-copy h2 { margin: 0; font-size: clamp(2.6rem, 4.8vw, 4.7rem); letter-spacing: -.052em; line-height: .99; color: #fff6e2; }
+.gx-team-copy h2 em { display: block; font-family: Georgia, serif; font-weight: 400; color: #ffe777; }
+.gx-team-copy p { color:#ead6d4; line-height: 1.5; font-size: 1.1rem; max-width:30rem; margin:1.3rem 0 1.7rem; }
+.gx-team-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.6rem; }
+.gx-team-options button { display: flex; gap:.45rem; justify-content: center; align-items: center; min-height: 46px; padding:.55rem; font-size:1rem; font-weight:650; border:1px solid #9c7784; border-radius:2rem; color:#fff6e2; background:transparent; }
+.gx-team-options button[aria-pressed=true] { color:#291322; background:#ffe777; border-color:#ffe777; }
+.gx-team-options button:hover { border-color:#ffe777; }
+.gx-team-example { margin:0; min-width:0; padding:clamp(.8rem,2vw,1.5rem); background:#fff6e2; color:#291322; border-radius:1rem; }
+.gx-team-display { display:grid; place-items:center; height:clamp(13rem,25vw,20rem); padding:.5rem; overflow:hidden; border:1px solid #dec9b9; background:#f7f5ef; border-radius:.55rem; }
+.gx-team-display img { display:block; width:100%; height:100%; min-height:0; object-fit:contain; }
+.gx-team-example figcaption { display:grid; gap:.35rem; padding:.9rem .1rem .12rem; line-height:1.36; min-height:6rem; }
+.gx-team-example strong { font-size:clamp(1.23rem,2.1vw,1.7rem); letter-spacing:-.035em; }
+.gx-team-example span { color:#5c4246; font-size:1rem; }
+.gx-campaign .features-section { background:#fff7e7; }
+.gx-campaign .features-section .section-title { color:#291322; }
+.gx-campaign .features-section .feature-card { background:transparent; border:0; border-top:1px solid #c6a99a; border-radius:0; box-shadow:none; }
+.gx-campaign .features-section .mini-icon { background:#ffe6cb; color:#833b28; }
+.gx-campaign .offer-section { background:#fff7e7; }
+.gx-campaign .offer-section .offer { background:#361b30; }
+.gx-campaign .gn-showcase { background:#fffaf0; }
+.gx-campaign .gn-showcase-heading em,.gx-campaign .gn-showcase-copy em { color:#993b21; }
+@media(max-width:850px) {
+  .gx-team-inner { grid-template-columns:1fr; }
+  .gx-team-options { grid-template-columns: repeat(4,minmax(0,1fr)); }
+}
+@media(max-width:590px) {
+  .gx-campaign.gx-campaign .site-header { height:4rem; }
+  .gx-team-inner { width:91%; gap:1.4rem; }
+  .gx-team-options { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .gx-team-example figcaption { min-height:7rem; }
+}
