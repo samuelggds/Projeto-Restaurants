@@ -1,19 +1,16 @@
-import { useId, useRef, useState } from 'react';
+import { lazy, Suspense, useId, useReducer, useRef, useState, type CSSProperties } from 'react';
 import { Expand, X } from 'lucide-react';
+import { demoStores, type DemoSlug } from './storefrontDemo/catalog';
+import { initialDemoSessions, updateDemoSession } from './storefrontDemo/demoSession';
 import './StorefrontShowcase.css';
 
-const storefronts = [
-  { slug: 'forno-alto', name: 'Forno Alto', category: 'Pizzaria', highlight: 'Margherita de massa longa com manjericão e muçarela' },
-  { slug: 'braseiro-burger', name: 'Braseiro Burger', category: 'Hamburgueria', highlight: 'Brasa Bacon com cheddar e bacon crocante' },
-  { slug: 'acai-da-mata', name: 'Açaí da Mata', category: 'Açaiteria', highlight: 'Tigela de açaí com banana, morango e granola' },
-  { slug: 'salvia-trattoria', name: 'Sálvia Trattoria', category: 'Restaurante', highlight: 'Tagliatelle fresco ao ragù' },
-] as const;
-
-type Storefront = (typeof storefronts)[number];
+const StorefrontExperience = lazy(() => import('./storefrontDemo/StorefrontExperience')
+  .then(module => ({ default: module.StorefrontExperience })));
+const storefronts = Object.values(demoStores);
 const directory = '/marketing-vitrines';
 const previewSizes = '(max-width: 640px) 43vw, (max-width: 1200px) 22vw, 260px';
 
-function CardImage({ slug }: { slug: Storefront['slug'] }) {
+function CardImage({ slug }: { slug: DemoSlug }) {
   return (
     <img
       src={`${directory}/${slug}-480.webp`}
@@ -29,15 +26,16 @@ function CardImage({ slug }: { slug: Storefront['slug'] }) {
 }
 
 export function StorefrontShowcase() {
-  const [selected, setSelected] = useState<Storefront | null>(null);
+  const [selected, setSelected] = useState<DemoSlug | null>(null);
+  const [sessions, dispatch] = useReducer(updateDemoSession, undefined, () => initialDemoSessions());
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const headingId = useId();
   const modalTitleId = useId();
 
-  function openStore(store: Storefront, trigger: HTMLButtonElement) {
+  function openStore(slug: DemoSlug, trigger: HTMLButtonElement) {
     opener.current = trigger;
-    setSelected(store);
+    setSelected(slug);
     dialog.current?.showModal();
   }
 
@@ -46,7 +44,7 @@ export function StorefrontShowcase() {
       <div className="gx-storefronts__inner">
         <div className="gx-storefronts__header">
           <h2 id={headingId}>Quatro cozinhas, <em>quatro cardápios.</em></h2>
-          <p>Abra uma vitrine de exemplo e veja como as fotos, as ofertas e a marca de cada casa aparecem para o cliente.</p>
+          <p>Escolha uma loja, monte sua sacola e acompanhe a entrega. Você pode testar o pedido inteiro com dados fictícios.</p>
         </div>
         <ul className="gx-storefronts__list">
           {storefronts.map((store) => (
@@ -55,8 +53,8 @@ export function StorefrontShowcase() {
                 className="gx-storefronts__open"
                 type="button"
                 aria-haspopup="dialog"
-                aria-label={`Ampliar cardápio de ${store.name}, ${store.category.toLocaleLowerCase('pt-BR')}`}
-                onClick={(event) => openStore(store, event.currentTarget)}
+                aria-label={`Experimentar cardápio de ${store.name}, ${store.category.toLocaleLowerCase('pt-BR')}`}
+                onClick={(event) => openStore(store.slug, event.currentTarget)}
               >
                 <span className="gx-storefronts__stage" aria-hidden="true">
                   <span className="gx-storefronts__device"><CardImage slug={store.slug} /></span>
@@ -83,22 +81,17 @@ export function StorefrontShowcase() {
           if (event.target === event.currentTarget) dialog.current?.close();
         }}
       >
-        <div className="gx-storefronts__sheet">
+        <div className="gx-storefronts__sheet" style={selected ? { '--demo-accent': demoStores[selected].color } as CSSProperties : undefined}>
           <div className="gx-storefronts__dialog-header">
-            <div><h3 id={modalTitleId}>{selected?.name}</h3><p>{selected?.category} · Cardápio de exemplo</p></div>
+            <div><h3 id={modalTitleId}>{selected && demoStores[selected].name}</h3><p>Demonstração interativa · pedidos e pagamentos fictícios</p></div>
             <button type="button" className="gx-storefronts__close" aria-label="Fechar vitrine" onClick={() => dialog.current?.close()}>
               <X size={22} aria-hidden="true" />
             </button>
           </div>
           {selected && (
-            <div className="gx-storefronts__scroll" tabIndex={0} role="region" aria-label="Captura ampliada do cardápio">
-              <img
-                src={`${directory}/${selected.slug}.webp`}
-                width={828}
-                height={1700}
-                alt={`Página inicial de ${selected.name}, com opções de entrega e retirada. Destaque: ${selected.highlight}.`}
-              />
-            </div>
+            <Suspense fallback={<p role="status">Abrindo o cardápio…</p>}>
+              <StorefrontExperience key={selected} slug={selected} session={sessions[selected]} dispatch={dispatch} />
+            </Suspense>
           )}
         </div>
       </dialog>

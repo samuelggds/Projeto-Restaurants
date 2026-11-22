@@ -1,0 +1,149 @@
+.gx-journey {
+  color: #291322;
+  background: #fffdf8;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.gx-journey__body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.gx-journey__body:focus {
+  outline: none;
+}
+.gx-journey__nav {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: white;
+  padding: 0.3rem 0.3rem max(0.3rem, env(safe-area-inset-bottom));
+  border-top: 1px solid #e4d8cf;
+}
+.gx-journey__nav button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.22rem;
+  color: #574951;
+  border: 0;
+  border-radius: 0.65rem;
+  background: transparent;
+  min-height: 3.15rem;
+  padding: 0.15rem;
+  font:
+    600 0.82rem/1.15 'Gabarito GastroNexa',
+    sans-serif;
+}
+.gx-journey__nav button[aria-current] {
+  color: var(--demo-accent, #903621);
+  background: #f4eee8;
+}
+.gx-journey__nav button span {
+  position: relative;
+}
+.gx-journey__nav b {
+  position: absolute;
+  left: 85%;
+  top: -5px;
+  padding: 0.1rem 0.25rem;
+  min-width: 1rem;
+  border-radius: 1rem;
+  font: 700 0.66rem/1.2 sans-serif;
+  color: #fff;
+  background: #592638;
+}
+.gx-journey__notice {
+  flex: none;
+  margin: 0;
+  padding: 0.4rem 1rem;
+  font-size: 0.88rem;
+  color: #304733;
+  background: #ecf5e6;
+  line-height: 1.35;
+}
+.gx-demo-page {
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+.gx-demo-page h3 {
+  margin: 0 0 0.45rem;
+  letter-spacing: -0.045em;
+  font-size: 1.8rem;
+  color: #291322;
+}
+.gx-demo-page p {
+  margin: 0 0 1.1rem;
+  color: #634e55;
+  font-size: 1rem;
+  line-height: 1.48;
+}
+.gx-demo-coupon {
+  margin: 1.3rem 0;
+  background: #fff2c8;
+  padding: 1.3rem;
+  border-radius: 1rem;
+  border: 1px dashed #a67639;
+}
+.gx-demo-coupon strong {
+  display: block;
+  margin: 0.6rem 0 0.35rem;
+  font-size: 1.55rem;
+  line-height: 1.15;
+}
+.gx-demo-coupon code {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 0.9rem;
+  font-weight: 700;
+}
+.gx-journey button.gx-demo-action,
+.gx-journey button.gx-demo-secondary {
+  display: block;
+  width: 100%;
+  border-radius: 0.75rem;
+  padding: 0.8rem 1rem;
+  min-height: 44px;
+  font:
+    700 1rem/1.25 'Gabarito GastroNexa',
+    sans-serif;
+}
+.gx-journey button.gx-demo-action {
+  color: white;
+  background: var(--demo-accent, #7b3026);
+  border: 1px solid transparent;
+}
+.gx-journey button.gx-demo-secondary {
+  color: #482d39;
+  background: #fffdf8;
+  border: 1px solid #baa6a5;
+  margin: 0.65rem 0;
+}
+.gx-demo-login label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 650;
+  margin: 0.9rem 0 0.4rem;
+}
+.gx-demo-login input {
+  min-width: 0;
+  padding: 0.8rem;
+  font-size: 1rem;
+  color: #4d3e45;
+  background: #f3eeea;
+  border: 1px solid #d4c7bf;
+  border-radius: 0.6rem;
+}
+.gx-journey button.gx-demo-secret {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: #5a3947;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-bottom: 0.5rem;
+}
