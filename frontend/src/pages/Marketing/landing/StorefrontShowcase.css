@@ -1,0 +1,215 @@
+.gx-storefronts {
+  --store-ink: #291322;
+  --store-paper: #fff6e2;
+  background: var(--store-paper);
+  color: var(--store-ink);
+  font-family: 'Gabarito GastroNexa', 'Segoe UI', sans-serif;
+  padding: clamp(3.3rem, 6vw, 6rem) 0;
+  scroll-margin-top: 5rem;
+}
+
+.gx-storefronts__inner {
+  width: min(1180px, calc(100% - 64px));
+  margin-inline: auto;
+}
+
+.gx-storefronts__header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.gx-storefronts__header h2 {
+  margin: 0;
+  font-size: clamp(2.3rem, 4.1vw, 4.1rem);
+  line-height: 1;
+  font-weight: 710;
+  letter-spacing: -.055em;
+}
+
+.gx-storefronts__header h2 em {
+  display: block;
+  color: #8e2e30;
+  font-family: Georgia, serif;
+  font-weight: 400;
+}
+
+.gx-storefronts__header p {
+  max-width: 29rem;
+  margin: 0 0 .25rem;
+  color: #65474c;
+  font-size: clamp(1rem, 1.3vw, 1.2rem);
+  line-height: 1.5;
+}
+
+.gx-storefronts__list {
+  margin: clamp(1.6rem, 3vw, 3rem) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(.75rem, 1.8vw, 1.6rem);
+  list-style: none;
+}
+
+.gx-storefronts__entry { --tilt: -4deg; --lift: 7%; --tone: #e7ac73; min-width: 0; }
+.gx-storefronts__entry--braseiro-burger { --tilt: -1.8deg; --lift: 2%; --tone: #f5a56a; }
+.gx-storefronts__entry--acai-da-mata { --tilt: 2.2deg; --lift: 6%; --tone: #d0a0b9; }
+.gx-storefronts__entry--salvia-trattoria { --tilt: 4deg; --lift: 2%; --tone: #b4c598; }
+
+.gx-storefronts button.gx-storefronts__open {
+  width: 100%;
+  display: block;
+  position: relative;
+  border: 0;
+  border-radius: .8rem;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  text-align: start;
+  font: inherit;
+  cursor: zoom-in;
+}
+
+.gx-storefronts__open:focus-visible,
+.gx-storefronts__close:focus-visible,
+.gx-storefronts__scroll:focus-visible {
+  outline: 3px solid #982e3e;
+  outline-offset: 3px;
+}
+
+.gx-storefronts__stage {
+  display: block;
+  isolation: isolate;
+  position: relative;
+  aspect-ratio: 1 / 1.57;
+  border-radius: 48% 48% 1rem 1rem;
+  background: radial-gradient(ellipse at 50% 64%, var(--tone) 0%, transparent 70%);
+}
+
+.gx-storefronts__device {
+  position: absolute;
+  left: 10%;
+  width: 80%;
+  top: var(--lift);
+  aspect-ratio: 209 / 351;
+  padding: 1.55%;
+  overflow: hidden;
+  background: linear-gradient(118deg, #876568, #291322 21%, #24151b 77%, #886664);
+  border: 1px solid #321c27;
+  border-radius: 11% / 6.5%;
+  transform: rotate(var(--tilt));
+  box-shadow: inset 0 0 0 1px #af8682, 2px 3px 0 #412936, 4px 10px 16px -9px #55313b;
+}
+
+.gx-storefronts__device img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 9.5% / 5.7%;
+}
+
+/* The native promotion occupies x 24..804 and y 968..1300 in the 828×1700 capture. */
+.gx-storefronts__banner {
+  position: absolute;
+  left: 1%;
+  width: 98%;
+  top: calc(55% + var(--lift));
+  aspect-ratio: 780 / 332;
+  overflow: hidden;
+  border: 2px solid #fff2d4;
+  border-radius: 5.3% / 12%;
+  background: var(--tone);
+  transform: rotate(var(--tilt)) translateY(0);
+  box-shadow: 0 0 0 1px #6e4749, 1px 3px 0 #714e4b, 1px 11px 19px -6px #31172580;
+  transition: transform .24s ease;
+}
+
+.gx-storefronts__banner img {
+  position: absolute;
+  display: block;
+  width: 106.154%;
+  height: auto;
+  max-width: none;
+  left: -3.077%;
+  top: -291.566%;
+}
+
+.gx-storefronts__caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .35rem;
+  border-top: 1px solid #c6ada0;
+  padding: .75rem 0 .2rem;
+}
+
+.gx-storefronts__caption strong,
+.gx-storefronts__caption small { display: block; }
+.gx-storefronts__caption strong { font-size: clamp(1.15rem, 2vw, 1.65rem); line-height: 1.1; letter-spacing: -.04em; }
+.gx-storefronts__caption small { color: #684b53; font-size: 1rem; line-height: 1.25; margin-top: .2rem; }
+
+.gx-storefronts__expand, .gx-storefronts button.gx-storefronts__close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid #a99088;
+  border-radius: 50%;
+  background: var(--store-paper);
+  color: var(--store-ink);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .gx-storefronts__open:hover .gx-storefronts__banner { transform: translateY(-4%) rotate(0); }
+}
+
+.gx-storefronts__open:focus-visible .gx-storefronts__expand,
+.gx-storefronts__open:hover .gx-storefronts__expand { background: var(--store-ink); color: var(--store-paper); }
+
+dialog.gx-storefronts__dialog {
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  border: 0;
+  padding: 0;
+  border-radius: 1.1rem;
+  background: var(--store-paper);
+  color: var(--store-ink);
+  box-shadow: 0 28px 90px #10071260;
+}
+
+.gx-storefronts__dialog::backdrop { background: rgb(32 15 27 / .8); }
+.gx-storefronts__sheet { display: flex; flex-direction: column; max-height: calc(100dvh - 2rem); }
+.gx-storefronts__dialog-header { padding: .8rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.gx-storefronts__dialog-header h3 { font-size: 1.45rem; line-height: 1.2; letter-spacing: -.04em; margin: 0; }
+.gx-storefronts__dialog-header p { font-size: .9rem; color: #684b53; margin: .15rem 0 0; }
+.gx-storefronts button.gx-storefronts__close { width: 2.75rem; height: 2.75rem; padding: 0; cursor: pointer; }
+.gx-storefronts__scroll { overflow: auto; overscroll-behavior: contain; min-height: 0; }
+.gx-storefronts__scroll:focus-visible { outline-offset: -3px; }
+.gx-storefronts__scroll img { display: block; width: 100%; height: auto; }
+
+@media (max-width: 800px) {
+  .gx-storefronts__header { display: block; }
+  .gx-storefronts__header p { margin-top: 1rem; }
+  .gx-storefronts__inner { width: calc(100% - 40px); }
+  .gx-storefronts__expand { width: 1.75rem; height: 1.75rem; }
+}
+
+@media (max-width: 640px) {
+  .gx-storefronts__list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.4rem 1rem; }
+  .gx-storefronts__header h2 { font-size: clamp(2.3rem, 9vw, 3.2rem); }
+  .gx-storefronts__caption strong { font-size: clamp(1.1rem, 4.2vw, 1.4rem); }
+  .gx-storefronts__caption small { font-size: .875rem; }
+}
+
+@media (max-width: 399px) {
+  .gx-storefronts__expand { position: absolute; right: -.2rem; top: -.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx-storefronts__banner { transition: none; }
+}

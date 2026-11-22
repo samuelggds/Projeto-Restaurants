@@ -1,0 +1,211 @@
+/* The commercial journey uses the same paper, ink and plan colors as the storefront campaign. */
+.gx-campaign :is(#como-funciona, #planos, #duvidas) {
+  padding-block: clamp(3.75rem, 7vw, 6.75rem);
+  scroll-margin-top: 5rem;
+}
+
+.gx-campaign :is(#como-funciona, #planos, #duvidas) .section-title {
+  font-size: clamp(2.1rem, 4.1vw, 3.75rem);
+  line-height: 1.03;
+  letter-spacing: -.052em;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+.gx-campaign :is(#como-funciona, #planos, #duvidas) .section-desc {
+  margin: 0;
+  max-width: 48ch;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.gx-campaign :is(#como-funciona, #planos, #duvidas) .section-eyebrow {
+  display: inline-block;
+  margin: 0 0 .8rem;
+  color: inherit;
+  font-size: .81rem;
+  letter-spacing: .09em;
+}
+
+.gx-campaign #como-funciona,
+.gx-campaign #duvidas {
+  color: #291322;
+  background: #fff6e2;
+}
+.gx-campaign :is(#como-funciona, #duvidas) .section-desc { color: #644b51; }
+
+.gx-campaign #como-funciona .container {
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+  align-items: start;
+  gap: clamp(2rem, 6vw, 5rem);
+}
+.gx-campaign #como-funciona .section-center { text-align: start; }
+.gx-campaign #como-funciona .steps-grid { grid-template-columns: 1fr; margin: 0; gap: 0; }
+.gx-campaign #como-funciona .step-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  align-items: baseline;
+  gap: .45rem 1.4rem;
+  min-height: 0;
+  padding: 1.2rem 0;
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid #bfa99e;
+  background: transparent;
+  color: #291322;
+  box-shadow: none;
+  transform: none;
+}
+.gx-campaign #como-funciona .step-num {
+  grid-row: span 2;
+  margin: 0;
+  width: auto;
+  height: auto;
+  display: block;
+  background: none;
+  color: #883d31;
+  font: italic 1.8rem/1 Georgia, serif;
+}
+.gx-campaign #como-funciona .step-card h3 { margin: 0; font-size: 1.4rem; line-height: 1.2; }
+.gx-campaign #como-funciona .step-card p { color: #5d454d; font-size: 1rem; line-height: 1.55; }
+
+.gx-campaign #planos {
+  background: #291322;
+  color: #fff6e2;
+}
+.gx-campaign #planos .section-center { text-align: start; }
+.gx-campaign #planos .section-desc,
+.gx-campaign #planos .price-note { color: #e3cbd2; }
+.gx-campaign #planos .section-eyebrow { color: #ffe777; }
+.gx-campaign #planos #gx-pricing-root > .price-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: clamp(1rem, 2vw, 1.6rem);
+  max-width: none;
+  margin: 2rem 0 0;
+}
+.gx-campaign #planos .price-card {
+  grid-column: auto;
+  align-self: stretch;
+  min-height: 0;
+  padding: clamp(1.5rem, 3.2vw, 2.65rem);
+  border: 0;
+  border-radius: 1.3rem;
+  background: #ffe777;
+  color: #291322;
+  box-shadow: none;
+}
+.gx-campaign #planos .price-card.featured { background: #ff8059; }
+.gx-campaign #planos .price-card,
+.gx-campaign #planos .price-card:hover { transform: none; }
+.gx-campaign #planos .plan-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .6rem .8rem;
+}
+.gx-campaign #planos .price-card h3 {
+  margin: 0;
+  color: inherit;
+  font-size: clamp(1.5rem, 2.2vw, 1.95rem);
+  letter-spacing: -.035em;
+}
+.gx-campaign #planos .trial {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin: 0;
+  padding: .32rem .65rem;
+  border: 1px solid #624247;
+  border-radius: 999px;
+  color: inherit;
+  font-size: .875rem;
+  line-height: 1.15;
+}
+.gx-campaign #planos .price { gap: .4rem; margin: 1.2rem 0 .7rem; }
+.gx-campaign #planos .price strong {
+  font-size: clamp(2.65rem, 4.5vw, 4.6rem);
+  font-weight: 780;
+  line-height: 1;
+  letter-spacing: -.068em;
+  white-space: nowrap;
+}
+.gx-campaign #planos .price span { font-size: 1.05rem; color: inherit; }
+.gx-campaign #planos .plan-desc {
+  min-height: 0;
+  margin: 0 0 1.35rem;
+  color: #4a2933;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.gx-campaign #planos #gx-pricing-root .plan-features {
+  flex: initial;
+  gap: .65rem;
+  margin: 0;
+  padding: 1rem 0;
+  border-top: 1px solid #4c253752;
+}
+.gx-campaign #planos .plan-features li {
+  gap: .65rem;
+  color: #351927;
+  font-size: 1rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.gx-campaign #planos .plan-features svg { flex-shrink: 0; margin-top: .18rem; }
+.gx-campaign #planos .plan-features small { display: block; color: #54333e; font-size: .88rem; }
+.gx-campaign #planos #gx-pricing-root details { margin: 0; padding: 0; border: 0; }
+.gx-campaign #planos #gx-pricing-root details summary {
+  padding: .75rem 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: #421f33;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+.gx-campaign #planos .price-card > a {
+  align-self: start;
+  margin-top: auto;
+  width: 100%;
+  min-height: 3rem;
+  border: 2px solid #291322;
+  border-radius: .65rem;
+  background: #291322;
+  box-shadow: none;
+  color: #fff8e8;
+  font-size: 1rem;
+}
+.gx-campaign #planos .price-card > a:hover { background: #49243d; }
+.gx-campaign #planos .price-note { margin: 1.25rem 0 0; font-size: .9rem; text-align: start; }
+
+.gx-campaign #duvidas .faq-grid { gap: clamp(2rem, 5vw, 4rem); }
+.gx-campaign #duvidas .faq-list details { border-color: #bfa99e; padding: 0; }
+.gx-campaign #duvidas .faq-list details:first-child { border-top: 1px solid #bfa99e; }
+.gx-campaign #duvidas summary { padding: 1.15rem 0; color: #291322; font-size: 1.12rem; line-height: 1.35; }
+.gx-campaign #duvidas summary::after { color: #703346; font-size: 1.7rem; line-height: 1; }
+.gx-campaign #duvidas details p { margin: -.15rem 1.4rem 1.25rem 0; color: #5f434d; font-size: 1rem; }
+
+.gx-campaign #fale-com-a-gente { padding: clamp(2.8rem, 5.5vw, 5rem) 0; background: #ffe777; color: #291322; }
+.gx-campaign #fale-com-a-gente h2 { max-width: 24ch; font-size: clamp(2.1rem, 3.7vw, 3.5rem); line-height: 1.05; letter-spacing: -.045em; }
+.gx-campaign #fale-com-a-gente p { color: #51323c; font-size: 1.06rem; }
+.gx-campaign #fale-com-a-gente .light-btn { min-height: 3rem; background: #291322; border-color: #291322; color: #fff6e2; font-size: 1rem; }
+.gx-campaign footer.footer { padding-block: 3.5rem 1.5rem; background: #291322; color: #fff6e2; }
+.gx-campaign footer.footer .brand-name span { color: #ffab89; }
+.gx-campaign footer.footer .footer-links h4 { color: #fff6e2; font-size: 1rem; }
+.gx-campaign footer.footer .footer-desc,
+.gx-campaign footer.footer .footer-links a,
+.gx-campaign footer.footer .footer-bottom { color: #e3cbd2; font-size: .95rem; }
+.gx-campaign footer.footer .footer-bottom { font-size: .875rem; }
+.gx-campaign footer.footer .footer-links a:is(:hover, :focus-visible) { color: #ffe777; }
+.gx-campaign :is(#planos, #duvidas, #fale-com-a-gente) :is(a, summary):focus-visible { outline: 3px solid #70233c; outline-offset: 4px; }
+.gx-campaign footer.footer a:focus-visible { outline: 3px solid #ffe777; outline-offset: 4px; }
+
+@media (max-width: 760px) {
+  .gx-campaign #como-funciona .container,
+  .gx-campaign #duvidas .faq-grid { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
+  .gx-campaign #planos #gx-pricing-root > .price-grid { grid-template-columns: minmax(0, 1fr); }
+  .gx-campaign #fale-com-a-gente .bottom-row { align-items: start; flex-direction: column; gap: 1.25rem; }
+}

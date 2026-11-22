@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowRight, Check, Clock3, Gift } from 'lucide-react';
+import { Check, Clock3, Gift } from 'lucide-react';
 import api from '../../../Services/api';
 import { presentPlanBenefits } from './planBenefitPresentation';
 
@@ -30,33 +30,71 @@ export function ApprovedMarketingPlans({onSelectPlan}:{onSelectPlan:(code:PlanCo
  const [plans,setPlans]=useState<PublicPlan[]>(fallback);
  useEffect(()=>{let active=true;api.get('/platform/plans',{skipBaseUrlFallback:true}).then(r=>{if(active)setPlans(validCatalog(r.data))}).catch(()=>undefined);return()=>{active=false}},[]);
  const sorted=useMemo(()=>plans.filter((plan) => plan.code !== 'GESTAO_TOTAL').sort((a,b)=>order[a.code]-order[b.code]),[plans]);
- return <div className="price-grid" aria-label="Planos da GastroNexa">
- {sorted.map(plan=>{
-  // Marketing only: final entitlement is always verified server-side.
-  const features = plan.features;
-  const detail=presentPlanBenefits(features);
-  const offerPrice = plan.monthlyFee;
-  const title = plan.code === 'BASICO' ? 'Entrada' : 'Avançado';
-  const isFeatured = plan.code === 'PREMIUM';
-  const primary=detail.sections.flatMap(s=>s.items);
-  return <article className={'price-card'+(isFeatured?' featured':'')} key={plan.code}>
-   {isFeatured?<span className="price-ribbon">MAIS COMPLETO</span>:null}
-   <h3>{title}</h3><p className="plan-desc">{plan.description}</p>
-   <div className="price"><strong>{currency(offerPrice)}</strong><span>/mês</span></div>
-   <span className="trial"><Clock3 size={14}/> {plan.trialDays>0?`${plan.trialDays} dias de teste`:'Sem período de teste'}</span>
-   <ul className="plan-features">
-    {primary.slice(0,5).map(f=><li key={f.original}><Check size={16} aria-hidden="true"/><span>{f.title}</span></li>)}
-   </ul>
-   {primary.length>5 || detail.bonuses.length || detail.upcoming.length?<details>
-    <summary>Ver todos os benefícios e condições</summary>
-    <ul className="plan-features">
-      {primary.slice(5).map(f=><li key={f.original}><Check size={15}/><span>{f.title}{f.detail?<small> — {f.detail}</small>:null}</span></li>)}
-      {detail.bonuses.map(f=><li key={f.original}><Gift size={15}/><span>{f.title}{f.detail?<small className="bonus-detail"> — {f.detail}</small>:null}</span></li>)}
-      {detail.upcoming.map(f=><li key={f.original}><Clock3 size={15}/><span>{f.title} (em breve)</span></li>)}
-    </ul>
-   </details>:null}
-   <a className={isFeatured?'main-btn':'outline-btn'} href="#contato" onClick={()=>onSelectPlan(plan.code)}>Quero o {title} <ArrowRight size={16}/></a>
-  </article>;
- })}
- </div>;
+ return (
+   <div className="price-grid" aria-label="Planos da GastroNexa">
+     {sorted.map(plan => {
+       const details = presentPlanBenefits(plan.features);
+       const advanced = plan.code === 'PREMIUM';
+       const title = advanced ? 'Avançado' : 'Entrada';
+       const sections = [...details.sections];
+       if (advanced) {
+         const priority = (category: string) => Number(category === 'management' || category === 'support');
+         sections.sort((a, b) => priority(b.category) - priority(a.category));
+       }
+       const features = sections.flatMap(section => section.items);
+       const visible = features.slice(0, 4);
+       const remaining = features.slice(4);
+       const hasConditions = remaining.length + details.bonuses.length + details.upcoming.length > 0;
+
+       return (
+         <article className={advanced ? 'price-card featured' : 'price-card'} key={plan.code}>
+           <div className="plan-heading">
+             <h3>{title}</h3>
+             <span className="trial">
+               <Clock3 size={15} aria-hidden="true" />
+               {plan.trialDays > 0 ? `${plan.trialDays} dias de teste` : 'Sem período de teste'}
+             </span>
+           </div>
+           <div className="price"><strong>{currency(plan.monthlyFee)}</strong><span>/mês</span></div>
+           <p className="plan-desc">{plan.description}</p>
+           <ul className="plan-features">
+             {visible.map(benefit => (
+               <li key={benefit.original}>
+                 <Check size={16} aria-hidden="true" />
+                 <span>{benefit.title}{benefit.detail && <small>{benefit.detail}</small>}</span>
+               </li>
+             ))}
+           </ul>
+           {hasConditions && (
+             <details>
+               <summary>Ver todos os benefícios e condições</summary>
+               <ul className="plan-features">
+                 {remaining.map(benefit => (
+                   <li key={benefit.original}>
+                     <Check size={16} aria-hidden="true" />
+                     <span>{benefit.title}{benefit.detail && <small>{benefit.detail}</small>}</span>
+                   </li>
+                 ))}
+                 {details.bonuses.map(benefit => (
+                   <li key={benefit.original}>
+                     <Gift size={16} aria-hidden="true" />
+                     <span>{benefit.title}{benefit.detail && <small>{benefit.detail}</small>}</span>
+                   </li>
+                 ))}
+                 {details.upcoming.map(benefit => (
+                   <li key={benefit.original}>
+                     <Clock3 size={16} aria-hidden="true" /><span>{benefit.title} (em breve)</span>
+                   </li>
+                 ))}
+               </ul>
+             </details>
+           )}
+           <a className={advanced ? 'main-btn' : 'outline-btn'} href="#contato" onClick={() => onSelectPlan(plan.code)}>
+             Quero o {title}
+           </a>
+         </article>
+       );
+     })}
+   </div>
+ );
 }
