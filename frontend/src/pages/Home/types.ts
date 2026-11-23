@@ -250,6 +250,9 @@ export type HomeExperienceProps = {
   cart?: CartItem[];
   cartTotal?: number;
   initialSearchOpen?: boolean;
+  darkMode?: boolean;
+  onDarkModeChange?: (dark: boolean) => void;
+  initialCouponsOpen?: boolean;
   userName?: string;
   userEmail?: string;
   userAvatar?: string;

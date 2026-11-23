@@ -5,7 +5,12 @@ import type { CustomerAddressInput } from '../../../Services/customerAddressServ
 import { formatCep, validateDeliveryAddress } from '../../Home/domain/deliveryAddress';
 import * as S from '../Profile.styles';
 
-type Props = { onClose: () => void; onSave: (address: CustomerAddressInput) => Promise<void> };
+type Props = {
+  onClose: () => void;
+  onSave: (address: CustomerAddressInput) => Promise<void>;
+  initialAddress?: CustomerAddressInput;
+  resolveCep?: typeof lookupCep;
+};
 const empty: CustomerAddressInput = {
   label: 'Casa',
   address: '',
@@ -18,8 +23,8 @@ const empty: CustomerAddressInput = {
   isDefault: false,
 };
 
-export function AddressModal({ onClose, onSave }: Props) {
-  const [form, setForm] = useState(empty);
+export function AddressModal({ onClose, onSave, initialAddress = empty, resolveCep = lookupCep }: Props) {
+  const [form, setForm] = useState(initialAddress);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const update = (key: keyof CustomerAddressInput, value: string | boolean) =>
@@ -36,7 +41,7 @@ export function AddressModal({ onClose, onSave }: Props) {
     if (formatted.replace(/\D/g, '').length !== 8) return;
     setMessage('Buscando endereço...');
     try {
-      const found = await lookupCep(formatted);
+      const found = await resolveCep(formatted);
       setForm((current) => ({
         ...current,
         zipCode: found.cep,
@@ -75,13 +80,13 @@ export function AddressModal({ onClose, onSave }: Props) {
   };
   return (
     <S.ModalOverlay onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <S.AddressModalCard onSubmit={(event) => void submit(event)}>
+      <S.AddressModalCard role="dialog" aria-label="Novo endereço" aria-modal="true" onSubmit={(event) => void submit(event)}>
         <header>
           <div>
             <h2>Novo endereço</h2>
             <p>Este endereço ficará disponível na Home e no carrinho.</p>
           </div>
-          <button type="button" onClick={onClose}>
+          <button type="button" aria-label="Fechar novo endereço" onClick={onClose}>
             <X />
           </button>
         </header>
