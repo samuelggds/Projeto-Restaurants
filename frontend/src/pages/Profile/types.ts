@@ -84,6 +84,9 @@ export type ProfileData = {
 };
 
 export type ProfilePageProps = {
+  preferenceStorage?: Pick<Storage, 'getItem' | 'setItem'>;
+  darkMode?: boolean;
+  onDarkModeChange?: (enabled: boolean) => void;
   historyPagination?: {
     loading: boolean;
     error: string;

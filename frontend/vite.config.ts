@@ -16,6 +16,7 @@ export default defineConfig({
       input: {
         app: fileURLToPath(new URL('./index.html', import.meta.url)),
         helpPreview: fileURLToPath(new URL('./help-preview.html', import.meta.url)),
+        storefrontDemo: fileURLToPath(new URL('./vitrine-demo.html', import.meta.url)),
       },
       output: {
         manualChunks(id) {

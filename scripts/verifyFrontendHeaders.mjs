@@ -115,6 +115,9 @@ try {
     ['/help-preview.html?area=settings-brand', true],
     ['/help-preview.html/extra', false],
     ['/other/help-preview.html', false],
+    ['/vitrine-demo.html', true],
+    ['/vitrine-demo.html/extra', false],
+    ['/other/vitrine-demo.html', false],
   ];
   for (const [path, embedded] of cases) {
     const response = await request(path);

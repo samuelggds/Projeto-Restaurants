@@ -20,6 +20,7 @@ type DemoStore = {
 };
 
 export const demoPhotoPath = '/marketing-vitrines/cardapios';
+export const toggleStorefrontTheme = 'gastronexa:toggle-storefront-theme';
 
 const pizza = `${demoPhotoPath}/pizza.webp`;
 const burger = `${demoPhotoPath}/burger.webp`;

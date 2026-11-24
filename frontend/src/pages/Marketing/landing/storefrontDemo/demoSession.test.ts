@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBagLines, getTotals, initialDemoSessions, updateDemoSession } from './demoSession';
+import { getTotals, initialDemoSessions, updateDemoSession } from './demoSession';
 
 const slug = 'forno-alto';
 const id = 'margherita';
@@ -11,10 +11,30 @@ const address = {
 };
 
 describe('vitrine de pedidos', () => {
+  it('separa observações e finaliza a retirada sem cobrar frete nem exigir endereço', () => {
+    let sessions = initialDemoSessions(0);
+    for (const observation of ['Sem manjericão', 'Com manjericão']) {
+      sessions = updateDemoSession(sessions, { slug, type: 'add', id, quantity: 1, observation });
+    }
+    expect(sessions[slug].lines).toHaveLength(2);
+    sessions = updateDemoSession(sessions, {
+      slug,
+      type: 'quantity',
+      id: sessions[slug].lines[0].id,
+      quantity: 0,
+    });
+    sessions = updateDemoSession(sessions, { slug, type: 'fulfillment', method: 'pickup' });
+    sessions = updateDemoSession(sessions, { slug, type: 'pay', method: 'Pix', time: 15 });
+    expect(sessions[slug].orders[0]).toMatchObject({
+      fulfillmentMethod: 'pickup',
+      total: 4890,
+      items: [{ name: 'Margherita da casa', quantity: 1, observation: 'Com manjericão' }],
+    });
+  });
   it('calcula o desconto nos produtos em centavos e soma a entrega uma vez', () => {
     let sessions = initialDemoSessions(0);
     sessions = updateDemoSession(sessions, { slug, type: 'add', id, quantity: 2 });
-    const lines = getBagLines(slug, sessions[slug]);
+    const lines = sessions[slug].lines;
     expect(getTotals(lines, true)).toEqual({
       subtotal: 9780,
       discount: 978,
@@ -22,7 +42,7 @@ describe('vitrine de pedidos', () => {
       total: 9302,
     });
     expect(getTotals([], true)).toEqual({ subtotal: 0, discount: 0, delivery: 0, total: 0 });
-    expect(getBagLines('braseiro-burger', sessions['braseiro-burger'])).toEqual([]);
+    expect(sessions['braseiro-burger'].lines).toEqual([]);
   });
 
   it('descarta produtos de outra vitrine e respeita o limite e a remoção de itens', () => {
@@ -32,9 +52,9 @@ describe('vitrine de pedidos', () => {
     );
     let sessions = updateDemoSession(start, { slug, type: 'add', id, quantity: 98 });
     sessions = updateDemoSession(sessions, { slug, type: 'add', id, quantity: 2 });
-    expect(sessions[slug].quantities[id]).toBe(99);
+    expect(sessions[slug].lines[0].quantity).toBe(99);
     sessions = updateDemoSession(sessions, { slug, type: 'quantity', id, quantity: 0 });
-    expect(getBagLines(slug, sessions[slug])).toEqual([]);
+    expect(sessions[slug].lines).toEqual([]);
   });
 
   it('salva um pedido apenas uma vez e mantém o histórico separado por loja', () => {
@@ -52,7 +72,7 @@ describe('vitrine de pedidos', () => {
       destination: 'Rua das Flores, 12, Centro, Cidade Exemplo',
       items: [{ name: 'Margherita da casa', quantity: 1 }],
     });
-    expect(sessions[slug].quantities).toEqual({});
+    expect(sessions[slug].lines).toEqual([]);
     expect(sessions[slug].coupon).toBe(false);
     expect(updateDemoSession(sessions, pay)).toBe(sessions);
     expect(sessions['braseiro-burger']).toBe(start['braseiro-burger']);

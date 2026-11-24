@@ -1,11 +1,8 @@
-import { lazy, Suspense, useId, useReducer, useRef, useState, type CSSProperties } from 'react';
-import { Expand, X } from 'lucide-react';
-import { demoStores, type DemoSlug } from './storefrontDemo/catalog';
-import { initialDemoSessions, updateDemoSession } from './storefrontDemo/demoSession';
+import { useId, useRef, useState } from 'react';
+import { Expand, SunMoon, X } from 'lucide-react';
+import { demoStores, toggleStorefrontTheme, type DemoSlug } from './storefrontDemo/catalog';
 import './StorefrontShowcase.css';
 
-const StorefrontExperience = lazy(() => import('./storefrontDemo/StorefrontExperience')
-  .then(module => ({ default: module.StorefrontExperience })));
 const storefronts = Object.values(demoStores);
 const directory = '/marketing-vitrines';
 const previewSizes = '(max-width: 640px) 43vw, (max-width: 1200px) 22vw, 260px';
@@ -27,7 +24,8 @@ function CardImage({ slug }: { slug: DemoSlug }) {
 
 export function StorefrontShowcase() {
   const [selected, setSelected] = useState<DemoSlug | null>(null);
-  const [sessions, dispatch] = useReducer(updateDemoSession, undefined, () => initialDemoSessions());
+  const [visited, setVisited] = useState(false);
+  const frame = useRef<HTMLIFrameElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
   const headingId = useId();
@@ -35,8 +33,17 @@ export function StorefrontShowcase() {
 
   function openStore(slug: DemoSlug, trigger: HTMLButtonElement) {
     opener.current = trigger;
+    setVisited(true);
     setSelected(slug);
+    selectFrameStore(slug);
     dialog.current?.showModal();
+  }
+
+  function selectFrameStore(slug: DemoSlug | null) {
+    const child = frame.current?.contentWindow;
+    if (child?.location.pathname === '/vitrine-demo.html') {
+      child.location.replace('/vitrine-demo.html#' + (slug ?? ''));
+    }
   }
 
   return (
@@ -75,24 +82,28 @@ export function StorefrontShowcase() {
         className="gx-storefronts__dialog"
         onClose={() => {
           setSelected(null);
+          selectFrameStore(null);
           opener.current?.focus({ preventScroll: true });
         }}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialog.current?.close();
         }}
       >
-        <div className="gx-storefronts__sheet" style={selected ? { '--demo-accent': demoStores[selected].color } as CSSProperties : undefined}>
+        <div className="gx-storefronts__sheet">
           <div className="gx-storefronts__dialog-header">
-            <div><h3 id={modalTitleId}>{selected && demoStores[selected].name}</h3><p>Demonstração interativa · pedidos e pagamentos fictícios</p></div>
+            <div><h3 id={modalTitleId}>{selected && demoStores[selected].name}</h3><p>Demonstração com dados fictícios</p></div>
+            <button type="button" className="gx-storefronts__close gx-storefronts__theme"
+              aria-label="Alternar tema claro e escuro da vitrine" title="Alternar tema claro e escuro"
+              onClick={() => frame.current?.contentDocument?.dispatchEvent(new Event(toggleStorefrontTheme))}>
+              <SunMoon size={20} aria-hidden="true" />
+            </button>
             <button type="button" className="gx-storefronts__close" aria-label="Fechar vitrine" onClick={() => dialog.current?.close()}>
               <X size={22} aria-hidden="true" />
             </button>
           </div>
-          {selected && (
-            <Suspense fallback={<p role="status">Abrindo o cardápio…</p>}>
-              <StorefrontExperience key={selected} slug={selected} session={sessions[selected]} dispatch={dispatch} />
-            </Suspense>
-          )}
+          {visited && <iframe ref={frame} title="Telas do cliente" src="/vitrine-demo.html"
+            sandbox="allow-same-origin allow-scripts allow-forms"
+            onLoad={() => selectFrameStore(selected)} />}
         </div>
       </dialog>
     </section>

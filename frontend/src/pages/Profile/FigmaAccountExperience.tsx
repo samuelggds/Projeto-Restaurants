@@ -21,6 +21,7 @@ import { FigmaCouponRedemption, FigmaLoyaltyProgram } from './FigmaLoyaltyViews'
 import { useLoyaltyExpirationClock } from '../Home/hooks/useLoyaltyExpirationClock';
 import { CustomerDesktopFooter } from '../Home/components/CustomerDesktopFooter';
 import { useAppDialog } from '../../components/AppDialog/context';
+import { useCustomerTheme } from '../../hooks/useCustomerTheme';
 import type {
   ActiveProfileOrder,
   ProfileData,
@@ -102,14 +103,26 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [ordersTab, setOrdersTab] = useState<'active' | 'history'>('active');
+  const preferenceStorage = props.preferenceStorage ?? window.localStorage;
+  function setPreference(
+    key: 'customerPushNotifications' | 'customerEmailNotifications' | 'customerDarkMode',
+    enabled: boolean,
+  ) {
+    preferenceStorage.setItem(key, enabled ? 'on' : 'off');
+  }
   const [pushEnabled, setPushEnabled] = useState(
-    () => localStorage.getItem('customerPushNotifications') !== 'off',
+    () => preferenceStorage.getItem('customerPushNotifications') !== 'off',
   );
   const [emailEnabled, setEmailEnabled] = useState(
-    () => localStorage.getItem('customerEmailNotifications') !== 'off',
+    () => preferenceStorage.getItem('customerEmailNotifications') !== 'off',
   );
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem('customerDarkMode') === 'on',
+  const [darkMode, toggleDarkMode] = useCustomerTheme(
+    props.darkMode,
+    next => {
+      setPreference('customerDarkMode', next);
+      props.onDarkModeChange?.(next);
+    },
+    () => preferenceStorage.getItem('customerDarkMode') === 'on',
   );
   const [mfaPasswordOpen, setMfaPasswordOpen] = useState(false);
   const [mfaPassword, setMfaPassword] = useState('');
@@ -159,13 +172,6 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
     .map((part) => part[0])
     .join('')
     .toUpperCase();
-
-  const setPreference = (
-    key: 'customerPushNotifications' | 'customerEmailNotifications' | 'customerDarkMode',
-    enabled: boolean,
-  ) => {
-    localStorage.setItem(key, enabled ? 'on' : 'off');
-  };
 
   const confirmAccountDeactivation = async () => {
     const confirmed = await confirmDialog({
@@ -364,12 +370,9 @@ function FigmaAccountExperienceReady(props: ProfilePageProps & { data: ProfileDa
           <S.Toggle
             $on={darkMode}
             type="button"
+            aria-label="Modo escuro"
             aria-pressed={darkMode}
-            onClick={() => {
-              const next = !darkMode;
-              setDarkMode(next);
-              setPreference('customerDarkMode', next);
-            }}
+            onClick={toggleDarkMode}
           />
         </div>
       </S.SettingsCard>

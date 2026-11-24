@@ -19,6 +19,7 @@ import { WhatsAppIcon } from './components/SocialBrandIcons';
 import { buildSocialProfileUrl, formatBusinessHoursSummary } from './domain/publicSettings';
 import { createReadyProductConfiguration, resolveProductEntryKind } from './domain/productEntryFlow';
 import { captureCartFlyOrigin, scheduleProductToCartAnimation, type CartFlyOrigin } from './cartFlyAnimation';
+import { useCustomerTheme } from '../../hooks/useCustomerTheme';
 import type { HomeExperienceProps, HomeProduct } from './types';
 import { HomeProductCarouselSection as ProductCarouselSection } from './components/HomeProductCarouselSection';
 import { AddressPickerOverlay, ProfileQuickMenuOverlay } from './components/HomeMobileOverlays';
@@ -65,6 +66,9 @@ export function FigmaDeliveryExperience({
   couponSubtotal,
   cartCount = 0,
   initialSearchOpen = false,
+  darkMode: controlledDarkMode,
+  onDarkModeChange,
+  initialCouponsOpen = false,
   userName,
   userAvatar,
   userLoggedIn = false,
@@ -90,9 +94,9 @@ export function FigmaDeliveryExperience({
   const [selectedReadyProduct, setSelectedReadyProduct] = useState<HomeProduct | null>(null);
   const [selectedCombo, setSelectedCombo] = useState<HomeProduct | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [couponScreenOpen, setCouponScreenOpen] = useState(false);
+  const [couponScreenOpen, setCouponScreenOpen] = useState(initialCouponsOpen);
   const [couponNoticeDismissed, setCouponNoticeDismissed] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, toggleDarkMode] = useCustomerTheme(controlledDarkMode, onDarkModeChange);
   const [searchFocused, setSearchFocused] = useState(Boolean(initialSearchOpen));
   const [addressPickerOpen, setAddressPickerOpen] = useState(false);
   const [deliveryPanelOpen, setDeliveryPanelOpen] = useState(false);
@@ -551,7 +555,7 @@ export function FigmaDeliveryExperience({
       {showCouponNotice && (
         <HomeCouponNotice count={promotionalCoupons.length} onOpen={() => setCouponScreenOpen(true)} onDismiss={() => setCouponNoticeDismissed(true)} />
       )}
-      {!selectedProduct && <button className="home-theme-toggle" type="button" aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={darkMode} onClick={() => setDarkMode(value => !value)} style={{ top: showCouponNotice ? 62 : 18 }}>{darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>}
+      {!selectedProduct && <button className="home-theme-toggle" type="button" aria-label={darkMode ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={darkMode} onClick={toggleDarkMode} style={{ top: showCouponNotice ? 62 : 18 }}>{darkMode ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</button>}
       <S.DesktopTopBar className="home-topbar">
         <div>
           <span className="location">

@@ -45,12 +45,14 @@ type Props = {
   orderItems?: OrderItemSummary[];
   orderSubtotal?: number | null;
   deliveryFee?: number | null;
+  couponDiscount?: number;
   cartCount?: number;
   formatCurrency: (value: number) => string;
   onCopyPixKey: () => void | Promise<void>;
   onVerify: () => void | Promise<unknown>;
   onBackToCart?: () => void;
   onTrackOrder?: () => void;
+  simulation?: boolean;
 };
 
 const failureStatuses: PixPaymentStatus[] = ['FAILED', 'CANCELED', 'EXPIRED', 'REFUNDED'];
@@ -73,12 +75,14 @@ export default function PixPaymentPanel({
   orderPublicId,
   orderItems = [],
   deliveryFee,
+  couponDiscount = 0,
   cartCount = 0,
   formatCurrency,
   onCopyPixKey,
   onVerify,
   onBackToCart,
   onTrackOrder,
+  simulation = false,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -179,9 +183,9 @@ export default function PixPaymentPanel({
               <div className="desktop-title">
                 <span className="pix-mark">×</span>
                 <h1>Pagamento PIX</h1>
-                <p>Aponte a câmera do celular para o QR Code abaixo</p>
+                <p>{simulation ? 'QR Code de demonstração, sem valor para pagamento.' : 'Aponte a câmera do celular para o QR Code abaixo'}</p>
               </div>
-              <div className="mobile-title">Escaneie o código para pagar</div>
+              <div className="mobile-title">{simulation ? 'QR Code de demonstração' : 'Escaneie o código para pagar'}</div>
 
               <QrBox aria-label="QR Code PIX">
                 {pixPaymentData.qrCodeBase64 ? (
@@ -205,7 +209,9 @@ export default function PixPaymentPanel({
               </CopySection>
 
               <MobileInstructions>
-                Abra o app do seu banco, escolha a opção de pagar via PIX, escaneie o QR Code acima ou copie e cole o código.
+                {simulation
+                  ? 'Este código é fictício. Toque em simular confirmação para ver como seu pedido é aprovado.'
+                  : 'Abra o app do seu banco, escolha a opção de pagar via PIX, escaneie o QR Code acima ou copie e cole o código.'}
               </MobileInstructions>
 
               <DesktopPaymentInfo>
@@ -218,8 +224,8 @@ export default function PixPaymentPanel({
                 <b>{status === 'VERIFYING' ? 'Verificando pagamento...' : 'Aguardando confirmação do pagamento...'}</b>
               </WaitingStatus>
 
-              <DesktopContinue type="button" aria-label="Verificar pagamento" disabled={status === 'VERIFYING'} onClick={() => void onVerify()}>
-                {status === 'VERIFYING' ? 'Verificando...' : 'Continuar'}
+              <DesktopContinue type="button" $simulation={simulation} aria-label={simulation ? 'Simular confirmação do Pix' : 'Verificar pagamento'} disabled={status === 'VERIFYING'} onClick={() => void onVerify()}>
+                {status === 'VERIFYING' ? 'Verificando...' : simulation ? 'Simular confirmação do Pix' : 'Continuar'}
               </DesktopContinue>
             </PixCard>
           </WaitingContent>
@@ -227,7 +233,7 @@ export default function PixPaymentPanel({
           <MobileTotal>
             <span>Total a pagar</span>
             <strong>{formatCurrency(pixPaymentData.total)}</strong>
-            <small>Ao confirmar o pagamento, seu pedido será enviado automaticamente.</small>
+            <small>{simulation ? 'Pedido de demonstração, sem cobrança.' : 'Ao confirmar o pagamento, seu pedido será enviado automaticamente.'}</small>
           </MobileTotal>
         </>
       ) : (
@@ -264,6 +270,9 @@ export default function PixPaymentPanel({
                         <strong>{formatCurrency(item.total)}</strong>
                       </div>
                     ))}
+                    {couponDiscount > 0 && (
+                      <div className="muted"><span>Desconto do cupom</span><strong>− {formatCurrency(couponDiscount)}</strong></div>
+                    )}
                     {typeof deliveryFee === 'number' ? (
                       <div className="muted"><span>Taxa de entrega</span><strong>{deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis'}</strong></div>
                     ) : null}
@@ -489,9 +498,9 @@ const WaitingStatus = styled.div`
   @media (max-width: 760px) { background: transparent; color: #1f1e1a; b { font-size: 14px; } }
 `;
 
-const DesktopContinue = styled.button`
+const DesktopContinue = styled.button<{ $simulation: boolean }>`
   min-width: 120px; min-height: 42px; padding: 0 20px; border: 1px solid #d9dde1; border-radius: 10px; background: #fff; color: #1f1e1a; font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 4px 10px rgba(16,24,39,.06);
-  @media (max-width: 760px) { display: none; }
+  @media (max-width: 760px) { display: ${({ $simulation }) => $simulation ? 'inline-block' : 'none'}; }
 `;
 
 const MobileTotal = styled.section`

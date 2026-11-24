@@ -15,6 +15,11 @@ const test = base.extend<{ apiIsolation: void }>({
           (url.origin === applicationOrigin && url.pathname.startsWith('/api/'));
         const pathname = url.pathname.replace(/^\/api(?=\/)/, '');
 
+        const readsDemoData = ['xhr', 'fetch', 'eventsource', 'ping'].includes(request.resourceType());
+        if ((readsDemoData || isApi || url.origin !== applicationOrigin || method !== 'GET') && request.frame().parentFrame()) {
+          unexpected.push('Vitrine: ' + method + ' ' + url.origin + url.pathname);
+          return route.abort('blockedbyclient');
+        }
         if (isApi) {
           if (pathname === '/platform/status' && method === 'GET') {
             return route.fulfill({ json: { available: true, maintenanceMode: false } });
@@ -189,8 +194,9 @@ test('galeria, implantação e benefícios aprovados são exibidos',async ({page
  await expect(page.locator('.official-gx').first()).toBeVisible();
 });
 
-test('cada vitrine abre o cardápio correto e a equipe troca de painel', async ({page}) => {
-  await page.setViewportSize({width:390,height:844});
+test('cada vitrine abre o cardápio correto e a equipe troca de painel', async ({ page }) => {
+  test.slow();
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   for (const [name, product] of [
     ['Forno Alto', 'Margherita da casa'],
@@ -198,92 +204,174 @@ test('cada vitrine abre o cardápio correto e a equipe troca de painel', async (
     ['Açaí da Mata', 'Açaí com frutas'],
     ['Sálvia Trattoria', 'Tagliatelle ao ragù'],
   ]) {
-    const opener = page.getByRole('button', {name: new RegExp('Experimentar cardápio de ' + name)});
+    const opener = page.getByRole('button', {
+      name: new RegExp('Experimentar cardápio de ' + name),
+    });
     await opener.click();
-    const dialog = page.getByRole('dialog', {name});
-    const menu = dialog.getByRole('region', {name: 'Cardápio de ' + name});
-    await menu.getByRole('button', {name: /Especial da casa/}).click();
-    await expect(menu.getByRole('heading', {name: product})).toBeVisible();
-    await expect(menu.getByRole('button', {name: /Adicionar à sacola/})).toBeVisible();
-    await page.keyboard.press('Escape');
+    const dialog = page.getByRole('dialog', { name });
+    const menu = dialog.frameLocator('iframe[src="/vitrine-demo.html"]');
+    await expect(menu.getByRole('heading', { name, level: 1, exact: true })).toBeVisible();
+    await expect(menu.getByRole('img', { name: 'Capa do restaurante ' + name })).toBeVisible();
+    await menu.getByRole('button', { name: 'Ver cardápio', exact: true }).click();
+    await menu
+      .getByRole('button', { name: 'Ver detalhes de ' + product })
+      .first()
+      .click();
+    const detail = menu.getByRole('dialog', { name: 'Detalhes de ' + product });
+    await expect(detail.getByRole('heading', { name: product })).toBeVisible();
+    await expect(detail.getByRole('button', { name: /Adicionar ao carrinho/ })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
   }
   const team = page.locator('#apresentacao');
-  for (const name of ['Atendente','Garçom','Motoboy','Administrador']) {
-    const button = team.getByRole('button', {name,exact:true});
+  for (const name of ['Atendente', 'Garçom', 'Motoboy', 'Administrador']) {
+    const button = team.getByRole('button', { name, exact: true });
     await button.click();
-    await expect(button).toHaveAttribute('aria-pressed','true');
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
     await expect(team.locator('figure img')).toBeVisible();
   }
 });
 
-test('vitrine conclui um pedido fictício com cupom, endereço, Pix e percurso de entrega', async ({ page }) => {
+test('vitrine conclui um pedido fictício com cupom, endereço, Pix e percurso de entrega', async ({
+  page,
+}) => {
+  test.slow();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.setFixedTime(new Date('2026-01-10T12:00:00Z'));
   await page.goto('/');
   await page.getByRole('button', { name: /Experimentar cardápio de Braseiro Burger/ }).click();
-  const store = page.getByRole('dialog', { name: 'Braseiro Burger' });
-  const nav = store.getByRole('navigation', { name: 'Navegação da vitrine' });
-  await nav.getByRole('button', { name: 'Conta' }).click();
-  await expect(store.getByLabel('E-mail de exemplo')).toHaveValue('marina@example.test');
-  await store.getByRole('button', { name: 'Entrar com a conta de exemplo' }).click();
-  await expect(store.getByRole('heading', { name: 'Minha conta' })).toBeVisible();
-  await nav.getByRole('button', { name: 'Início' }).click();
-  await store.getByRole('button', { name: /Especial da casa/ }).click();
-  await store.getByRole('button', { name: 'Aumentar quantidade' }).click();
-  await store.getByRole('button', { name: /Adicionar à sacola/ }).click();
-  await nav.getByRole('button', { name: 'Sacola, 2 itens' }).click();
-  await store.getByRole('button', { name: 'Escolher cupom' }).click();
-  await store.getByRole('button', { name: 'Aplicar cupom' }).click();
-  await store.getByRole('button', { name: 'Ver minha sacola' }).click();
-  const recap = store.getByRole('region', { name: 'Resumo do pedido' });
-  await expect(recap).toContainText('59,80');
-  await expect(recap).toContainText('5,98');
-  await expect(recap).toContainText('58,82');
-  await store.getByRole('button', { name: 'Escolher endereço' }).click();
-  await store.getByLabel('Rua ou avenida').fill('Rua da Vitrine');
-  await store.getByLabel('Número').fill('42');
-  await store.getByRole('button', { name: 'Salvar endereço' }).click();
-  await expect(store.getByRole('radio', { name: /Pix/ })).toBeChecked();
-  await store.getByRole('button', { name: 'Simular pagamento Pix' }).click();
+  const store = page.getByRole('dialog', { name: 'Braseiro Burger' }).frameLocator('iframe');
+  await store.getByRole('button', { name: 'Ver detalhes de Brasa Bacon' }).first().click();
+  const detail = store.getByRole('dialog', { name: 'Detalhes de Brasa Bacon' });
+  await detail.getByRole('button', { name: 'Aumentar quantidade' }).click();
+  await detail.getByPlaceholder(/retirar um ingrediente/).fill('Molho separado');
+  await detail.getByRole('button', { name: /Adicionar ao carrinho/ }).click();
+  const flight = store.locator('[data-cart-fly-preview]');
+  await expect(flight.locator('img')).toHaveAttribute('src', /burger.webp$/);
+  await expect(flight).toHaveCount(0);
+  await expect(store.getByRole('button', { name: 'Meu Carrinho, 2 itens' })).toBeVisible();
+  await store.getByRole('button', { name: 'Abrir cupons', exact: true }).click();
+  const coupons = store.getByRole('region', { name: 'Tela de cupons' });
+  await coupons.getByRole('button', { name: 'Usar cupom VITRINE10' }).click();
+  await coupons.getByRole('button', { name: 'Ver meu pedido' }).click();
+  await expect(store.getByRole('heading', { name: 'Meu pedido' })).toBeVisible();
+  await expect(store.locator('body')).toContainText('Molho separado');
+  for (const price of ['59,80', '5,98', '58,82'])
+    await expect(store.locator('body')).toContainText(price);
+  await store.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await store.getByRole('textbox', { name: 'Rua', exact: true }).fill('Rua da Vitrine');
+  await store.getByRole('textbox', { name: 'Número', exact: true }).fill('42');
+  await store.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(store.getByRole('button', { name: /Pix QR Code/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await store.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await store.getByRole('button', { name: 'Simular confirmação do Pix' }).click();
+  await expect(store.getByText('Pagamento PIX Confirmado!', { exact: true })).toBeVisible();
+  await store.getByRole('button', { name: 'Acompanhar Pedido' }).click();
   const tracking = store.getByRole('region', { name: 'Acompanhamento de entrega' });
-  await expect(tracking).toContainText('Rua da Vitrine, 42');
-  await expect(tracking.getByRole('img', { name: /Mapa ilustrativo/ })).toBeVisible();
-  const currentStage = tracking.getByRole('list', { name: 'Etapas da entrega' }).locator('[aria-current="step"]');
-  await expect(currentStage).toHaveText('Em preparo');
+  const currentStage = tracking
+    .getByRole('list', { name: 'Etapas da entrega' })
+    .locator('[aria-current="step"]');
+  await expect(currentStage).toContainText('Preparando');
   await tracking.getByRole('button', { name: 'Iniciar entrega' }).click();
-  await expect(currentStage).toHaveText('A caminho');
+  await expect(currentStage).toContainText('A caminho');
+  await expect(tracking.getByRole('img', { name: /Mapa ilustrativo/ })).toBeVisible();
   await tracking.getByRole('button', { name: 'Pausar rota' }).click();
   await tracking.getByRole('button', { name: 'Retomar rota' }).click();
   await tracking.getByRole('button', { name: 'Concluir entrega' }).click();
-  await expect(currentStage).toHaveText('Entregue');
+  await expect(currentStage).toContainText('Entregue');
   await tracking.getByRole('button', { name: 'Voltar aos pedidos' }).click();
-  const order = store.getByRole('listitem').filter({ hasText: 'Pedido simulado' });
-  await expect(order).toContainText('2 × Brasa Bacon');
-  await expect(order).toContainText('58,82');
-  await expect(order).toContainText('Entregue');
-  await nav.getByRole('button', { name: 'Sacola, 0 itens' }).click();
-  await expect(store.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
+  const history = store.getByRole('region', { name: 'Pedidos da vitrine' });
+  await expect(history).toContainText('Brasa Bacon');
+  await expect(history).toContainText('58,82');
 });
 
 test('cada restaurante conserva a própria sacola ao alternar entre vitrines', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   const openPizza = page.getByRole('button', { name: /Experimentar cardápio de Forno Alto/ });
   await openPizza.click();
-  const pizza = page.getByRole('dialog', { name: 'Forno Alto' });
-  await pizza.getByRole('button', { name: /Especial da casa/ }).click();
-  await pizza.getByRole('button', { name: /Adicionar à sacola/ }).click();
-  await pizza.getByRole('button', { name: 'Fechar vitrine' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Forno Alto' });
+  const pizza = dialog.frameLocator('iframe');
+  await pizza.getByRole('button', { name: 'Adicionar Margherita da casa' }).first().click();
+  await expect(pizza.getByRole('button', { name: 'Meu Carrinho, 1 item' })).toBeVisible();
+  await expect(pizza.locator('[data-cart-fly-preview]')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
   await page.getByRole('button', { name: /Experimentar cardápio de Açaí da Mata/ }).click();
-  const acai = page.getByRole('dialog', { name: 'Açaí da Mata' });
-  await acai.getByRole('button', { name: 'Sacola, 0 itens', exact: true }).click();
-  await expect(acai.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
-  await page.keyboard.press('Escape');
+  const other = page.getByRole('dialog', { name: 'Açaí da Mata' });
+  const acai = other.frameLocator('iframe');
+  await acai.getByRole('button', { name: 'Entrar na minha conta' }).click();
+  await expect(acai.getByRole('button', { name: 'Entrar como cliente' })).toBeVisible();
+  await acai.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await acai.getByRole('button', { name: 'Meu Carrinho, 0 itens' }).click();
+  await expect(acai.getByText('Seu carrinho está vazio.', { exact: true }).first()).toBeVisible();
+  await other.getByRole('button', { name: 'Fechar vitrine' }).click();
   await openPizza.click();
-  await pizza.getByRole('button', { name: /^Sacola, 1 item/ }).click();
-  await pizza.getByRole('button', { name: 'Remover Margherita da casa' }).click();
-  await expect(pizza.getByRole('heading', { name: 'Sua sacola está vazia' })).toBeVisible();
+  await pizza.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
+  await pizza.getByRole('button', { name: /Diminuir Margherita da casa/ }).click();
+  await expect(pizza.getByText('Seu carrinho está vazio.', { exact: true }).first()).toBeVisible();
+});
+
+test('a vitrine conserva o tema ao navegar sem alterar as demais lojas', async ({ page }) => {
+  test.slow();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const openAcai = page.getByRole('button', { name: /Experimentar cardápio de Açaí da Mata/ });
+  await openAcai.click();
+  const dialog = page.getByRole('dialog', { name: 'Açaí da Mata' });
+  const store = dialog.frameLocator('iframe');
+  await store.getByRole('button', { name: 'Ativar tema escuro' }).click();
+  await expect(store.locator('html')).toHaveAttribute('data-storefront-theme', 'dark');
+  await store.getByRole('button', { name: 'Ver detalhes de Açaí com frutas' }).first().click();
+  const ready = store.getByRole('dialog', { name: 'Detalhes de Açaí com frutas' });
+  await expect(ready).toHaveCSS('background-color', 'rgb(22, 27, 35)');
+  await expect(ready.getByRole('heading', { name: 'Açaí com frutas' })).toHaveCSS('color', 'rgb(244, 245, 248)');
+  await expect(ready.getByRole('img', { name: 'Açaí com frutas' })).not.toHaveCSS('filter', /invert/);
+  await ready.getByRole('button', { name: 'Cardápio', exact: true }).click();
+  await store.getByRole('button', { name: 'Adicionar Tigela da Mata 600 ml' }).click();
+  const customize = store.getByRole('dialog', { name: 'Montar Tigela da Mata 600 ml' });
+  await expect(customize.locator('.product-form')).toHaveCSS('background-color', 'rgb(32, 40, 51)');
+  await expect(customize.locator('.product-details h1')).toHaveCSS('color', 'rgb(244, 245, 248)');
+  await expect(customize.getByRole('img', { name: 'Tigela da Mata 600 ml' })).not.toHaveCSS('filter', /invert/);
+  await customize.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+  await store.getByRole('button', { name: 'Meu Carrinho, 0 itens' }).click();
+  await expect(store.getByRole('heading', { name: 'Meu pedido' })).toBeVisible();
+  await expect(store.locator('html')).toHaveAttribute('data-storefront-theme', 'dark');
+  const theme = dialog.getByRole('button', { name: 'Alternar tema claro e escuro da vitrine' });
+  await theme.click();
+  await expect(store.locator('html')).toHaveAttribute('data-storefront-theme', 'light');
+  await expect(store.getByRole('heading', { name: 'Meu pedido' })).toBeVisible();
+  await theme.click();
+  await expect(store.locator('html')).toHaveAttribute('data-storefront-theme', 'dark');
+  await store.getByRole('button', { name: 'Voltar', exact: true }).click();
+  await expect(store.getByRole('button', { name: 'Ativar tema claro' })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
+  await page.getByRole('button', { name: /Experimentar cardápio de Sálvia Trattoria/ }).click();
+  const salvia = page.getByRole('dialog', { name: 'Sálvia Trattoria' });
+  await expect(salvia.frameLocator('iframe').locator('html')).toHaveAttribute('data-storefront-theme', 'light');
+  await salvia.getByRole('button', { name: 'Fechar vitrine' }).click();
+  await openAcai.click();
+  await store.getByRole('button', { name: 'Ativar tema claro' }).click();
+  await expect(store.locator('html')).toHaveAttribute('data-storefront-theme', 'light');
+});
+
+test('personalização gratuita conserva a escolha e a observação na sacola', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Experimentar cardápio de Braseiro Burger/ }).click();
+  const store = page.getByRole('dialog', { name: 'Braseiro Burger' }).frameLocator('iframe');
+  await store.getByRole('button', { name: 'Adicionar Clássico da chapa' }).click();
+  const configurator = store.getByRole('dialog', { name: 'Montar Clássico da chapa' });
+  await configurator.getByText('Maionese verde', { exact: true }).click();
+  await configurator.getByPlaceholder(/sem cebola/).fill('Embrulhar separado');
+  await configurator.getByRole('button', { name: 'Adicionar à sacola' }).click();
+  await store.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
+  await expect(store.getByText('Obs.: Molho: Maionese verde · Embrulhar separado', { exact: true })).toBeVisible();
+  await expect(store.locator('body')).toContainText('25,90');
+  await expect(store.locator('body')).toContainText('30,90');
 });
 
 test('formulário preserva dados após falha, repete a chave e confirma recebimento', async ({

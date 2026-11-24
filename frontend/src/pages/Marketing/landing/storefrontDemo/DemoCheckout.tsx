@@ -1,315 +1,256 @@
-import { useState, type FormEvent } from 'react';
-import {
-  ArrowLeft,
-  ChevronRight,
-  CreditCard,
-  MapPin,
-  Minus,
-  Plus,
-  QrCode,
-  ReceiptText,
-  ShoppingBag,
-  TicketPercent,
-  Trash2,
-} from 'lucide-react';
-import './DemoCheckout.css';
-import { formatPrice as money } from './demoSession';
+import { useState } from 'react';
+import { FigmaCheckoutFlow } from '../../../Home/FigmaCheckoutFlow';
+import { HomePaymentScreen } from '../../../Home/components/HomePaymentScreen';
+import { CheckoutPromotionalCouponPicker } from '../../../Home/components/CheckoutPromotionalCouponPicker';
+import type { CheckoutPaymentMethod } from '../../../Home/domain/checkout';
+import type { CartItem } from '../../../Home/hooks/useCart';
+import type { OrderQuote } from '../../../Home/hooks/useOrderQuote';
+import PixPaymentPanel from '../../../Cart/components/PixPaymentPanel';
+import { demoPhotoPath, demoStores, type DemoSlug } from './catalog';
+import { demoPromotionalCoupon } from './demoHomeData';
+import { couponCode } from './demoSession';
+import { DemoCheckoutAddress } from './DemoCheckoutAddress';
 
-export type DemoAddress = { street: string; number: string; district: string; city: string };
+export type DemoAddress = {
+  street: string;
+  number: string;
+  district: string;
+  city: string;
+  zipCode?: string;
+  state?: string;
+  complement?: string;
+};
 export type DemoBagLine = {
   id: string;
   name: string;
   price: number;
   image: string;
   quantity: number;
+  observation?: string;
 };
-export type DemoPayment = 'Pix' | 'Cartão na entrega';
+export type DemoPayment = 'Pix' | 'Dinheiro' | 'Cartão na entrega';
 type CheckoutView = 'bag' | 'address' | 'payment';
-type CheckoutTotals = { subtotal: number; discount: number; delivery: number; total: number };
+type Totals = { subtotal: number; discount: number; delivery: number; total: number };
 
 type Props = {
+  slug: DemoSlug;
   screen: CheckoutView;
+  loggedIn: boolean;
   lines: DemoBagLine[];
   address: DemoAddress | null;
   addressOrigin: 'menu' | 'bag' | 'payment';
+  fulfillmentMethod: 'delivery' | 'pickup';
   coupon: boolean;
+  totals: Totals;
   onQuantity: (id: string, quantity: number) => void;
   onAddress: (address: DemoAddress) => void;
   onNavigate: (screen: 'menu' | CheckoutView | 'coupons') => void;
-  onPay: (method: DemoPayment) => void;
-  totals: CheckoutTotals;
+  onPay: (method: DemoPayment, showTracking?: boolean) => void;
+  onTrackPaid: () => void;
+  onLogin: () => void;
+  onCouponChange: (enabled: boolean) => void;
+  onFulfillmentMethodChange: (method: 'delivery' | 'pickup') => void;
 };
 
-const exampleAddress: DemoAddress = {
-  street: 'Rua das Pitangueiras',
-  number: '120',
-  district: 'Jardim do Sol',
-  city: 'Vila das Flores',
-};
-const headings: Record<CheckoutView, string> = {
-  bag: 'Minha sacola',
-  address: 'Endereço de entrega',
-  payment: 'Pagamento',
-};
-
-function Recap({ totals }: { totals: CheckoutTotals }) {
-  return (
-    <section className="gx-checkout__recap" aria-label="Resumo do pedido">
-      <h4>
-        <ReceiptText size={18} aria-hidden="true" />
-        Resumo do pedido
-      </h4>
-      <dl>
-        <div>
-          <dt>Subtotal dos produtos</dt>
-          <dd>{money(totals.subtotal)}</dd>
-        </div>
-        {totals.discount > 0 && (
-          <div className="gx-checkout__discount">
-            <dt>Desconto do cupom</dt>
-            <dd>− {money(totals.discount)}</dd>
-          </div>
-        )}
-        <div>
-          <dt>Taxa de entrega</dt>
-          <dd>{totals.delivery ? money(totals.delivery) : 'Grátis'}</dd>
-        </div>
-        <div className="gx-checkout__total">
-          <dt>Total</dt>
-          <dd>{money(totals.total)}</dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
-
-function AddressForm({ address, onAddress }: Pick<Props, 'address' | 'onAddress'>) {
-  const initial = address ?? exampleAddress;
-
-  function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const value = (field: keyof DemoAddress) => String(data.get(field) ?? '').trim();
-    onAddress({
-      street: value('street'),
-      number: value('number'),
-      district: value('district'),
-      city: value('city'),
-    });
-  }
-
-  return (
-    <form className="gx-checkout__address-form" onSubmit={save} autoComplete="off">
-      <p className="gx-checkout__intro">
-        Use o endereço fictício abaixo ou edite os campos para experimentar.
-      </p>
-      <label>
-        Rua ou avenida
-        <input
-          name="street"
-          defaultValue={initial.street}
-          required
-          pattern=".*\S.*"
-          maxLength={100}
-        />
-      </label>
-      <div className="gx-checkout__fields">
-        <label>
-          Número
-          <input
-            name="number"
-            defaultValue={initial.number}
-            required
-            pattern=".*\S.*"
-            maxLength={12}
-          />
-        </label>
-        <label>
-          Bairro
-          <input
-            name="district"
-            defaultValue={initial.district}
-            required
-            pattern=".*\S.*"
-            maxLength={80}
-          />
-        </label>
-      </div>
-      <label>
-        Cidade
-        <input name="city" defaultValue={initial.city} required pattern=".*\S.*" maxLength={80} />
-      </label>
-      <button className="gx-checkout__primary" type="submit">
-        Salvar endereço
-      </button>
-    </form>
-  );
-}
-
-function Payment({
-  address,
-  totals,
-  onNavigate,
-  onPay,
-}: Pick<Props, 'address' | 'totals' | 'onNavigate' | 'onPay'>) {
-  const [method, setMethod] = useState<DemoPayment>('Pix');
-  const choices = [
-    { name: 'Pix', icon: QrCode, detail: 'Experimente a confirmação instantânea do pagamento.' },
-    {
-      name: 'Cartão na entrega',
-      icon: CreditCard,
-      detail: 'O cliente escolhe pagar ao receber o pedido.',
-    },
-  ] as const;
-  return (
-    <>
-      <button type="button" className="gx-checkout__row" onClick={() => onNavigate('address')}>
-        <MapPin size={20} aria-hidden="true" />
-        <span>
-          <strong>{address ? `${address.street}, ${address.number}` : 'Escolher endereço'}</strong>
-          {address && (
-            <small>
-              {address.district} · {address.city}
-            </small>
-          )}
-        </span>
-        <ChevronRight size={18} aria-hidden="true" />
-      </button>
-      <fieldset className="gx-checkout__methods">
-        <legend>Como deseja pagar?</legend>
-        {choices.map(({ name, icon: Icon, detail }) => (
-          <label key={name}>
-            <Icon size={22} aria-hidden="true" />
-            <span>
-              <strong>{name}</strong>
-              <small>{detail}</small>
-            </span>
-            <input
-              type="radio"
-              name="demo-payment"
-              value={name}
-              checked={method === name}
-              onChange={() => setMethod(name)}
-            />
-          </label>
-        ))}
-      </fieldset>
-      <Recap totals={totals} />
-      <p className="gx-checkout__note">Pedido de demonstração, sem cobrança.</p>
-      <button
-        type="button"
-        className="gx-checkout__primary"
-        onClick={() => (address ? onPay(method) : onNavigate('address'))}
-      >
-        {address
-          ? method === 'Pix'
-            ? 'Simular pagamento Pix'
-            : 'Confirmar pedido de exemplo'
-          : 'Escolher endereço'}
-      </button>
-    </>
-  );
-}
+const pixCode = 'GASTRONEXA DEMONSTRACAO - SEM VALOR PARA PAGAMENTO';
+const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function DemoCheckout({
+  slug,
   screen,
+  loggedIn,
   lines,
   address,
   addressOrigin,
   coupon,
+  fulfillmentMethod,
   totals,
-  onNavigate,
   onQuantity,
   onAddress,
+  onNavigate,
   onPay,
+  onTrackPaid,
+  onLogin,
+  onCouponChange,
+  onFulfillmentMethodChange,
 }: Props) {
-  const back = screen === 'address' ? addressOrigin : screen === 'bag' ? 'menu' : 'bag';
-  const backLabels = {
-    menu: 'Voltar ao cardápio',
-    bag: 'Voltar à sacola',
-    payment: 'Voltar ao pagamento',
+  const [couponError, setCouponError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('pix');
+  const [pix, setPix] = useState<{
+    items: CartItem[];
+    quote: OrderQuote;
+    confirmed: boolean;
+  } | null>(null);
+  const store = demoStores[slug];
+  const brand = {
+    primaryColor: store.color,
+    brandName: store.name,
+    logoUrl: `${demoPhotoPath}/logo-${slug}.svg`,
   };
+  const cart: CartItem[] = lines.map((line) => ({
+    productId: line.id,
+    cartId: line.id,
+    name: line.name,
+    quantity: line.quantity,
+    price: line.price / 100,
+    image: line.image,
+    observation: line.observation,
+  }));
+  const count = cart.reduce((sum, line) => sum + line.quantity, 0);
+  const quote: OrderQuote = {
+    itemsSubtotal: totals.subtotal / 100,
+    productDiscountTotal: 0,
+    couponDiscount: totals.discount / 100,
+    deliveryFeeAmount: totals.delivery / 100,
+    total: totals.total / 100,
+    deliveryDistanceMeters: null,
+    deliveryFeeFallbackApplied: false,
+    couponCode: coupon ? couponCode : null,
+    couponDiscountValue: coupon ? 10 : null,
+    couponDiscountType: coupon ? 'PERCENTAGE' : null,
+  };
+
+  function applyCoupon(code: string) {
+    if (code.trim().toUpperCase() !== couponCode) {
+      setCouponError(`Use o cupom ${couponCode} nesta demonstração.`);
+      return;
+    }
+    setCouponError('');
+    onCouponChange(true);
+  }
+
+  function nextFromBag() {
+    onNavigate(fulfillmentMethod === 'pickup' ? 'payment' : 'address');
+  }
+  function startPayment() {
+    if (!count || (fulfillmentMethod === 'delivery' && !address)) return;
+    if (paymentMethod === 'pix') setPix({ items: cart, quote, confirmed: false });
+    else onPay('Dinheiro');
+  }
+  function adjust(id: string, change: number) {
+    const line = lines.find((item) => item.id === id);
+    if (line) onQuantity(id, Math.max(0, Math.min(99, line.quantity + change)));
+  }
+
+  if (screen === 'payment' && pix) {
+    return (
+      <PixPaymentPanel
+        simulation
+        pixPaymentData={{
+          orderId: null,
+          provider: 'demo',
+          total: pix.quote.total,
+          pixCode,
+          qrCodeBase64: null,
+        }}
+        paymentStatus={pix.confirmed ? 'PAID' : 'WAITING'}
+        paymentError={null}
+        primaryColor={store.color}
+        restaurantName={store.name}
+        restaurantLogoUrl={brand.logoUrl}
+        deliveryTime="30-40"
+        deliveryAddress={
+          fulfillmentMethod === 'pickup'
+            ? 'Retirada no balcão'
+            : address && `${address.street}, ${address.number}`
+        }
+        orderItems={pix.items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          total: item.price * item.quantity,
+        }))}
+        deliveryFee={pix.quote.deliveryFeeAmount}
+        couponDiscount={pix.quote.couponDiscount}
+        cartCount={pix.items.reduce((sum, item) => sum + item.quantity, 0)}
+        formatCurrency={(value) => money.format(value)}
+        onCopyPixKey={() => navigator.clipboard.writeText(pixCode)}
+        onBackToCart={() => setPix(null)}
+        onVerify={() => {
+          if (pix.confirmed) return;
+          setPix({ ...pix, confirmed: true });
+          onPay('Pix', false);
+        }}
+        onTrackOrder={onTrackPaid}
+      />
+    );
+  }
+
   return (
-    <section className="gx-checkout" aria-label={headings[screen]}>
-      <header className="gx-checkout__head">
-        <button type="button" aria-label={backLabels[back]} onClick={() => onNavigate(back)}>
-          <ArrowLeft size={19} aria-hidden="true" />
-        </button>
-        <h3>{headings[screen]}</h3>
-      </header>
-      {screen === 'address' ? (
-        <AddressForm address={address} onAddress={onAddress} />
-      ) : lines.length === 0 ? (
-        <div className="gx-checkout__empty">
-          <ShoppingBag size={35} aria-hidden="true" />
-          <h4>Sua sacola está vazia</h4>
-          <p>Escolha um produto do cardápio para começar o pedido.</p>
-          <button type="button" className="gx-checkout__primary" onClick={() => onNavigate('menu')}>
-            Ver cardápio
-          </button>
-        </div>
-      ) : screen === 'payment' ? (
-        <Payment address={address} totals={totals} onNavigate={onNavigate} onPay={onPay} />
-      ) : (
-        <>
-          <ul className="gx-checkout__lines">
-            {lines.map((line) => (
-              <li key={line.id}>
-                <img src={line.image} width={64} height={64} alt="" />
-                <div>
-                  <strong>{line.name}</strong>
-                  <small>{money(line.price)} cada</small>
-                </div>
-                <div className="gx-checkout__line-end">
-                  <b>{money(line.price * line.quantity)}</b>
-                  <div
-                    className="gx-checkout__stepper"
-                    role="group"
-                    aria-label={`Quantidade de ${line.name}`}
-                  >
-                    <button
-                      type="button"
-                      aria-label={`${line.quantity === 1 ? 'Remover' : 'Diminuir'} ${line.name}`}
-                      onClick={() => onQuantity(line.id, line.quantity - 1)}
-                    >
-                      {line.quantity === 1 ? <Trash2 size={15} /> : <Minus size={15} />}
-                    </button>
-                    <span aria-live="polite">{line.quantity}</span>
-                    <button
-                      type="button"
-                      disabled={line.quantity >= 99}
-                      aria-label={`Aumentar ${line.name}`}
-                      onClick={() => onQuantity(line.id, line.quantity + 1)}
-                    >
-                      <Plus size={15} />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            className="gx-checkout__text-button"
-            onClick={() => onNavigate('menu')}
-          >
-            Adicionar mais produtos
-          </button>
-          <button type="button" className="gx-checkout__row" onClick={() => onNavigate('coupons')}>
-            <TicketPercent size={20} aria-hidden="true" />
-            <span>{coupon ? 'Cupom aplicado' : 'Escolher cupom'}</span>
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
-          <Recap totals={totals} />
-          <button
-            type="button"
-            className="gx-checkout__primary"
-            onClick={() => onNavigate(address ? 'payment' : 'address')}
-          >
-            {address ? 'Ir para pagamento' : 'Escolher endereço'}
-          </button>
-        </>
-      )}
-    </section>
+    <FigmaCheckoutFlow
+      {...brand}
+      userName={loggedIn ? 'Marina Costa' : undefined}
+      step={screen === 'bag' ? 'cart' : screen}
+      cart={cart}
+      cartCount={count}
+      cartTotal={quote.itemsSubtotal}
+      quote={quote}
+      onIncrease={(id) => adjust(id, 1)}
+      onDecrease={(id) => adjust(id, -1)}
+      onRemove={(id) => onQuantity(id, 0)}
+      onClear={() => lines.forEach((line) => onQuantity(line.id, 0))}
+      onClose={() => onNavigate('menu')}
+      onLogin={onLogin}
+      onSubmit={startPayment}
+      onStepChange={(next) => {
+        if (next === 'address') nextFromBag();
+        else onNavigate(next === 'cart' ? 'bag' : 'payment');
+      }}
+      couponContent={
+        <CheckoutPromotionalCouponPicker
+          coupons={[demoPromotionalCoupon]}
+          appliedCode={quote.couponCode}
+          onApply={applyCoupon}
+        />
+      }
+      requestedCouponCode={coupon ? couponCode : ''}
+      couponError={couponError}
+      onRemoveCoupon={() => {
+        onCouponChange(false);
+        setCouponError('');
+      }}
+      onApplyCouponCode={applyCoupon}
+      guestAddressScreen={
+        <DemoCheckoutAddress
+          {...brand}
+          cart={cart}
+          cartCount={count}
+          subtotal={quote.itemsSubtotal}
+          total={quote.total}
+          deliveryFee={quote.deliveryFeeAmount}
+          address={address}
+          loggedIn={loggedIn}
+          fulfillmentMethod={fulfillmentMethod}
+          onMethodChange={onFulfillmentMethodChange}
+          onLogin={onLogin}
+          onSave={onAddress}
+          onBack={() => onNavigate(addressOrigin)}
+          onPickup={() => onNavigate(addressOrigin === 'menu' ? 'menu' : 'payment')}
+        />
+      }
+      paymentScreen={
+        <HomePaymentScreen
+          {...brand}
+          loggedIn={loggedIn}
+          cart={cart}
+          cartCount={count}
+          subtotal={quote.itemsSubtotal}
+          total={quote.total}
+          couponDiscount={quote.couponDiscount}
+          couponLabel={coupon ? `Cupom 10% · ${couponCode}` : undefined}
+          deliveryFee={quote.deliveryFeeAmount}
+          paymentMethod={paymentMethod}
+          onPaymentMethodChange={setPaymentMethod}
+          allowPayOnDelivery={fulfillmentMethod === 'delivery'}
+          allowPix
+          allowOpenFinancePix={false}
+          allowCard={false}
+          allowDebitCard={false}
+          onBack={() => onNavigate(fulfillmentMethod === 'pickup' ? 'bag' : 'address')}
+          onContinue={startPayment}
+          disabled={!count || (fulfillmentMethod === 'delivery' && !address)}
+          loading={false}
+        />
+      }
+    />
   );
 }

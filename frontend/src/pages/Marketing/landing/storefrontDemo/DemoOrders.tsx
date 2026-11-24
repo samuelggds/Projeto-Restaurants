@@ -1,31 +1,39 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
+  ArrowLeft,
+  Bike,
+  CheckCircle2,
   ChevronRight,
-  CircleCheck,
-  CookingPot,
   MapPin,
-  Motorbike,
-  PackageCheck,
+  Navigation,
   Pause,
   Play,
+  ReceiptText,
   RotateCcw,
+  Store,
 } from 'lucide-react';
+import { GuestOrderHistory, GuestOrderMobileHeader } from '../../../orders/GuestOrderHistory';
+import { GuestOrdersFrame } from '../../../orders/GuestOrderHistory.styles';
+import { toGuestOrderCard } from '../../../orders/guestOrderCard';
+import * as Tracking from '../../../tracking/DeliveryTracking.styles';
+import * as MapView from '../../../tracking/CustomerDeliveryMap.styles';
+import * as Receipt from '../../../tracking/DeliveredOrderPage.styles';
+import { demoStores } from './catalog';
 import courierSprite from '../../../../assets/tracking/courier-delivery-8dir.png';
 import { getCourierSpriteFrame } from '../../../tracking/customerTrackingMap';
 import { formatPrice } from './demoSession';
 import './DemoOrders.css';
 
-export type DemoDeliveryClock = { elapsedMs: number; changedAt: number; paused: boolean };
-export type DemoOrder = {
-  id: string;
-  placedAt: number;
-  items: { name: string; quantity: number }[];
-  total: number;
-  method: string;
-  destination: string;
-  example?: boolean;
-  deliveryClock?: DemoDeliveryClock;
-};
+import {
+  prepMs,
+  routeMs,
+  deliveredMs,
+  elapsedTime,
+  getDemoOrderStatus,
+  type DemoOrder,
+  type DemoDeliveryClock,
+} from './demoOrderProgress';
+export type { DemoOrder, DemoDeliveryClock } from './demoOrderProgress';
 
 type Props = {
   screen: 'orders' | 'tracking';
@@ -38,12 +46,14 @@ type Props = {
   onClockChange: (id: string, clock: DemoDeliveryClock) => void;
 };
 
-const prepMs = 6000;
-const routeMs = 48000;
-const deliveredMs = prepMs + routeMs;
-const statuses = ['Em preparo', 'A caminho', 'Entregue'];
-const stageIcons = [CookingPot, Motorbike, PackageCheck];
-const timeFormat = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const deliverySteps = [
+  'Pedido recebido',
+  'Preparando',
+  'Saiu para entrega (A caminho)',
+  'Entregue',
+];
+const pickupSteps = ['Pedido recebido', 'Preparando', 'Pronto para retirada', 'Retirado'];
+const pickupHistory = ['Confirmado', 'Em preparo', 'Pronto', 'Retirado'];
 const reducedMotionQuery = '(prefers-reduced-motion: reduce)';
 function listenForMotionPreference(notify: () => void) {
   const query = window.matchMedia?.(reducedMotionQuery);
@@ -51,15 +61,9 @@ function listenForMotionPreference(notify: () => void) {
   return () => query?.removeEventListener('change', notify);
 }
 
-function elapsedTime(order: DemoOrder, now: number) {
-  const clock = order.deliveryClock;
-  const delta = Math.max(0, now - (clock?.changedAt ?? order.placedAt));
-  return Math.min(deliveredMs, (clock?.elapsedMs ?? 0) + (clock?.paused ? 0 : delta));
-}
-
-function stageAt(elapsed: number) {
-  if (elapsed < prepMs) return 0;
-  return elapsed < deliveredMs ? 1 : 2;
+function stageAt(order: DemoOrder, now: number) {
+  const status = getDemoOrderStatus(order, now);
+  return status === 'PREPARANDO' ? 0 : status === 'ENTREGUE' ? 2 : 1;
 }
 
 // Map geometry and sprite headings use the same street corners.
@@ -147,9 +151,9 @@ function RouteMap({ progress }: { progress: number }) {
       role="img"
       aria-label="Mapa ilustrativo do percurso do restaurante ao endereço de entrega"
     >
-      <rect width="360" height="230" fill="#eae8db" />
+      <rect className="gx-map-land" width="360" height="230" fill="#eae8db" />
       {buildings.map(([x, y, w, h]) => (
-        <g key={x + ',' + y}>
+        <g className="gx-map-building" key={x + ',' + y}>
           <rect x={x + 2} y={y + 3} width={w} height={h} rx="3" fill="#cfcbb6" />
           <rect
             x={x}
@@ -163,12 +167,12 @@ function RouteMap({ progress }: { progress: number }) {
           />
         </g>
       ))}
-      <rect x="132" y="125" width="86" height="38" rx="7" fill="#b6cf9f" />
+      <rect className="gx-map-park" x="132" y="125" width="86" height="38" rx="7" fill="#b6cf9f" />
       <path d="m145 151 25-15 31 9" stroke="#e6edd3" strokeWidth="4" fill="none" />
       {[143, 181, 205].map((x, i) => (
         <circle key={x} cx={x} cy={i % 2 ? 150 : 135} r="5" fill="#78a577" />
       ))}
-      <g stroke="#fffdf5" strokeWidth="15">
+      <g className="gx-map-roads" stroke="#fffdf5" strokeWidth="15">
         <path d="M0 57H360M0 113H360M0 175H360M117 0V230M233 0V230" />
       </g>
       <g className="gx-route-map-labels" fill="#686454" fontSize="9">
@@ -183,6 +187,7 @@ function RouteMap({ progress }: { progress: number }) {
         </text>
       </g>
       <polyline
+        className="gx-map-route-edge"
         points={route}
         stroke="#f9f7f0"
         strokeWidth="10"
@@ -190,6 +195,7 @@ function RouteMap({ progress }: { progress: number }) {
         strokeLinejoin="round"
       />
       <polyline
+        className="gx-map-route-guide"
         points={route}
         stroke="#89756f"
         strokeWidth="3"
@@ -259,10 +265,14 @@ export function DemoOrders({
   onClockChange,
 }: Props) {
   const [now, setNow] = useState(Date.now);
+  const [search, setSearch] = useState('');
+  const store = Object.values(demoStores).find((item) => item.name === storeName);
   const order = orders.find((item) => item.id === selectedId);
   const isTracking = screen === 'tracking' && Boolean(order);
   const running = (isTracking && order ? [order] : orders).some(
-    (item) => !item.deliveryClock?.paused && elapsedTime(item, now) < deliveredMs,
+    (item) =>
+      !item.deliveryClock?.paused &&
+      elapsedTime(item, now) < (item.fulfillmentMethod === 'pickup' ? prepMs : deliveredMs),
   );
   useEffect(() => {
     if (!running) return;
@@ -271,46 +281,71 @@ export function DemoOrders({
   }, [running, isTracking]);
 
   if (!isTracking || !order) {
+    const query = search.trim().replace(/^#/, '').toLocaleLowerCase('pt-BR');
+    const cards = orders
+      .map((item) => {
+        const stage = stageAt(item, now);
+        const pickup = item.fulfillmentMethod === 'pickup';
+        const card = toGuestOrderCard({
+          id: item.id,
+          createdAt: new Date(item.placedAt).toISOString(),
+          total: item.total / 100,
+          type: 'DELIVERY',
+          status: ['PREPARANDO', 'SAIU_PARA_ENTREGA', 'ENTREGUE'][stage],
+          items: item.items.map((line) => ({
+            quantity: line.quantity,
+            product: {
+              name: line.name,
+              image:
+                store?.products.find((product) => product.name === line.name)?.image ??
+                store?.cover,
+            },
+          })),
+        });
+        if (pickup)
+          return {
+            ...card,
+            steps: pickupHistory,
+            statusLabel: pickupHistory[stage + 1],
+            action: stage === 2 ? 'Ver retirada' : 'Acompanhar retirada',
+          };
+        return { ...card, action: stage === 2 ? 'Ver entrega' : card.action };
+      })
+      .filter(
+        (card) =>
+          String(card.id).includes(query) ||
+          card.summary.toLocaleLowerCase('pt-BR').includes(query),
+      );
     return (
-      <section className="gx-demo-orders" aria-label="Pedidos da vitrine">
-        <h3>Meus pedidos</h3>
-        {!orders.length && <p>Seus pedidos de demonstração aparecem aqui.</p>}
-        <ul className="gx-demo-order-list">
-          {orders.map((item) => {
-            const stage = stageAt(elapsedTime(item, now));
-            return (
-              <li key={item.id}>
-                <div className="gx-demo-order-top">
-                  <strong>Pedido #{item.id}</strong>
-                  <span className="gx-demo-order-status">{statuses[stage]}</span>
-                </div>
-                <small>
-                  {item.example ? 'Pedido de exemplo' : 'Pedido simulado'} ·{' '}
-                  {timeFormat.format(item.placedAt)}
-                </small>
-                <p>{item.items.map((line) => line.quantity + ' × ' + line.name).join(', ')}</p>
-                <div className="gx-demo-order-bottom">
-                  <b>{formatPrice(item.total)}</b>
-                  <button type="button" onClick={() => onTrack(item.id)}>
-                    {stage === 2 ? 'Ver entrega' : 'Acompanhar pedido'} <ChevronRight size={16} />
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        <button type="button" className="gx-demo-order-back" onClick={onMenu}>
-          Voltar ao cardápio
-        </button>
-      </section>
+      <GuestOrdersFrame
+        as="section"
+        $primary={store?.color ?? '#e85a2b'}
+        aria-label="Pedidos da vitrine"
+      >
+        <GuestOrderMobileHeader
+          restaurantName={storeName}
+          restaurantLogo={store?.cover}
+          onHome={onMenu}
+        />
+        <GuestOrderHistory
+          orders={cards}
+          restaurantName={storeName}
+          search={search}
+          onSearch={setSearch}
+          onTrack={(id) => onTrack(String(id))}
+          description="Acompanhe os pedidos de demonstração desta loja."
+          searchPlaceholder="Buscar por número do pedido ou produto..."
+        />
+      </GuestOrdersFrame>
     );
   }
 
   const elapsed = elapsedTime(order, now);
-  const stage = stageAt(elapsed);
+  const stage = stageAt(order, now);
   const progress = Math.min(1, Math.max(0, (elapsed - prepMs) / routeMs));
   const paused = order.deliveryClock?.paused === true;
-  const StageIcon = stageIcons[stage];
+  const pickup = order.fulfillmentMethod === 'pickup';
+  const steps = pickup ? pickupSteps : deliverySteps;
   function changeClock(elapsedMs: number, pause = false) {
     if (!order) return;
     const changedAt = Date.now();
@@ -319,76 +354,176 @@ export function DemoOrders({
   }
 
   return (
-    <section className="gx-demo-orders" aria-label="Acompanhamento de entrega">
-      <header className="gx-demo-order-heading">
-        <div>
-          <small>Pedido #{order.id}</small>
-          <h3>Acompanhar entrega</h3>
-        </div>
-        <StageIcon size={27} aria-hidden="true" />
-      </header>
-      <p className="gx-demo-order-message" aria-live="polite">
-        {stage === 0
-          ? 'A cozinha está preparando seu pedido.'
-          : stage === 1
-            ? 'Rafael saiu do restaurante e está a caminho.'
-            : 'Pedido entregue. Bom apetite!'}
-      </p>
-      <figure className="gx-demo-map-panel">
-        <RouteMap progress={progress} />
-        <figcaption>
-          <MapPin size={17} aria-hidden="true" />
-          <span>
-            <small>Endereço de entrega</small>
-            <strong>{order.destination}</strong>
-          </span>
-        </figcaption>
-      </figure>
-      <ol aria-label="Etapas da entrega" className="gx-demo-route-stages">
-        {statuses.map((label, i) => (
-          <li
-            key={label}
-            aria-current={i === stage ? 'step' : undefined}
-            data-complete={i <= stage}
-          >
-            <CircleCheck size={16} aria-hidden="true" />
-            {label}
-          </li>
-        ))}
-      </ol>
-      <div className="gx-demo-order-actions">
-        {stage === 1 && (
-          <button
-            type="button"
-            onClick={() => changeClock(elapsedTime(order, Date.now()), !paused)}
-          >
-            {paused ? <Play size={15} /> : <Pause size={15} />}{' '}
-            {paused ? 'Retomar rota' : 'Pausar rota'}
-          </button>
+    <Tracking.Page as="section" aria-label="Acompanhamento de entrega">
+      <Tracking.Header>
+        <Tracking.HeaderInner className="gx-demo-tracking-heading">
+          <Tracking.BackButton type="button" onClick={onOrders} aria-label="Voltar aos pedidos">
+            <ArrowLeft aria-hidden="true" />
+            <span>Pedidos</span>
+          </Tracking.BackButton>
+          <Tracking.MobileHeaderTitle>Acompanhar pedido</Tracking.MobileHeaderTitle>
+          <Tracking.DesktopHeaderOrder>
+            <strong>Pedido #{order.id}</strong>
+          </Tracking.DesktopHeaderOrder>
+        </Tracking.HeaderInner>
+      </Tracking.Header>
+      <Tracking.Main>
+        {stage === 2 && (
+          <Tracking.CompletionNotice role="status">
+            <CheckCircle2 aria-hidden="true" />
+            <span>
+              <strong>{pickup ? 'Retirada concluída' : 'Entrega concluída'}</strong>
+              <small>
+                {pickup
+                  ? 'O pedido foi retirado no balcão.'
+                  : 'A última posição foi preservada e o rastreamento foi encerrado.'}
+              </small>
+            </span>
+          </Tracking.CompletionNotice>
         )}
-        <button type="button" onClick={() => changeClock(stage === 1 ? deliveredMs : prepMs)}>
-          {stage === 2 ? <RotateCcw size={15} /> : <ChevronRight size={15} />}
-          {stage === 0 ? 'Iniciar entrega' : stage === 1 ? 'Concluir entrega' : 'Rever percurso'}
-        </button>
-      </div>
-      <p className="gx-demo-route-note">Percurso fictício em tempo acelerado.</p>
-      <details className="gx-demo-order-summary">
-        <summary>Resumo do pedido</summary>
-        <p>{storeName}</p>
-        <ul>
-          {order.items.map((item, i) => (
-            <li key={i}>
-              {item.quantity} × {item.name}
-            </li>
-          ))}
-        </ul>
-        <p>
-          {order.method} · <b>{formatPrice(order.total)}</b>
-        </p>
-      </details>
-      <button type="button" className="gx-demo-order-back" onClick={onOrders}>
-        Voltar aos pedidos
-      </button>
-    </section>
+        <Tracking.FigmaTrackingLayout>
+          <Tracking.TrackingMapColumn>
+            <Tracking.DesktopTrackingTitle>Acompanhe seu Pedido</Tracking.DesktopTrackingTitle>
+            {pickup ? (
+              <Tracking.CourierSlot>
+                <Tracking.CourierCard>
+                  <Tracking.CourierAvatar>
+                    <Store aria-hidden="true" />
+                  </Tracking.CourierAvatar>
+                  <span>
+                    <strong>Retirada no balcão</strong>
+                    <small className="courier-waiting">{storeName}</small>
+                  </span>
+                </Tracking.CourierCard>
+              </Tracking.CourierSlot>
+            ) : (
+              <Tracking.MapArea aria-label="Mapa da entrega">
+                {stage === 0 ? (
+                  <Tracking.MapPlaceholder className="delivery-map-shell" role="status">
+                    <Navigation aria-hidden="true" />
+                    <h2>Aguardando início da rota</h2>
+                    <p>O mapa aparecerá automaticamente quando a rota começar.</p>
+                  </Tracking.MapPlaceholder>
+                ) : (
+                  <MapView.Shell className="delivery-map-shell">
+                    <MapView.Canvas>
+                      <RouteMap progress={progress} />
+                    </MapView.Canvas>
+                    <MapView.EtaCard>
+                      <strong>
+                        {stage === 2
+                          ? 'Entrega concluída'
+                          : 'Chegada em ' + Math.max(1, Math.ceil((1 - progress) * 8)) + ' min'}
+                      </strong>
+                    </MapView.EtaCard>
+                    <MapView.LiveBadge>
+                      <i aria-hidden="true" />
+                      {stage === 2 ? 'Última posição do motoboy' : 'Localização simulada'}
+                    </MapView.LiveBadge>
+                  </MapView.Shell>
+                )}
+              </Tracking.MapArea>
+            )}
+          </Tracking.TrackingMapColumn>
+          {!pickup && (
+            <Tracking.CourierSlot>
+              <Tracking.CourierCard>
+                <Tracking.CourierAvatar>
+                  <Bike aria-hidden="true" />
+                </Tracking.CourierAvatar>
+                <span>
+                  <strong>{stage === 0 ? 'Aguardando motoboy' : 'Rafael Santos'}</strong>
+                  <small className="courier-waiting">
+                    {stage === 0
+                      ? 'A cozinha está preparando seu pedido.'
+                      : 'Motoboy da demonstração'}
+                  </small>
+                </span>
+              </Tracking.CourierCard>
+            </Tracking.CourierSlot>
+          )}
+          <Tracking.MobileTrackingDetails>
+            <Tracking.MobileStatusList role="list" aria-label="Etapas da entrega">
+              {steps.map((label, index) => (
+                <Tracking.MobileStatusItem
+                  role="listitem"
+                  key={label}
+                  $active={stage + 1 === index}
+                  $complete={stage + 1 > index}
+                  aria-current={stage + 1 === index ? 'step' : undefined}
+                >
+                  <i aria-hidden="true" />
+                  <span>{label}</span>
+                </Tracking.MobileStatusItem>
+              ))}
+            </Tracking.MobileStatusList>
+          </Tracking.MobileTrackingDetails>
+        </Tracking.FigmaTrackingLayout>
+        <div className="gx-demo-tracking-extra">
+          <p>
+            <MapPin size={18} aria-hidden="true" />
+            <span>
+              <small>{pickup ? 'Local de retirada' : 'Endereço de entrega'}</small>
+              <strong>{order.destination || storeName}</strong>
+            </span>
+          </p>
+          <div className="gx-demo-tracking-controls" aria-label="Controles da demonstração">
+            {stage === 1 && !pickup && (
+              <Tracking.RetryButton
+                type="button"
+                onClick={() => changeClock(elapsedTime(order, Date.now()), !paused)}
+              >
+                {paused ? <Play size={16} /> : <Pause size={16} />}{' '}
+                {paused ? 'Retomar rota' : 'Pausar rota'}
+              </Tracking.RetryButton>
+            )}
+            <Tracking.RetryButton
+              type="button"
+              onClick={() =>
+                changeClock(stage === 0 ? prepMs : stage === 1 ? deliveredMs : pickup ? 0 : prepMs)
+              }
+            >
+              {stage === 2 ? <RotateCcw size={16} /> : <ChevronRight size={16} />}
+              {pickup
+                ? ['Marcar pronto para retirada', 'Confirmar retirada', 'Rever retirada'][stage]
+                : ['Iniciar entrega', 'Concluir entrega', 'Rever percurso'][stage]}
+            </Tracking.RetryButton>
+          </div>
+          <small>
+            {pickup
+              ? 'Retirada simulada em tempo acelerado.'
+              : 'Percurso fictício em tempo acelerado.'}
+          </small>
+          <Receipt.OrderCard>
+            <Receipt.SectionTitle>
+              <span>
+                <strong>Resumo do pedido</strong>
+                <small>
+                  {storeName} · Pedido #{order.id}
+                </small>
+              </span>
+              <ReceiptText aria-hidden="true" />
+            </Receipt.SectionTitle>
+            <Receipt.ItemList>
+              {order.items.map((item, index) => (
+                <li key={index}>
+                  <span>
+                    {item.quantity}× {item.name}
+                    {item.observation && (
+                      <small className="gx-demo-item-note">{item.observation}</small>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </Receipt.ItemList>
+            <Receipt.Total>
+              <span>Total</span>
+              <strong>{formatPrice(order.total)}</strong>
+            </Receipt.Total>
+            <Receipt.Payment>{order.method}</Receipt.Payment>
+          </Receipt.OrderCard>
+        </div>
+      </Tracking.Main>
+    </Tracking.Page>
   );
 }
