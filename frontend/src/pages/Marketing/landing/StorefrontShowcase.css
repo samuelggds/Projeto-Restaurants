@@ -191,6 +191,23 @@ dialog.gx-storefronts__dialog {
 .gx-storefronts__dialog-header { flex: none; border-bottom: 1px solid #e1d2c1; }
 .gx-storefronts__dialog-header p { line-height: 1.25; }
 .gx-storefronts__theme { margin-left: auto; }
+.gx-storefronts__unavailable {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+.gx-storefronts__unavailable p { margin: 0; }
+.gx-storefronts__unavailable a {
+  padding: .75rem 1.25rem;
+  border-radius: 2rem;
+  background: var(--store-ink);
+  color: var(--store-paper);
+  font-weight: 700;
+}
 @media (max-width: 450px) {
   dialog.gx-storefronts__dialog { width: 100%; max-width: 100%; max-height: 100dvh; border-radius: 0; }
   .gx-storefronts__sheet { height: 100dvh; }

@@ -113,6 +113,7 @@ try {
     ['/assets/app.js', false],
     ['/help-preview.html', true],
     ['/help-preview.html?area=settings-brand', true],
+    ['/help-preview.html?view=storefront', true],
     ['/help-preview.html/extra', false],
     ['/other/help-preview.html', false],
     ['/vitrine-demo.html', true],

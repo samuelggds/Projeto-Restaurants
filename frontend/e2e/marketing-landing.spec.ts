@@ -194,36 +194,80 @@ test('galeria, implantação e benefícios aprovados são exibidos',async ({page
  await expect(page.locator('.official-gx').first()).toBeVisible();
 });
 
-test('cada vitrine abre o cardápio correto e a equipe troca de painel', async ({ page }) => {
-  test.slow();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  for (const [name, product] of [
-    ['Forno Alto', 'Margherita da casa'],
-    ['Braseiro Burger', 'Brasa Bacon'],
-    ['Açaí da Mata', 'Açaí com frutas'],
-    ['Sálvia Trattoria', 'Tagliatelle ao ragù'],
-  ]) {
-    const opener = page.getByRole('button', {
-      name: new RegExp('Experimentar cardápio de ' + name),
+const featuredStoreProducts = [
+  ['Forno Alto', 'Margherita da casa'],
+  ['Braseiro Burger', 'Brasa Bacon'],
+  ['Açaí da Mata', 'Açaí com frutas'],
+  ['Sálvia Trattoria', 'Tagliatelle ao ragù'],
+] as const;
+
+for (const viewport of [{ width: 440, height: 956 }, { width: 1366, height: 900 }]) {
+  test(`as quatro vitrines abrem sob a política pública de incorporação em ${viewport.width}px`, async ({ page }) => {
+    test.slow();
+    await page.setViewportSize(viewport);
+    // The public gateway allows the established preview document to be framed.
+    // Serving the storefront HTML with status 200 alone is insufficient.
+    await page.route(/\/[^/]+\.html(?:\?.*)?$/, async (route) => {
+      const sharedPreview = new URL(route.request().url()).pathname === '/help-preview.html';
+      const response = await route.fetch();
+      const ancestors = sharedPreview ? "'self'" : "'none'";
+      await route.fulfill({
+        response,
+        headers: {
+          ...response.headers(),
+          'content-security-policy': `frame-ancestors ${ancestors}; connect-src 'none'; form-action 'none'; script-src 'self'`,
+        },
+      });
     });
-    await opener.click();
-    const dialog = page.getByRole('dialog', { name });
-    const menu = dialog.frameLocator('iframe[src="/vitrine-demo.html"]');
-    await expect(menu.getByRole('heading', { name, level: 1, exact: true })).toBeVisible();
-    await expect(menu.getByRole('img', { name: 'Capa do restaurante ' + name })).toBeVisible();
-    await menu.getByRole('button', { name: 'Ver cardápio', exact: true }).click();
-    await menu
-      .getByRole('button', { name: 'Ver detalhes de ' + product })
-      .first()
-      .click();
-    const detail = menu.getByRole('dialog', { name: 'Detalhes de ' + product });
-    await expect(detail.getByRole('heading', { name: product })).toBeVisible();
-    await expect(detail.getByRole('button', { name: /Adicionar ao carrinho/ })).toBeVisible();
-    await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
-    await expect(dialog).toHaveCount(0);
-    await expect(opener).toBeFocused();
-  }
+    await page.goto('/');
+    for (const [name, product] of featuredStoreProducts) {
+      const opener = page.getByRole('button', {
+        name: new RegExp('Experimentar cardápio de ' + name),
+      });
+      await opener.click();
+      const dialog = page.getByRole('dialog', { name });
+      const menu = dialog.frameLocator('iframe[title="Telas do cliente"]');
+      await expect(menu.getByRole('heading', { name, level: 1, exact: true })).toBeVisible();
+      await expect(menu.getByRole('img', { name: 'Capa do restaurante ' + name })).toBeVisible();
+      await menu.getByRole('button', { name: 'Ver cardápio', exact: true }).click();
+      await menu.getByRole('button', { name: 'Ver detalhes de ' + product }).first().click();
+      const detail = menu.getByRole('dialog', { name: 'Detalhes de ' + product });
+      await expect(detail.getByRole('heading', { name: product })).toBeVisible();
+      await expect(detail.getByRole('button', { name: /Adicionar ao carrinho/ })).toBeVisible();
+      await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(opener).toBeFocused();
+    }
+  });
+}
+
+test('um bloqueio do navegador oferece a loja em nova aba e permite reabrir a vitrine', async ({ page }) => {
+  const preview = /\/help-preview\.html\?/;
+  await page.route(preview, (route) => route.fulfill({
+    contentType: 'text/html',
+    headers: { 'content-security-policy': "frame-ancestors 'none'" },
+    body: '<!doctype html><title>Prévia bloqueada</title>',
+  }));
+  await page.goto('/');
+  await page.getByRole('button', { name: /Experimentar cardápio de Forno Alto/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Forno Alto' });
+  const direct = dialog.getByRole('link', { name: 'Abrir cardápio em nova aba' });
+  const popupPromise = page.waitForEvent('popup');
+  await direct.click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(/\/vitrine-demo\.html#forno-alto$/);
+  await expect(popup.getByRole('heading', { name: 'Forno Alto', level: 1 })).toBeVisible();
+  await popup.close();
+
+  await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
+  await page.unroute(preview);
+  await page.getByRole('button', { name: /Experimentar cardápio de Braseiro Burger/ }).click();
+  const next = page.getByRole('dialog', { name: 'Braseiro Burger' }).frameLocator('iframe');
+  await expect(next.getByRole('heading', { name: 'Braseiro Burger', level: 1 })).toBeVisible();
+});
+
+test('a equipe troca de painel na apresentação', async ({ page }) => {
+  await page.goto('/');
   const team = page.locator('#apresentacao');
   for (const name of ['Atendente', 'Garçom', 'Motoboy', 'Administrador']) {
     const button = team.getByRole('button', { name, exact: true });

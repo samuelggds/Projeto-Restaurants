@@ -6,6 +6,7 @@ import './StorefrontShowcase.css';
 const storefronts = Object.values(demoStores);
 const directory = '/marketing-vitrines';
 const previewSizes = '(max-width: 640px) 43vw, (max-width: 1200px) 22vw, 260px';
+const storefrontPreview = '/help-preview.html?view=storefront';
 
 function CardImage({ slug }: { slug: DemoSlug }) {
   return (
@@ -24,7 +25,9 @@ function CardImage({ slug }: { slug: DemoSlug }) {
 
 export function StorefrontShowcase() {
   const [selected, setSelected] = useState<DemoSlug | null>(null);
-  const [visited, setVisited] = useState(false);
+  // Keep one document alive so switching restaurants preserves each demo bag and theme.
+  const [firstStore, setFirstStore] = useState<DemoSlug | null>(null);
+  const [frameUnavailable, setFrameUnavailable] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLButtonElement | null>(null);
@@ -33,17 +36,18 @@ export function StorefrontShowcase() {
 
   function openStore(slug: DemoSlug, trigger: HTMLButtonElement) {
     opener.current = trigger;
-    setVisited(true);
+    setFrameUnavailable(false);
+    setFirstStore((first) => first ?? slug);
     setSelected(slug);
     selectFrameStore(slug);
     dialog.current?.showModal();
   }
 
   function selectFrameStore(slug: DemoSlug | null) {
-    const child = frame.current?.contentWindow;
-    if (child?.location.pathname === '/vitrine-demo.html') {
-      child.location.replace('/vitrine-demo.html#' + (slug ?? ''));
-    }
+    const location = frame.current?.contentDocument?.location;
+    if (!location || location.pathname + location.search !== storefrontPreview) return;
+    const nextSlug = slug ?? '';
+    if (location.hash.slice(1) !== nextSlug) location.replace(`${storefrontPreview}#${nextSlug}`);
   }
 
   return (
@@ -92,7 +96,7 @@ export function StorefrontShowcase() {
         <div className="gx-storefronts__sheet">
           <div className="gx-storefronts__dialog-header">
             <div><h3 id={modalTitleId}>{selected && demoStores[selected].name}</h3><p>Demonstração com dados fictícios</p></div>
-            <button type="button" className="gx-storefronts__close gx-storefronts__theme"
+            <button type="button" className="gx-storefronts__close gx-storefronts__theme" disabled={frameUnavailable}
               aria-label="Alternar tema claro e escuro da vitrine" title="Alternar tema claro e escuro"
               onClick={() => frame.current?.contentDocument?.dispatchEvent(new Event(toggleStorefrontTheme))}>
               <SunMoon size={20} aria-hidden="true" />
@@ -101,9 +105,31 @@ export function StorefrontShowcase() {
               <X size={22} aria-hidden="true" />
             </button>
           </div>
-          {visited && <iframe ref={frame} title="Telas do cliente" src="/vitrine-demo.html"
-            sandbox="allow-same-origin allow-scripts allow-forms"
-            onLoad={() => selectFrameStore(selected)} />}
+          {firstStore && (
+            <iframe
+              ref={frame}
+              title="Telas do cliente"
+              src={`${storefrontPreview}#${firstStore}`}
+              sandbox="allow-same-origin allow-scripts allow-forms"
+              onLoad={(event) => {
+                const document = event.currentTarget.contentDocument;
+                if (!document?.documentElement.dataset.previewViews?.split(' ').includes('storefront')) {
+                  setFrameUnavailable(true);
+                  setFirstStore(null);
+                  return;
+                }
+                selectFrameStore(selected);
+              }}
+            />
+          )}
+          {frameUnavailable && selected && (
+            <div className="gx-storefronts__unavailable" role="status">
+              <p>O cardápio de {demoStores[selected].name} não abriu nesta janela.</p>
+              <a href={`/vitrine-demo.html#${selected}`} target="_blank" rel="noopener noreferrer">
+                Abrir cardápio em nova aba
+              </a>
+            </div>
+          )}
         </div>
       </dialog>
     </section>
