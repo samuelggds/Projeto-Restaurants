@@ -8,6 +8,7 @@ import { initialDemoSessions, updateDemoSession } from './demoSession';
 import { StorefrontExperience } from './StorefrontExperience';
 import { DemoDarkStyles } from './DemoDarkStyles';
 import { DemoProductTheme } from './DemoProductTheme';
+import './storefrontFrame.css';
 
 function subscribe(notify: () => void) {
   window.addEventListener('hashchange', notify);

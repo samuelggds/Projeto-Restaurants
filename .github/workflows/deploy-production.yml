@@ -270,6 +270,7 @@ jobs:
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$APP_URL/healthz" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/health" >/dev/null
           curl --fail --silent --show-error --retry 5 --retry-delay 3 --max-time 15 "$API_URL/ready" >/dev/null
+          node scripts/verifyPublishedStorefront.mjs "$APP_URL"
 
       - name: Write deployment evidence summary
         env:

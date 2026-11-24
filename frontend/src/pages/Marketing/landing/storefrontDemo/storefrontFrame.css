@@ -1,0 +1,20 @@
+html[data-storefront-screen='menu'],
+html[data-storefront-screen='coupons'] {
+  scroll-padding-block: 56px 88px;
+}
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/marketing-vitrines/cardapios/inter-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: Gabarito;
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/marketing-vitrines/Gabarito.ttf') format('truetype');
+}
