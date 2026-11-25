@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, CircleCheck, Copy, Home, List, TicketPercent, Truck, UserRound, ChevronDown, Gift, Pizza } from 'lucide-react';
+import { ArrowLeft, Check, CircleCheck, Copy, Home, List, TicketPercent, Truck, UserRound, ChevronDown, Gift } from 'lucide-react';
 import styled from 'styled-components';
+import { resolveCategoryIcon } from '../../../config/categoryIconMap';
+import { getRestaurantCategoryPresentation } from '../../../config/restaurantCategory';
 import type { PublicPromotionalCoupon } from '../types';
 import { CouponScreen } from './HomeCouponScreen.styles';
 
@@ -87,7 +89,7 @@ const normalizedCode = (code: string) => code.replace(/\s+/gu, '').toLocaleUpper
 
 export function HomeCouponsCenter({
   coupons, loggedIn, onClose, onSelect, onRemove, onOpenCart,
-  onOpenOrders, onOpenProfile, onOpenWallet, brandName = 'Restaurante',
+  onOpenOrders, onOpenProfile, onOpenWallet, brandName = 'Restaurante', restaurantCategory,
   selectedCode = '', selectedConfirmed = false, selectedPending = false,
   quoteError = null, quoteSubtotal = 0, hasCartItems = false, orderType = 'delivery',
   deliveryAddressReady = false, darkMode = false,
@@ -102,6 +104,7 @@ export function HomeCouponsCenter({
   onOpenProfile?: () => void;
   onOpenWallet?: () => void;
   brandName?: string;
+  restaurantCategory?: string;
   selectedCode?: string;
   selectedConfirmed?: boolean;
   selectedPending?: boolean;
@@ -121,6 +124,11 @@ export function HomeCouponsCenter({
   const activeCoupon = coupons.find(coupon => normalizedCode(coupon.code) === activeCode);
   const isShippingCoupon = activeCoupon?.discountType === 'FREE_SHIPPING';
   const insufficientSubtotal = activeCoupon && Number(activeCoupon.minimumSubtotal) > quoteSubtotal;
+  const couponIcons = {
+    PERCENTAGE: resolveCategoryIcon(getRestaurantCategoryPresentation(restaurantCategory).iconLabel),
+    FIXED: Gift,
+    FREE_SHIPPING: Truck,
+  };
 
   useEffect(() => {
     activeRef.current = true;
@@ -245,10 +253,11 @@ export function HomeCouponsCenter({
             const code = normalizedCode(coupon.code);
             const selected = Boolean(code && activeCode === code);
             const shipping = coupon.discountType === 'FREE_SHIPPING';
+            const Icon = couponIcons[coupon.discountType];
             return <article key={coupon.id} className="cp-ticket">
               <div className="cp-ticket-main">
                 <span className={'cp-icon' + (shipping ? ' cp-shipping' : '')}>
-                  {shipping ? <Truck aria-hidden="true"/> : coupon.discountType === 'PERCENTAGE' ? <Pizza aria-hidden="true" /> : <Gift aria-hidden="true" />}
+                  <Icon aria-hidden="true" />
                 </span>
                 <div className="cp-ticket-copy"><h2>{benefitTitle(coupon)}</h2><p>{subtitle(coupon)}</p></div>
                 <button type="button" className={'cp-use' + (selected ? ' is-selected' : '')}

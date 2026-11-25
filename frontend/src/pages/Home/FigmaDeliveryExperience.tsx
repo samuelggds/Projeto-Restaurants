@@ -1174,6 +1174,7 @@ export function FigmaDeliveryExperience({
         <HomeCouponsCenter
           coupons={promotionalCoupons}
           brandName={data.brand.name}
+          restaurantCategory={data.brand.category}
           darkMode={darkMode}
           orderType={activeFulfillmentMethod}
           deliveryAddressReady={Boolean(deliveryAddressPreview?.address.trim() && deliveryAddressPreview?.number.trim() && deliveryAddressPreview?.zipCode.replace(/\D/g, '').length === 8 && deliveryAddressPreview?.city.trim() && deliveryAddressPreview?.state.trim())}
