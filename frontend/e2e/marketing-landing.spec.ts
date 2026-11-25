@@ -241,6 +241,43 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 1366, height: 900 
   });
 }
 
+const storefrontProductCases = [
+  { store: 'Forno Alto', icon: 'pizza', product: 'Calabresa com cebola', price: 'R$ 46,90' },
+  { store: 'Braseiro Burger', icon: 'sandwich', product: 'Smash duplo', price: 'R$ 32,90' },
+  { store: 'Açaí da Mata', icon: 'ice-cream-bowl', product: 'Açaí com paçoca', price: 'R$ 24,90' },
+  { store: 'Sálvia Trattoria', icon: 'utensils', product: 'Nhoque ao sugo', price: 'R$ 36,90' },
+];
+
+for (const { store, icon, product, price } of storefrontProductCases) {
+  test(`${store} exibe o ícone do cupom e o produto novo chega à sacola pelo mesmo preço`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByRole('button', { name: new RegExp('Experimentar cardápio de ' + store) }).click();
+    const menu = page.getByRole('dialog', { name: store }).frameLocator('iframe');
+    await menu.getByRole('button', { name: 'Abrir cupons', exact: true }).click();
+    const coupons = menu.getByRole('region', { name: 'Tela de cupons' });
+    const ticket = coupons.getByRole('article').filter({ hasText: 'VITRINE10' });
+    await expect(ticket.locator(`svg.lucide-${icon}`)).toBeVisible();
+    await coupons.getByRole('button', { name: 'Voltar ao cardápio' }).click();
+
+    await menu.getByRole('button', { name: 'Ver cardápio', exact: true }).click();
+    await menu.getByRole('button', { name: 'Ver detalhes de ' + product, exact: true }).first().click();
+    const detail = menu.getByRole('dialog', { name: 'Detalhes de ' + product });
+    const image = detail.getByRole('img', { name: product, exact: true });
+    await expect(image).toBeVisible();
+    await expect
+      .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
+      .toBeGreaterThan(0);
+    const add = detail.getByRole('button', { name: /Adicionar ao carrinho/ });
+    await expect(add).toContainText(price);
+    await add.click();
+    await menu.getByRole('button', { name: 'Meu Carrinho, 1 item' }).click();
+    const item = menu.getByRole('article').filter({ hasText: product });
+    await expect(item.getByRole('button', { name: 'Remover ' + product, exact: true })).toBeVisible();
+    await expect(item.getByText(price, { exact: true })).toBeVisible();
+  });
+}
+
 test('um bloqueio do navegador oferece a loja em nova aba e permite reabrir a vitrine', async ({ page }) => {
   const preview = /\/help-preview\.html\?/;
   await page.route(preview, (route) => route.fulfill({
