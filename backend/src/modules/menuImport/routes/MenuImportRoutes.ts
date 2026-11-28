@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { distributedRateLimitOptions } from '../../../middlewares/security/PostgresRateLimitStore.js';
 import { authMiddleware } from '../../../middlewares/authMiddleware.js';
 import { adminMiddleware } from '../../../middlewares/adminMiddleware.js';
 import { billingMiddleware } from '../../../middlewares/billingMiddleware.js';
@@ -8,6 +10,15 @@ import GenerateImportedProductImageController from '../controllers/GenerateImpor
 import MenuImportDraftController from '../controllers/MenuImportDraftController.js';
 
 const router = Router();
+const photoPreviewLimit = rateLimit({
+  ...distributedRateLimitOptions('menu-photo-preview:1'),
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  keyGenerator: (req) => String(req.user!.restaurantId),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Limite de análises de fotos deste restaurante atingido. Tente novamente em 15 minutos.' },
+});
 
 router.post('/ifood', authMiddleware, adminMiddleware, (req, res) => {
   ImportIfoodMenuController.handle(req, res);
@@ -18,7 +29,7 @@ router.post('/ifood', authMiddleware, adminMiddleware, (req, res) => {
 router.post('/image', authMiddleware, adminMiddleware, (req, res) => {
   ImportMenuFromImageController.handle(req, res);
 });
-router.post('/image/preview', authMiddleware, adminMiddleware, (req, res) => {
+router.post('/image/preview', authMiddleware, adminMiddleware, photoPreviewLimit, (req, res) => {
   MenuImportDraftController.previewImage(req, res);
 });
 router.get('/drafts/:publicId', authMiddleware, adminMiddleware, (req, res) => {

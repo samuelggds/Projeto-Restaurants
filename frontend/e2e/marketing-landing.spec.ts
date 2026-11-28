@@ -142,6 +142,8 @@ test('formulário comercial está disponível imediatamente na capa', async ({ p
   await expect(form).toBeVisible();
   await expect(page.getByRole('form', { name: 'Contato comercial' })).toHaveCount(1);
   await expect(hero.getByText('Pedido recebido!')).toBeVisible();
+  await expect(hero.getByRole('link', { name: 'Ativar meu restaurante', exact: true }))
+    .toHaveAttribute('href', '/ativar/restaurante');
   await expect(page.locator('header .brand-name')).toContainText('Gastro');
 });
 
@@ -195,10 +197,10 @@ test('galeria, implantação e benefícios aprovados são exibidos',async ({page
 });
 
 const featuredStoreProducts = [
-  ['Forno Alto', 'Margherita da casa'],
-  ['Braseiro Burger', 'Brasa Bacon'],
-  ['Açaí da Mata', 'Açaí com frutas'],
-  ['Sálvia Trattoria', 'Tagliatelle ao ragù'],
+  ['Forno Alto', 'Margherita da casa', 'pizzaria'],
+  ['Braseiro Burger', 'Brasa Bacon', 'hamburgueria'],
+  ['Açaí da Mata', 'Açaí com frutas', 'acaiteria'],
+  ['Sálvia Trattoria', 'Tagliatelle ao ragù', 'restaurante'],
 ] as const;
 
 for (const viewport of [{ width: 440, height: 956 }, { width: 1366, height: 900 }]) {
@@ -220,12 +222,15 @@ for (const viewport of [{ width: 440, height: 956 }, { width: 1366, height: 900 
       });
     });
     await page.goto('/');
-    for (const [name, product] of featuredStoreProducts) {
+    for (const [name, product, model] of featuredStoreProducts) {
       const opener = page.getByRole('button', {
         name: new RegExp('Experimentar cardápio de ' + name),
       });
       await opener.click();
       const dialog = page.getByRole('dialog', { name });
+      const activation = dialog.getByRole('link', { name: 'Ativar meu restaurante' });
+      await expect(activation).toBeVisible();
+      await expect(activation).toHaveAttribute('href', '/ativar/restaurante?modelo=' + model);
       const menu = dialog.frameLocator('iframe[title="Telas do cliente"]');
       await expect(menu.getByRole('heading', { name, level: 1, exact: true })).toBeVisible();
       await expect(menu.getByRole('img', { name: 'Capa do restaurante ' + name })).toBeVisible();
@@ -294,6 +299,9 @@ test('um bloqueio do navegador oferece a loja em nova aba e permite reabrir a vi
   const popup = await popupPromise;
   await expect(popup).toHaveURL(/\/vitrine-demo\.html#forno-alto$/);
   await expect(popup.getByRole('heading', { name: 'Forno Alto', level: 1 })).toBeVisible();
+  const activation = popup.getByRole('link', { name: 'Ativar meu restaurante' });
+  await expect(activation).toBeInViewport();
+  await expect(activation).toHaveAttribute('href', '/ativar/restaurante?modelo=pizzaria');
   await popup.close();
 
   await dialog.getByRole('button', { name: 'Fechar vitrine' }).click();
@@ -351,7 +359,11 @@ test('vitrine conclui um pedido fictício com cupom, endereço, Pix e percurso d
   await store.getByRole('button', { name: 'Continuar', exact: true }).click();
   await store.getByRole('button', { name: 'Simular confirmação do Pix' }).click();
   await expect(store.getByText('Pagamento PIX Confirmado!', { exact: true })).toBeVisible();
+  const activation = page.getByRole('dialog', { name: 'Braseiro Burger' })
+    .getByRole('link', { name: 'Ativar meu restaurante' });
+  await expect(activation).toBeInViewport();
   await store.getByRole('button', { name: 'Acompanhar Pedido' }).click();
+  await expect(activation).toHaveAttribute('href', '/ativar/restaurante?modelo=hamburgueria');
   const tracking = store.getByRole('region', { name: 'Acompanhamento de entrega' });
   const currentStage = tracking
     .getByRole('list', { name: 'Etapas da entrega' })

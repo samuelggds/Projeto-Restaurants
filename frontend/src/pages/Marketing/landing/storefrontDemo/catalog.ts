@@ -14,6 +14,7 @@ type DemoStore = {
   slug: DemoSlug;
   name: string;
   category: string;
+  model: 'pizzaria' | 'hamburgueria' | 'acaiteria' | 'restaurante';
   color: string;
   cover: string;
   products: DemoProduct[];
@@ -65,6 +66,7 @@ export const demoStores: Record<DemoSlug, DemoStore> = {
     slug: 'forno-alto',
     name: 'Forno Alto',
     category: 'Pizzaria',
+    model: 'pizzaria',
     color: '#af3326',
     cover: pizza,
     products: [
@@ -117,6 +119,7 @@ export const demoStores: Record<DemoSlug, DemoStore> = {
     slug: 'braseiro-burger',
     name: 'Braseiro Burger',
     category: 'Hamburgueria',
+    model: 'hamburgueria',
     color: '#a13b19',
     cover: burger,
     products: [
@@ -169,6 +172,7 @@ export const demoStores: Record<DemoSlug, DemoStore> = {
     slug: 'acai-da-mata',
     name: 'Açaí da Mata',
     category: 'Açaiteria',
+    model: 'acaiteria',
     color: '#733d80',
     cover: acai,
     products: [
@@ -220,6 +224,7 @@ export const demoStores: Record<DemoSlug, DemoStore> = {
     slug: 'salvia-trattoria',
     name: 'Sálvia Trattoria',
     category: 'Restaurante',
+    model: 'restaurante',
     color: '#45643c',
     cover: pasta,
     products: [

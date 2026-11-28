@@ -5,7 +5,8 @@ export const PERSISTENT_IMAGE_MAX_DATA_URL_LENGTH = 700_000;
 
 export function isPersistentImageSource(value: unknown) {
   const source = String(value || '').trim();
-  return /^https?:\/\//i.test(source) || /^data:image\/(jpeg|png|webp);base64,/i.test(source);
+  return /^https?:\/\//i.test(source) || /^data:image\/(jpeg|png|webp);base64,/i.test(source)
+    || /^\/(?:cardapio-inicial|marketing-vitrines\/cardapios|demo)\/[a-z0-9-]+\.webp$/u.test(source);
 }
 
 function readBlobAsDataUrl(blob: Blob) {

@@ -3,7 +3,7 @@ import { temporaryStrongPasswordSchema } from './PasswordValidator.js';
 import { optionalNormalizedBrazilPhoneSchema } from './PhoneValidator.js';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const restaurantCategorySchema = z.enum([
+export const restaurantCategorySchema = z.enum([
   'RESTAURANTE',
   'PIZZARIA',
   'HAMBURGUERIA',

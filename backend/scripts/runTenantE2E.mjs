@@ -107,6 +107,7 @@ async function collectE2ETests({
   rlsOnly = false,
   scaleOnly = false,
   salesLeadsOnly = false,
+  restaurantTrialsOnly = false,
 } = {}) {
   const directory = path.resolve(backendRoot, 'src/e2e/multiTenant');
   const entries = await readdir(directory, { withFileTypes: true });
@@ -116,6 +117,7 @@ async function collectE2ETests({
         entry.isFile() &&
         entry.name.endsWith('.e2e.ts') &&
         (!salesLeadsOnly || entry.name === 'salesLeads.e2e.ts') &&
+        (!restaurantTrialsOnly || entry.name === 'restaurantTrial.e2e.ts') &&
         (!scaleOnly || entry.name === 'runtimeScale.e2e.ts') &&
         (rlsOnly ? entry.name.endsWith('.rls.e2e.ts') : !entry.name.endsWith('.rls.e2e.ts')),
     )
@@ -280,7 +282,8 @@ async function main() {
   const rlsOnly = process.argv.includes('--rls-only');
   const scaleOnly = process.argv.includes('--scale');
   const salesLeadsOnly = process.argv.includes('--sales-leads-only');
-  const testFiles = await collectE2ETests({ rlsOnly, scaleOnly, salesLeadsOnly });
+  const restaurantTrialsOnly = process.argv.includes('--restaurant-trials-only');
+  const testFiles = await collectE2ETests({ rlsOnly, scaleOnly, salesLeadsOnly, restaurantTrialsOnly });
   if (!testFiles.length) throw new Error('Nenhum arquivo .e2e.ts multi-tenant foi encontrado.');
 
   const testEnv = {

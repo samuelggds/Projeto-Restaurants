@@ -8,6 +8,7 @@ type ImportIfoodMenuPayload = {
 
 type ImportMenuFromImagePayload = {
   imageUrl: string;
+  photoMode?: 'menu' | 'product';
   restaurantId?: number | string;
 };
 

@@ -205,6 +205,8 @@
   text-decoration: underline;
   text-underline-offset: .26em;
 }
+.gx-campaign-contact-links { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
+.gx-campaign-contact-links a { gap: .35rem; }
 .gx-campaign-contact-form { min-width: 0; }
 .gx-campaign-contact-form > div {
   background: #fffaf0;

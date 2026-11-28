@@ -9,7 +9,11 @@ import { createRestaurantSchema } from '../../../validators/RestaurantValidator.
 import { z } from 'zod';
 import { collectStrongPasswordErrors } from '../../auth/security/passwordPolicy.js';
 import platformPlanCatalogService from '../../billing/services/PlatformPlanCatalogService.js';
-import { addDays } from '../../billing/utils/dateUtils.js';
+import { addBusinessDays, addDays } from '../../billing/utils/dateUtils.js';
+import { isAvailablePlan } from '../../billing/config/planConfig.js';
+import adminPortalAccessService from '../../adminPortal/services/AdminPortalAccessService.js';
+import { seedRestaurantTrialMenu } from './seedRestaurantTrialMenu.js';
+import { ensureTrialSignupAvailable } from './trialSignupPolicy.js';
 
 type CreateRestaurantPayload = z.infer<typeof createRestaurantSchema>;
 
@@ -23,6 +27,14 @@ export type CreateRestaurantAuditActor = {
 type CreateRestaurantCommand = CreateRestaurantPayload & {
   actor?: CreateRestaurantAuditActor;
 };
+
+type VerifiedOwnerTrial = {
+  portalKey: string;
+  quotedMonthlyFee: number;
+  quotedTrialDays: number;
+};
+
+export class TrialPlanChangedError extends Error {}
 
 function requireDefined<T>(value: T | null | undefined, message: string): NonNullable<T> {
   if (value === null || value === undefined) {
@@ -65,7 +77,15 @@ async function persistRestaurantCategory(
 }
 
 export class CreateRestaurantService {
-  async execute({ restaurant, admin, plan, actor }: CreateRestaurantCommand) {
+  async execute(command: CreateRestaurantCommand) {
+    return this.provision(command);
+  }
+
+  async createVerifiedOwnerTrial(payload: CreateRestaurantPayload, trial: VerifiedOwnerTrial) {
+    return this.provision(payload, trial);
+  }
+
+  private async provision({ restaurant, admin, plan, actor }: CreateRestaurantCommand, trial?: VerifiedOwnerTrial) {
     const parsedPayloadResult = createRestaurantSchema.safeParse({
       restaurant,
       admin,
@@ -95,10 +115,15 @@ export class CreateRestaurantService {
     const passwordHash = await bcrypt.hash(parsedAdmin.password, 12);
 
     return prisma.$transaction(async (tx) => {
+      if (trial) await ensureTrialSignupAvailable(tx);
       const selectedPlan = await platformPlanCatalogService.getByCode(
         parsedPayload.plan as PlanType,
         { activeOnly: true, db: tx },
       );
+      if (trial && (!isAvailablePlan(selectedPlan.plan) || selectedPlan.trialDays < 1 ||
+          selectedPlan.monthlyFee !== trial.quotedMonthlyFee || selectedPlan.trialDays !== trial.quotedTrialDays)) {
+        throw new TrialPlanChangedError('O plano mudou. Confira as condições atualizadas antes de ativar.');
+      }
       const requiredName = requireDefined(parsedRestaurant.name, 'Nome do restaurante é obrigatório.');
       const requiredSlug = requireDefined(parsedRestaurant.slug, 'Slug do restaurante é obrigatório.');
       const requiredEmail = requireDefined(parsedRestaurant.email, 'Email do restaurante é obrigatório.');
@@ -121,7 +146,8 @@ export class CreateRestaurantService {
           password: passwordHash,
           role: UserRole.ADMIN,
           active: true,
-          mustChangePassword: true,
+          mustChangePassword: !trial,
+          ...(trial ? { emailVerifiedAt: new Date(), emailVerificationRequired: true } : {}),
           mfaEnabled: false,
           restaurantId: createdRestaurant.id,
         },
@@ -129,7 +155,9 @@ export class CreateRestaurantService {
       );
 
       const today = new Date();
-      const trialEndsAt = addDays(today, selectedPlan.trialDays);
+      const trialEndsAt = trial
+        ? addBusinessDays(today, selectedPlan.trialDays, 'America/Sao_Paulo')
+        : addDays(today, selectedPlan.trialDays);
 
       await subscriptionRepository.create(
         {
@@ -142,6 +170,16 @@ export class CreateRestaurantService {
         },
         tx,
       );
+
+      if (trial) {
+        await tx.restaurantSettings.create({
+          data: { restaurantId: createdRestaurant.id, isOpenForOrders: false },
+        });
+        await seedRestaurantTrialMenu(tx, createdRestaurant.id, category);
+        await adminPortalAccessService.recordKey(tx, createdRestaurant, trial.portalKey, 'ADMIN', {
+          actorUserId: createdAdmin.id,
+        });
+      }
 
       if (isValidAuditActor(actor)) {
         const persistedActor = await tx.user.findUnique({
@@ -187,6 +225,7 @@ export class CreateRestaurantService {
 
       return {
         restaurant: { ...createdRestaurant, category },
+        trialEndsAt,
         admin: {
           id: createdAdmin.id,
           name: createdAdmin.name,

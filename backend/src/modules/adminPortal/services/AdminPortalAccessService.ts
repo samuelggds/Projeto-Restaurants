@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import jwt, { type SignOptions } from 'jsonwebtoken';
+import type { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
 import { getJwtSecret } from '../../../config/auth.js';
 
@@ -87,6 +88,37 @@ async function assertCurrentRotation(restaurantId: number, rotationAuditLogId: n
 }
 
 export class AdminPortalAccessService {
+  async matchesCurrentKey(restaurantId: number, key: string) {
+    const entry = await latestPortalEvent(restaurantId);
+    if (entry?.action !== ROTATED_ACTION) return false;
+    const metadata = (entry.metadata || {}) as AdminPortalMetadata;
+    return safeEqual(String(metadata.keyHash || ''), hashKey(key));
+  }
+
+  async recordKey(
+    db: Prisma.TransactionClient,
+    restaurant: { id: number; name: string },
+    key: string,
+    role: 'ADMIN' | 'SUPER_ADMIN',
+    context: AuditContext,
+  ) {
+    return db.auditLog.create({
+      data: {
+        userId: context.actorUserId,
+        userRole: role,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        action: ROTATED_ACTION,
+        resource: `Restaurant:${restaurant.id}:admin-portal`,
+        ipAddress: context.ipAddress || null,
+        requestId: context.requestId || null,
+        userAgent: context.userAgent || null,
+        metadata: { keyHash: hashKey(key) },
+      },
+      select: { id: true },
+    });
+  }
+
   async rotate(restaurantId: number, context: AuditContext) {
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
       throw new AdminPortalAccessError('Restaurante inválido.', 400, 'INVALID_RESTAURANT');
@@ -101,23 +133,7 @@ export class AdminPortalAccessService {
     }
 
     const key = crypto.randomBytes(32).toString('base64url');
-    const keyHash = hashKey(key);
-
-    const audit = await prisma.auditLog.create({
-      data: {
-        userId: context.actorUserId,
-        userRole: 'SUPER_ADMIN',
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        action: ROTATED_ACTION,
-        resource: `Restaurant:${restaurant.id}:admin-portal`,
-        ipAddress: context.ipAddress || null,
-        requestId: context.requestId || null,
-        userAgent: context.userAgent || null,
-        metadata: { keyHash },
-      },
-      select: { id: true },
-    });
+    const audit = await this.recordKey(prisma, restaurant, key, 'SUPER_ADMIN', context);
 
     return {
       restaurantId: restaurant.id,

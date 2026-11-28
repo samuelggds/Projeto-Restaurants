@@ -5,6 +5,7 @@ import authRoutes from '../modules/auth/routes/authRoutes.js';
 import productRoutes from '../modules/products/routes/productsRoutes.js';
 import orderRoutes from '../modules/orders/routes/orderRoutes.js';
 import restaurantRoutes from '../modules/restaurants/routes/restaurantRoutes.js';
+import publicRestaurantTrialRoutes from '../modules/restaurants/routes/PublicRestaurantTrialRoutes.js';
 import categoryRoutes from '../modules/categories/routes/CategoryRoutes.js';
 import employeeRoutes from '../modules/employee/routes/EmployeeRoutes.js';
 import tableSessionRoutes from '../modules/tableSession/routes/SessionsTablesRoutes.js';
@@ -80,6 +81,7 @@ router.post('/api/webhooks/evolution/platform/:instanceName', (req, res) => {
 
 router.use('/auth', authRoutes);
 router.use('/restaurants', restaurantRoutes);
+router.use('/restaurant-trials', publicRestaurantTrialRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/products', productRoutes);
 router.use('/ingredients', ingredientRoutes);

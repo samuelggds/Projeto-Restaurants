@@ -1,0 +1,36 @@
+.gx-store-trial {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .35rem .65rem;
+  padding: .5rem 1rem;
+  background: #fff4df;
+  color: #472b33;
+  border-block: 1px solid #e1d2c1;
+  font: 600 .95rem/1.2 "Gabarito GastroNexa", Gabarito, sans-serif;
+}
+
+.gx-store-trial a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .32rem;
+  min-height: 2.75rem;
+  padding: .5rem .9rem;
+  border-radius: 2rem;
+  color: #fff8ef;
+  background: #642936;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.gx-store-trial a:hover { background: #48202b; }
+.gx-store-trial a:focus-visible { outline: 3px solid #008390; outline-offset: 2px; }
+
+@media (max-width: 390px) {
+  .gx-store-trial { font-size: .88rem; padding-inline: .65rem; }
+  .gx-store-trial a { padding-inline: .65rem; }
+}
