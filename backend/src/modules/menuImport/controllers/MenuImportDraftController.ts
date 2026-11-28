@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import OpenAI from 'openai';
 import menuImportDraftService from '../services/MenuImportDraftService.js';
-import { AiCreditsExhaustedError } from '../../aiSupport/services/AiCreditService.js';
+import { AiCreditsExhaustedError, PremiumAiPlanRequiredError } from '../../aiSupport/services/AiCreditService.js';
 
 function actor(req: Request) {
   return {
@@ -13,6 +13,9 @@ function actor(req: Request) {
 }
 
 function errorResponse(error: unknown) {
+  if (error instanceof PremiumAiPlanRequiredError) {
+    return { status: 403, body: { error: error.message, code: error.code } };
+  }
   if (error instanceof AiCreditsExhaustedError) {
     return { status: 402, body: { error: error.message, code: error.code } };
   }
@@ -31,7 +34,8 @@ function errorResponse(error: unknown) {
 class MenuImportDraftController {
   async previewImage(req: Request, res: Response) {
     try {
-      return res.status(201).json(await menuImportDraftService.createFromImage(req.body?.imageUrl, actor(req)));
+      const preview = await menuImportDraftService.createFromImage(req.body?.imageUrl, actor(req), req.body?.photoMode);
+      return res.status(201).json(preview);
     } catch (error) {
       const mapped = errorResponse(error);
       return res.status(mapped.status).json(mapped.body);

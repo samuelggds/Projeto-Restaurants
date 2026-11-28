@@ -1,0 +1,331 @@
+@font-face {
+  font-family: 'Gabarito GastroNexa';
+  src: url('/marketing-vitrines/Gabarito.ttf') format('truetype');
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+.gx-trial {
+  --ink: #301624;
+  --wine: #861f30;
+  min-height: 100svh;
+  background: #fff6e2;
+  color: var(--ink);
+  font:
+    400 1rem/1.5 'Gabarito GastroNexa',
+    'Segoe UI',
+    sans-serif;
+  padding: 0 clamp(1rem, 4vw, 4rem) clamp(2rem, 5vw, 5rem);
+  color-scheme: light;
+}
+
+.gx-trial *,
+.gx-trial *::before,
+.gx-trial *::after {
+  box-sizing: border-box;
+}
+.gx-trial input,
+.gx-trial select,
+.gx-trial button {
+  font: inherit;
+}
+.gx-trial a {
+  color: var(--wine);
+}
+.gx-trial :focus-visible {
+  outline: 3px solid #9a4926;
+  outline-offset: 3px;
+}
+.gx-trial__nav {
+  max-width: 69rem;
+  margin: 0 auto;
+  padding: 1.25rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.gx-trial__nav > a:last-child {
+  font-size: 0.94rem;
+  text-underline-offset: 0.2em;
+}
+.gx-trial__nav .gx-trial__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink);
+  font-size: 1.36rem;
+  font-weight: 720;
+  letter-spacing: -0.055em;
+  text-decoration: none;
+}
+.gx-trial__brand img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+.gx-trial__layout {
+  max-width: 69rem;
+  margin: 0.7rem auto 0;
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  background: #fffcf5;
+  border: 1px solid #e3d5bf;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+.gx-trial__story {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-items: end;
+  background: #481322;
+  min-height: 33rem;
+  padding: clamp(1.3rem, 3.5vw, 3.1rem);
+  color: #fff6e2;
+}
+.gx-trial__story::after,
+.gx-trial__story img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.gx-trial__story img {
+  z-index: -2;
+  object-fit: cover;
+}
+.gx-trial__story::after {
+  content: '';
+  z-index: -1;
+  background: linear-gradient(180deg, transparent 6%, #29101833 40%, #291018f0 86%);
+}
+.gx-trial__story p {
+  margin: 0;
+  color: inherit;
+  font-size: clamp(2.4rem, 4.5vw, 4rem);
+  font-weight: 680;
+  letter-spacing: -0.065em;
+  line-height: 0.96;
+}
+.gx-trial__story em {
+  color: #ffe795;
+  font:
+    italic 400 1em Georgia,
+    serif;
+  letter-spacing: -0.065em;
+}
+.gx-trial__story span {
+  display: block;
+  max-width: 22rem;
+  margin-top: 0.8rem;
+  line-height: 1.5;
+}
+.gx-trial__panel {
+  align-self: center;
+  padding: clamp(1.3rem, 3.6vw, 3.25rem);
+  min-width: 0;
+}
+.gx-trial__panel h1 {
+  margin: 0;
+  font:
+    680 clamp(2rem, 3.3vw, 3.1rem)/1.05 'Gabarito GastroNexa',
+    sans-serif;
+  letter-spacing: -0.055em;
+}
+.gx-trial__panel p {
+  color: #674d50;
+  margin: 0.7rem 0 1.25rem;
+  overflow-wrap: anywhere;
+}
+.gx-trial__fields {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+.gx-trial__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+.gx-trial__fields label {
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.96rem;
+  font-weight: 620;
+}
+.gx-trial__fields input:not([type='checkbox']),
+.gx-trial__fields select {
+  display: block;
+  width: 100%;
+  min-height: 2.85rem;
+  border: 1px solid #c7b7a7;
+  border-radius: 0.65rem;
+  background-color: #fffefa;
+  color: var(--ink);
+  padding: 0.55rem 0.7rem;
+  font-size: 1rem;
+  font-weight: 400;
+}
+.gx-trial__fields select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23733a42' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.65rem center;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+.gx-trial__fields small,
+.gx-trial__panel .gx-trial__hint {
+  color: #645055;
+  font-size: 0.9rem;
+}
+.gx-trial__fields small {
+  margin-top: -0.55rem;
+}
+.gx-trial__panel .gx-trial__hint {
+  margin: 0.65rem 0;
+}
+.gx-trial button,
+.gx-trial .gx-trial__primary {
+  cursor: pointer;
+}
+.gx-trial .gx-trial__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.65rem 1.5rem;
+  border: 1px solid var(--wine);
+  border-radius: 0.7rem;
+  background: var(--wine);
+  font-weight: 650;
+  color: white;
+  text-decoration: none;
+}
+.gx-trial .gx-trial__primary:hover:not(:disabled) {
+  background: #671729;
+}
+.gx-trial button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.gx-trial__icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  color: var(--wine);
+  margin: 0 0 0.9rem;
+}
+.gx-trial__terms {
+  display: grid;
+  gap: 0.2rem;
+  background: #f5ebd8;
+  padding: 0.8rem 1rem;
+  border-radius: 0.65rem;
+}
+.gx-trial__terms strong {
+  font-size: 1.1rem;
+}
+.gx-trial__fields .gx-trial__agree {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  font-size: 0.94rem;
+  font-weight: 400;
+}
+.gx-trial__agree input {
+  margin: 0.22rem 0 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--wine);
+  flex-shrink: 0;
+}
+.gx-trial__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.gx-trial__actions button,
+.gx-trial__error button {
+  background: none;
+  color: var(--wine);
+  border: 0;
+  padding: 0.55rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.gx-trial__panel .gx-trial__error {
+  color: #861725;
+  background: #fff0eb;
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  margin: 0.7rem 0 0;
+}
+.gx-trial__error button {
+  padding: 0;
+}
+.gx-trial__layout--complete {
+  display: block;
+  max-width: 58rem;
+}
+.gx-trial__layout--complete .gx-trial__story {
+  display: none;
+}
+.gx-trial__billing {
+  border-block: 1px solid #e3d5bf;
+  padding: 0.7rem 0;
+  margin: 1.4rem 0 0.3rem;
+}
+.gx-trial__billing > button {
+  text-align: left;
+  min-height: 2.75rem;
+  padding: 0.35rem 0;
+  color: var(--wine);
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.gx-trial__billing > div:not([hidden]) {
+  padding: 0.75rem 0;
+}
+@media (max-width: 47rem) {
+  .gx-trial__layout {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 0;
+  }
+  .gx-trial__story {
+    min-height: 9.5rem;
+    padding: 1.2rem;
+  }
+  .gx-trial__story::after {
+    background: linear-gradient(90deg, #291018ed, #291018ab 50%, #29101807);
+  }
+  .gx-trial__story img {
+    object-position: 50% 48%;
+  }
+  .gx-trial__story p {
+    font-size: 2.05rem;
+  }
+  .gx-trial__story span {
+    max-width: 21rem;
+    font-size: 0.94rem;
+    margin-top: 0.35rem;
+  }
+}
+@media (max-width: 30rem) {
+  .gx-trial__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gx-trial__nav {
+    padding: 0.8rem 0.1rem;
+  }
+}

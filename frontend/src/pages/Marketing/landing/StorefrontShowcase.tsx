@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import { Expand, SunMoon, X } from 'lucide-react';
 import { demoStores, toggleStorefrontTheme, type DemoSlug } from './storefrontDemo/catalog';
+import { RestaurantTrialLink } from './storefrontDemo/RestaurantTrialLink';
 import './StorefrontShowcase.css';
 
 const storefronts = Object.values(demoStores);
@@ -55,7 +56,7 @@ export function StorefrontShowcase() {
       <div className="gx-storefronts__inner">
         <div className="gx-storefronts__header">
           <h2 id={headingId}>Quatro cozinhas, <em>quatro cardápios.</em></h2>
-          <p>Escolha uma loja, monte sua sacola e acompanhe a entrega. Você pode testar o pedido inteiro com dados fictícios.</p>
+          <p>Escolha uma loja e experimente um pedido com dados fictícios, da sacola à entrega. Em qualquer cardápio, você pode começar a ativação do seu restaurante para o teste gratuito.</p>
         </div>
         <ul className="gx-storefronts__list">
           {storefronts.map((store) => (
@@ -130,6 +131,7 @@ export function StorefrontShowcase() {
               </a>
             </div>
           )}
+          {selected && <RestaurantTrialLink slug={selected} />}
         </div>
       </dialog>
     </section>

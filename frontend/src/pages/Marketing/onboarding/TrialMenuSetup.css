@@ -1,0 +1,75 @@
+.gx-setup {
+  margin: 2rem 0;
+}
+.gx-setup h2,
+.gx-setup h3,
+.gx-setup h4 {
+  margin: 1rem 0 0.4rem;
+  line-height: 1.2;
+}
+.gx-setup__catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.8rem;
+}
+.gx-setup__catalog article,
+.gx-setup__item {
+  padding: 0.8rem;
+  border: 1px solid #e2d2c6;
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+.gx-setup__catalog article > img,
+.gx-setup__item > img,
+.gx-setup__preview {
+  width: 100%;
+  height: 8rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+.gx-setup__photo,
+.gx-setup__open {
+  margin-top: 1.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ddc8bb;
+}
+.gx-setup__photo fieldset {
+  padding: 0;
+  border: 0;
+}
+.gx-setup__files {
+  display: grid;
+  gap: 0.5rem;
+}
+.gx-setup button:not(.gx-trial__primary) {
+  font: inherit;
+  color: #711c2e;
+  border: 1px solid #bd9697;
+  background: #fffaf4;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  cursor: pointer;
+}
+.gx-setup textarea {
+  resize: vertical;
+  width: 100%;
+  min-height: 4rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cabab0;
+  padding: 0.55rem;
+  font: inherit;
+}
+.gx-setup .gx-trial__fields input[type='checkbox'] {
+  width: auto;
+  min-height: auto;
+  accent-color: #861f30;
+}
+.gx-setup__item {
+  margin: 0.65rem 0;
+}
+.gx-setup__item label {
+  display: grid;
+  gap: 0.25rem;
+}

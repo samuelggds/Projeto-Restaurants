@@ -8,6 +8,7 @@ import restaurantRepository from '../repositories/RestaurantRepository.js';
 import userRepository from '../../auth/repositories/UserRepository.js';
 import subscriptionRepository from '../../subscription/repositories/SubscriptionRepository.js';
 import platformPlanCatalogService from '../../billing/services/PlatformPlanCatalogService.js';
+import { addBusinessDays } from '../../billing/utils/dateUtils.js';
 import createRestaurantService from './CreateRestaurantService.js';
 
 const originals = {
@@ -159,4 +160,58 @@ test('rejeita senha temporária fraca antes de consultar ou gravar dados', async
     /senha temporária.*(?:maiúscula|previsível)/u,
   );
   assert.equal(repositoryCalls, 0);
+});
+
+test('o teste público provisiona o dono verificado, portal, loja fechada e cardápio na mesma transação', async () => {
+  const writes = {};
+  let categories = 0;
+  let requiresApproval = true;
+  const tx = {
+    platformSettings: { findUnique: async () => ({ allowRestaurantSignup: true, requireManualApproval: requiresApproval }) },
+    $queryRaw: async (_query, tenantId) => { assert.equal(tenantId, '51'); return []; },
+    restaurantSettings: { create: async ({ data }) => { writes.settings = data; } },
+    auditLog: { create: async ({ data }) => { writes.portal = data; return { id: 89 }; } },
+    category: { create: async ({ data }) => { assert.equal(data.restaurantId, 51); return { id: ++categories }; } },
+    product: { createMany: async ({ data }) => { writes.products = data; } },
+  };
+  prisma.$transaction = async (run) => run(tx);
+  restaurantRepository.findByEmail = restaurantRepository.findBySlug = userRepository.findByEmail = async () => null;
+  restaurantRepository.create = async (data, db) => { assert.equal(db, tx); return { id: 51, ...data }; };
+  userRepository.create = async (data, db) => { assert.equal(db, tx); writes.owner = data; return { id: 81, ...data }; };
+  subscriptionRepository.create = async (data, db) => { assert.equal(db, tx); writes.subscription = data; return data; };
+  platformPlanCatalogService.getByCode = async (plan, { db }) => {
+    assert.equal(db, tx);
+    return { plan, active: true, trialDays: 7, monthlyFee: 79.9 };
+  };
+  const payload = validPayload();
+  payload.restaurant.category = 'PADARIA';
+  const trial = { portalKey: 'a'.repeat(43), quotedMonthlyFee: 79.9, quotedTrialDays: 7 };
+  await assert.rejects(() => createRestaurantService.createVerifiedOwnerTrial(payload, trial), /ativação automática está indisponível/u);
+  assert.deepEqual(writes, {});
+  requiresApproval = false;
+  await assert.rejects(
+    () => createRestaurantService.createVerifiedOwnerTrial(payload, { ...trial, quotedTrialDays: 8 }),
+    /plano mudou/u,
+  );
+  assert.deepEqual(writes, {});
+  const result = await createRestaurantService.createVerifiedOwnerTrial(payload, trial);
+  assert.equal(writes.owner.emailVerifiedAt instanceof Date, true);
+  assert.equal(writes.owner.mustChangePassword, false);
+  assert.equal(writes.owner.role, 'ADMIN');
+  assert.equal(writes.settings.isOpenForOrders, false);
+  assert.equal(writes.subscription.status, 'TESTE');
+  assert.deepEqual(result.trialEndsAt, addBusinessDays(writes.subscription.currentPeriodStart, 7, 'America/Sao_Paulo'));
+  assert.equal(writes.portal.userRole, 'ADMIN');
+  assert.equal(writes.portal.userId, 81);
+  assert.equal(writes.portal.restaurantId, 51);
+  assert.equal(JSON.stringify(writes.portal).includes(trial.portalKey), false);
+  assert.ok(writes.products.length > 0 && writes.products.every((product) => product.restaurantId === 51 && product.image));
+});
+
+test('conta dias úteis do teste pelo dia civil em São Paulo mesmo com servidor em UTC', () => {
+  const calendar = 'America/Sao_Paulo';
+  // Quinta local, sexta em UTC.
+  assert.equal(addBusinessDays(new Date('2026-11-27T01:00:00Z'), 1, calendar).toISOString(), '2026-11-28T01:00:00.000Z');
+  // Sexta local, sábado em UTC.
+  assert.equal(addBusinessDays(new Date('2026-11-28T01:00:00Z'), 1, calendar).toISOString(), '2026-12-01T01:00:00.000Z');
 });

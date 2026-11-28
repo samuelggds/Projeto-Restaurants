@@ -43,6 +43,8 @@ const EmployeeOnboardingBoundary = lazy(
   () => import('../components/EmployeeOnboarding/EmployeeOnboardingBoundary'),
 );
 const GastroNexaLanding = lazy(() => import('../pages/Marketing/GastroNexaLanding'));
+const RestaurantTrialSignup = lazy(() => import('../pages/Marketing/onboarding/RestaurantTrialSignup'));
+import { RESTAURANT_TRIAL_PATH } from '../pages/Marketing/marketingPaths';
 const RestaurantLandingPage = lazy(
   () => import('../pages/restaurant-landing/RestaurantLandingPage'),
 );
@@ -123,14 +125,15 @@ function SuperAdminSessionBoundary({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RootPublicEntry() {
+function RootPublicEntry({ signup = false }: { signup?: boolean }) {
   const custom = useCustomDomainTenant();
   if (custom.loading) return <RouteLoading />;
   if (custom.isCustomDomain) {
+    if (signup) return <Navigate to="/" replace />;
     return custom.tenant?.surface === 'LANDING' ? <RestaurantLandingPage /> : <Home />;
   }
   if (custom.error) return <TenantRequiredPage />;
-  return <GastroNexaLanding />;
+  return signup ? <RestaurantTrialSignup /> : <GastroNexaLanding />;
 }
 
 function CustomDomainMenuRedirect() {
@@ -496,6 +499,7 @@ export default function AppRoutes() {
             <Routes>
               <Route element={<PageTransition />}>
                 <Route path="/" element={<RootPublicEntry />} />
+                <Route path={RESTAURANT_TRIAL_PATH} element={<RootPublicEntry signup />} />
                 <Route path="/termos" element={<StaticLegalPageRedirect page="termos" />} />
                 <Route path="/termos/" element={<StaticLegalPageRedirect page="termos" />} />
                 <Route path="/privacidade" element={<StaticLegalPageRedirect page="privacidade" />} />

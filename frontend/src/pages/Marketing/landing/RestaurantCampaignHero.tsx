@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { MessageCircle, ReceiptText } from 'lucide-react';
+import { RESTAURANT_TRIAL_PATH } from '../marketingPaths';
 import './RestaurantCampaignHero.css';
 
 const images = '/marketing-vitrines';
@@ -42,10 +43,8 @@ export function RestaurantCampaignHero({
               da retirada e do delivery em um só painel.
             </p>
             <div className="gx-campaign-actions">
-              {showcase && <a className="gx-campaign-primary" href="#vitrines">Explorar as vitrines</a>}
-              <a className="gx-campaign-secondary" href={commercialWhatsApp} target="_blank" rel="noopener noreferrer">
-                <MessageCircle size={18} aria-hidden="true" /> Falar no WhatsApp
-              </a>
+              <a className="gx-campaign-primary" href={RESTAURANT_TRIAL_PATH}>Ativar meu restaurante</a>
+              {showcase && <a className="gx-campaign-secondary" href="#vitrines">Testar os cardápios</a>}
             </div>
           </div>
           <div className="gx-campaign-ticket" aria-hidden="true">
@@ -69,7 +68,12 @@ export function RestaurantCampaignHero({
               <div>
                 <h2 id="gx-contact-heading">Como você<br /><em>atende hoje?</em></h2>
                 <p>Conte um pouco sobre a sua operação. Nossa equipe ajuda você a escolher o plano e a colocar o cardápio no ar.</p>
-                <a href="#planos">Comparar os planos</a>
+                <div className="gx-campaign-contact-links">
+                  <a href="#planos">Comparar os planos</a>
+                  <a href={commercialWhatsApp} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle size={18} aria-hidden="true" /> Falar no WhatsApp
+                  </a>
+                </div>
               </div>
             </div>
             <div className="gx-campaign-contact-form">{children}</div>

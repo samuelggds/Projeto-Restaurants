@@ -1,4 +1,5 @@
 import { paidChatCompletion } from '../../aiSupport/services/budgetedOpenAi.js';
+import { DEFAULT_OPENAI_TEXT_MODEL } from '../../aiSupport/services/openAiTextModel.js';
 import OpenAI from 'openai';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -6,8 +7,9 @@ import { withTenantDbContext } from '../../../database/tenantDbContext.js';
 import categoryRepository from '../../categories/repositories/CategoryRepository.js';
 import createProductService from '../../products/services/CreateProductService.js';
 import updateProductService from '../../products/services/UpdateProductService.js';
-import aiCreditService from '../../aiSupport/services/AiCreditService.js';
+import aiCreditService, { MENU_PHOTO_PREVIEW_FEATURE } from '../../aiSupport/services/AiCreditService.js';
 import { sanitizeAdminAiContext } from '../../aiSupport/domain/adminAiSecurityPolicy.js';
+import { photoModeSchema, prepareExtractedItems, readMenuPhoto } from './menuPhotoExtraction.js';
 
 type Actor = {
   userId: number;
@@ -48,21 +50,6 @@ type DraftItemRow = {
   updatedAt: Date;
 };
 
-const extractedItemSchema = z.object({
-  category: z.string().trim().min(1).max(120),
-  name: z.string().trim().min(1).max(160),
-  description: z.string().trim().max(1000).nullable(),
-  price: z.number().positive().max(100000),
-  imageUrl: z.string().trim().url().nullable(),
-  confidence: z.number().min(0).max(1),
-  uncertainFields: z.array(z.enum(['category', 'name', 'description', 'price', 'image'])).max(5),
-});
-
-const extractionSchema = z.object({
-  restaurantName: z.string().trim().max(160).nullable().optional(),
-  items: z.array(extractedItemSchema).min(1).max(500),
-});
-
 const updateItemSchema = z.object({
   selected: z.boolean().optional(),
   action: z.enum(['CREATE', 'UPDATE', 'SKIP']).optional(),
@@ -81,11 +68,11 @@ Retorne SOMENTE JSON válido com:
 {
   "restaurantName": string|null,
   "items": [{
-    "category": string,
-    "name": string,
+    "category": string|null,
+    "name": string|null,
     "description": string|null,
-    "price": number,
-    "imageUrl": string|null,
+    "price": number|null,
+    "photoBounds": null ou {"x": number, "y": number, "width": number, "height": number},
     "confidence": number de 0 a 1,
     "uncertainFields": ["category"|"name"|"description"|"price"|"image"]
   }]
@@ -94,8 +81,9 @@ Regras:
 - Extraia somente informações realmente visíveis/confirmadas na imagem.
 - Não invente ingredientes, tamanho, composição, alergênicos, informação nutricional ou características não visíveis.
 - Se uma informação estiver ambígua, use o melhor texto legível e marque o campo em uncertainFields.
-- price é BRL numérico. Se o preço não puder ser confirmado, não invente: use o valor visível mais provável e inclua "price" em uncertainFields.
-- imageUrl somente se houver URL pública explícita e válida; normalmente será null em uma foto de cardápio.
+- O preço é numérico em reais. Devolva null para preço ausente ou ilegível, nunca estime. Use null para outros campos não identificados.
+- Em cardápios, localize a foto de cada produto somente se puder associá-la com segurança ao seu texto. Use um retângulo justo sobre a foto da comida, excluindo textos, preços, logos e fotos vizinhas. Coordenadas relativas de 0 a 1, origem no canto superior esquerdo.
+- Para fotos ausentes ou associação duvidosa, use photoBounds null e marque "image". Não retorne URLs. Se nenhum produto for identificável, retorne items vazio.
 `.trim();
 
 function assertActor(actor: Actor) {
@@ -112,6 +100,15 @@ function client() {
   const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) throw new Error('OPENAI_API_KEY não configurada para importação por foto.');
   return new OpenAI({ apiKey, timeout: 75_000, maxRetries: 0 });
+}
+
+export function reviewedMenuItemPayload(
+  next: { image: string | null } & Record<string, unknown>, sourceImage: string | null,
+) {
+  // Only the catalog text goes through redaction. Image bytes must survive every field edit.
+  const { image, ...fields } = next;
+  const safeFields = sanitizeAdminAiContext(fields) as Record<string, unknown>;
+  return JSON.stringify({ ...safeFields, image: image === sourceImage ? undefined : image });
 }
 
 function serializeItem(item: DraftItemRow) {
@@ -156,6 +153,7 @@ async function readDraft(db: Prisma.TransactionClient, restaurantId: number, pub
     WHERE "restaurantId" = ${restaurantId} AND "draftId" = ${draft.id}
     ORDER BY "position" ASC
   `);
+  const serialized = items.map(serializeItem);
   return {
     publicId: draft.publicId,
     sourceType: draft.sourceType,
@@ -164,38 +162,38 @@ async function readDraft(db: Prisma.TransactionClient, restaurantId: number, pub
     updatedAt: draft.updatedAt.toISOString(),
     publishedAt: draft.publishedAt?.toISOString() ?? null,
     expiresAt: draft.expiresAt.toISOString(),
-    items: items.map(serializeItem),
+    items: serialized,
     summary: {
       total: items.length,
       selected: items.filter((item) => item.selected && item.action !== 'SKIP').length,
       duplicates: items.filter((item) => item.duplicateProductId).length,
       uncertain: items.filter((item) => item.uncertainFields.length > 0).length,
-      missingDescription: items.filter((item) => !String((item.reviewedPayload as Record<string, unknown> | null)?.description ?? item.sourceDescription ?? '').trim()).length,
-      missingImage: items.filter((item) => !String((item.reviewedPayload as Record<string, unknown> | null)?.image ?? item.sourceImage ?? '').trim()).length,
+      missingDescription: serialized.filter((item) => !item.description).length,
+      missingImage: serialized.filter((item) => !item.image).length,
     },
   };
 }
 
 class MenuImportDraftService {
-  async createFromImage(imageUrlInput: unknown, actor: Actor) {
+  async createFromImage(imageUrlInput: unknown, actor: Actor, photoModeInput?: unknown) {
     assertActor(actor);
-    const imageUrl = String(imageUrlInput || '').trim();
-    if (!imageUrl || imageUrl.length > 2_500_000 || !/^data:image\/(?:png|jpeg|webp);base64,/iu.test(imageUrl)) {
-      throw new Error('Envie uma imagem PNG, JPEG ou WEBP válida para revisar o cardápio.');
-    }
-    await aiCreditService.assertAvailable(actor);
-    const model = String(process.env.OPENAI_VISION_MODEL || 'gpt-4o').trim();
-    const completion = await paidChatCompletion(client(), actor, 'MENU_IMPORT_IMAGE_PREVIEW', {
+    const mode = photoModeSchema.safeParse(photoModeInput);
+    if (!mode.success) throw new Error('Escolha foto de cardápio ou foto de um produto.');
+    const photo = await readMenuPhoto(imageUrlInput);
+    await aiCreditService.assertAvailable(actor, MENU_PHOTO_PREVIEW_FEATURE);
+    const model = process.env.OPENAI_VISION_MODEL?.trim() || DEFAULT_OPENAI_TEXT_MODEL;
+    const completion = await paidChatCompletion(client(), actor, MENU_PHOTO_PREVIEW_FEATURE, {
       model,
-      temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: IMAGE_PROMPT },
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Extraia os itens desta imagem apenas para revisão do administrador.' },
-            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'text', text: mode.data === 'menu'
+              ? 'Leia o cardápio e indique os recortes das fotos associadas aos itens.'
+              : 'A imagem é uma foto de um produto. Sugira um nome genérico e uma descrição curta somente a partir do que é visível. Marque sugestões como incertas. Use preço null quando não houver etiqueta legível. photoBounds deve ser null. Se houver vários produtos independentes, não os agrupe em um.' },
+            { type: 'image_url', image_url: { url: photo.url, detail: 'high' } },
           ],
         },
       ],
@@ -204,7 +202,7 @@ class MenuImportDraftService {
     if (!raw) throw new Error('A IA não retornou itens para revisão.');
     let parsed: unknown;
     try { parsed = JSON.parse(raw); } catch { throw new Error('A IA retornou uma extração inválida.'); }
-    const extraction = extractionSchema.parse(parsed);
+    const items = await prepareExtractedItems(parsed, mode.data, photo);
     const restaurantId = Number(actor.restaurantId);
 
     const draft = await withTenantDbContext(restaurantId, async (db) => {
@@ -213,22 +211,21 @@ class MenuImportDraftService {
           "restaurantId", "actorUserId", "sourceType", "sourceReference", "status", "aiUsage"
         ) VALUES (
           ${restaurantId}, ${Number(actor.userId)}, 'IMAGE', 'uploaded-image', 'REVIEW',
-          ${JSON.stringify({ model, usage: sanitizeAdminAiContext(completion.usage) })}::jsonb
+          ${JSON.stringify({ model, photoMode: mode.data, usage: sanitizeAdminAiContext(completion.usage) })}::jsonb
         )
         RETURNING "id", "publicId"
       `);
       const created = inserted[0];
-      for (const [position, item] of extraction.items.entries()) {
-        const duplicate = await db.product.findFirst({
+      for (const [position, item] of items.entries()) {
+        const duplicate = item.name ? await db.product.findFirst({
           where: { restaurantId, name: { equals: item.name, mode: 'insensitive' } },
           select: { id: true },
-        });
+        }) : null;
         const reviewedPayload = JSON.stringify({
           category: item.category,
           name: item.name,
           description: item.description,
           price: item.price,
-          image: item.imageUrl,
           duplicateProductId: duplicate?.id ?? null,
         });
         await db.$executeRaw(Prisma.sql`
@@ -238,7 +235,7 @@ class MenuImportDraftService {
             "duplicateProductId", "action", "selected", "reviewedPayload"
           ) VALUES (
             ${created.id}, ${restaurantId}, ${position}, ${item.category}, ${item.name},
-            ${item.description}, ${item.price}, ${item.imageUrl}, ${item.confidence},
+            ${item.description}, ${item.price}, ${item.image}, ${item.confidence},
             ${item.uncertainFields}::text[], ${duplicate?.id ?? null},
             ${duplicate ? 'SKIP' : 'CREATE'}, ${!duplicate}, ${reviewedPayload}::jsonb
           )
@@ -249,7 +246,7 @@ class MenuImportDraftService {
       return result;
     });
 
-    const credits = await aiCreditService.getBalance(actor);
+    const credits = await aiCreditService.getBalance(actor, MENU_PHOTO_PREVIEW_FEATURE);
     return { ...draft, credits };
   }
 
@@ -301,7 +298,10 @@ class MenuImportDraftService {
       if (action === 'UPDATE' && !next.duplicateProductId) {
         throw new Error('Selecione explicitamente qual produto existente será atualizado.');
       }
-      const payload = JSON.stringify(sanitizeAdminAiContext(next));
+      if (parsed.duplicateProductId && !await db.product.findFirst({
+        where: { id: parsed.duplicateProductId, restaurantId }, select: { id: true },
+      })) throw new Error('O produto selecionado não pertence a este restaurante.');
+      const payload = reviewedMenuItemPayload(next, item.sourceImage);
       await db.$executeRaw(Prisma.sql`
         UPDATE "MenuImportDraftItem"
         SET
@@ -328,8 +328,11 @@ class MenuImportDraftService {
     const publicId = String(publicIdInput || '').trim();
     const draft = await this.get(publicId, actor);
     if (draft.status !== 'REVIEW') throw new Error('Esta prévia já foi finalizada.');
-    const selected = draft.items.filter((item) => item.selected && item.action !== 'SKIP');
+    const selected = draft.items.filter((item) => item.selected && item.action !== 'SKIP' && !item.publishedProductId);
     if (!selected.length) throw new Error('Selecione ao menos um item para publicar.');
+    if (selected.some((item) => !item.name.trim() || item.price <= 0)) {
+      throw new Error('Preencha o nome e um preço maior que zero para cada item selecionado antes de publicar.');
+    }
 
     const results: Array<{ itemPublicId: string; productId?: number; status: string; error?: string }> = [];
     for (const item of selected) {

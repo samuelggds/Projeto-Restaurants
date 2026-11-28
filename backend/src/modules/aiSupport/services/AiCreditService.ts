@@ -1,9 +1,10 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../../../config/prisma.js';
-import { hasPremiumFeatureAccess } from '../../billing/domain/planFeaturePolicy.js';
+import { hasPremiumFeatureAccess, type RestaurantFeatureGrant } from '../../billing/domain/planFeaturePolicy.js';
 import { setTenantDbContext } from '../../../database/tenantDbContext.js';
 
 const FREE_RESTAURANT_GRANT_MICROS = 2_000_000n;
+export const MENU_PHOTO_PREVIEW_FEATURE = 'MENU_IMPORT_IMAGE_PREVIEW';
 
 type ProviderIdentity = { providerPaymentId: string; providerOrderId?: string | null };
 type TopUpReversalRow = {
@@ -109,15 +110,14 @@ export class PremiumAiPlanRequiredError extends Error {
   }
 }
 
-async function assertPremiumAiPlan(
-  db: Prisma.TransactionClient | typeof prisma,
-  restaurantId: number,
-) {
-  const subscription = await db.subscription.findUnique({
-    where: { restaurantId },
-    select: { plan: true, status: true, restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
-  });
-  if (!hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant)) throw new PremiumAiPlanRequiredError();
+type AiSubscription = { plan: string; status: string; trialEndsAt: Date | null; restaurant: RestaurantFeatureGrant };
+
+export function aiCreditAccess(subscription: AiSubscription | null, feature?: string, now = new Date()) {
+  if (hasPremiumFeatureAccess(subscription?.plan, subscription?.status, subscription?.restaurant, now)) return 'premium';
+  if (feature === MENU_PHOTO_PREVIEW_FEATURE && subscription?.plan === 'BASICO' &&
+      subscription.status === 'TESTE' && subscription.trialEndsAt && subscription.trialEndsAt > now &&
+      subscription.restaurant.active && subscription.restaurant.accessBlockReason === 'NONE') return 'trialPhoto';
+  throw new PremiumAiPlanRequiredError();
 }
 
 async function hasPremiumAiPlan(
@@ -238,21 +238,45 @@ function balancePayload(wallet: WalletRow) {
   };
 }
 
+async function spendableWallet(db: Prisma.TransactionClient, userId: number, restaurantId: number, feature?: string) {
+  const subscription = await db.subscription.findUnique({
+    where: { restaurantId },
+    select: { plan: true, status: true, trialEndsAt: true,
+      restaurant: { select: { active: true, accessBlockReason: true, billingTemporaryAccessUntil: true } } },
+  });
+  const access = aiCreditAccess(subscription, feature);
+  const wallet = await ensureWallet(db, userId, restaurantId, true);
+  if (access === 'premium') return wallet;
+  // Only spend the remaining initial grant. Paid top-ups cannot enlarge the Basic trial.
+  const rows = await db.$queryRaw<Array<{ remaining: bigint }>>(Prisma.sql`
+    SELECT GREATEST(0, COALESCE(SUM("amountMicros"), 0))::bigint AS "remaining"
+    FROM "AiCreditLedgerEntry"
+    WHERE "restaurantId" = ${restaurantId} AND "adminUserId" = ${userId} AND "kind" IN ('FREE_GRANT', 'USAGE')
+  `);
+  const remaining = rows[0]?.remaining ?? 0n;
+  return { ...wallet, balanceMicros: wallet.balanceMicros < remaining ? wallet.balanceMicros : remaining };
+}
+
+function insufficientBalance(feature?: string) {
+  return feature === MENU_PHOTO_PREVIEW_FEATURE
+    ? new AiCreditsExhaustedError('Os créditos disponíveis não cobrem outra análise. Você pode cadastrar os produtos manualmente.')
+    : new AiCreditsExhaustedError();
+}
+
 export class AiCreditService {
-  async getBalance(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
+  async getBalance(actor: Pick<CreditActor, 'userId' | 'restaurantId'>, feature?: string) {
     const { userId, restaurantId } = normalizeActor(actor);
     return prisma.$transaction(async (db) => {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       await assertActiveAdmin(db, userId, restaurantId);
-      await assertPremiumAiPlan(db, restaurantId);
-      const wallet = await ensureWallet(db, userId, restaurantId, true);
+      const wallet = await spendableWallet(db, userId, restaurantId, feature);
       return balancePayload(wallet);
     });
   }
 
-  async assertAvailable(actor: Pick<CreditActor, 'userId' | 'restaurantId'>) {
-    const balance = await this.getBalance(actor);
+  async assertAvailable(actor: Pick<CreditActor, 'userId' | 'restaurantId'>, feature?: string) {
+    const balance = await this.getBalance(actor, feature);
     if (balance.pendingReversal)
       throw new AiCreditsExhaustedError(
         'Recarga em conciliação com o provedor. Aguarde a confirmação ou contate o suporte.',
@@ -263,7 +287,7 @@ export class AiCreditService {
         'Existe uma solicitação de IA em andamento ou aguardando confirmação. Aguarde; se persistir, contate o suporte.',
         'AI_CREDIT_PENDING',
       );
-    if (balance.exhausted) throw new AiCreditsExhaustedError();
+    if (balance.exhausted) throw insufficientBalance(feature);
     return balance;
   }
 
@@ -275,8 +299,7 @@ export class AiCreditService {
       await setTenantDbContext(db, restaurantId);
       await db.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       await assertActiveAdmin(db, userId, restaurantId);
-      await assertPremiumAiPlan(db, restaurantId);
-      const wallet = await ensureWallet(db, userId, restaurantId, true);
+      const wallet = await spendableWallet(db, userId, restaurantId, input.feature);
       if (wallet.pendingReversal)
         throw new AiCreditsExhaustedError(
           'Recarga em conciliação com o provedor. Aguarde a confirmação ou contate o suporte.',
@@ -288,7 +311,7 @@ export class AiCreditService {
           'AI_CREDIT_PENDING',
         );
       if (wallet.balanceMicros - wallet.debtMicros < reservedMicros)
-        throw new AiCreditsExhaustedError();
+        throw insufficientBalance(input.feature);
       const id = crypto.randomUUID();
       await db.$executeRaw(Prisma.sql`
         INSERT INTO "AiCreditReservation" ("id", "adminUserId", "restaurantId", "feature", "model", "reservedMicros")

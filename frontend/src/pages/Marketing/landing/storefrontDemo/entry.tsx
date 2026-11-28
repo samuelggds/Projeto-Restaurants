@@ -8,6 +8,7 @@ import { initialDemoSessions, updateDemoSession } from './demoSession';
 import { StorefrontExperience } from './StorefrontExperience';
 import { DemoDarkStyles } from './DemoDarkStyles';
 import { DemoProductTheme } from './DemoProductTheme';
+import { RestaurantTrialLink } from './RestaurantTrialLink';
 import './storefrontFrame.css';
 
 function subscribe(notify: () => void) {
@@ -40,6 +41,7 @@ export function DemoFrame() {
       <GlobalStyles />
       <DemoDarkStyles />
       <DemoProductTheme />
+      {slug && window.self === window.top && <RestaurantTrialLink slug={slug} />}
       {slug && (
         <MemoryRouter key={slug}>
           <AppDialogProvider>

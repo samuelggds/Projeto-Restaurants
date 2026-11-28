@@ -52,6 +52,7 @@ export function restoreTenantRouteContext(pathname?: string) {
   if (typeof window === 'undefined') return '';
 
   const currentPathname = String((pathname ?? window.location.pathname) || '/');
+  if (/^\/ativar\/restaurante\/?$/iu.test(currentPathname)) return '';
   const explicitSlug = normalizeTenantSlug(currentPathname.split('/').filter(Boolean)[0]);
 
   let persistedSlug = '';
